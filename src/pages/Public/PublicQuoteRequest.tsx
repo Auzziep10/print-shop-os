@@ -3498,19 +3498,8 @@ export function PublicQuoteRequest() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 font-sans">
-                    {/* Mode switcher: Occasion vs Garment Types */}
+                    {/* Mode switcher: Garment Types vs Occasion */}
                     <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
-                      <button
-                        type="button"
-                        onClick={() => setFlowMode('racks')}
-                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-sans font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
-                          flowMode === 'racks' 
-                            ? 'bg-black text-white shadow-xs' 
-                            : 'text-neutral-600 hover:text-neutral-900'
-                        }`}
-                      >
-                        Occasion
-                      </button>
                       <button
                         type="button"
                         onClick={() => setFlowMode('types')}
@@ -3521,6 +3510,17 @@ export function PublicQuoteRequest() {
                         }`}
                       >
                         Garment Types
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('racks')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-sans font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          flowMode === 'racks' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        Occasion
                       </button>
                     </div>
 
@@ -3855,19 +3855,8 @@ export function PublicQuoteRequest() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3 font-sans">
-                    {/* Mode switcher: Occasion vs Garment Types */}
+                    {/* Mode switcher: Garment Types vs Occasion */}
                     <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
-                      <button
-                        type="button"
-                        onClick={() => setFlowMode('racks')}
-                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-sans font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
-                          (flowMode as string) === 'racks' 
-                            ? 'bg-black text-white shadow-xs' 
-                            : 'text-neutral-600 hover:text-neutral-900'
-                        }`}
-                      >
-                        Occasion
-                      </button>
                       <button
                         type="button"
                         onClick={() => setFlowMode('types')}
@@ -3878,6 +3867,17 @@ export function PublicQuoteRequest() {
                         }`}
                       >
                         Garment Types
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('racks')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-sans font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          (flowMode as string) === 'racks' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        Occasion
                       </button>
                     </div>
 
