@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Zap } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
@@ -2598,9 +2598,8 @@ export function PortalCreateOrder() {
                             <div className="w-full bg-white text-neutral-900 rounded-2xl p-4 flex flex-col gap-3.5 border border-neutral-200 shadow-sm animate-in fade-in duration-200">
                               <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
                                 <div className="flex flex-col gap-0.5">
-                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 flex items-center gap-1.5">
-                                    <Zap size={12} className="text-amber-500 fill-amber-500" />
-                                    <span>Auto-Quote ({q.totalQty} pcs)</span>
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500">
+                                    Unit Price ({q.totalQty} pcs)
                                   </span>
                                   <span className="text-sm font-black text-neutral-900">
                                     ${q.priceEach.toFixed(2)} <span className="text-xs font-normal text-neutral-500">/ piece</span>
@@ -2975,13 +2974,12 @@ export function PortalCreateOrder() {
                     </div>
 
                     {dtfCartSummary && (
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 flex justify-between items-center text-xs font-bold text-neutral-900 shadow-xs animate-in fade-in duration-200">
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3.5 flex justify-between items-center text-xs font-bold text-neutral-900 shadow-xs animate-in fade-in duration-200">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider flex items-center gap-1.5">
-                            <Zap size={13} className="fill-amber-500 text-amber-600" />
-                            Auto-Quoted Order Total
+                          <span className="text-[10px] uppercase font-extrabold text-neutral-600 tracking-wider">
+                            Estimated Order Total
                           </span>
-                          <span className="text-[10px] font-medium text-neutral-600">Priced live based on tier quantities & dimensions</span>
+                          <span className="text-[10px] font-medium text-neutral-500">Priced live based on tier quantities & dimensions</span>
                         </div>
                         <span className="text-xl font-black text-neutral-900 font-mono">
                           ${dtfCartSummary.overallTotal.toFixed(2)}
