@@ -987,7 +987,7 @@ export function CustomerDetail() {
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
-        autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
+        autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
@@ -1007,7 +1007,7 @@ export function CustomerDetail() {
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
-        autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
+        autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
@@ -2203,24 +2203,6 @@ export function CustomerDetail() {
                       <label htmlFor="bypassMinimumRequirement" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">BYPASS MINIMUM GARMENT REQUIREMENT PER STYLE (ALLOW &lt;20 UNITS)</label>
                     </div>
 
-                    <div className="flex flex-col gap-1.5 pt-3 border-t border-brand-border/40 mt-1">
-                      <label className="text-xs font-bold text-brand-primary uppercase tracking-widest flex items-center gap-1.5">
-                        <Zap size={13} className="text-amber-500" />
-                        <span>Client Portal Auto-Quoting Override</span>
-                      </label>
-                      <select 
-                        className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm font-semibold text-brand-primary focus:outline-none focus:border-brand-primary/30 transition-colors cursor-pointer"
-                        value={editCompanyForm.autoQuotingEnabled || 'inherit'} 
-                        onChange={e => setEditCompanyForm({...editCompanyForm, autoQuotingEnabled: e.target.value as any})}
-                      >
-                        <option value="inherit">⚡ Shop Default (Inherit Global Settings)</option>
-                        <option value="enabled">✅ Always Auto-Quote Portal Orders (Forced ON)</option>
-                        <option value="disabled">❌ Require Manual Quoting (Forced OFF)</option>
-                      </select>
-                      <span className="text-[11px] text-brand-secondary/70 italic pl-1">
-                        Override whether quote requests & orders submitted by this customer in their portal are automatically priced or held for manual shop review.
-                      </span>
-                    </div>
 
                     {/* Resale Certificate uploader */}
                     <div className="mt-3 bg-brand-bg/50 border border-brand-border/60 rounded-2xl p-4 flex flex-col gap-3 max-w-md">
