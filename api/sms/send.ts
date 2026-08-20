@@ -45,44 +45,85 @@ export default async function handler(req: Request) {
 
     // 2. Parse the request body for SMS & MMS parameters
     const body = await req.json();
-    const { to, content, mediaUrl, media } = body;
+    const { to, content, mediaUrl, media, sendMediaFirst = true } = body;
 
-    if (!to || !content) {
-      return new Response(JSON.stringify({ error: 'Missing required parameters: to and content' }), { status: 400 });
+    if (!to || (!content && !mediaUrl && (!media || media.length === 0))) {
+      return new Response(JSON.stringify({ error: 'Missing required parameters: to and (content or mediaUrl)' }), { status: 400 });
     }
 
     // Format 'to' to be an array of strings in E.164 format if it is a single string
     const toArray = Array.isArray(to) ? to : [to];
+    const rawMediaStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
 
-    let finalContent = content;
-    let rawMediaStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
-    if (rawMediaStr) {
-      let cleanMediaUrl = rawMediaStr;
-      if (rawMediaStr.includes('firebasestorage.googleapis.com') || rawMediaStr.includes('?')) {
-        const origin = req.headers.get('origin') || 'https://inktheory.studio';
-        cleanMediaUrl = `${origin}/api/gif/render.gif?url=${encodeURIComponent(rawMediaStr)}`;
+    // Sequential dispatch: Send MMS Image First, then Text Message Second
+    if (sendMediaFirst && rawMediaStr && content) {
+      const mediaItemObj = typeof mediaUrl === 'string' ? { url: mediaUrl } : mediaUrl;
+
+      // Step 1: Dispatch MMS Image Message First to OpenPhone
+      const imagePayload = {
+        from: fromNumber,
+        to: toArray,
+        media: [mediaItemObj]
+      };
+
+      const imageRes = await fetch('https://api.openphone.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': apiKey
+        },
+        body: JSON.stringify(imagePayload)
+      });
+
+      const imageData = await imageRes.json().catch(() => ({}));
+      if (!imageRes.ok) {
+        console.error('OpenPhone/QUO API error sending media image first:', imageData);
       }
-      if (!finalContent.includes(cleanMediaUrl) && !finalContent.includes(rawMediaStr)) {
-        finalContent = `${finalContent.trim()}\n\n${cleanMediaUrl.trim()}`;
+
+      // 1.2 second pause to ensure carrier delivery order (Image Bubble top, Text Bubble bottom)
+      await new Promise(r => setTimeout(r, 1200));
+
+      // Step 2: Dispatch Text Message Second to OpenPhone
+      const textPayload = {
+        from: fromNumber,
+        to: toArray,
+        content: content
+      };
+
+      const textRes = await fetch('https://api.openphone.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': apiKey
+        },
+        body: JSON.stringify(textPayload)
+      });
+
+      const textData = await textRes.json().catch(() => ({}));
+      if (!textRes.ok) {
+        console.error('OpenPhone/QUO API error sending text message second:', textData);
+        return new Response(JSON.stringify({ 
+          error: `QUO API error sending text message: ${textData.message || textData.error || textRes.statusText}` 
+        }), { status: textRes.status });
       }
+
+      return new Response(JSON.stringify({ success: true, message: textData }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const openPhonePayload: Record<string, any> = {
-      content: finalContent,
+      content: content || '',
       from: fromNumber,
       to: toArray
     };
 
     if (mediaUrl) {
       const mediaItemObj = typeof mediaUrl === 'string' ? { url: mediaUrl } : mediaUrl;
-
       openPhonePayload.media = [mediaItemObj];
-      openPhonePayload.attachments = [mediaItemObj];
-      openPhonePayload.mediaUrls = [rawMediaStr];
-      openPhonePayload.mediaUrl = rawMediaStr;
     } else if (Array.isArray(media) && media.length > 0) {
       openPhonePayload.media = media;
-      openPhonePayload.attachments = media;
     }
 
     // 3. Send the request to OpenPhone/QUO API

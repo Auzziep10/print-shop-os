@@ -226,18 +226,6 @@ export async function sendMetaLeadSMS(
     content = content.replace(/{adName}/g, lead.adName || 'our ad');
     content = content.replace(/{email}/g, lead.email || '');
 
-    // Format media URL into a clean .gif endpoint so iMessage & Android SMS render it as an inline animated GIF
-    let cleanMediaUrl = finalMediaUrl;
-    if (finalMediaUrl && (finalMediaUrl.includes('firebasestorage.googleapis.com') || finalMediaUrl.includes('?'))) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://inktheory.studio';
-      cleanMediaUrl = `${origin}/api/gif/render.gif?url=${encodeURIComponent(finalMediaUrl)}`;
-    }
-
-    // Ensure clean GIF URL is included in content so OpenPhone sends it and iMessage/Android renders the GIF box
-    if (cleanMediaUrl && !content.includes(cleanMediaUrl) && (!finalMediaUrl || !content.includes(finalMediaUrl))) {
-      content = `${content.trim()}\n\n${cleanMediaUrl.trim()}`;
-    }
-
     const currentUser = auth.currentUser;
     if (!currentUser) {
       return { success: false, error: 'You must be logged in to send SMS.' };
@@ -253,7 +241,8 @@ export async function sendMetaLeadSMS(
       body: JSON.stringify({
         to: normalizedPhone,
         content,
-        mediaUrl: finalMediaUrl || undefined
+        mediaUrl: finalMediaUrl || undefined,
+        sendMediaFirst: true
       })
     });
 
