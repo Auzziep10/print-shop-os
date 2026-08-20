@@ -31,6 +31,7 @@ export interface StorefrontSettingsShape {
   heroBadge?: string;
   heroPrimaryCta?: string;
   heroSecondaryCta?: string;
+  heroFooterTagline?: string;
 
   // Manifesto
   manifestoLabel?: string;

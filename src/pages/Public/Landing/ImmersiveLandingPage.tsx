@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
   heroPrimaryCta: 'Start your project',
   heroSecondaryCta: 'How it works',
+  heroFooterTagline: 'Print · Embroidery · Cut & Sew',
   manifestoLabel: '( Our promise )',
   manifestoText: 'Your brand deserves better than clip-art on a blank. We turn logos into lookbooks — cohesive collections built on premium garments, designed by you in minutes and produced by people who print every day.',
   showcaseLabel: '( The catalog )',
@@ -470,6 +471,17 @@ export function ImmersiveLandingPage() {
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-zinc-900">Bottom Hero Tagline (Under Buttons)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Print · Embroidery · Cut & Sew"
+                      value={editSettings.heroFooterTagline ?? DEFAULT_SETTINGS.heroFooterTagline ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, heroFooterTagline: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                    />
                   </div>
                 </div>
               )}

@@ -193,7 +193,7 @@ export function HeroSection({
 
         {/* Bottom meta row */}
         <div className="hero-fade-in font-inter mt-10 relative flex items-center justify-between border-t border-white/15 pt-5 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-400">
-          <span className="hidden md:inline">Print · Embroidery · Cut &amp; Sew</span>
+          <span className="hidden md:inline">{settings.heroFooterTagline || 'Print · Embroidery · Cut & Sew'}</span>
           <button
             type="button"
             onClick={() => onScrollTo('#manifesto')}
