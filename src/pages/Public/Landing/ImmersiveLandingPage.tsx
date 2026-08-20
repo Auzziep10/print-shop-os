@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   ctaCardMobileImageUrl: '',
   contactPhone: '(888) 896-8607',
   email: 'hello@inktheory.studio',
+  showGalleryNav: true,
 };
 
 export function ImmersiveLandingPage() {
@@ -335,6 +336,23 @@ export function ImmersiveLandingPage() {
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
                     </div>
+                  </div>
+
+                  {/* Lookbook Gallery Toggle */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 block">Show Lookbook Gallery Link</span>
+                      <span className="text-[10px] text-zinc-500">Toggle ON/OFF to show or hide Gallery links in header navigation, CTA section, and footer.</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editSettings.showGalleryNav !== false}
+                        onChange={e => setEditSettings({ ...editSettings, showGalleryNav: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                    </label>
                   </div>
                 </div>
               )}

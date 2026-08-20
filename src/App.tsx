@@ -54,6 +54,7 @@ const Inventory = safeLazy(() => import('./pages/Inventory/Inventory').then(m =>
 const InventoryScan = safeLazy(() => import('./pages/Inventory/InventoryScan').then(m => ({ default: m.InventoryScan })));
 const MobileUpload = safeLazy(() => import('./pages/MobileUpload/MobileUpload').then(m => ({ default: m.MobileUpload })));
 const ImmersiveLandingPage = safeLazy(() => import('./pages/Public/Landing/ImmersiveLandingPage').then(m => ({ default: m.ImmersiveLandingPage })));
+const GalleryPage = safeLazy(() => import('./pages/Gallery/GalleryPage').then(m => ({ default: m.GalleryPage })));
 const ShopPage = safeLazy(() => import('./pages/Shop/ShopPage').then(m => ({ default: m.ShopPage })));
 const ShopProductPage = safeLazy(() => import('./pages/Shop/ShopProductPage').then(m => ({ default: m.ShopProductPage })));
 const ShopSuccess = safeLazy(() => import('./pages/Shop/ShopSuccess').then(m => ({ default: m.ShopSuccess })));
@@ -127,6 +128,7 @@ function App() {
           <Route path="/start" element={<PublicQuoteRequest />} />
           <Route path="/sms-opt-in" element={<SmsConsent />} />
           {/* Brand Shop — public merch storefront */}
+          <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/shop/product/:id" element={<ShopProductPage />} />
           <Route path="/shop/success" element={<ShopSuccess />} />

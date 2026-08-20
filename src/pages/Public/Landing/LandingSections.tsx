@@ -685,7 +685,7 @@ export function StartCTASection({
               />
             </div>
 
-            <div className="relative z-10 flex h-full min-h-[70vh] flex-col justify-between p-6 pb-20 sm:p-8 md:p-12">
+            <div className="relative z-10 flex h-full min-h-[65vh] sm:min-h-[70vh] flex-col justify-between p-6 pb-12 sm:p-10 md:p-14">
               <div className="flex items-start justify-between pt-1 sm:pt-0">
                 <span
                   className={`font-mono text-[10px] font-semibold tracking-[0.3em] uppercase ${
@@ -705,7 +705,7 @@ export function StartCTASection({
                 </span>
               </div>
 
-              <div className="max-w-lg mb-2 sm:mb-0">
+              <div className="max-w-lg mb-4 sm:mb-6">
                 <h3 className="font-serif text-3xl sm:text-4xl tracking-tight md:text-5xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">{panel.title}</h3>
                 <p
                   className={`font-inter mt-3 sm:mt-4 text-sm font-light leading-relaxed ${
@@ -714,16 +714,31 @@ export function StartCTASection({
                 >
                   {panel.body}
                 </p>
-                <span
-                  className={`font-inter mt-6 sm:mt-8 flex w-fit items-center gap-3 rounded-full px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
-                    panel.dark
-                      ? 'bg-white text-zinc-950 group-hover:bg-zinc-200'
-                      : 'bg-zinc-950 text-white group-hover:bg-zinc-800'
-                  }`}
-                >
-                  {panel.cta}
-                  <ArrowRight size={14} className="cta-arrow" />
-                </span>
+
+                <div className="mt-6 sm:mt-8 flex flex-col items-start gap-3">
+                  <span
+                    className={`font-inter flex w-fit items-center gap-3 rounded-full px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
+                      panel.dark
+                        ? 'bg-white text-zinc-950 group-hover:bg-zinc-200'
+                        : 'bg-zinc-950 text-white group-hover:bg-zinc-800'
+                    }`}
+                  >
+                    {panel.cta}
+                    <ArrowRight size={14} className="cta-arrow" />
+                  </span>
+
+                  {settings?.showGalleryNav !== false && (
+                    <a
+                      data-cursor
+                      href="/gallery"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-inter flex w-fit items-center gap-3 rounded-full border border-white/40 bg-black/30 backdrop-blur-md px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white hover:border-white hover:bg-white/20 transition-all shadow-sm"
+                    >
+                      Explore Lookbook Gallery
+                      <ArrowRight size={14} />
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -802,6 +817,15 @@ export function LandingFooter({
             >
               Start a project
             </button>
+            {settings?.showGalleryNav !== false && (
+              <a
+                data-cursor
+                href="/gallery"
+                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
+              >
+                Lookbook Gallery
+              </a>
+            )}
             <button
               data-cursor
               onClick={isClient ? onPortal : onLogin}

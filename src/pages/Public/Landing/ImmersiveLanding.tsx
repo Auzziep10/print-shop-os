@@ -19,6 +19,7 @@ export interface StorefrontSettingsShape {
   // Logo & Branding
   logoText: string;
   logoImageUrl?: string;
+  showGalleryNav?: boolean;
   announcement?: string;
   contactPhone?: string;
   email?: string;
@@ -351,6 +352,12 @@ function LandingNav({
           <a data-cursor href="/shop" className={ghostBtn}>
             Shop
           </a>
+
+          {settings.showGalleryNav !== false && (
+            <a data-cursor href="/gallery" className={ghostBtn}>
+              Gallery
+            </a>
+          )}
 
           <button data-cursor onClick={() => onStart('types')} className={solidBtn}>
             Start
