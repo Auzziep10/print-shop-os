@@ -464,11 +464,11 @@ export function GalleryPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#faf9f5] text-zinc-950 font-sans">
+    <div className="min-h-screen bg-white text-zinc-950 font-sans">
       {/* ------------------------------------------------------------------ */}
       {/* TOP HEADER NAV                                                     */}
       {/* ------------------------------------------------------------------ */}
-      <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-[#faf9f5]/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/90 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3 sm:px-8 md:px-12">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
@@ -591,13 +591,13 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       {/* GARMENT GALLERY GRID                                               */}
       {/* ------------------------------------------------------------------ */}
-      <main className="max-w-7xl mx-auto px-4 py-10 sm:px-8 md:px-12">
+      <main className="max-w-[1800px] mx-auto px-3 sm:px-6 md:px-8 py-8">
         {displayItems.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 font-inter text-sm">
             No items in category "{selectedCategory}". Add items using "Customize Gallery" above.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
             {displayItems.map((item) => (
               <div key={item.id} className="group flex flex-col space-y-3">
                 {/* Garment Image Card (Clean photo, NO plus buttons, smooth hover to secondary image if available) */}
