@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { 
@@ -11,13 +11,9 @@ import {
   FileDown, 
   CreditCard,
   Calendar,
-  Filter,
   ArrowUpDown,
-  Tag,
-  Loader2,
-  Building2
+  Loader2
 } from 'lucide-react';
-import { tokens } from '../../lib/tokens';
 
 export interface UnifiedOrderReport {
   id: string;
