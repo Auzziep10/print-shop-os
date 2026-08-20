@@ -7984,10 +7984,11 @@ export function OrderDetail() {
           ladder={dtfLadder || DEFAULT_LADDER_FALLBACK}
           liveCustomer={liveCustomer}
           editItemObj={editItemObj}
-          onApplyPrice={(price: number) => {
+          onApplyPrice={(price: number, appliedBlankCost?: number) => {
             setEditItemObj((prev: any) => ({
               ...prev,
-              price: price.toFixed(2)
+              price: price.toFixed(2),
+              ...(appliedBlankCost !== undefined && appliedBlankCost > 0 ? { blankCost: appliedBlankCost } : {})
             }));
             setIsDtfToolOpen(false);
           }}
@@ -8011,7 +8012,7 @@ interface DtfQuotingModalProps {
   ladder: any;
   liveCustomer: any;
   editItemObj: any;
-  onApplyPrice: (price: number) => void;
+  onApplyPrice: (price: number, appliedBlankCost?: number) => void;
 }
 
 function DtfQuotingModal({
@@ -8030,11 +8031,31 @@ function DtfQuotingModal({
   const [qty, setQty] = useState<number>(initialQty || 50);
   const [placements, setPlacements] = useState<Record<string, boolean>>({ ff: true });
   
-  // Initialize blankCost dynamically using customer profile suggestedItems / sampleItems
-  const [blankCost, setBlankCost] = useState<number>(() => {
+  // Initialize blankCost dynamically checking item properties first, then customer profile suggestedItems / sampleItems
+  const getInitialBlankCost = (): number => {
+    if (editItemObj) {
+      const candidates = [
+        editItemObj.blankCost,
+        editItemObj.blankPrice,
+        editItemObj.wholesalePrice,
+        editItemObj.cost,
+        editItemObj.garmentCost,
+        editItemObj.unitCost,
+        editItemObj.costPrice,
+        editItemObj.product?.blankCost,
+        editItemObj.product?.price
+      ];
+      for (const val of candidates) {
+        if (val !== undefined && val !== null && val !== '') {
+          const parsed = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+      }
+    }
+
     if (!liveCustomer || !editItemObj?.style) return 0;
     
-    const searchStyle = editItemObj.style.trim().toLowerCase();
+    const searchStyle = (editItemObj.style || '').trim().toLowerCase();
     const searchItemNum = (editItemObj.itemNum || '').trim().toLowerCase();
     
     const items = [
@@ -8054,11 +8075,20 @@ function DtfQuotingModal({
     });
     
     if (match && match.price) {
-      const parsed = parseFloat(match.price);
+      const parsed = parseFloat(String(match.price).replace(/[^0-9.]/g, ''));
       return isNaN(parsed) ? 0 : parsed;
     }
     return 0;
-  });
+  };
+
+  const [blankCost, setBlankCost] = useState<number>(getInitialBlankCost);
+
+  useEffect(() => {
+    const cost = getInitialBlankCost();
+    if (cost > 0) {
+      setBlankCost(cost);
+    }
+  }, [editItemObj, liveCustomer]);
 
   const [showBreakdown, setShowBreakdown] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
@@ -8371,7 +8401,7 @@ function DtfQuotingModal({
                         <Copy size={13} /> {copied ? "Quote Copied!" : "Copy Quote"}
                       </button>
                       <button
-                        onClick={() => onApplyPrice(result.pricePerPiece)}
+                        onClick={() => onApplyPrice(result.pricePerPiece, blankCost)}
                         className="w-full bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-md mt-1 cursor-pointer"
                       >
                         Apply Price to Item Specs
