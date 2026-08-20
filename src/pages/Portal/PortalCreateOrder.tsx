@@ -1292,17 +1292,7 @@ export function PortalCreateOrder() {
           if (tabParam) {
             setActiveLibraryTab(tabParam);
           } else {
-            if (customerData.suggestedItems && customerData.suggestedItems.length > 0) {
-              setActiveLibraryTab('suggested');
-            } else if (visibleSamples.length > 0) {
-              setActiveLibraryTab('samples');
-            } else if (categories.length > 0 && !customerData.disableRack) {
-              setActiveLibraryTab('rack');
-            } else if (isRackActive) {
-              setActiveLibraryTab('wovn');
-            } else {
-              setActiveLibraryTab('past');
-            }
+            setActiveLibraryTab('types');
           }
           
           if (deckIds.length > 0) {
@@ -1943,6 +1933,17 @@ export function PortalCreateOrder() {
       <div data-tour="catalog-grid" className="flex flex-col gap-8 w-full mt-4 bg-transparent border-none shadow-none p-0 animate-in fade-in duration-300">
         {/* Library Tabs */}
         <div className="flex gap-6 border-b border-neutral-200 py-3 overflow-x-auto shrink-0 px-2 bg-transparent">
+          <button
+            type="button"
+            onClick={() => setActiveLibraryTab('types')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'types' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Garment Types
+          </button>
           {!customer?.disableRack && (
             <button
               type="button"
@@ -2016,17 +2017,6 @@ export function PortalCreateOrder() {
             }`}
           >
             Saved Designs ({savedDesignsList.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveLibraryTab('types')}
-            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeLibraryTab === 'types' 
-                ? 'text-black border-black' 
-                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-            }`}
-          >
-            Garment Types
           </button>
         </div>
 
