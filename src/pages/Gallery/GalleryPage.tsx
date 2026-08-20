@@ -508,46 +508,46 @@ export function GalleryPage() {
       {/* TOP HEADER NAV                                                     */}
       {/* ------------------------------------------------------------------ */}
       <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/90 backdrop-blur-md">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-8 md:px-12">
+        <div className="flex flex-wrap items-center justify-between px-3 py-2.5 sm:px-8 md:px-12 gap-2">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <span className="font-sans text-xl sm:text-2xl font-black tracking-tighter uppercase text-zinc-950">
+          <Link to="/" className="flex items-center gap-1.5 sm:gap-2">
+            <span className="font-sans text-lg sm:text-2xl font-black tracking-tighter uppercase text-zinc-950">
               INKTHEORY
             </span>
           </Link>
 
           {/* Nav Items */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3">
             {isAdmin && (
               <button
                 onClick={() => {
                   setEditSettings(settings);
                   setIsEditing(true);
                 }}
-                className="font-inter flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-50 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 transition-colors hover:bg-amber-100 cursor-pointer shadow-xs"
+                className="font-inter flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-50 px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-900 transition-colors hover:bg-amber-100 cursor-pointer shadow-xs"
               >
-                <Sparkles size={12} className="text-amber-600" />
-                Customize Gallery
+                <Sparkles size={11} className="text-amber-600 shrink-0" />
+                <span>Customize</span>
               </button>
             )}
 
             <Link
               to="/shop"
-              className="font-inter rounded-full border border-zinc-300 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-700 hover:border-zinc-950 hover:text-zinc-950 transition-colors"
+              className="font-inter rounded-full border border-zinc-300 px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-zinc-700 hover:border-zinc-950 hover:text-zinc-950 transition-colors"
             >
               Shop
             </Link>
 
             <Link
               to="/gallery"
-              className="font-inter rounded-full bg-zinc-950 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white shadow-xs"
+              className="font-inter rounded-full bg-zinc-950 px-2.5 py-1 sm:px-3.5 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-white shadow-xs"
             >
               Gallery
             </Link>
 
             <Link
               to="/start"
-              className="font-inter rounded-full bg-zinc-900 hover:bg-zinc-800 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white transition-colors"
+              className="font-inter rounded-full bg-zinc-900 hover:bg-zinc-800 px-3 py-1 sm:px-4 sm:py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-white transition-colors"
             >
               Start
             </Link>
@@ -558,7 +558,7 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       {/* HERO / STUDIO BANNER SECTION                                       */}
       {/* ------------------------------------------------------------------ */}
-      <section className="relative w-full h-[45vh] sm:h-[55vh] md:h-[65vh] overflow-hidden bg-zinc-950">
+      <section className="relative w-full h-[35vh] sm:h-[50vh] md:h-[65vh] overflow-hidden bg-zinc-950">
         <img
           src={settings.heroImageUrl}
           alt="Studio Photography"
@@ -566,11 +566,11 @@ export function GalleryPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-zinc-950/20 to-transparent" />
         {(settings.heroTitle || settings.heroSubtitle) && (
-          <div className="absolute bottom-6 left-6 right-6 md:bottom-12 md:left-12 max-w-2xl text-white">
-            <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl font-normal tracking-tight leading-tight">
+          <div className="absolute bottom-4 left-4 right-4 sm:bottom-8 sm:left-8 md:bottom-12 md:left-12 max-w-2xl text-white">
+            <h1 className="font-serif text-2xl sm:text-4xl md:text-6xl font-normal tracking-tight leading-tight">
               {settings.heroTitle}
             </h1>
-            <p className="font-inter mt-2 text-xs sm:text-sm font-light text-zinc-300 max-w-xl">
+            <p className="font-inter mt-1.5 text-[11px] sm:text-sm font-light text-zinc-300 max-w-xl">
               {settings.heroSubtitle}
             </p>
           </div>
@@ -582,10 +582,10 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       <div className="border-b border-zinc-200 bg-white">
         {/* Top Control Bar (Garment Types & Occasion) */}
-        <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 sm:px-8 md:px-12 border-b border-zinc-100">
+        <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 px-3 py-2.5 sm:px-8 md:px-12 border-b border-zinc-100">
           <button
             onClick={() => setActiveFilter('garmentTypes')}
-            className={`font-inter rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
+            className={`font-inter rounded-full px-3.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
               activeFilter === 'garmentTypes'
                 ? 'bg-zinc-950 text-white'
                 : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
@@ -595,7 +595,7 @@ export function GalleryPage() {
           </button>
           <button
             onClick={() => setActiveFilter('occasion')}
-            className={`font-inter rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
+            className={`font-inter rounded-full px-3.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
               activeFilter === 'occasion'
                 ? 'bg-zinc-950 text-white'
                 : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
@@ -606,14 +606,14 @@ export function GalleryPage() {
         </div>
 
         {/* Category Tabs Bar */}
-        <div className="flex overflow-x-auto justify-center gap-6 px-4 py-3.5 sm:gap-10 sm:px-8 md:px-12 scrollbar-none">
+        <div className="flex overflow-x-auto justify-start sm:justify-center gap-5 sm:gap-10 px-4 py-3 scrollbar-none snap-x snap-mandatory">
           {categoriesWithoutAll.map((cat) => {
             const isActive = selectedCategory.toUpperCase() === cat.toUpperCase();
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`font-inter whitespace-nowrap text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all pb-1 relative cursor-pointer ${
+                className={`font-inter whitespace-nowrap text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all pb-1 relative cursor-pointer snap-start ${
                   isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-700'
                 }`}
               >
@@ -630,15 +630,15 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       {/* GARMENT GALLERY GRID                                               */}
       {/* ------------------------------------------------------------------ */}
-      <main className="w-full max-w-[2200px] mx-auto px-3 sm:px-4 md:px-5 py-8">
+      <main className="w-full max-w-[2200px] mx-auto px-3 sm:px-6 md:px-8 py-6 sm:py-10">
         {displayItems.length === 0 ? (
-          <div className="py-20 text-center text-zinc-500 font-inter text-sm">
+          <div className="py-16 text-center text-zinc-500 font-inter text-xs sm:text-sm">
             No items in category "{selectedCategory}". Add items using "Customize Gallery" above.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-6 sm:gap-y-8">
             {displayItems.map((item) => (
-              <div key={item.id} className="group flex flex-col space-y-3">
+              <div key={item.id} className="group flex flex-col space-y-2.5 sm:space-y-3">
                 {/* Garment Image Card (Clean photo, NO plus buttons, smooth hover to secondary image if available) */}
                 <div
                   onClick={() => setActiveLightboxImage(item.imageUrl)}
