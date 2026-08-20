@@ -112,14 +112,22 @@ export function ImmersiveLandingPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleFileUpload = async (file: File, fieldKey: string, isShowcaseItem?: string) => {
+  const handleFileUpload = async (file: File, fieldKey: string, isShowcaseItem?: string, isShowcaseHoverItem?: string) => {
     setUploadingField(fieldKey);
     try {
       const storageRef = ref(storage, `storefront_media/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      if (isShowcaseItem) {
+      if (isShowcaseHoverItem) {
+        setEditSettings(prev => ({
+          ...prev,
+          showcaseHoverImages: {
+            ...(prev.showcaseHoverImages || {}),
+            [isShowcaseHoverItem]: url
+          }
+        }));
+      } else if (isShowcaseItem) {
         setEditSettings(prev => ({
           ...prev,
           showcaseImages: {
@@ -542,40 +550,83 @@ export function ImmersiveLandingPage() {
                   </div>
 
                   <div className="pt-2">
-                    <span className="text-xs font-bold text-zinc-900 block mb-2">Category Cards: Custom Images & Badge Overrides</span>
+                    <span className="text-xs font-bold text-zinc-900 block mb-2">Category Cards: Primary & Hover Images & Badge Overrides</span>
                     <div className="grid grid-cols-1 gap-3">
                       {['T-Shirts', 'Sweatshirts', 'Hats', 'Polos', 'Jackets', 'Bags'].map((cat) => {
                         const currentImg = editSettings.showcaseImages?.[cat];
+                        const currentHoverImg = editSettings.showcaseHoverImages?.[cat];
                         const currentBadge = editSettings.showcaseBadges?.[cat] || '';
                         return (
                           <div key={cat} className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               <div>
                                 <span className="text-xs font-bold text-zinc-900 block">{cat}</span>
-                                {currentImg ? (
-                                  <span className="text-[10px] text-emerald-600 font-semibold">Custom Image Active</span>
-                                ) : (
-                                  <span className="text-[10px] text-zinc-400">Default image active</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {currentImg ? (
+                                    <span className="text-[10px] text-emerald-600 font-semibold">Primary Active</span>
+                                  ) : (
+                                    <span className="text-[10px] text-zinc-400">Default primary image</span>
+                                  )}
+                                  <span className="text-zinc-300">•</span>
+                                  {currentHoverImg ? (
+                                    <span className="text-[10px] text-amber-600 font-semibold">Hover Image Active</span>
+                                  ) : (
+                                    <span className="text-[10px] text-zinc-400">No hover image</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                <label className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-xs transition-all shrink-0">
+                                  {uploadingField === `showcase_${cat}` ? (
+                                    <Loader2 className="animate-spin" size={12} />
+                                  ) : (
+                                    <Upload size={12} />
+                                  )}
+                                  <span>{currentImg ? 'Change Primary' : 'Upload Primary'}</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingField === `showcase_${cat}`}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(f, `showcase_${cat}`, cat);
+                                    }}
+                                  />
+                                </label>
+                                <label className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-xs transition-all shrink-0">
+                                  {uploadingField === `showcase_hover_${cat}` ? (
+                                    <Loader2 className="animate-spin" size={12} />
+                                  ) : (
+                                    <Upload size={12} />
+                                  )}
+                                  <span>{currentHoverImg ? 'Change Hover' : 'Upload Hover'}</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingField === `showcase_hover_${cat}`}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleFileUpload(f, `showcase_hover_${cat}`, undefined, cat);
+                                    }}
+                                  />
+                                </label>
+                                {currentHoverImg && (
+                                  <button
+                                    type="button"
+                                    title="Remove Hover Image"
+                                    onClick={() => {
+                                      const updated = { ...(editSettings.showcaseHoverImages || {}) };
+                                      delete updated[cat];
+                                      setEditSettings({ ...editSettings, showcaseHoverImages: updated });
+                                    }}
+                                    className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-[10px] font-bold rounded-xl transition-all"
+                                  >
+                                    Remove Hover
+                                  </button>
                                 )}
                               </div>
-                              <label className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-xs transition-all shrink-0">
-                                {uploadingField === `showcase_${cat}` ? (
-                                  <Loader2 className="animate-spin" size={12} />
-                                ) : (
-                                  <Upload size={12} />
-                                )}
-                                <span>Upload Image</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  disabled={uploadingField === `showcase_${cat}`}
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handleFileUpload(f, `showcase_${cat}`, cat);
-                                  }}
-                                />
-                              </label>
                             </div>
                             <div className="flex flex-col gap-1">
                               <label className="text-[10px] font-semibold text-zinc-500">Custom Badge Text (optional override)</label>

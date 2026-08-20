@@ -400,6 +400,7 @@ export function ShowcaseSection({
       >
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
+          const cardHoverImg = settings?.showcaseHoverImages?.[item.label];
           const cardBadge = settings?.showcaseBadges?.[item.label] || settings?.showcaseBadge || 'Good · Better · Best';
           return (
             <button
@@ -412,11 +413,19 @@ export function ShowcaseSection({
               <img
                 src={cardImg}
                 alt={`Custom ${item.label.toLowerCase()}`}
-                className="h-full w-full object-cover opacity-100"
+                className="h-full w-full object-cover opacity-100 transition-transform duration-500 ease-in-out group-hover:scale-105"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
-              <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
+              {cardHoverImg && (
+                <img
+                  src={cardHoverImg}
+                  alt={`Custom ${item.label.toLowerCase()} hover`}
+                  className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:scale-105"
+                  loading="lazy"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
+              <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5 pointer-events-none">
                 <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {String(i + 1).padStart(2, '0')}
                 </span>
@@ -424,7 +433,7 @@ export function ShowcaseSection({
                   {cardBadge}
                 </span>
               </div>
-              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5">
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5 pointer-events-none">
                 <span className="font-serif text-3xl tracking-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)] lg:text-4xl">{item.label}</span>
                 <span className="font-inter flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-100 opacity-0 transition-opacity duration-300 group-hover:opacity-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   Start here <ArrowRight size={12} />
