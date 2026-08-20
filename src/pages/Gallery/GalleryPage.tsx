@@ -591,13 +591,13 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       {/* GARMENT GALLERY GRID                                               */}
       {/* ------------------------------------------------------------------ */}
-      <main className="max-w-[1800px] mx-auto px-3 sm:px-6 md:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
         {displayItems.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 font-inter text-sm">
             No items in category "{selectedCategory}". Add items using "Customize Gallery" above.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-8">
             {displayItems.map((item) => (
               <div key={item.id} className="group flex flex-col space-y-3">
                 {/* Garment Image Card (Clean photo, NO plus buttons, smooth hover to secondary image if available) */}
