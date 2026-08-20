@@ -769,11 +769,15 @@ export function PortalCreateOrder() {
 
     // 5. Fall back to standard catalog image set
     if (item.images) {
-      const chosen = (colorToUse && item.images[colorToUse])
-        ? colorToUse
-        : (item.colors?.[0] || Object.keys(item.images)[0]);
-      if (chosen && item.images[chosen]) {
-        const val = item.images[chosen];
+      let chosenKey = colorToUse ? Object.keys(item.images).find(k => k.toLowerCase().trim() === colorToUse.toLowerCase().trim()) : null;
+      if (!chosenKey && colorToUse) {
+        chosenKey = Object.keys(item.images).find(k => k.toLowerCase().includes(colorToUse.toLowerCase()) || colorToUse.toLowerCase().includes(k.toLowerCase()));
+      }
+      if (!chosenKey) {
+        chosenKey = item.colors?.[0] || Object.keys(item.images)[0];
+      }
+      if (chosenKey && item.images[chosenKey]) {
+        const val = item.images[chosenKey];
         if (typeof val === 'string') return val;
         return val.front || val.swatch || val.back || '';
       }
@@ -870,8 +874,9 @@ export function PortalCreateOrder() {
       let customImage = '';
       let customPrice = prod.price;
       let customSpec = prod.customSpecs || null;
+      let resolvedDefaultColor = prod.defaultColor || '';
 
-      // 1. Search in racks custom settings
+      // 1. Search in racks custom settings & defaultColors
       if (customerRacks) {
         for (const cat of Object.keys(customerRacks)) {
           const catObj = customerRacks[cat];
@@ -889,6 +894,9 @@ export function PortalCreateOrder() {
                 }
                 if (!customSpec && customSpecs?.racks?.[cat]?.[sKey]) {
                   customSpec = customSpecs.racks[cat][sKey];
+                }
+                if (!resolvedDefaultColor && defaultColors?.racks?.[cat]?.[sKey]) {
+                  resolvedDefaultColor = defaultColors.racks[cat][sKey];
                 }
               }
             }
@@ -916,23 +924,37 @@ export function PortalCreateOrder() {
                 if (!customSpec && customSpecs?.basics?.[bCat]?.[tierKey]) {
                   customSpec = customSpecs.basics[bCat][tierKey];
                 }
+                if (!resolvedDefaultColor && defaultColors?.basics?.[bCat]?.[tierKey]) {
+                  resolvedDefaultColor = defaultColors.basics[bCat][tierKey];
+                }
               }
             }
           }
         }
       }
 
-      const colorMockupImg = resolveColorMockup(prod, prod.defaultColor || prod.colors?.[0]);
+      // 3. Search in defaultColors.byStyle if not found
+      if (!resolvedDefaultColor && defaultColors?.byStyle) {
+        const matchKey = Object.keys(defaultColors.byStyle).find(k => k.toLowerCase().trim() === styleId.toLowerCase());
+        if (matchKey && defaultColors.byStyle[matchKey]) {
+          resolvedDefaultColor = defaultColors.byStyle[matchKey];
+        }
+      }
+
+      const finalDefaultColor = resolvedDefaultColor || prod.defaultColor || prod.colors?.[0] || 'Black';
+      const colorMockupImg = resolveColorMockup(prod, finalDefaultColor);
 
       return {
         ...prod,
+        defaultColor: finalDefaultColor,
+        selectedColor: finalDefaultColor,
         customName: customName || prod.customName || cleanGarmentTitle(prod.title || '', prod.style),
         customImage: colorMockupImg || customImage || prod.customImage || prod.image || prod.mockup_image,
         price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : prod.price,
         customSpecs: customSpec || prod.customSpecs
       };
     }).filter(Boolean) as any[];
-  }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, globalCustomMockups, colorMockups, customCatalogItems, catalogBasics]);
+  }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, defaultColors, globalCustomMockups, colorMockups, customCatalogItems, catalogBasics]);
 
   useEffect(() => {
     if (isInitialLoadDone) return;
