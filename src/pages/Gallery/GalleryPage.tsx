@@ -1,16 +1,52 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Sparkles, Upload, Loader2, Plus, Trash2, Edit2 } from 'lucide-react';
-import { db, storage } from '../../lib/firebase';
-import { useAuth } from '../../contexts/AuthContext';
+import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import colorHexMapJson from '../../data/color-hex-map.json';
+import { getFilteredProductColors, detectGarmentTypeTag } from '../../lib/garmentUtils';
+
+const colorHexMap = colorHexMapJson as Record<string, string>;
+const sanmarCatalog = sanmarCatalogJson as any[];
+
+const resolveHexColor = (colorName: string): string => {
+  const norm = colorName.toLowerCase().trim();
+  if (colorHexMap[norm]) return colorHexMap[norm];
+  for (const [k, v] of Object.entries(colorHexMap)) {
+    if (k.toLowerCase() === norm) return v;
+  }
+  if (norm.includes('black')) return '#1a1a1a';
+  if (norm.includes('white') || norm.includes('snow')) return '#ffffff';
+  if (norm.includes('navy')) return '#1b263b';
+  if (norm.includes('charcoal') || norm.includes('dark grey') || norm.includes('dark gray')) return '#333333';
+  if (norm.includes('grey') || norm.includes('gray')) return '#7a7a7a';
+  if (norm.includes('red')) return '#b91c1c';
+  if (norm.includes('blue')) return '#1d4ed8';
+  if (norm.includes('green') || norm.includes('olive')) return '#15803d';
+  if (norm.includes('brown')) return '#5c4d44';
+  if (norm.includes('beige') || norm.includes('sand') || norm.includes('khaki') || norm.includes('tan')) return '#d6c8b4';
+  if (norm.includes('yellow') || norm.includes('gold')) return '#eab308';
+  return '#888888';
+};
+
+const cleanGarmentTitle = (title: string, styleId?: string): string => {
+  if (!title) return 'Custom Garment';
+  let cleaned = title
+    .replace(/®/g, '')
+    .replace(/™/g, '')
+    .replace(/\b(BELLA\+CANVAS|BELLA \+ CANVAS|District|Sport-Tek|Stanley\/Stella|Port & Company|Port and Company|Anvil|Gildan|Next Level|CornerStone|Mercer|Ogio|Jerzees|Hanes|Fruit of the Loom|Carhartt|Nike|Adidas|Champion|Comfort Colors|Rabbit Skins|LAT|Alternative)\b/gi, '')
+    .trim();
+  cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').trim();
+  if (styleId) {
+    const escapedStyle = styleId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const styleRegex = new RegExp(`[\\.\\s\\-–—•]*${escapedStyle}[\\s\\.]*`, 'gi');
+    cleaned = cleaned.replace(styleRegex, '').trim();
+  }
+  return cleaned || title;
+};
 
 export interface GalleryItem {
   id: string;
   title: string;
   category: string;
-  imageUrl: string;
+  imageUrl: string; // Primary Photo
+  secondaryImageUrl?: string; // Secondary Photo (Back View / Alternate)
   fitOptions: string[]; // e.g. ['Fitted', 'Standard', 'Loose']
   activeFitIndex: number; // e.g. 2 for Loose
   specs: string; // e.g. "5 oz · 7/8 Neckdrop Shoulderside Seamedtear"
@@ -167,59 +203,208 @@ export function GalleryPage() {
       (snap) => {
         if (snap.exists()) {
           const catData = snap.data();
+          const racks = catData.racks || {};
+          const basics = catData.basics || {};
+          const customCatalogItems = catData.customCatalogItems || [];
           const customNames = catData.customNames || {};
           const customSpecs = catData.customSpecs || {};
+          const garmentFits = catData.garmentFits || {};
           const cardImages = catData.cardImages || {};
+          const cardHoverImages = catData.cardHoverImages || {};
+          const colorMockups = catData.colorMockups || {};
+          const allowedColors = catData.allowedColors || {};
+          const customColors = catData.customColors || {};
+          const garmentTypeTags = catData.garmentTypeTags || {};
 
-          // Update items with active storefront catalog settings if available
-          setSettings((prev) => ({
-            ...prev,
-            items: prev.items.map((item) => {
-              const styleKey = item.title.toLowerCase();
-              let updatedTitle = item.title;
-              let updatedSpecs = item.specs;
-              let updatedImage = item.imageUrl;
+          // Collect all active styles across racks, basics, and custom items
+          const styleSet = new Set<string>();
 
-              if (cardImages[styleKey]) {
-                updatedImage = cardImages[styleKey];
+          // 1. Racks
+          if (racks) {
+            Object.keys(racks).forEach((cat) => {
+              const catObj = racks[cat];
+              if (catObj && typeof catObj === 'object') {
+                Object.values(catObj).forEach((s) => {
+                  if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
+                });
               }
+            });
+          }
 
-              if (customNames?.racks) {
-                for (const cat of Object.keys(customNames.racks)) {
-                  const slots = customNames.racks[cat];
-                  if (slots && typeof slots === 'object') {
-                    for (const sKey of Object.keys(slots)) {
-                      const val = slots[sKey];
-                      if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
-                        updatedTitle = val.trim();
-                      }
+          // 2. Basics
+          if (basics) {
+            Object.keys(basics).forEach((cat) => {
+              const catObj = basics[cat];
+              if (catObj && typeof catObj === 'object') {
+                Object.values(catObj).forEach((s) => {
+                  if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
+                });
+              }
+            });
+          }
+
+          // 3. Custom catalog items
+          if (Array.isArray(customCatalogItems)) {
+            customCatalogItems.forEach((ci: any) => {
+              if (ci.style) styleSet.add(String(ci.style).trim().toLowerCase());
+            });
+          }
+
+          // Build items list for each active style
+          const compiledItems: GalleryItem[] = [];
+
+          Array.from(styleSet).forEach((styleKey) => {
+            // Find base product details
+            const sanmarMatch = sanmarCatalog.find(
+              (p: any) => String(p.style).toLowerCase() === styleKey
+            );
+            const customMatch = Array.isArray(customCatalogItems)
+              ? customCatalogItems.find((ci: any) => String(ci.style).toLowerCase() === styleKey)
+              : null;
+            const baseProduct = sanmarMatch || customMatch;
+
+            // Resolve custom title if specified in Storefront Catalog settings
+            let title = '';
+            if (customNames?.racks) {
+              for (const cat of Object.keys(customNames.racks)) {
+                const slots = customNames.racks[cat];
+                if (slots && typeof slots === 'object') {
+                  for (const sKey of Object.keys(slots)) {
+                    const val = slots[sKey];
+                    if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                      title = val.trim();
                     }
                   }
                 }
               }
-
-              if (customSpecs?.racks) {
-                for (const cat of Object.keys(customSpecs.racks)) {
-                  const slots = customSpecs.racks[cat];
-                  if (slots && typeof slots === 'object') {
-                    for (const sKey of Object.keys(slots)) {
-                      const val = slots[sKey];
-                      if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
-                        updatedSpecs = val.trim();
-                      }
+            }
+            if (customNames?.basics && !title) {
+              for (const cat of Object.keys(customNames.basics)) {
+                const slots = customNames.basics[cat];
+                if (slots && typeof slots === 'object') {
+                  for (const sKey of Object.keys(slots)) {
+                    const val = slots[sKey];
+                    if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                      title = val.trim();
                     }
                   }
                 }
               }
+            }
+            if (!title && baseProduct) {
+              title = baseProduct.customName || cleanGarmentTitle(baseProduct.title || '', styleKey.toUpperCase());
+            }
+            if (!title) {
+              title = styleKey.toUpperCase();
+            }
 
-              return {
-                ...item,
-                title: updatedTitle,
-                specs: updatedSpecs,
-                imageUrl: updatedImage,
-              };
-            }),
-          }));
+            // Resolve Primary Image (Card Image -> Color Mockup Front -> SanMar Front -> Custom Image)
+            let primaryImage = cardImages[styleKey] || '';
+            let secondaryImage = cardHoverImages[styleKey] || '';
+
+            if (!primaryImage && colorMockups[styleKey]) {
+              const mockMap = colorMockups[styleKey];
+              const firstCol = Object.keys(mockMap)[0];
+              if (firstCol && mockMap[firstCol]) {
+                const colObj = mockMap[firstCol];
+                primaryImage = colObj.front || colObj.mockupFront || colObj.image || '';
+                secondaryImage = secondaryImage || colObj.back || colObj.mockupBack || '';
+              }
+            }
+
+            if (!primaryImage && baseProduct?.images) {
+              if (typeof baseProduct.images === 'object') {
+                const firstColKey = Object.keys(baseProduct.images)[0];
+                if (firstColKey && baseProduct.images[firstColKey]) {
+                  const imgObj = baseProduct.images[firstColKey];
+                  if (typeof imgObj === 'object') {
+                    primaryImage = imgObj.front || '';
+                    secondaryImage = secondaryImage || imgObj.back || '';
+                  } else if (typeof imgObj === 'string') {
+                    primaryImage = imgObj;
+                  }
+                }
+                if (!primaryImage && baseProduct.images.front) {
+                  primaryImage = baseProduct.images.front;
+                  secondaryImage = secondaryImage || baseProduct.images.back || '';
+                }
+              }
+            }
+
+            if (!primaryImage && baseProduct?.imageUrl) {
+              primaryImage = baseProduct.imageUrl;
+            }
+
+            // EXCLUDE IF NO PRIMARY PHOTO
+            if (!primaryImage || !primaryImage.trim()) {
+              return;
+            }
+
+            // Resolve Category Tag (T-SHIRT, POLO, HOODIE, LONGSLEEVE, CREWNECK, JACKET, HAT)
+            const detectedTag = detectGarmentTypeTag(baseProduct || { style: styleKey }, garmentTypeTags);
+            let category = 'T-SHIRT';
+            if (detectedTag === 'polo') category = 'POLO';
+            else if (detectedTag === 'hoodie') category = 'HOODIE';
+            else if (detectedTag === 'longsleeve') category = 'LONGSLEEVE';
+            else if (detectedTag === 'crewneck') category = 'CREWNECK';
+            else if (detectedTag === 'jacket') category = 'JACKET';
+            else if (detectedTag === 'hat') category = 'HAT';
+            else category = 'T-SHIRT';
+
+            // Resolve Specs
+            let specs = '';
+            if (customSpecs?.racks) {
+              for (const cat of Object.keys(customSpecs.racks)) {
+                const slots = customSpecs.racks[cat];
+                if (slots && typeof slots === 'object') {
+                  for (const sKey of Object.keys(slots)) {
+                    const val = slots[sKey];
+                    if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                      specs = val.trim();
+                    }
+                  }
+                }
+              }
+            }
+            if (!specs && baseProduct?.description) {
+              specs = baseProduct.description.slice(0, 75).trim() + '...';
+            }
+            if (!specs) {
+              specs = 'Premium Blank · Good / Better / Best';
+            }
+
+            // Resolve Swatches & Allowed Colors
+            const colorList = getFilteredProductColors(
+              baseProduct || { style: styleKey, colors: [] },
+              allowedColors,
+              customColors
+            );
+            const hexSwatches = colorList.slice(0, 4).map((cName) => resolveHexColor(cName));
+
+            // Resolve Fit options
+            const fitString = garmentFits[styleKey] || 'Fitted · Standard · Loose';
+            const fitOptions = fitString.split('·').map((f) => f.trim()).filter(Boolean);
+
+            compiledItems.push({
+              id: `cat-${styleKey}`,
+              title,
+              category,
+              imageUrl: primaryImage,
+              secondaryImageUrl: secondaryImage || undefined,
+              fitOptions: fitOptions.length > 0 ? fitOptions : ['Fitted', 'Standard', 'Loose'],
+              activeFitIndex: 1,
+              specs,
+              colors: hexSwatches,
+              colorCount: colorList.length,
+            });
+          });
+
+          if (compiledItems.length > 0) {
+            setSettings((prev) => ({
+              ...prev,
+              items: compiledItems,
+            }));
+          }
         }
       },
       (err) => {
@@ -408,7 +593,7 @@ export function GalleryPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             {displayItems.map((item) => (
               <div key={item.id} className="group flex flex-col space-y-3">
-                {/* Garment Image Card (Clean photo, NO plus buttons) */}
+                {/* Garment Image Card (Clean photo, NO plus buttons, smooth hover to secondary image if available) */}
                 <div
                   onClick={() => setActiveLightboxImage(item.imageUrl)}
                   className="relative aspect-square w-full overflow-hidden bg-zinc-100 rounded-none border border-zinc-200/80 cursor-pointer"
@@ -416,8 +601,17 @@ export function GalleryPage() {
                   <img
                     src={item.imageUrl}
                     alt={item.title}
-                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    className={`h-full w-full object-cover object-center transition-all duration-500 ${
+                      item.secondaryImageUrl ? 'group-hover:opacity-0 group-hover:scale-105' : 'group-hover:scale-105'
+                    }`}
                   />
+                  {item.secondaryImageUrl && (
+                    <img
+                      src={item.secondaryImageUrl}
+                      alt={`${item.title} back view`}
+                      className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 group-hover:opacity-100 group-hover:scale-105"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                     <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-950/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-none shadow-lg">
                       Click to Enlarge
