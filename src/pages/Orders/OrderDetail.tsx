@@ -4615,12 +4615,22 @@ export function OrderDetail() {
                                     </button>
 
                                     <div className="flex gap-3 items-center">
-                                      <div className="w-10 h-10 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard">
+                                      <div className="w-10 h-10 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard group">
                                         {art.url ? (
                                           <>
-                                            <img src={art.url} alt="" className="w-full h-full object-contain p-0.5" />
-                                            <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
-                                              <Upload size={10} className="text-white" />
+                                            <img
+                                              src={art.url}
+                                              alt={art.name || 'Logo preview'}
+                                              className="w-full h-full object-contain p-0.5 cursor-pointer hover:scale-105 transition-transform"
+                                              onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                              title="Click to view larger image"
+                                            />
+                                            <label 
+                                              className="absolute bottom-0 right-0 w-4 h-4 bg-black/75 hover:bg-black text-white rounded-tl flex items-center justify-center cursor-pointer transition-colors z-10"
+                                              title="Upload / Replace logo file"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <Upload size={8} />
                                               <input
                                                 type="file"
                                                 className="hidden"
@@ -4648,7 +4658,11 @@ export function OrderDetail() {
                                             {art.itemStyle}
                                           </span>
                                         )}
-                                        <p className="text-[10px] font-bold text-neutral-350 truncate inline-block" title={art.name || 'Logo'}>
+                                        <p 
+                                          className="text-[10px] font-bold text-neutral-350 hover:text-white truncate inline-block cursor-pointer transition-colors" 
+                                          title={art.url ? `Click to view ${art.name || 'Logo'}` : (art.name || 'Unnamed Logo')}
+                                          onClick={() => art.url && setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                        >
                                           {art.name || 'Unnamed Logo'}
                                         </p>
                                       </div>
@@ -7008,12 +7022,22 @@ export function OrderDetail() {
 
                                     <div className="flex gap-4 items-start">
                                        {/* Logo Upload Box */}
-                                       <div className="w-20 h-20 bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard shrink-0 relative shadow-sm">
+                                       <div className="w-20 h-20 bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard shrink-0 relative shadow-sm group">
                                           {art.url ? (
                                              <>
-                                                <img src={art.url} alt="" className="w-full h-full object-contain p-1" />
-                                                <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
-                                                   <Upload size={14} className="text-white" />
+                                                <img 
+                                                   src={art.url} 
+                                                   alt={art.name || 'Logo'} 
+                                                   className="w-full h-full object-contain p-1 cursor-pointer hover:scale-105 transition-transform" 
+                                                   onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                                   title="Click to view larger image"
+                                                />
+                                                <label 
+                                                   className="absolute bottom-0 right-0 bg-black/80 hover:bg-black text-white p-1.5 rounded-tl-lg cursor-pointer transition-colors z-10"
+                                                   title="Upload / Replace logo file"
+                                                   onClick={(e) => e.stopPropagation()}
+                                                >
+                                                   <Upload size={12} />
                                                    <input
                                                       type="file"
                                                       className="hidden"

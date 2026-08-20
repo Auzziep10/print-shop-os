@@ -843,54 +843,54 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             </div>
           </div>
 
-        </div>
-
-        {/* Sticky Payment / Approval Footer Container */}
-        <div className="shrink-0 bg-white border-t border-neutral-200 p-6 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] z-20">
-          <style>{`
-            @keyframes pulse-subtle-purple {
-              0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-              50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(99, 91, 255, 0.45), 0 4px 6px -2px rgba(99, 91, 255, 0.25); }
-            }
-            @keyframes pulse-subtle-black {
-              0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-              50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2); }
-            }
-            .animate-pulse-purple {
-              animation: pulse-subtle-purple 2s infinite ease-in-out;
-            }
-            .animate-pulse-black {
-              animation: pulse-subtle-black 2s infinite ease-in-out;
-            }
-          `}</style>
-          
-          {statusIndex === 2 ? (
-            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
-              <button
-                type="button"
-                onClick={handleApproveQuote}
-                disabled={isApproving}
-                className="w-full bg-black text-white hover:bg-neutral-800 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 animate-pulse-black cursor-pointer"
-              >
-                {isApproving ? (
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                ) : (
-                  <span>Approve Quote</span>
-                )}
-              </button>
-              <span className="text-[10px] text-neutral-400 font-semibold text-center leading-normal block">
-                Review garments & total pricing above before approving.
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
-              <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 mb-1">
-                <CreditCard size={15} className="text-[#635BFF]" />
-                <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-widest">Pay Securely (Card & ACH Bank Transfer)</span>
+          {/* Payment / Approval Section */}
+          <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-3">
+            <style>{`
+              @keyframes pulse-subtle-purple {
+                0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+                50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(99, 91, 255, 0.45), 0 4px 6px -2px rgba(99, 91, 255, 0.25); }
+              }
+              @keyframes pulse-subtle-black {
+                0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+                50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2); }
+              }
+              .animate-pulse-purple {
+                animation: pulse-subtle-purple 2s infinite ease-in-out;
+              }
+              .animate-pulse-black {
+                animation: pulse-subtle-black 2s infinite ease-in-out;
+              }
+            `}</style>
+            
+            {statusIndex === 2 ? (
+              <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+                <button
+                  type="button"
+                  onClick={handleApproveQuote}
+                  disabled={isApproving}
+                  className="w-full bg-black text-white hover:bg-neutral-800 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 animate-pulse-black cursor-pointer"
+                >
+                  {isApproving ? (
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  ) : (
+                    <span>Approve Quote</span>
+                  )}
+                </button>
+                <span className="text-[10px] text-neutral-400 font-semibold text-center leading-normal block">
+                  Review garments & total pricing above before approving.
+                </span>
               </div>
-              <StripePaymentContainer order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 mb-1">
+                  <CreditCard size={15} className="text-[#635BFF]" />
+                  <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-widest">Pay Securely (Card & ACH Bank Transfer)</span>
+                </div>
+                <StripePaymentContainer order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Footer Security Badges */}

@@ -12,6 +12,7 @@ import { Production } from '../Production/Production';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
+import { OrderReportsPanel } from './OrderReportsPanel';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
@@ -185,17 +186,7 @@ export function OrdersList() {
 
       {/* Reports Panel */}
       {currentTab === 'reports' && (
-        <div className="bg-white border border-brand-border rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center gap-6 min-h-[400px] mt-4 animate-in fade-in duration-300">
-          <div className="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center text-brand-primary border border-brand-border">
-            <FileBox size={32} strokeWidth={1.5} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-serif text-brand-primary mb-2">Reports & Analytics coming soon</h2>
-            <p className="text-brand-secondary text-sm max-w-md mx-auto leading-relaxed">
-               Track order volume, quote conversion rates, production velocity, and financial summaries.
-            </p>
-          </div>
-        </div>
+        <OrderReportsPanel liveCustomers={liveCustomers} />
       )}
 
       {/* Orders Table */}
