@@ -329,7 +329,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           : (parseInt(item.qty, 10) || 0);
 
         let priceEach = parseFloat(item.price) || 0;
-        let dtfAutoQuoted = item.dtfAutoQuoted;
+        let dtfAutoQuoted = !!item.dtfAutoQuoted;
 
         if (resubmitDtfSettings?.autoQuotingEnabled || dtfAutoQuoted) {
           const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, resubmitDtfSettings?.costs, resubmitDtfSettings?.ladder);
@@ -377,7 +377,23 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         activities: [newActivity, ...(order.activities || [])]
       };
 
-      await setDoc(orderRef, updatePayload, { merge: true });
+      const cleanFirestorePayload = (obj: any): any => {
+        if (obj === null || obj === undefined) return null;
+        if (Array.isArray(obj)) return obj.map(cleanFirestorePayload).filter(v => v !== undefined && v !== null);
+        if (typeof obj === 'object') {
+          const cleaned: any = {};
+          for (const key of Object.keys(obj)) {
+            const val = obj[key];
+            if (val !== undefined) {
+              cleaned[key] = cleanFirestorePayload(val);
+            }
+          }
+          return cleaned;
+        }
+        return obj;
+      };
+
+      await setDoc(orderRef, cleanFirestorePayload(updatePayload), { merge: true });
 
       setLocalOrders(prev => prev.map(o => {
         if (o.id !== order.id) return o;
