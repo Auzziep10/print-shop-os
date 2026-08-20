@@ -1,3 +1,10 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Sparkles, Upload, Loader2, Plus, Trash2, Edit2 } from 'lucide-react';
+import { db, storage } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
 import { getFilteredProductColors, detectGarmentTypeTag } from '../../lib/garmentUtils';
