@@ -630,7 +630,7 @@ export function GalleryPage() {
       {/* ------------------------------------------------------------------ */}
       {/* GARMENT GALLERY GRID                                               */}
       {/* ------------------------------------------------------------------ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+      <main className="w-full max-w-[2200px] mx-auto px-3 sm:px-4 md:px-5 py-8">
         {displayItems.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 font-inter text-sm">
             No items in category "{selectedCategory}". Add items using "Customize Gallery" above.
