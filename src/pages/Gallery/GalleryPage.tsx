@@ -427,9 +427,14 @@ export function GalleryPage() {
             );
             const hexSwatches = colorList.slice(0, 4).map((cName) => resolveHexColor(cName));
 
-            // Resolve Fit options
-            const fitString = garmentFits[styleKey] || 'Fitted · Standard · Loose';
-            const fitOptions = String(fitString).split('·').map((f: string) => f.trim()).filter(Boolean);
+            // Resolve Fit options (Always display Fitted, Standard, Loose; highlight active fit)
+            const rawFitStr = String(garmentFits[styleKey] || '').toLowerCase();
+            let activeFitIndex = 1; // default Standard
+            if (rawFitStr.includes('fitted') || rawFitStr.includes('slim')) {
+              activeFitIndex = 0;
+            } else if (rawFitStr.includes('loose') || rawFitStr.includes('boxy') || rawFitStr.includes('relaxed') || rawFitStr.includes('oversized')) {
+              activeFitIndex = 2;
+            }
 
             compiledItems.push({
               id: `cat-${styleKey}`,
@@ -437,8 +442,8 @@ export function GalleryPage() {
               category,
               imageUrl: primaryImage,
               secondaryImageUrl: secondaryImage || undefined,
-              fitOptions: fitOptions.length > 0 ? fitOptions : ['Fitted', 'Standard', 'Loose'],
-              activeFitIndex: 1,
+              fitOptions: ['Fitted', 'Standard', 'Loose'],
+              activeFitIndex,
               specs,
               colors: hexSwatches,
               colorCount: colorList.length,
@@ -666,13 +671,13 @@ export function GalleryPage() {
                 </div>
 
                 {/* Item Details Footer */}
-                <div className="space-y-1.5 pt-1">
+                <div className="space-y-1.5 pt-1 font-sans">
                   {/* Title and Color Swatches */}
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-serif text-lg font-bold tracking-tight text-zinc-950">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-serif text-base sm:text-lg font-bold tracking-tight text-zinc-950 truncate">
                       {item.title}
                     </h3>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
                       {item.colors.map((hex, i) => (
                         <span
                           key={i}
@@ -688,22 +693,25 @@ export function GalleryPage() {
                     </div>
                   </div>
 
-                  {/* Fit Options Indicator */}
-                  <div className="font-inter flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
-                    {item.fitOptions.map((fit, idx) => (
-                      <span
-                        key={fit}
-                        className={idx === item.activeFitIndex ? 'text-zinc-950 font-bold underline' : ''}
-                      >
-                        {fit}
-                      </span>
-                    ))}
-                  </div>
+                  {/* Fit Options & Right-Justified Specs */}
+                  <div className="flex items-start justify-between gap-3 pt-0.5">
+                    {/* Fit Options Indicator (Left Aligned) */}
+                    <div className="font-inter flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-wider font-semibold shrink-0 pt-0.5">
+                      {item.fitOptions.map((fit, idx) => (
+                        <span
+                          key={fit}
+                          className={idx === item.activeFitIndex ? 'text-zinc-950 font-extrabold underline decoration-zinc-950 underline-offset-2' : 'text-zinc-400'}
+                        >
+                          {fit}
+                        </span>
+                      ))}
+                    </div>
 
-                  {/* Specs Line */}
-                  <p className="font-inter text-[11px] text-zinc-500 font-light tracking-tight">
-                    {item.specs}
-                  </p>
+                    {/* Specs Line / Blend Description (Right Justified under Swatches) */}
+                    <p className="font-inter text-[11px] text-zinc-500 font-light tracking-tight text-right line-clamp-2">
+                      {item.specs}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
