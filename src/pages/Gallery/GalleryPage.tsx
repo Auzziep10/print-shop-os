@@ -390,7 +390,7 @@ export function GalleryPage() {
 
             // Resolve Fit options
             const fitString = garmentFits[styleKey] || 'Fitted · Standard · Loose';
-            const fitOptions = fitString.split('·').map((f) => f.trim()).filter(Boolean);
+            const fitOptions = String(fitString).split('·').map((f: string) => f.trim()).filter(Boolean);
 
             compiledItems.push({
               id: `cat-${styleKey}`,
