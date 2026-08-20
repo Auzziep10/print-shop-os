@@ -3676,7 +3676,7 @@ export function OrderDetail() {
                           <button 
                             onClick={() => {
                               const catalogItem = sanmarCatalog.find((i: any) => i.style === item.itemNum || i.style === item.style);
-                              const frontImg = item.originalFrontImage || item.image || catalogItem?.image || (catalogItem?.images ? Object.values(catalogItem.images)[0]?.front : '') || '';
+                              const frontImg = item.originalFrontImage || item.image || catalogItem?.image || (catalogItem?.images ? (Object.values(catalogItem.images)[0] as any)?.front : '') || '';
                               setCustomizingItem({
                                 id: item.id,
                                 style: item.style || 'Custom Garment',
@@ -6860,7 +6860,7 @@ export function OrderDetail() {
                             type="button"
                             onClick={() => {
                               const catalogItem = sanmarCatalog.find((i: any) => i.style === editItemObj.itemNum || i.style === editItemObj.style);
-                              const frontImg = editItemObj.originalFrontImage || editItemObj.image || catalogItem?.image || (catalogItem?.images ? Object.values(catalogItem.images)[0]?.front : '') || '';
+                              const frontImg = editItemObj.originalFrontImage || editItemObj.image || catalogItem?.image || (catalogItem?.images ? (Object.values(catalogItem.images)[0] as any)?.front : '') || '';
                               setCustomizingItem({
                                 id: editItemObj.id,
                                 style: editItemObj.style || 'Custom Garment',
@@ -8160,10 +8160,6 @@ export function OrderDetail() {
                   ))
                 )
               )}
-            </div>
-          </div>
-        </div>
-      )}
             </div>
           </div>
         </div>
