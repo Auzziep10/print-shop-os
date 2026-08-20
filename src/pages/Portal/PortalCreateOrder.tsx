@@ -7,7 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, sortGarmentsByTypeOrder, type GarmentTypeId } from '../../lib/garmentUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -245,6 +245,7 @@ export function PortalCreateOrder() {
   const [activeLibraryTab, setActiveLibraryTab] = useState('types');
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
+  const [garmentTypeOrders, setGarmentTypeOrders] = useState<Record<string, string[]>>({});
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [customCatalogItems, setCustomCatalogItems] = useState<any[]>([]);
@@ -1247,6 +1248,9 @@ export function PortalCreateOrder() {
             }
             if (globalData.garmentTypeTags) {
               setGarmentTypeTags(globalData.garmentTypeTags);
+            }
+            if (globalData.garmentTypeOrders) {
+              setGarmentTypeOrders(globalData.garmentTypeOrders);
             }
             if (globalData.customCatalogItems) {
               setCustomCatalogItems(globalData.customCatalogItems);
@@ -2274,7 +2278,8 @@ export function PortalCreateOrder() {
 
           {activeLibraryTab === 'types' && (
             (() => {
-              const matching = curatedPortalProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+              const rawMatching = curatedPortalProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+              const matching = sortGarmentsByTypeOrder(rawMatching, activeGarmentType, garmentTypeOrders);
               const activeLabel = GARMENT_TYPES.find(gt => gt.id === activeGarmentType)?.label || 'Garment';
               
               return (

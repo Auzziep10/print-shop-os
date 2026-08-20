@@ -688,14 +688,11 @@ export const sortGarmentsByTypeOrder = (
 ): any[] => {
   if (!products || products.length === 0) return [];
 
-  // Deterministically sort base list by brand + style so baseline order is stable across renders & refreshes
+  // Deterministically sort base list by customName / title / brand + style so baseline order is stable across renders & refreshes
   const sortedBase = [...products].sort((a, b) => {
-    const brandA = (a.brand || '').toLowerCase();
-    const brandB = (b.brand || '').toLowerCase();
-    if (brandA !== brandB) return brandA.localeCompare(brandB);
-    const styleA = (a.style || '').toLowerCase();
-    const styleB = (b.style || '').toLowerCase();
-    return styleA.localeCompare(styleB);
+    const nameA = (a.customName || a.title || a.style || a.brand || '').toLowerCase();
+    const nameB = (b.customName || b.title || b.style || b.brand || '').toLowerCase();
+    return nameA.localeCompare(nameB);
   });
 
   const orderList = garmentTypeOrders?.[garmentTypeId];
@@ -703,11 +700,25 @@ export const sortGarmentsByTypeOrder = (
 
   const lowerOrder = orderList.map(s => String(s).toLowerCase().trim());
 
-  return sortedBase.sort((a, b) => {
-    const styleA = (a.style || '').toLowerCase().trim();
-    const styleB = (b.style || '').toLowerCase().trim();
-    const idxA = lowerOrder.indexOf(styleA);
-    const idxB = lowerOrder.indexOf(styleB);
+  const getIdx = (p: any) => {
+    const style = (p.style || '').toLowerCase().trim();
+    const customName = (p.customName || '').toLowerCase().trim();
+    const title = (p.title || '').toLowerCase().trim();
+    const itemNum = (p.itemNum || p.id || '').toLowerCase().trim();
+    
+    let idx = lowerOrder.indexOf(style);
+    if (idx !== -1) return idx;
+    idx = lowerOrder.indexOf(customName);
+    if (idx !== -1) return idx;
+    idx = lowerOrder.indexOf(title);
+    if (idx !== -1) return idx;
+    idx = lowerOrder.indexOf(itemNum);
+    return idx;
+  };
+
+  return [...sortedBase].sort((a, b) => {
+    const idxA = getIdx(a);
+    const idxB = getIdx(b);
     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
     if (idxA !== -1) return -1;
     if (idxB !== -1) return 1;
