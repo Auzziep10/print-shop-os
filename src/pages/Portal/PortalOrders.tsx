@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, Sparkles } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
