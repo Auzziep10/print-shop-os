@@ -331,8 +331,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         let priceEach = parseFloat(item.price) || 0;
         let dtfAutoQuoted = item.dtfAutoQuoted;
 
-        if (resubmitDtfSettings.autoQuotingEnabled || dtfAutoQuoted) {
-          const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, resubmitDtfSettings.costs, resubmitDtfSettings.ladder);
+        if (resubmitDtfSettings?.autoQuotingEnabled || dtfAutoQuoted) {
+          const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, resubmitDtfSettings?.costs, resubmitDtfSettings?.ladder);
           if (autoQuote.ok && autoQuote.pricePerPiece > 0) {
             priceEach = autoQuote.pricePerPiece;
             dtfAutoQuoted = true;
@@ -351,8 +351,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         };
       });
 
-      const newStatusIndex = dtfSettings.autoQuotingEnabled ? 2 : 0;
-      const newStatus = dtfSettings.autoQuotingEnabled ? 'Action Required' : 'Requested';
+      const isAutoQuoted = resubmitDtfSettings?.autoQuotingEnabled || dtfSettings?.autoQuotingEnabled;
+      const newStatusIndex = isAutoQuoted ? 2 : 0;
+      const newStatus = isAutoQuoted ? 'Action Required' : 'Requested';
 
       const newActivity = {
         id: `act-${Date.now()}`,
