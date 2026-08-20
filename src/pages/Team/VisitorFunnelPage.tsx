@@ -2864,7 +2864,7 @@ export function VisitorFunnelPage() {
                         ) : (
                           <>
                             <Upload size={13} />
-                            Upload GIF File
+                            Upload Image / GIF
                           </>
                         )}
                         <input
@@ -2879,6 +2879,13 @@ export function VisitorFunnelPage() {
                       <span className="text-[10px] text-slate-500 font-medium">or choose:</span>
                       <button
                         type="button"
+                        onClick={() => setDefaultSmsMediaUrl(`${window.location.origin}/images/inktheory_brand_logo.png`)}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-800 rounded text-[11px] border border-slate-300 shadow-2xs cursor-pointer font-medium inline-flex items-center gap-1"
+                      >
+                        🎨 INKTHEORY Logo
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setDefaultSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif')}
                         className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-800 rounded text-[11px] border border-slate-300 shadow-2xs cursor-pointer font-medium"
                       >
@@ -2889,7 +2896,7 @@ export function VisitorFunnelPage() {
                         onClick={() => setDefaultSmsMediaUrl('')}
                         className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-500 rounded text-[11px] border border-slate-300 cursor-pointer"
                       >
-                        🚫 No GIF
+                        🚫 No Image
                       </button>
                     </div>
                   </div>
