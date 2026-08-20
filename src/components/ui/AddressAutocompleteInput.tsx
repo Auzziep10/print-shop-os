@@ -22,14 +22,34 @@ export function normalizeState(stateName: string): string {
   return STATE_ABBRS[lower] || trimmed.toUpperCase();
 }
 
-export function parseAddressString(formattedAddress: string): { street: string; city: string; state: string; zip: string } {
+export function preserveHouseNumber(userQuery: string, parsedStreet: string): string {
+  if (!parsedStreet) return userQuery ? userQuery.trim() : '';
+  if (!userQuery) return parsedStreet;
+  
+  // Extract leading house number from user query (e.g. "712", "712B", "10420", "123-A")
+  const queryHouseNumMatch = userQuery.trim().match(/^(\d+[A-Za-z\-\/]*)\b/);
+  if (!queryHouseNumMatch) return parsedStreet;
+  
+  const queryHouseNum = queryHouseNumMatch[1];
+  
+  // Check if parsedStreet already starts with a house number
+  const streetHasHouseNum = /^(\d+[A-Za-z\-\/]*)\s+/.test(parsedStreet.trim());
+  if (streetHasHouseNum) return parsedStreet;
+  
+  // Prepend the user's typed house number to the street name
+  return `${queryHouseNum} ${parsedStreet.trim()}`.trim();
+}
+
+export function parseAddressString(formattedAddress: string, userQuery?: string): { street: string; city: string; state: string; zip: string } {
   if (!formattedAddress) return { street: '', city: '', state: '', zip: '' };
   
   const clean = formattedAddress.replace(/,\s*(USA|United States)$/i, '').trim();
   const parts = clean.split(',').map(p => p.trim());
   
   if (parts.length === 1) {
-    return { street: parts[0], city: '', state: '', zip: '' };
+    const rawStreet = parts[0];
+    const street = userQuery ? preserveHouseNumber(userQuery, rawStreet) : rawStreet;
+    return { street, city: '', state: '', zip: '' };
   }
   
   const lastPart = parts[parts.length - 1];
@@ -38,22 +58,23 @@ export function parseAddressString(formattedAddress: string): { street: string; 
   let state = '';
   let zip = '';
   let city = '';
-  let street = '';
+  let rawStreet = '';
   
   if (stateZipMatch) {
     state = normalizeState(stateZipMatch[1]);
     zip = stateZipMatch[2];
     city = parts.length >= 3 ? parts[parts.length - 2] : '';
-    street = parts.slice(0, parts.length - 2).join(', ');
+    rawStreet = parts.slice(0, parts.length - 2).join(', ');
   } else if (parts.length >= 3) {
     state = normalizeState(lastPart);
     city = parts[parts.length - 2];
-    street = parts.slice(0, parts.length - 2).join(', ');
+    rawStreet = parts.slice(0, parts.length - 2).join(', ');
   } else if (parts.length === 2) {
-    street = parts[0];
+    rawStreet = parts[0];
     city = parts[1];
   }
   
+  const street = userQuery ? preserveHouseNumber(userQuery, rawStreet) : rawStreet;
   return { street, city, state, zip };
 }
 
@@ -161,12 +182,14 @@ export function AddressAutocompleteInput({
               clearTimeout(safetyTimeout);
               if (status === maps.places.PlacesServiceStatus.OK && predictions?.length) {
                 const googleSuggestions: AddressSuggestion[] = predictions.map((pred: any) => {
-                  const parsed = parseAddressString(pred.description);
+                  const parsed = parseAddressString(pred.description, query);
                   const mainText = pred.structured_formatting?.main_text || pred.description;
+                  const rawStreet = parsed.street || mainText;
+                  const street = preserveHouseNumber(query, rawStreet);
                   return {
                     id: pred.place_id,
                     formattedAddress: pred.description,
-                    street: parsed.street || mainText,
+                    street: street,
                     city: parsed.city,
                     state: parsed.state,
                     zip: parsed.zip,
@@ -211,7 +234,8 @@ export function AddressAutocompleteInput({
           const p = f.properties || {};
           const houseNum = p.housenumber || '';
           const streetName = p.street || p.name || '';
-          const street = houseNum ? `${houseNum} ${streetName}`.trim() : streetName;
+          const rawStreet = houseNum ? `${houseNum} ${streetName}`.trim() : streetName;
+          const street = preserveHouseNumber(queryStr, rawStreet);
           const city = p.city || p.town || p.village || p.county || '';
           const state = normalizeState(p.state || '');
           const zip = p.postcode || '';
@@ -276,7 +300,14 @@ export function AddressAutocompleteInput({
               else if (types.includes('postal_code')) zip = c.long_name;
             });
 
-            const preciseStreet = `${streetNum} ${route}`.trim() || s.street;
+            const queryHouseNumMatch = value.trim().match(/^(\d+[A-Za-z\-\/]*)\b/);
+            const typedHouseNum = queryHouseNumMatch ? queryHouseNumMatch[1] : '';
+            const effectiveHouseNum = streetNum || typedHouseNum;
+            const baseStreet = route || s.street;
+            const preciseStreet = effectiveHouseNum 
+              ? preserveHouseNumber(effectiveHouseNum, baseStreet)
+              : baseStreet;
+
             const updated = {
               street: preciseStreet || s.street,
               city: city || s.city,
