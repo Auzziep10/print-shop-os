@@ -996,7 +996,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
               });
               if (filteredItems.length === 0) return null;
               return (
-                <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+                <div onClick={(e) => e.stopPropagation()} className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
                   <div className="overflow-hidden space-y-4">
                     {/* Header bar */}
                     <div className="flex items-center justify-between pb-4 border-b border-brand-border/40">
@@ -1021,7 +1021,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                             <div 
                              onMouseEnter={() => setHoveredItemId(item.id)}
                              onMouseLeave={() => setHoveredItemId(null)}
-                             onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               if (item.image) setExpandedImage({ src: item.image, alt: item.style });
+                             }}
                              className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-neutral-50 border border-neutral-100'}`}
                              title={item.image ? "Click to view full screen" : "No image provided"}
                            >
