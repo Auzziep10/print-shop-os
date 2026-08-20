@@ -130,9 +130,25 @@ export function AddressAutocompleteInput({
       clearTimeout(debounceTimerRef.current);
     }
 
-    debounceTimerRef.current = setTimeout(async () => {
+    debounceTimerRef.current = setTimeout(() => {
       setIsLoading(true);
       const query = value.trim();
+
+      let hasFinished = false;
+      const finish = (sugg: AddressSuggestion[]) => {
+        if (hasFinished) return;
+        hasFinished = true;
+        setSuggestions(sugg);
+        setIsOpen(sugg.length > 0);
+        setIsLoading(false);
+      };
+
+      // 1.2s Hard Safety Timeout to guarantee the loading spinner never freezes
+      const safetyTimeout = setTimeout(() => {
+        if (!hasFinished) {
+          fetchPhotonSuggestions(query, finish);
+        }
+      }, 1200);
 
       try {
         const maps = (window as any).google?.maps;
@@ -142,6 +158,7 @@ export function AddressAutocompleteInput({
           service.getPlacePredictions(
             { input: query, types: ['address'], componentRestrictions: { country: 'us' } },
             (predictions: any[], status: any) => {
+              clearTimeout(safetyTimeout);
               if (status === maps.places.PlacesServiceStatus.OK && predictions?.length) {
                 const googleSuggestions: AddressSuggestion[] = predictions.map((pred: any) => {
                   const parsed = parseAddressString(pred.description);
@@ -156,21 +173,20 @@ export function AddressAutocompleteInput({
                     placeId: pred.place_id
                   };
                 });
-
-                setSuggestions(googleSuggestions);
-                setIsOpen(googleSuggestions.length > 0);
-                setIsLoading(false);
+                finish(googleSuggestions);
               } else {
-                fetchPhotonSuggestions(query);
+                fetchPhotonSuggestions(query, finish);
               }
             }
           );
         } else {
-          fetchPhotonSuggestions(query);
+          clearTimeout(safetyTimeout);
+          fetchPhotonSuggestions(query, finish);
         }
       } catch (err) {
+        clearTimeout(safetyTimeout);
         console.warn("Google Places autocomplete search error, using fallback:", err);
-        fetchPhotonSuggestions(query);
+        fetchPhotonSuggestions(query, finish);
       }
     }, 200);
 
@@ -179,10 +195,10 @@ export function AddressAutocompleteInput({
     };
   }, [value]);
 
-  const fetchPhotonSuggestions = async (queryStr: string) => {
+  const fetchPhotonSuggestions = async (queryStr: string, finishFn?: (sugg: AddressSuggestion[]) => void) => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
       const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(queryStr)}&limit=5&lang=en`, {
         signal: controller.signal
       });
@@ -214,14 +230,20 @@ export function AddressAutocompleteInput({
         })
         .filter((item: AddressSuggestion) => item.street && (item.city || item.state));
 
-      setSuggestions(photonItems);
-      setIsOpen(photonItems.length > 0);
+      if (finishFn) finishFn(photonItems);
+      else {
+        setSuggestions(photonItems);
+        setIsOpen(photonItems.length > 0);
+        setIsLoading(false);
+      }
     } catch (e) {
       console.warn("Address autocomplete fetch error:", e);
-      setSuggestions([]);
-      setIsOpen(false);
-    } finally {
-      setIsLoading(false);
+      if (finishFn) finishFn([]);
+      else {
+        setSuggestions([]);
+        setIsOpen(false);
+        setIsLoading(false);
+      }
     }
   };
 
