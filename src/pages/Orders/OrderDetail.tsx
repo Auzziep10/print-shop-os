@@ -3674,6 +3674,60 @@ export function OrderDetail() {
                         {/* Item Actions */}
                         <div className="absolute top-0 right-0 flex gap-1.5 opacity-0 group-hover:opacity-100 z-10">
                           <button 
+                            onClick={() => {
+                              const catalogItem = sanmarCatalog.find((i: any) => i.style === item.itemNum || i.style === item.style);
+                              const frontImg = item.originalFrontImage || item.image || catalogItem?.image || (catalogItem?.images ? Object.values(catalogItem.images)[0]?.front : '') || '';
+                              setCustomizingItem({
+                                id: item.id,
+                                style: item.style || 'Custom Garment',
+                                garmentName: item.style || 'Custom Garment',
+                                itemNum: item.itemNum || '',
+                                image: item.image || frontImg,
+                                originalFrontImage: frontImg,
+                                originalBackImage: item.originalBackImage || catalogItem?.backImage || null,
+                                originalSleeveImage: item.originalSleeveImage || null,
+                                customizedFrontImage: item.customizedFrontImage || null,
+                                customizedBackImage: item.customizedBackImage || null,
+                                customizedSleeveImage: item.customizedSleeveImage || null,
+                                images: catalogItem?.images || item.images || null,
+                                backImages: catalogItem?.backImages || item.backImages || null,
+                                colors: catalogItem?.colors || item.colors || (item.color ? [item.color] : ['Custom Color']),
+                                color: item.color || 'Custom Color',
+                                selectedColor: item.color || 'Custom Color',
+                                logoPlacement: item.logoPlacement,
+                                customized: item.customized || false,
+                                logoUrl: item.logoUrl || null,
+                                logoName: item.logoName || null,
+                                logoUrlBack: item.logoUrlBack || null,
+                                logoNameBack: item.logoNameBack || null,
+                                logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
+                                logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+                                logoUrlRightSleeve: item.logoUrlRightSleeve || null,
+                                logoNameRightSleeve: item.logoNameRightSleeve || null,
+                                customScaleFront: item.customScaleFront,
+                                customOffsetXFront: item.customOffsetXFront,
+                                customOffsetYFront: item.customOffsetYFront,
+                                customRotationFront: item.customRotationFront,
+                                customScaleBack: item.customScaleBack,
+                                customOffsetXBack: item.customOffsetXBack,
+                                customOffsetYBack: item.customOffsetYBack,
+                                customRotationBack: item.customRotationBack,
+                                customScaleLeftSleeve: item.customScaleLeftSleeve,
+                                customOffsetXLeftSleeve: item.customOffsetXLeftSleeve,
+                                customOffsetYLeftSleeve: item.customOffsetYLeftSleeve,
+                                customRotationLeftSleeve: item.customRotationLeftSleeve,
+                                customScaleRightSleeve: item.customScaleRightSleeve,
+                                customOffsetXRightSleeve: item.customOffsetXRightSleeve,
+                                customOffsetYRightSleeve: item.customOffsetYRightSleeve,
+                                customRotationRightSleeve: item.customRotationRightSleeve
+                              });
+                            }} 
+                            className="p-1.5 text-brand-secondary hover:text-brand-primary transition-colors bg-white rounded-md shadow-sm border border-brand-border flex items-center justify-center cursor-pointer"
+                            title="Open Garment Customizer"
+                          >
+                            <Sparkles size={14} />
+                          </button>
+                          <button 
                             onClick={() => handleDuplicateItem(item)} 
                             className="p-1.5 text-brand-secondary hover:text-brand-primary transition-colors bg-white rounded-md shadow-sm border border-brand-border flex items-center justify-center"
                             title="Duplicate Garment"
@@ -6806,16 +6860,50 @@ export function OrderDetail() {
                             type="button"
                             onClick={() => {
                               const catalogItem = sanmarCatalog.find((i: any) => i.style === editItemObj.itemNum || i.style === editItemObj.style);
+                              const frontImg = editItemObj.originalFrontImage || editItemObj.image || catalogItem?.image || (catalogItem?.images ? Object.values(catalogItem.images)[0]?.front : '') || '';
                               setCustomizingItem({
                                 id: editItemObj.id,
-                                style: editItemObj.style,
-                                garmentName: editItemObj.style,
-                                itemNum: editItemObj.itemNum,
-                                image: editItemObj.image,
+                                style: editItemObj.style || 'Custom Garment',
+                                garmentName: editItemObj.style || 'Custom Garment',
+                                itemNum: editItemObj.itemNum || '',
+                                image: editItemObj.image || frontImg,
+                                originalFrontImage: frontImg,
+                                originalBackImage: editItemObj.originalBackImage || catalogItem?.backImage || null,
+                                originalSleeveImage: editItemObj.originalSleeveImage || null,
+                                customizedFrontImage: editItemObj.customizedFrontImage || null,
+                                customizedBackImage: editItemObj.customizedBackImage || null,
+                                customizedSleeveImage: editItemObj.customizedSleeveImage || null,
                                 images: catalogItem?.images || editItemObj.images || null,
                                 backImages: catalogItem?.backImages || editItemObj.backImages || null,
-                                colors: catalogItem?.colors || editItemObj.colors || ['Custom Color'],
-                                color: editItemObj.color || 'Custom Color'
+                                colors: catalogItem?.colors || editItemObj.colors || (editItemObj.color ? [editItemObj.color] : ['Custom Color']),
+                                color: editItemObj.color || 'Custom Color',
+                                selectedColor: editItemObj.color || 'Custom Color',
+                                logoPlacement: editItemObj.logoPlacement,
+                                customized: editItemObj.customized || false,
+                                logoUrl: editItemObj.logoUrl || null,
+                                logoName: editItemObj.logoName || null,
+                                logoUrlBack: editItemObj.logoUrlBack || null,
+                                logoNameBack: editItemObj.logoNameBack || null,
+                                logoUrlLeftSleeve: editItemObj.logoUrlLeftSleeve || null,
+                                logoNameLeftSleeve: editItemObj.logoNameLeftSleeve || null,
+                                logoUrlRightSleeve: editItemObj.logoUrlRightSleeve || null,
+                                logoNameRightSleeve: editItemObj.logoNameRightSleeve || null,
+                                customScaleFront: editItemObj.customScaleFront,
+                                customOffsetXFront: editItemObj.customOffsetXFront,
+                                customOffsetYFront: editItemObj.customOffsetYFront,
+                                customRotationFront: editItemObj.customRotationFront,
+                                customScaleBack: editItemObj.customScaleBack,
+                                customOffsetXBack: editItemObj.customOffsetXBack,
+                                customOffsetYBack: editItemObj.customOffsetYBack,
+                                customRotationBack: editItemObj.customRotationBack,
+                                customScaleLeftSleeve: editItemObj.customScaleLeftSleeve,
+                                customOffsetXLeftSleeve: editItemObj.customOffsetXLeftSleeve,
+                                customOffsetYLeftSleeve: editItemObj.customOffsetYLeftSleeve,
+                                customRotationLeftSleeve: editItemObj.customRotationLeftSleeve,
+                                customScaleRightSleeve: editItemObj.customScaleRightSleeve,
+                                customOffsetXRightSleeve: editItemObj.customOffsetXRightSleeve,
+                                customOffsetYRightSleeve: editItemObj.customOffsetYRightSleeve,
+                                customRotationRightSleeve: editItemObj.customRotationRightSleeve
                               });
                             }}
                             className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg py-2.5 flex items-center justify-center gap-2 transition-all shadow-sm text-sm font-semibold cursor-pointer"
