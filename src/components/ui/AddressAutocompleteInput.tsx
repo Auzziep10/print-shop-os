@@ -22,6 +22,41 @@ export function normalizeState(stateName: string): string {
   return STATE_ABBRS[lower] || trimmed.toUpperCase();
 }
 
+export function parseAddressString(formattedAddress: string): { street: string; city: string; state: string; zip: string } {
+  if (!formattedAddress) return { street: '', city: '', state: '', zip: '' };
+  
+  const clean = formattedAddress.replace(/,\s*(USA|United States)$/i, '').trim();
+  const parts = clean.split(',').map(p => p.trim());
+  
+  if (parts.length === 1) {
+    return { street: parts[0], city: '', state: '', zip: '' };
+  }
+  
+  const lastPart = parts[parts.length - 1];
+  const stateZipMatch = lastPart.match(/^([A-Za-z\s]+)\s+(\d{5}(?:-\d{4})?)$/);
+  
+  let state = '';
+  let zip = '';
+  let city = '';
+  let street = '';
+  
+  if (stateZipMatch) {
+    state = normalizeState(stateZipMatch[1]);
+    zip = stateZipMatch[2];
+    city = parts.length >= 3 ? parts[parts.length - 2] : '';
+    street = parts.slice(0, parts.length - 2).join(', ');
+  } else if (parts.length >= 3) {
+    state = normalizeState(lastPart);
+    city = parts[parts.length - 2];
+    street = parts.slice(0, parts.length - 2).join(', ');
+  } else if (parts.length === 2) {
+    street = parts[0];
+    city = parts[1];
+  }
+  
+  return { street, city, state, zip };
+}
+
 export interface AddressSuggestion {
   id: string;
   formattedAddress: string;
@@ -87,6 +122,7 @@ export function AddressAutocompleteInput({
     if (!value || value.trim().length < 3) {
       setSuggestions([]);
       setIsOpen(false);
+      setIsLoading(false);
       return;
     }
 
@@ -101,61 +137,29 @@ export function AddressAutocompleteInput({
       try {
         const maps = (window as any).google?.maps;
 
-        // 1. Try Google Places Autocomplete if API loaded
         if (maps && maps.places) {
           const service = new maps.places.AutocompleteService();
           service.getPlacePredictions(
             { input: query, types: ['address'], componentRestrictions: { country: 'us' } },
             (predictions: any[], status: any) => {
               if (status === maps.places.PlacesServiceStatus.OK && predictions?.length) {
-                const geocoder = new maps.Geocoder();
-                const googleSuggestions: AddressSuggestion[] = [];
-
-                let completed = 0;
-                predictions.slice(0, 5).forEach((pred) => {
-                  geocoder.geocode({ placeId: pred.place_id }, (results: any[], gStatus: any) => {
-                    completed++;
-                    if (gStatus === 'OK' && results?.[0]) {
-                      const res = results[0];
-                      let streetNum = '';
-                      let route = '';
-                      let city = '';
-                      let state = '';
-                      let zip = '';
-
-                      res.address_components?.forEach((c: any) => {
-                        const types = c.types;
-                        if (types.includes('street_number')) streetNum = c.long_name;
-                        else if (types.includes('route')) route = c.short_name || c.long_name;
-                        else if (types.includes('locality')) city = c.long_name;
-                        else if (types.includes('administrative_area_level_1')) state = c.short_name;
-                        else if (types.includes('postal_code')) zip = c.long_name;
-                      });
-
-                      const street = `${streetNum} ${route}`.trim() || pred.structured_formatting?.main_text || '';
-                      googleSuggestions.push({
-                        id: pred.place_id,
-                        formattedAddress: pred.description,
-                        street: street,
-                        city: city,
-                        state: normalizeState(state),
-                        zip: zip,
-                        placeId: pred.place_id
-                      });
-                    }
-
-                    if (completed === Math.min(predictions.length, 5)) {
-                      if (googleSuggestions.length > 0) {
-                        setSuggestions(googleSuggestions);
-                        setIsOpen(true);
-                        setIsLoading(false);
-                      } else {
-                        fetchPhotonSuggestions(query);
-                      }
-                    }
-                  });
+                const googleSuggestions: AddressSuggestion[] = predictions.map((pred: any) => {
+                  const parsed = parseAddressString(pred.description);
+                  const mainText = pred.structured_formatting?.main_text || pred.description;
+                  return {
+                    id: pred.place_id,
+                    formattedAddress: pred.description,
+                    street: parsed.street || mainText,
+                    city: parsed.city,
+                    state: parsed.state,
+                    zip: parsed.zip,
+                    placeId: pred.place_id
+                  };
                 });
-                return;
+
+                setSuggestions(googleSuggestions);
+                setIsOpen(googleSuggestions.length > 0);
+                setIsLoading(false);
               } else {
                 fetchPhotonSuggestions(query);
               }
@@ -177,7 +181,12 @@ export function AddressAutocompleteInput({
 
   const fetchPhotonSuggestions = async (queryStr: string) => {
     try {
-      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(queryStr)}&limit=5&lang=en`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(queryStr)}&limit=5&lang=en`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error("Photon API error");
       const data = await res.json();
 
@@ -217,14 +226,49 @@ export function AddressAutocompleteInput({
   };
 
   const handleSelect = (s: AddressSuggestion) => {
-    onAddressSelect({
-      street: s.street,
-      city: s.city,
-      state: s.state,
-      zip: s.zip
-    });
+    const initialParsed = { street: s.street, city: s.city, state: s.state, zip: s.zip };
+    onAddressSelect(initialParsed);
     onChange(s.street);
     setIsOpen(false);
+
+    // If Google Maps is loaded and zip is missing or detailed components needed, resolve details in background
+    const maps = (window as any).google?.maps;
+    if (s.placeId && maps?.Geocoder) {
+      try {
+        const geocoder = new maps.Geocoder();
+        geocoder.geocode({ placeId: s.placeId }, (results: any[], gStatus: any) => {
+          if (gStatus === 'OK' && results?.[0]) {
+            const res = results[0];
+            let streetNum = '';
+            let route = '';
+            let city = '';
+            let state = '';
+            let zip = '';
+
+            res.address_components?.forEach((c: any) => {
+              const types = c.types;
+              if (types.includes('street_number')) streetNum = c.long_name;
+              else if (types.includes('route')) route = c.short_name || c.long_name;
+              else if (types.includes('locality')) city = c.long_name;
+              else if (types.includes('administrative_area_level_1')) state = c.short_name;
+              else if (types.includes('postal_code')) zip = c.long_name;
+            });
+
+            const preciseStreet = `${streetNum} ${route}`.trim() || s.street;
+            const updated = {
+              street: preciseStreet || s.street,
+              city: city || s.city,
+              state: normalizeState(state || s.state),
+              zip: zip || s.zip
+            };
+            onAddressSelect(updated);
+            if (preciseStreet) onChange(preciseStreet);
+          }
+        });
+      } catch (e) {
+        console.warn("Background geocoding error:", e);
+      }
+    }
   };
 
   return (
