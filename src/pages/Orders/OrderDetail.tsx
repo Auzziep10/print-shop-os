@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -21,6 +21,7 @@ import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomize
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
+import { GARMENT_TYPES, detectGarmentTypeTag } from '../../lib/garmentUtils';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
@@ -1502,6 +1503,9 @@ export function OrderDetail() {
   const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(false);
+  const [deckModalTab, setDeckModalTab] = useState<'types' | 'decks'>('types');
+  const [deckModalSearch, setDeckModalSearch] = useState<string>('');
+  const [deckModalGarmentType, setDeckModalGarmentType] = useState<string>('all');
 
   const handleFetchDecks = async () => {
     if (!liveCustomer?.catalogLinkIds || liveCustomer.catalogLinkIds.length === 0) {
@@ -3642,18 +3646,16 @@ export function OrderDetail() {
                  >
                    <Plus size={14} /> Add Item
                  </PillButton>
-                 {(liveCustomer?.catalogLinkIds?.length > 0) && (
-                    <PillButton 
-                      variant="filled" 
-                      onClick={() => {
-                        setIsDeckModalOpen(true);
-                        handleFetchDecks();
-                      }}
-                      className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800 shadow-sm border border-transparent font-bold"
-                    >
-                      <PackagePlus size={14} /> Pull from Deck
-                    </PillButton>
-                 )}
+                  <PillButton 
+                    variant="filled" 
+                    onClick={() => {
+                      setIsDeckModalOpen(true);
+                      handleFetchDecks();
+                    }}
+                    className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800 shadow-sm border border-transparent font-bold cursor-pointer"
+                  >
+                    <Shirt size={14} /> Select Garment / Catalog
+                  </PillButton>
                </div>
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
@@ -6698,12 +6700,20 @@ export function OrderDetail() {
               </div>
               <div className="flex items-center gap-3">
                  {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
-                   <button 
-                     onClick={() => setIsShopifySearchOpen(!isShopifySearchOpen)}
-                     className="text-xs font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-3 py-1.5 rounded-lg flex items-center gap-2 hover:border-brand-primary transition-colors text-brand-primary"
-                   >
-                     <ShoppingBag size={14} /> Link Shopify Product
-                   </button>
+                   <>
+                     <button 
+                       onClick={() => { setIsDeckModalOpen(true); handleFetchDecks(); }}
+                       className="text-xs font-bold uppercase tracking-widest bg-brand-primary text-white border border-brand-primary px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-brand-primary/90 transition-colors shadow-sm cursor-pointer"
+                     >
+                       <Shirt size={14} /> Select Garment / Catalog
+                     </button>
+                     <button 
+                       onClick={() => setIsShopifySearchOpen(!isShopifySearchOpen)}
+                       className="text-xs font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-3 py-1.5 rounded-lg flex items-center gap-2 hover:border-brand-primary transition-colors text-brand-primary cursor-pointer"
+                     >
+                       <ShoppingBag size={14} /> Link Shopify Product
+                     </button>
+                   </>
                  )}
                  <button 
                    onClick={() => { setEditItemObj(null); setIsShopifySearchOpen(false); setShopifyProducts([]); }} 
@@ -7746,133 +7756,326 @@ export function OrderDetail() {
         </div>
       )}
 
-      {/* Add From Deck Modal */}
+      {/* Add From Deck / Garment Types Modal */}
       {isDeckModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setIsDeckModalOpen(false)}>
-          <div className="bg-brand-bg rounded-3xl p-0 max-w-2xl w-full flex flex-col shadow-2xl border border-brand-border my-auto overflow-hidden max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <div className="px-8 py-6 border-b border-brand-border bg-white flex items-center justify-between sticky top-0 z-10 shadow-sm">
-              <div>
-                <h2 className="text-xl font-serif text-brand-primary">Select from Assigned Decks</h2>
-                <p className="text-sm font-medium text-brand-secondary mt-1">Pre-fill the item editor with a garment from the catalog.</p>
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setIsDeckModalOpen(false)}>
+          <div className="bg-brand-bg rounded-3xl p-0 max-w-4xl w-full flex flex-col shadow-2xl border border-brand-border my-auto overflow-hidden max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-brand-border bg-white flex flex-col gap-4 sticky top-0 z-10 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-serif text-brand-primary flex items-center gap-2">
+                    <Shirt size={20} className="text-brand-secondary" />
+                    Select Garment from Storefront & Catalog
+                  </h2>
+                  <p className="text-xs font-medium text-brand-secondary mt-0.5">Select a garment type or catalog item to pre-fill the order item specifications.</p>
+                </div>
+                <button 
+                  onClick={() => setIsDeckModalOpen(false)}
+                  className="w-9 h-9 rounded-full bg-neutral-100 hover:bg-neutral-200 border border-brand-border flex items-center justify-center text-brand-secondary hover:text-black transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button 
-                onClick={() => setIsDeckModalOpen(false)}
-                className="w-10 h-10 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-brand-secondary hover:text-black hover:border-black transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar bg-neutral-50 min-h-[400px]">
-              {isLoadingDecks ? (
-                <div className="flex items-center justify-center p-8">
-                  <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full"></div>
+
+              {/* Navigation Tabs & Search */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+                <div className="flex bg-neutral-100 p-1 rounded-xl shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDeckModalTab('types')}
+                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                      deckModalTab === 'types' 
+                        ? 'bg-white shadow-sm text-brand-primary' 
+                        : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    Garment Types
+                  </button>
+                  {customerDecks.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDeckModalTab('decks')}
+                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                        deckModalTab === 'decks' 
+                          ? 'bg-white shadow-sm text-brand-primary' 
+                          : 'text-brand-secondary hover:text-brand-primary'
+                      }`}
+                    >
+                      Assigned Decks ({customerDecks.length})
+                    </button>
+                  )}
                 </div>
-              ) : customerDecks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center text-brand-secondary h-full">
-                  <PackagePlus size={32} className="mb-4 text-brand-secondary/40" />
-                  <p>No catalog decks connected for this client.</p>
-                  <p className="text-xs mt-2">Connect decks via the Edit Company panel.</p>
+
+                <div className="relative flex-1 max-w-md">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={deckModalSearch}
+                    onChange={(e) => setDeckModalSearch(e.target.value)}
+                    placeholder="Search styles, item #, brands (e.g. District, Bella, Gildan)..."
+                    className="w-full bg-neutral-50 border border-brand-border rounded-xl pl-9 pr-8 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary focus:bg-white transition-all outline-none"
+                  />
+                  {deckModalSearch && (
+                    <button
+                      onClick={() => setDeckModalSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
-              ) : (
-                customerDecks.map((deck) => (
-                  <div key={deck.id || deck.name} className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                    <div className="bg-white rounded-2xl p-6 border border-brand-border flex flex-col justify-center items-center text-center shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
-                       <h3 className="font-bold text-brand-primary tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
-                       {deck.name && (
-                         <p className="text-brand-secondary font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
-                       )}
-                    </div>
+              </div>
 
-                    <div className="flex flex-col gap-3 mt-1">
-                      {(deck.items || deck.garments || []).map((item: any, idx: number) => {
-                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                        const gender = item.gender || 'Unisex';
-                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                        let colors = ['Custom Color']; 
-                        if (Array.isArray(item.colors) && item.colors.length > 0) colors = item.colors;
-                        else if (Array.isArray(item.availableColors)) colors = item.availableColors;
-                        else if (Array.isArray(item.variations) && item.variations.length > 0) colors = item.variations.map((v:any) => v.color).filter(Boolean);
-                        
-                        const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
-                        const overriddenImage = liveCustomer?.deckMockupOverrides?.[itemKey];
-                        const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                        
-                        const deckStr = JSON.stringify(deck).toLowerCase();
-                        const itemStr = JSON.stringify(item).toLowerCase();
-                        const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
-                        
-                        const basePrice = parseFloat((item.msrp || item.price || item.unit_cost || '0').toString().replace(/[^0-9.]/g, '')) || 0;
-                        const numericPrice = isRush ? basePrice * 1.15 : basePrice;
-                        const formattedPrice = numericPrice ? `$${numericPrice.toFixed(2)}` : '$0.00';
-                        
-                        return (
-                          <div 
-                            key={item.id || idx} 
-                            onClick={() => {
-                               setIsDeckModalOpen(false);
-
-                               // Construct sizes object properly to handle both arrays (e.g. ['S', 'M']) and objects
-                               let initialSizes: Record<string, number> = { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 };
-                               if (Array.isArray(item.sizes)) {
-                                 item.sizes.forEach((s: any) => {
-                                   if (typeof s === 'string') {
-                                     initialSizes[s] = 0;
-                                   }
-                                 });
-                               } else if (item.sizes && typeof item.sizes === 'object') {
-                                 initialSizes = { ...initialSizes, ...item.sizes };
-                               }
-
-                               setEditItemObj({
-                                 id: `item-${Date.now()}`,
-                                 gender: gender,
-                                 style: style,
-                                 itemNum: itemNum,
-                                 color: colors[0] || '',
-                                 sizes: initialSizes,
-                                 price: numericPrice ? numericPrice : formattedPrice,
-                                 qty: 0,
-                                 total: '$0.00',
-                                 image: image,
-                                 materialDetails: item.fabric_details || item.materialDetails || item.fabric || item.garment?.fabric || item.garmentSpecs?.fabric || item.specs?.fabric || '',
-                                 materialFinish: item.fabric_finish || item.fabricFinish || item.finish || item.garment?.finish || item.garmentSpecs?.finish || item.specs?.finish || '',
-                                 fit: item.fit_cut || item.fit || item.garment?.fit || item.garmentSpecs?.fit || item.specs?.fit || '',
-                                 weight: item.fabric_weight_gsm || item.fabric_weight || item.weight || item.garment?.weight || item.garmentSpecs?.weight || item.specs?.weight || '',
-                                 careInstructions: item.care_instructions || item.careInstructions || item.garment?.careInstructions || item.garmentSpecs?.careInstructions || item.specs?.careInstructions || '',
-                                 decoratingMethods: item.decoration_method || item.decorating_methods || item.decoratingMethods || item.garment?.decoratingMethods || item.garmentSpecs?.decoratingMethods || item.specs?.decoratingMethods || [],
-                                 threadColors: item.thread_colors || item.threadColors || item.garment?.threadColors || item.garmentSpecs?.threadColors || item.specs?.threadColors || '',
-                                 turnaroundTime: item.turn_time || item.turnaround_time || item.turnaroundTime || item.garment?.turnaroundTime || item.garmentSpecs?.turnaroundTime || item.specs?.turnaroundTime || '',
-                                 moq: item.moq || item.garment?.moq || item.garmentSpecs?.moq || item.specs?.moq || '',
-                                 costPrice: item.cost_price || item.costPrice || item.garment?.costPrice || item.garment?.cost_price || item.garmentSpecs?.costPrice || item.specs?.costPrice || '',
-                                 wholesalePrice: item.wholesale_price || item.wholesalePrice || item.garment?.wholesalePrice || item.garment?.wholesale_price || item.garmentSpecs?.wholesalePrice || item.specs?.wholesalePrice || ''
-                               });
-                            }}
-                            className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                          >
-                            <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-transparent shrink-0 flex items-center justify-center">
-                              <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                 <h4 className="font-bold text-brand-primary text-[15px] truncate pr-2">{style}</h4>
-                                 <span className="text-[10px] font-bold text-brand-secondary bg-brand-bg px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                              </div>
-                              {itemNum && itemNum.length < 15 && (
-                                <p className="text-xs font-semibold text-brand-secondary">{itemNum}</p>
-                              )}
-                              <p className="text-xs text-brand-secondary/60 font-medium mt-1 truncate max-w-sm">{colors.join(' • ')}</p>
-                            </div>
-                            <div className="w-8 h-8 rounded-full bg-brand-bg text-brand-secondary group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shrink-0">
-                               <PackagePlus size={16} strokeWidth={2.5} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))
+              {/* Garment Type Pills (when Garment Types tab active) */}
+              {deckModalTab === 'types' && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs font-medium border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeckModalGarmentType('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      deckModalGarmentType === 'all'
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                    }`}
+                  >
+                    All Types
+                  </button>
+                  {GARMENT_TYPES.map((gt) => (
+                    <button
+                      key={gt.id}
+                      type="button"
+                      onClick={() => setDeckModalGarmentType(gt.id)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        deckModalGarmentType === gt.id
+                          ? 'bg-brand-primary text-white'
+                          : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                      }`}
+                    >
+                      {gt.label}
+                    </button>
+                  ))}
+                </div>
               )}
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar bg-neutral-50 min-h-[400px]">
+              {deckModalTab === 'types' ? (() => {
+                const searchLower = deckModalSearch.trim().toLowerCase();
+                const filteredCatalog = sanmarCatalog.filter((item: any) => {
+                  if (deckModalGarmentType !== 'all') {
+                    const tag = detectGarmentTypeTag(item);
+                    if (tag !== deckModalGarmentType) return false;
+                  }
+                  if (searchLower) {
+                    const haystack = `${item.title || ''} ${item.style || ''} ${item.brand || ''} ${item.category || ''} ${item.description || ''}`.toLowerCase();
+                    if (!haystack.includes(searchLower)) return false;
+                  }
+                  return true;
+                });
+
+                if (filteredCatalog.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary h-full">
+                      <Shirt size={40} className="mb-3 text-brand-secondary/30" />
+                      <p className="font-bold text-base text-brand-primary">No garments match your filter</p>
+                      <p className="text-xs mt-1 max-w-sm text-neutral-500">Try selecting "All Types" or clearing your search keywords to view the catalog.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredCatalog.slice(0, 80).map((item: any, idx: number) => {
+                      const style = item.title || item.style || 'Custom Garment';
+                      const itemNum = item.style || item.id || '';
+                      const brand = item.brand || '';
+                      const colors = Array.isArray(item.colors) && item.colors.length > 0 ? item.colors : ['White', 'Black'];
+                      
+                      let imgUrl = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      if (typeof item.image === 'string' && item.image) imgUrl = item.image;
+                      else if (typeof item.mockup_image === 'string' && item.mockup_image) imgUrl = item.mockup_image;
+                      else if (item.images) {
+                        const firstImg = Object.values(item.images)[0] as any;
+                        if (typeof firstImg === 'string') imgUrl = firstImg;
+                        else if (firstImg?.front) imgUrl = firstImg.front;
+                      }
+
+                      const numericPrice = parseFloat(item.price || item.msrp || 0) || 0;
+
+                      return (
+                        <div
+                          key={`${itemNum}-${idx}`}
+                          onClick={() => {
+                            setIsDeckModalOpen(false);
+                            setEditItemObj((prev: any) => ({
+                              ...(prev || {}),
+                              id: prev?.id || `item-${Date.now()}`,
+                              itemType: 'garment',
+                              gender: item.gender || prev?.gender || 'Unisex',
+                              style: style,
+                              itemNum: itemNum,
+                              color: colors[0] || 'White',
+                              colors: colors,
+                              sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
+                              price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice > 0 ? numericPrice.toFixed(2) : '0.00'),
+                              blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
+                              total: prev?.total || '$0.00',
+                              image: imgUrl,
+                              materialDetails: item.description || item.fabric || item.materialDetails || prev?.materialDetails || '',
+                              materialFinish: item.finish || prev?.materialFinish || '',
+                              fit: item.fit || prev?.fit || '',
+                              weight: item.weight || prev?.weight || '',
+                              careInstructions: item.careInstructions || prev?.careInstructions || '',
+                              decoratingMethods: item.decoratingMethods || prev?.decoratingMethods || [],
+                              costPrice: numericPrice,
+                              wholesalePrice: numericPrice
+                            }));
+                          }}
+                          className="group flex items-center gap-4 bg-white border border-brand-border hover:border-brand-primary transition-all rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                        >
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 shrink-0 flex items-center justify-center p-1 border border-neutral-100">
+                            <img src={imgUrl} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <h4 className="font-bold text-brand-primary text-sm truncate">{style}</h4>
+                              {numericPrice > 0 && (
+                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">${numericPrice.toFixed(2)}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {brand && <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">{brand}</span>}
+                              {itemNum && <span className="text-xs font-semibold text-neutral-500">{itemNum}</span>}
+                            </div>
+                            <p className="text-[11px] text-neutral-400 font-medium mt-1 truncate max-w-xs">{colors.join(' • ')}</p>
+                          </div>
+                          <div className="w-8 h-8 rounded-full bg-brand-bg text-brand-secondary group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+                            <PackagePlus size={16} strokeWidth={2.5} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
+                isLoadingDecks ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full"></div>
+                  </div>
+                ) : customerDecks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-brand-secondary h-full">
+                    <PackagePlus size={32} className="mb-4 text-brand-secondary/40" />
+                    <p className="font-bold text-brand-primary">No catalog decks connected for this client.</p>
+                    <p className="text-xs mt-1 text-neutral-500">Connect decks via the Edit Company panel.</p>
+                  </div>
+                ) : (
+                  customerDecks.map((deck) => (
+                    <div key={deck.id || deck.name} className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                      <div className="bg-white rounded-2xl p-6 border border-brand-border flex flex-col justify-center items-center text-center shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+                         <h3 className="font-bold text-brand-primary tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
+                         {deck.name && (
+                           <p className="text-brand-secondary font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
+                         )}
+                      </div>
+
+                      <div className="flex flex-col gap-3 mt-1">
+                        {(deck.items || deck.garments || []).map((item: any, idx: number) => {
+                          const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                          const gender = item.gender || 'Unisex';
+                          const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                          let colors = ['Custom Color']; 
+                          if (Array.isArray(item.colors) && item.colors.length > 0) colors = item.colors;
+                          else if (Array.isArray(item.availableColors)) colors = item.availableColors;
+                          else if (Array.isArray(item.variations) && item.variations.length > 0) colors = item.variations.map((v:any) => v.color).filter(Boolean);
+                          
+                          const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+                          const overriddenImage = liveCustomer?.deckMockupOverrides?.[itemKey];
+                          const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                          
+                          const deckStr = JSON.stringify(deck).toLowerCase();
+                          const itemStr = JSON.stringify(item).toLowerCase();
+                          const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
+                          
+                          const basePrice = parseFloat((item.msrp || item.price || item.unit_cost || '0').toString().replace(/[^0-9.]/g, '')) || 0;
+                          const numericPrice = isRush ? basePrice * 1.15 : basePrice;
+                          const formattedPrice = numericPrice ? `$${numericPrice.toFixed(2)}` : '$0.00';
+                          
+                          return (
+                            <div 
+                              key={item.id || idx} 
+                              onClick={() => {
+                                 setIsDeckModalOpen(false);
+
+                                 let initialSizes: Record<string, number> = { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 };
+                                 if (Array.isArray(item.sizes)) {
+                                   item.sizes.forEach((s: any) => {
+                                     if (typeof s === 'string') {
+                                       initialSizes[s] = 0;
+                                     }
+                                   });
+                                 } else if (item.sizes && typeof item.sizes === 'object') {
+                                   initialSizes = { ...initialSizes, ...item.sizes };
+                                 }
+
+                                 setEditItemObj((prev: any) => ({
+                                   ...(prev || {}),
+                                   id: prev?.id || `item-${Date.now()}`,
+                                   itemType: 'garment',
+                                   gender: gender,
+                                   style: style,
+                                   itemNum: itemNum,
+                                   color: colors[0] || '',
+                                   colors: colors,
+                                   sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : initialSizes,
+                                   price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice ? numericPrice : formattedPrice),
+                                   blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
+                                   total: prev?.total || '$0.00',
+                                   image: image,
+                                   materialDetails: item.fabric_details || item.materialDetails || item.fabric || item.garment?.fabric || item.garmentSpecs?.fabric || item.specs?.fabric || '',
+                                   materialFinish: item.fabric_finish || item.fabricFinish || item.finish || item.garment?.finish || item.garmentSpecs?.finish || item.specs?.finish || '',
+                                   fit: item.fit_cut || item.fit || item.garment?.fit || item.garmentSpecs?.fit || item.specs?.fit || '',
+                                   weight: item.fabric_weight_gsm || item.fabric_weight || item.weight || item.garment?.weight || item.garmentSpecs?.weight || item.specs?.weight || '',
+                                   careInstructions: item.care_instructions || item.careInstructions || item.garment?.careInstructions || item.garmentSpecs?.careInstructions || item.specs?.careInstructions || '',
+                                   decoratingMethods: item.decoration_method || item.decorating_methods || item.decoratingMethods || item.garment?.decoratingMethods || item.garmentSpecs?.decoratingMethods || item.specs?.decoratingMethods || [],
+                                   threadColors: item.thread_colors || item.threadColors || item.garment?.threadColors || item.garmentSpecs?.threadColors || item.specs?.threadColors || '',
+                                   turnaroundTime: item.turn_time || item.turnaround_time || item.turnaroundTime || item.garment?.turnaroundTime || item.garmentSpecs?.turnaroundTime || item.specs?.turnaroundTime || '',
+                                   moq: item.moq || item.garment?.moq || item.garmentSpecs?.moq || item.specs?.moq || '',
+                                   costPrice: item.cost_price || item.costPrice || item.garment?.costPrice || item.garment?.cost_price || item.garmentSpecs?.costPrice || item.specs?.costPrice || '',
+                                   wholesalePrice: item.wholesale_price || item.wholesalePrice || item.garment?.wholesalePrice || item.garment?.wholesale_price || item.garmentSpecs?.wholesalePrice || item.specs?.wholesalePrice || ''
+                                 }));
+                              }}
+                              className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                            >
+                              <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-transparent shrink-0 flex items-center justify-center">
+                                <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                   <h4 className="font-bold text-brand-primary text-[15px] truncate pr-2">{style}</h4>
+                                   <span className="text-[10px] font-bold text-brand-secondary bg-brand-bg px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                                </div>
+                                {itemNum && itemNum.length < 15 && (
+                                  <p className="text-xs font-semibold text-brand-secondary">{itemNum}</p>
+                                )}
+                                <p className="text-xs text-brand-secondary/60 font-medium mt-1 truncate max-w-sm">{colors.join(' • ')}</p>
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-brand-bg text-brand-secondary group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+                                 <PackagePlus size={16} strokeWidth={2.5} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
             </div>
           </div>
         </div>
