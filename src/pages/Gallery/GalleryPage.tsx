@@ -117,6 +117,8 @@ export function GalleryPage() {
     return DEFAULT_GALLERY_SETTINGS;
   });
 
+  const [selectedCategory, setSelectedCategory] = useState<string>('T-SHIRT');
+  const [activeFilter, setActiveFilter] = useState<'garmentTypes' | 'occasion'>('garmentTypes');
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
 
   // Admin Editor State
@@ -129,7 +131,7 @@ export function GalleryPage() {
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [isAddingNewItem, setIsAddingNewItem] = useState(false);
 
-  // Firestore Realtime Listener
+  // Firestore Realtime Listener for Gallery Settings
   useEffect(() => {
     const unsub = onSnapshot(
       doc(db, 'settings', 'gallery'),
@@ -153,6 +155,73 @@ export function GalleryPage() {
       },
       (err) => {
         console.warn('Gallery settings listener error:', err);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  // Firestore Realtime Listener for Storefront Catalog Settings
+  useEffect(() => {
+    const unsub = onSnapshot(
+      doc(db, 'settings', 'storefront-catalog'),
+      (snap) => {
+        if (snap.exists()) {
+          const catData = snap.data();
+          const customNames = catData.customNames || {};
+          const customSpecs = catData.customSpecs || {};
+          const cardImages = catData.cardImages || {};
+
+          // Update items with active storefront catalog settings if available
+          setSettings((prev) => ({
+            ...prev,
+            items: prev.items.map((item) => {
+              const styleKey = item.title.toLowerCase();
+              let updatedTitle = item.title;
+              let updatedSpecs = item.specs;
+              let updatedImage = item.imageUrl;
+
+              if (cardImages[styleKey]) {
+                updatedImage = cardImages[styleKey];
+              }
+
+              if (customNames.racks) {
+                for (const cat of Object.keys(customNames.racks)) {
+                  const slots = customNames.racks[cat];
+                  if (slots) {
+                    for (const sKey of Object.keys(slots)) {
+                      if (slots[sKey]?.trim() && sKey.toLowerCase() === styleKey) {
+                        updatedTitle = slots[sKey].trim();
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (customSpecs.racks) {
+                for (const cat of Object.keys(customSpecs.racks)) {
+                  const slots = customSpecs.racks[cat];
+                  if (slots) {
+                    for (const sKey of Object.keys(slots)) {
+                      if (slots[sKey]?.trim() && sKey.toLowerCase() === styleKey) {
+                        updatedSpecs = slots[sKey].trim();
+                      }
+                    }
+                  }
+                }
+              }
+
+              return {
+                ...item,
+                title: updatedTitle,
+                specs: updatedSpecs,
+                imageUrl: updatedImage,
+              };
+            }),
+          }));
+        }
+      },
+      (err) => {
+        console.warn('Storefront catalog settings listener error:', err);
       }
     );
     return () => unsub();
@@ -192,8 +261,13 @@ export function GalleryPage() {
     }
   };
 
-  // Display all items in the gallery
-  const displayItems = settings.items;
+  const categoriesWithoutAll = settings.categories.filter((c) => c !== 'ALL');
+
+  // Filter items by category tab
+  const displayItems = settings.items.filter((item) => {
+    if (selectedCategory === 'ALL') return true;
+    return item.category.toUpperCase() === selectedCategory.toUpperCase();
+  });
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-zinc-950 font-sans">
@@ -271,30 +345,123 @@ export function GalleryPage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* GARMENT GALLERY GRID (4 Side-by-Side Sharp Square Images)          */}
+      {/* FILTER & CATEGORY TABS SUB-HEADER                                   */}
       {/* ------------------------------------------------------------------ */}
-      <main className="max-w-[1600px] mx-auto px-4 py-8 sm:px-6 md:px-10">
+      <div className="border-b border-zinc-200 bg-white">
+        {/* Top Control Bar (Garment Types & Occasion) */}
+        <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-3 sm:px-8 md:px-12 border-b border-zinc-100">
+          <button
+            onClick={() => setActiveFilter('garmentTypes')}
+            className={`font-inter rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
+              activeFilter === 'garmentTypes'
+                ? 'bg-zinc-950 text-white'
+                : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
+            }`}
+          >
+            Garment Types
+          </button>
+          <button
+            onClick={() => setActiveFilter('occasion')}
+            className={`font-inter rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
+              activeFilter === 'occasion'
+                ? 'bg-zinc-950 text-white'
+                : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-400'
+            }`}
+          >
+            Occasion
+          </button>
+        </div>
+
+        {/* Category Tabs Bar */}
+        <div className="flex overflow-x-auto justify-center gap-6 px-4 py-3.5 sm:gap-10 sm:px-8 md:px-12 scrollbar-none">
+          {categoriesWithoutAll.map((cat) => {
+            const isActive = selectedCategory.toUpperCase() === cat.toUpperCase();
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`font-inter whitespace-nowrap text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all pb-1 relative cursor-pointer ${
+                  isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-700'
+                }`}
+              >
+                {cat}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-zinc-950 rounded-full" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* GARMENT GALLERY GRID                                               */}
+      {/* ------------------------------------------------------------------ */}
+      <main className="max-w-7xl mx-auto px-4 py-10 sm:px-8 md:px-12">
         {displayItems.length === 0 ? (
           <div className="py-20 text-center text-zinc-500 font-inter text-sm">
-            No items in gallery. Add items using "Customize Gallery" above.
+            No items in category "{selectedCategory}". Add items using "Customize Gallery" above.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             {displayItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setActiveLightboxImage(item.imageUrl)}
-                className="group relative aspect-square w-full overflow-hidden bg-zinc-100 rounded-none border border-zinc-200/80 cursor-pointer"
-              >
-                <img
-                  src={item.imageUrl}
-                  alt={item.title}
-                  className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-950/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-none shadow-lg">
-                    Click to Enlarge
-                  </span>
+              <div key={item.id} className="group flex flex-col space-y-3">
+                {/* Garment Image Card (Clean photo, NO plus buttons) */}
+                <div
+                  onClick={() => setActiveLightboxImage(item.imageUrl)}
+                  className="relative aspect-square w-full overflow-hidden bg-zinc-100 rounded-none border border-zinc-200/80 cursor-pointer"
+                >
+                  <img
+                    src={item.imageUrl}
+                    alt={item.title}
+                    className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-950/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 rounded-none shadow-lg">
+                      Click to Enlarge
+                    </span>
+                  </div>
+                </div>
+
+                {/* Item Details Footer */}
+                <div className="space-y-1.5 pt-1">
+                  {/* Title and Color Swatches */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-serif text-lg font-bold tracking-tight text-zinc-950">
+                      {item.title}
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      {item.colors.map((hex, i) => (
+                        <span
+                          key={i}
+                          className="h-3 w-3 rounded-full border border-black/10 shadow-2xs"
+                          style={{ backgroundColor: hex }}
+                        />
+                      ))}
+                      {item.colorCount > 0 && (
+                        <span className="font-mono text-[10px] text-zinc-500 font-semibold ml-1">
+                          {item.colorCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Fit Options Indicator */}
+                  <div className="font-inter flex items-center gap-2 text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
+                    {item.fitOptions.map((fit, idx) => (
+                      <span
+                        key={fit}
+                        className={idx === item.activeFitIndex ? 'text-zinc-950 font-bold underline' : ''}
+                      >
+                        {fit}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Specs Line */}
+                  <p className="font-inter text-[11px] text-zinc-500 font-light tracking-tight">
+                    {item.specs}
+                  </p>
                 </div>
               </div>
             ))}
