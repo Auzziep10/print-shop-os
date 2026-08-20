@@ -184,26 +184,28 @@ export function GalleryPage() {
                 updatedImage = cardImages[styleKey];
               }
 
-              if (customNames.racks) {
+              if (customNames?.racks) {
                 for (const cat of Object.keys(customNames.racks)) {
                   const slots = customNames.racks[cat];
-                  if (slots) {
+                  if (slots && typeof slots === 'object') {
                     for (const sKey of Object.keys(slots)) {
-                      if (slots[sKey]?.trim() && sKey.toLowerCase() === styleKey) {
-                        updatedTitle = slots[sKey].trim();
+                      const val = slots[sKey];
+                      if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                        updatedTitle = val.trim();
                       }
                     }
                   }
                 }
               }
 
-              if (customSpecs.racks) {
+              if (customSpecs?.racks) {
                 for (const cat of Object.keys(customSpecs.racks)) {
                   const slots = customSpecs.racks[cat];
-                  if (slots) {
+                  if (slots && typeof slots === 'object') {
                     for (const sKey of Object.keys(slots)) {
-                      if (slots[sKey]?.trim() && sKey.toLowerCase() === styleKey) {
-                        updatedSpecs = slots[sKey].trim();
+                      const val = slots[sKey];
+                      if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                        updatedSpecs = val.trim();
                       }
                     }
                   }
