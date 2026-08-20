@@ -223,29 +223,35 @@ export function GalleryPage() {
           const customColors = catData.customColors || {};
           const garmentTypeTags = catData.garmentTypeTags || {};
 
-          // Collect all active styles across racks, basics, and custom items
+          const hiddenCollections = catData.hiddenCollections || {};
+
+          // Collect all active styles across non-hidden racks, basics, and custom items
           const styleSet = new Set<string>();
 
-          // 1. Racks
+          // 1. Racks (skip hidden collections)
           if (racks) {
             Object.keys(racks).forEach((cat) => {
-              const catObj = racks[cat];
-              if (catObj && typeof catObj === 'object') {
-                Object.values(catObj).forEach((s) => {
-                  if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
-                });
+              if (!hiddenCollections[cat]) {
+                const catObj = racks[cat];
+                if (catObj && typeof catObj === 'object') {
+                  Object.values(catObj).forEach((s) => {
+                    if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
+                  });
+                }
               }
             });
           }
 
-          // 2. Basics
+          // 2. Basics (skip hidden collections)
           if (basics) {
             Object.keys(basics).forEach((cat) => {
-              const catObj = basics[cat];
-              if (catObj && typeof catObj === 'object') {
-                Object.values(catObj).forEach((s) => {
-                  if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
-                });
+              if (!hiddenCollections[cat]) {
+                const catObj = basics[cat];
+                if (catObj && typeof catObj === 'object') {
+                  Object.values(catObj).forEach((s) => {
+                    if (typeof s === 'string' && s.trim()) styleSet.add(s.trim().toLowerCase());
+                  });
+                }
               }
             });
           }
@@ -270,8 +276,11 @@ export function GalleryPage() {
               : null;
             const baseProduct = sanmarMatch || customMatch;
 
-            // Resolve custom title if specified in Storefront Catalog settings
+            // Check if there is a custom name or spec configured
+            let customNameFound = false;
+            let customSpecFound = false;
             let title = '';
+
             if (customNames?.racks) {
               for (const cat of Object.keys(customNames.racks)) {
                 const slots = customNames.racks[cat];
@@ -280,6 +289,7 @@ export function GalleryPage() {
                     const val = slots[sKey];
                     if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
                       title = val.trim();
+                      customNameFound = true;
                     }
                   }
                 }
@@ -293,6 +303,7 @@ export function GalleryPage() {
                     const val = slots[sKey];
                     if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
                       title = val.trim();
+                      customNameFound = true;
                     }
                   }
                 }
@@ -303,6 +314,34 @@ export function GalleryPage() {
             }
             if (!title) {
               title = styleKey.toUpperCase();
+            }
+
+            // Check for custom specs
+            if (customSpecs?.racks) {
+              for (const cat of Object.keys(customSpecs.racks)) {
+                const slots = customSpecs.racks[cat];
+                if (slots && typeof slots === 'object') {
+                  for (const sKey of Object.keys(slots)) {
+                    const val = slots[sKey];
+                    if (typeof val === 'string' && val.trim() && sKey.toLowerCase() === styleKey) {
+                      customSpecFound = true;
+                    }
+                  }
+                }
+              }
+            }
+
+            // Exclude raw un-customized default SanMar blanks (no custom card image, no color mockup, no custom name/spec, and not custom imported)
+            const hasCustomization = !!(
+              cardImages[styleKey] ||
+              colorMockups[styleKey] ||
+              customNameFound ||
+              customSpecFound ||
+              customMatch
+            );
+
+            if (!hasCustomization) {
+              return; // Filter out raw un-customized SanMar default blanks
             }
 
             // Resolve Primary Image (Card Image -> Color Mockup Front -> SanMar Front -> Custom Image)
