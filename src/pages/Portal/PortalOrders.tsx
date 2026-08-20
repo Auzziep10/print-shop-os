@@ -1284,14 +1284,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   {/* Resubmit Quote Callout Banner (when order has modified quantities) */}
                   {order.statusIndex < 3 && (modifiedOrderIds.has(order.id) || order.isModified) && (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-neutral-900 text-white rounded-2xl p-4 mt-6 shadow-lg border border-neutral-800 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                          <Sparkles size={16} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-white">Quantities Updated ({totalGarments} Garments Total)</p>
-                          <p className="text-[11px] text-neutral-400">Resubmit to send your updated size quantities to our team.</p>
-                        </div>
+                      <div>
+                        <p className="text-xs font-bold text-white">Quantities Updated ({totalGarments} Garments Total)</p>
+                        <p className="text-[11px] text-neutral-400">Resubmit to send your updated size quantities to our team.</p>
                       </div>
                       <button
                         onClick={(e) => handleResubmitOrder(order, e)}
