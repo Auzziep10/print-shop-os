@@ -8390,6 +8390,8 @@ export function OrderDetail() {
             setIsDtfToolOpen(false);
           }}
         />
+      )}
+
       {/* Create Custom Size Tag Modal */}
       {isCreateTagModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
