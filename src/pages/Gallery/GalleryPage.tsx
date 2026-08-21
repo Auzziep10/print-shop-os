@@ -52,6 +52,7 @@ export interface GalleryItem {
   id: string;
   title: string;
   category: string;
+  occasions?: string[]; // e.g. ['ATHLEISURE', 'FORMAL', 'OUTDOOR']
   imageUrl: string; // Primary Photo
   secondaryImageUrl?: string; // Secondary Photo (Back View / Alternate)
   fitOptions: string[]; // e.g. ['Fitted', 'Standard', 'Loose']
@@ -69,6 +70,9 @@ export interface GallerySettings {
   items: GalleryItem[];
 }
 
+const GARMENT_TYPE_CATEGORIES = ['T-SHIRT', 'POLO', 'HOODIE', 'LONGSLEEVE', 'CREWNECK', 'JACKET', 'HAT'];
+const OCCASION_CATEGORIES = ['ATHLEISURE', 'CASUAL', 'FORMAL', 'ACTIVE', 'BUSINESS', 'WORK WEAR', 'OUTDOOR', 'TEAM'];
+
 const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
   heroImageUrl: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?q=80&w=2000&auto=format&fit=crop',
   heroTitle: 'Studio Gallery',
@@ -79,6 +83,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-1',
       title: 'HD-HEAVY Tee',
       category: 'T-SHIRT',
+      occasions: ['ATHLEISURE', 'CASUAL', 'FORMAL', 'ACTIVE'],
       imageUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 2,
@@ -90,6 +95,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-2',
       title: 'Boyfriend Tee',
       category: 'T-SHIRT',
+      occasions: ['CASUAL', 'ATHLEISURE'],
       imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 2,
@@ -101,6 +107,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-3',
       title: 'Everyday Tee',
       category: 'T-SHIRT',
+      occasions: ['ATHLEISURE', 'CASUAL', 'BUSINESS', 'TEAM'],
       imageUrl: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 1,
@@ -112,6 +119,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-4',
       title: 'Vintage Heavy Hoodie',
       category: 'HOODIE',
+      occasions: ['ATHLEISURE', 'CASUAL', 'OUTDOOR'],
       imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 2,
@@ -123,6 +131,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-5',
       title: 'Pique Pro Polo',
       category: 'POLO',
+      occasions: ['FORMAL', 'BUSINESS', 'TEAM'],
       imageUrl: 'https://images.unsplash.com/photo-1625910513413-5acc215b3c58?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 1,
@@ -134,6 +143,7 @@ const DEFAULT_GALLERY_SETTINGS: GallerySettings = {
       id: 'item-6',
       title: 'Relaxed Crewneck',
       category: 'CREWNECK',
+      occasions: ['ATHLEISURE', 'CASUAL'],
       imageUrl: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=1000&auto=format&fit=crop',
       fitOptions: ['Fitted', 'Standard', 'Loose'],
       activeFitIndex: 2,
@@ -173,6 +183,16 @@ export function GalleryPage() {
   // Item being edited in modal
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [isAddingNewItem, setIsAddingNewItem] = useState(false);
+
+  // Switch filter mode (Garment Types vs Occasion)
+  const handleFilterModeChange = (mode: 'garmentTypes' | 'occasion') => {
+    setActiveFilter(mode);
+    if (mode === 'garmentTypes') {
+      setSelectedCategory('T-SHIRT');
+    } else {
+      setSelectedCategory('ATHLEISURE');
+    }
+  };
 
   // Firestore Realtime Listener for Gallery Settings
   useEffect(() => {
@@ -275,6 +295,21 @@ export function GalleryPage() {
               ? customCatalogItems.find((ci: any) => String(ci.style).toLowerCase() === styleKey)
               : null;
             const baseProduct = sanmarMatch || customMatch;
+
+            // Collect occasions for this style
+            const styleOccasionsSet = new Set<string>();
+            if (racks) {
+              Object.keys(racks).forEach((catName) => {
+                const catObj = racks[catName];
+                if (catObj && typeof catObj === 'object') {
+                  Object.values(catObj).forEach((s) => {
+                    if (typeof s === 'string' && s.trim().toLowerCase() === styleKey) {
+                      styleOccasionsSet.add(catName.toUpperCase());
+                    }
+                  });
+                }
+              });
+            }
 
             // Check if there is a custom name or spec configured
             let customNameFound = false;
@@ -440,6 +475,7 @@ export function GalleryPage() {
               id: `cat-${styleKey}`,
               title,
               category,
+              occasions: Array.from(styleOccasionsSet),
               imageUrl: primaryImage,
               secondaryImageUrl: secondaryImage || undefined,
               fitOptions: ['Fitted', 'Standard', 'Loose'],
@@ -499,11 +535,15 @@ export function GalleryPage() {
     }
   };
 
-  const categoriesWithoutAll = settings.categories.filter((c) => c !== 'ALL');
+  // Determine active category list based on filter mode
+  const activeCategoryTabs = activeFilter === 'garmentTypes' ? GARMENT_TYPE_CATEGORIES : OCCASION_CATEGORIES;
 
-  // Filter items by category tab
+  // Filter items by active filter mode & selected category tab
   const displayItems = settings.items.filter((item) => {
     if (selectedCategory === 'ALL') return true;
+    if (activeFilter === 'occasion') {
+      return item.occasions && item.occasions.some((occ) => occ.toUpperCase() === selectedCategory.toUpperCase());
+    }
     return item.category.toUpperCase() === selectedCategory.toUpperCase();
   });
 
@@ -589,7 +629,7 @@ export function GalleryPage() {
         {/* Top Control Bar (Garment Types & Occasion) */}
         <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 px-3 py-2.5 sm:px-8 md:px-12 border-b border-zinc-100">
           <button
-            onClick={() => setActiveFilter('garmentTypes')}
+            onClick={() => handleFilterModeChange('garmentTypes')}
             className={`font-inter rounded-full px-3.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
               activeFilter === 'garmentTypes'
                 ? 'bg-zinc-950 text-white'
@@ -599,7 +639,7 @@ export function GalleryPage() {
             Garment Types
           </button>
           <button
-            onClick={() => setActiveFilter('occasion')}
+            onClick={() => handleFilterModeChange('occasion')}
             className={`font-inter rounded-full px-3.5 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer ${
               activeFilter === 'occasion'
                 ? 'bg-zinc-950 text-white'
@@ -612,14 +652,14 @@ export function GalleryPage() {
 
         {/* Category Tabs Bar */}
         <div className="flex overflow-x-auto justify-start sm:justify-center gap-5 sm:gap-10 px-4 py-3 scrollbar-none snap-x snap-mandatory">
-          {categoriesWithoutAll.map((cat) => {
+          {activeCategoryTabs.map((cat) => {
             const isActive = selectedCategory.toUpperCase() === cat.toUpperCase();
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={`font-inter whitespace-nowrap text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-all pb-1 relative cursor-pointer snap-start ${
-                  isActive ? 'text-zinc-950' : 'text-zinc-400 hover:text-zinc-700'
+                  isActive ? 'text-zinc-950 font-extrabold' : 'text-zinc-400 hover:text-zinc-700'
                 }`}
               >
                 {cat}
