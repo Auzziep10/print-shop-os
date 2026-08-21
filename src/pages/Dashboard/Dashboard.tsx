@@ -104,15 +104,15 @@ export function Dashboard() {
         });
       }
 
-      // 3. Individual line items
+      // 3. Individual line items (only include items with actual print files or gang_sheet type)
       items.forEach((item: any) => {
         const isGangSheet = item.itemType === 'gang_sheet';
         const hasPrintUrl = !!(item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl);
         const hasArtworks = Array.isArray(item.artworks) && item.artworks.length > 0;
-        const isItemMarkedReady = !!item.readyToPrint || !!order.masterReadyToPrint;
-        const isItemPrinted = !!item.printed || !!order.masterPrinted;
+        const isItemMarkedReady = !!item.readyToPrint;
+        const isItemPrinted = !!item.printed;
 
-        if (isGangSheet || hasPrintUrl || hasArtworks || isItemMarkedReady || isItemPrinted || item.logoUrl || item.itemType === 'garment') {
+        if (isGangSheet || hasPrintUrl || (hasArtworks && (isItemMarkedReady || isItemPrinted))) {
           list.push({
             ...item,
             id: `${item.id}-art`,
@@ -120,12 +120,12 @@ export function Dashboard() {
             type: 'art',
             readyToPrint: isItemMarkedReady || hasPrintUrl,
             printed: isItemPrinted,
-            printedAt: item.printedAt || order.masterPrintedAt || null,
-            printedBy: item.printedBy || order.masterPrintedBy || null,
+            printedAt: item.printedAt || null,
+            printedBy: item.printedBy || null,
             style: item.itemType === 'gang_sheet' ? (item.sheetSizeName || 'DTF Gang Sheet') : (item.style ? `${item.style} - Main Art` : 'DTF Gang Sheet'),
             sheetWidth: item.sheetWidth || 22,
             sheetHeight: item.sheetHeight || 24,
-            printReadyUrl: item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl || item.image || null,
+            printReadyUrl: item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl || null,
             cutReadyUrl: item.cutReadyUrl || null,
             orderId: order.id,
             orderTitle: order.title || 'Custom Order',
@@ -137,8 +137,8 @@ export function Dashboard() {
           });
         }
 
-        const hasTagReady = !!item.tagReadyToPrint || !!order.masterTagReadyToPrint;
-        const hasTagPrinted = !!item.tagPrinted || !!order.masterTagPrinted;
+        const hasTagReady = !!item.tagReadyToPrint;
+        const hasTagPrinted = !!item.tagPrinted;
         if (item.logoUrlTag && (item.tagPrintReadyUrl || hasTagReady || hasTagPrinted)) {
           list.push({
             ...item,
@@ -147,8 +147,8 @@ export function Dashboard() {
             type: 'tag',
             readyToPrint: hasTagReady,
             printed: hasTagPrinted,
-            printedAt: item.tagPrintedAt || order.masterTagPrintedAt || null,
-            printedBy: item.tagPrintedBy || order.masterTagPrintedBy || null,
+            printedAt: item.tagPrintedAt || null,
+            printedBy: item.tagPrintedBy || null,
             style: `${item.style || 'Garment'} - Neck Tag`,
             sheetWidth: 22,
             sheetHeight: 24,
@@ -650,10 +650,15 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
-  const newQuoteRequests = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const newQuoteRequests = orders.filter(o => (o.statusIndex === 0 || o.statusIndex === undefined) && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const quotePreparedOrders = orders.filter(o => o.statusIndex === 2 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const sourcingOrders = orders.filter(o => o.statusIndex === 4 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const blanksOrderedOrders = orders.filter(o => o.statusIndex === 5 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const inProductionOnlyOrders = orders.filter(o => o.statusIndex === 6 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const shippedOrders = orders.filter(o => o.statusIndex === 7 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const receivedOrders = orders.filter(o => o.statusIndex === 8 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   
   const todayDateStr = new Date().toISOString().split('T')[0];
   const completedTodayOrders = orders.filter(o => {
@@ -666,9 +671,13 @@ export function Dashboard() {
     switch (activeStat) {
       case 'New Quotes': return newQuoteRequests;
       case 'Pending Approval': return pendingApprovalOrders;
+      case 'Quote Prepared': return quotePreparedOrders;
       case 'New Orders': return newApprovedOrders;
       case 'Sourcing': return sourcingOrders;
-      case 'In Production': return productionOrders;
+      case 'Garments Ordered': return blanksOrderedOrders;
+      case 'In Production': return inProductionOnlyOrders;
+      case 'Shipped / Inventory': return shippedOrders;
+      case 'Received / Live': return receivedOrders;
       case 'Completed Today': return completedTodayOrders;
       default: return [];
     }
@@ -677,10 +686,14 @@ export function Dashboard() {
   const statCards = [
     { label: 'New Quotes', value: newQuoteRequests.length.toString(), trend: newQuoteRequests.length > 0 ? 'Requires attention' : 'All clear' },
     { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
+    { label: 'Quote Prepared', value: quotePreparedOrders.length.toString(), trend: quotePreparedOrders.length > 0 ? 'Sent to client' : 'All clear' },
     { label: 'New Orders', value: newApprovedOrders.length.toString(), trend: newApprovedOrders.length > 0 ? 'Assign to floor' : 'All clear' },
     { label: 'Sourcing', value: sourcingOrders.length.toString(), trend: sourcingOrders.length > 0 ? 'Awaiting blanks' : 'All clear' },
-    { label: 'In Production', value: productionOrders.length.toString(), trend: 'On schedule' },
-    { label: 'Completed Today', value: completedTodayOrders.length.toString(), trend: 'Great work' }
+    { label: 'Garments Ordered', value: blanksOrderedOrders.length.toString(), trend: blanksOrderedOrders.length > 0 ? 'In transit' : 'All clear' },
+    { label: 'In Production', value: inProductionOnlyOrders.length.toString(), trend: inProductionOnlyOrders.length > 0 ? 'On schedule' : 'All clear' },
+    { label: 'Shipped / Inventory', value: shippedOrders.length.toString(), trend: shippedOrders.length > 0 ? 'Dispatched' : 'All clear' },
+    { label: 'Received / Live', value: receivedOrders.length.toString(), trend: receivedOrders.length > 0 ? 'Fulfilled' : 'All clear' },
+    { label: 'Completed Today', value: completedTodayOrders.length.toString(), trend: completedTodayOrders.length > 0 ? 'Great work' : 'All clear' }
   ];
 
   return (
@@ -736,7 +749,7 @@ export function Dashboard() {
             
             {/* Left: Quick Stats */}
             <div className="lg:col-span-8 flex flex-col gap-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {statCards.map((stat) => (
                 <button 
                   key={stat.label} 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -988,6 +988,66 @@ export function OrderDetail() {
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: "https://stripe.com"
   });
+
+  const [isCreateTagModalOpen, setIsCreateTagModalOpen] = useState(false);
+  const [tagUploadFile, setTagUploadFile] = useState<File | null>(null);
+  const [tagLogoUrlInput, setTagLogoUrlInput] = useState('');
+  const [tagSelectedItems, setTagSelectedItems] = useState<Record<string, boolean>>({});
+  const [tagColorOverride, setTagColorOverride] = useState('#111111');
+  const [isSavingTagLogo, setIsSavingTagLogo] = useState(false);
+
+  const handleSaveTagAndGenerate = async () => {
+    if (!id || !order) return;
+    setIsSavingTagLogo(true);
+    try {
+      let finalTagUrl = tagLogoUrlInput.trim();
+
+      if (tagUploadFile) {
+        const storageRef = ref(storage, `order-tags/${id}/tag-logo-${Date.now()}-${tagUploadFile.name}`);
+        await uploadBytes(storageRef, tagUploadFile);
+        finalTagUrl = await getDownloadURL(storageRef);
+      }
+
+      if (!finalTagUrl) {
+        const existingLogo = (order.items || []).find((i: any) => i.logoUrlTag)?.logoUrlTag;
+        if (existingLogo) {
+          finalTagUrl = existingLogo;
+        } else {
+          throw new Error("Please upload a tag logo graphic or provide a tag image URL.");
+        }
+      }
+
+      const selectedIds = Object.keys(tagSelectedItems).filter(itemId => tagSelectedItems[itemId]);
+      const targetItemIds = selectedIds.length > 0 ? selectedIds : (order.items || []).map((i: any) => i.id);
+
+      const updatedItems = (order.items || []).map((item: any) => {
+        if (targetItemIds.includes(item.id)) {
+          return {
+            ...item,
+            logoUrlTag: finalTagUrl,
+            tagSizeColor: tagColorOverride || item.tagSizeColor || '#111111'
+          };
+        }
+        return item;
+      });
+
+      await updateDoc(doc(db, 'orders', id), {
+        items: updatedItems
+      });
+
+      setIsCreateTagModalOpen(false);
+      setTagUploadFile(null);
+      setTagLogoUrlInput('');
+
+      // Immediately generate the tag gang sheet
+      await handleGenerateCombinedTagGangSheet();
+    } catch (err: any) {
+      console.error("Error saving tag logo:", err);
+      alert(err.message || "Failed to create tag.");
+    } finally {
+      setIsSavingTagLogo(false);
+    }
+  };
 
   const [isCalculatingRates, setIsCalculatingRates] = useState(false);
   const [shippingRates, setShippingRates] = useState<any[]>([]);
@@ -4380,7 +4440,7 @@ export function OrderDetail() {
                   <Printer className="text-brand-primary" size={22} />
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <button
                     type="button"
                     onClick={handleGenerateCombinedOrderGangSheet}
@@ -4390,6 +4450,23 @@ export function OrderDetail() {
                   >
                     {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
                     <span>Generate 1 Master Sheet (All Items)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const hasTags = (order.items || []).some((item: any) => !!item.logoUrlTag);
+                      if (hasTags) {
+                        handleGenerateCombinedTagGangSheet();
+                      } else {
+                        setIsCreateTagModalOpen(true);
+                      }
+                    }}
+                    disabled={isGeneratingCombinedTags}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    title="Generate or attach a custom size tag gang sheet for this order"
+                  >
+                    {isGeneratingCombinedTags ? <Loader2 size={15} className="animate-spin" /> : <Tag size={15} />}
+                    <span>{(order.items || []).some((item: any) => !!item.logoUrlTag) ? 'Generate Size Tag Sheet' : 'Create / Add Size Tag'}</span>
                   </button>
                   <PillButton 
                     variant="outline" 
@@ -4544,6 +4621,15 @@ export function OrderDetail() {
                                 className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider underline cursor-pointer mt-1.5 block"
                               >
                                 {editingSpecsCardId === card.id ? 'Cancel Adjusting' : (card.isMaster ? 'Adjust All Order Logos / Widths' : 'Adjust Layout/Logos')}
+                              </button>
+                            )}
+                            {card.type === 'tag' && (
+                              <button
+                                type="button"
+                                onClick={() => setIsCreateTagModalOpen(true)}
+                                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 uppercase tracking-wider underline cursor-pointer mt-1.5 block"
+                              >
+                                Change / Edit Tag Logo
                               </button>
                             )}
                           </div>
@@ -8304,6 +8390,156 @@ export function OrderDetail() {
             setIsDtfToolOpen(false);
           }}
         />
+      {/* Create Custom Size Tag Modal */}
+      {isCreateTagModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-brand-border shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center pb-4 border-b border-brand-border mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  <Tag size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-brand-primary text-base">Create Size Tag for Order</h3>
+                  <p className="text-xs text-brand-secondary">Upload tag logo graphic to generate a combined size tag gang sheet.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsCreateTagModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-600 p-1 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Tag Graphic Upload */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-brand-secondary mb-2">
+                  Tag Logo / Artwork Graphic
+                </label>
+                <div className="border-2 border-dashed border-brand-border hover:border-brand-primary/50 rounded-xl p-4 text-center cursor-pointer transition-colors bg-brand-bg/30 relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setTagUploadFile(e.target.files[0]);
+                      }
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  {tagUploadFile ? (
+                    <div className="flex items-center justify-center gap-2 text-sm font-semibold text-brand-primary">
+                      <ImageIcon size={18} className="text-purple-600" />
+                      <span>{tagUploadFile.name}</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 text-neutral-500">
+                      <Upload size={22} className="text-neutral-400" />
+                      <span className="text-xs font-bold text-brand-primary">Click to upload tag logo (PNG / JPEG)</span>
+                      <span className="text-[10px] text-neutral-400">Recommended: Transparent PNG (2" x 2" or larger)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Or Tag Logo URL */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                  Or Tag Logo URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={tagLogoUrlInput}
+                  onChange={(e) => setTagLogoUrlInput(e.target.value)}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              {/* Target Order Items */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-brand-secondary mb-2">
+                  Apply Tag To Items:
+                </label>
+                <div className="max-h-36 overflow-y-auto space-y-2 border border-brand-border rounded-xl p-3 bg-brand-bg/30">
+                  {(order?.items || []).map((item: any) => {
+                    const isChecked = tagSelectedItems[item.id] ?? true;
+                    return (
+                      <label key={item.id} className="flex items-center gap-2 text-xs text-brand-primary cursor-pointer hover:bg-white/60 p-1.5 rounded-lg transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => setTagSelectedItems(prev => ({ ...prev, [item.id]: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <span className="font-semibold truncate">{item.style || 'Garment'}</span>
+                        {item.logoUrlTag && (
+                          <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase ml-auto">
+                            Has Tag
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tag Color Preset */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                  Size Text Color
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={tagColorOverride}
+                    onChange={(e) => setTagColorOverride(e.target.value)}
+                    className="w-8 h-8 rounded border border-brand-border cursor-pointer"
+                  />
+                  <span className="text-xs font-mono text-neutral-600 font-semibold">{tagColorOverride}</span>
+                  <div className="flex gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setTagColorOverride('#111111')}
+                      className="px-2.5 py-1 text-[10px] font-bold bg-neutral-900 text-white rounded border border-neutral-700 cursor-pointer"
+                    >
+                      Black
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTagColorOverride('#FFFFFF')}
+                      className="px-2.5 py-1 text-[10px] font-bold bg-neutral-200 text-neutral-800 rounded border border-neutral-300 cursor-pointer"
+                    >
+                      White
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-brand-border">
+              <button
+                type="button"
+                onClick={() => setIsCreateTagModalOpen(false)}
+                className="px-4 py-2 border border-brand-border text-brand-secondary rounded-full text-xs font-bold uppercase tracking-wider hover:bg-brand-bg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTagAndGenerate}
+                disabled={isSavingTagLogo || (!tagUploadFile && !tagLogoUrlInput.trim() && !(order?.items || []).some((i: any) => i.logoUrlTag))}
+                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-full shadow-md transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isSavingTagLogo ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                <span>Apply Tag & Generate Sheet</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
