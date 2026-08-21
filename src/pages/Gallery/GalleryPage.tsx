@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -173,6 +173,7 @@ export function GalleryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('T-SHIRT');
   const [activeFilter, setActiveFilter] = useState<'garmentTypes' | 'occasion'>('garmentTypes');
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+  const [hiddenCollections, setHiddenCollections] = useState<Record<string, boolean>>({});
 
   // Admin Editor State
   const [isEditing, setIsEditing] = useState(false);
@@ -567,7 +568,7 @@ export function GalleryPage() {
 
   // Auto-switch selected category tab if currently selected tab is not available
   useEffect(() => {
-    if (activeCategoryTabs.length > 0 && !activeCategoryTabs.map((t) => t.toUpperCase()).includes(selectedCategory.toUpperCase())) {
+    if (activeCategoryTabs.length > 0 && !activeCategoryTabs.map((t: string) => t.toUpperCase()).includes(selectedCategory.toUpperCase())) {
       setSelectedCategory(activeCategoryTabs[0]);
     }
   }, [activeCategoryTabs, selectedCategory]);
