@@ -243,7 +243,8 @@ export function GalleryPage() {
           const customColors = catData.customColors || {};
           const garmentTypeTags = catData.garmentTypeTags || {};
 
-          const hiddenCollections = catData.hiddenCollections || {};
+          const hiddenCols = catData.hiddenCollections || {};
+          setHiddenCollections(hiddenCols);
 
           // Collect all active styles across non-hidden racks, basics, and custom items
           const styleSet = new Set<string>();
@@ -251,7 +252,7 @@ export function GalleryPage() {
           // 1. Racks (skip hidden collections)
           if (racks) {
             Object.keys(racks).forEach((cat) => {
-              if (!hiddenCollections[cat]) {
+              if (!hiddenCols[cat]) {
                 const catObj = racks[cat];
                 if (catObj && typeof catObj === 'object') {
                   Object.values(catObj).forEach((s) => {
@@ -265,7 +266,7 @@ export function GalleryPage() {
           // 2. Basics (skip hidden collections)
           if (basics) {
             Object.keys(basics).forEach((cat) => {
-              if (!hiddenCollections[cat]) {
+              if (!hiddenCols[cat]) {
                 const catObj = basics[cat];
                 if (catObj && typeof catObj === 'object') {
                   Object.values(catObj).forEach((s) => {
@@ -300,13 +301,15 @@ export function GalleryPage() {
             const styleOccasionsSet = new Set<string>();
             if (racks) {
               Object.keys(racks).forEach((catName) => {
-                const catObj = racks[catName];
-                if (catObj && typeof catObj === 'object') {
-                  Object.values(catObj).forEach((s) => {
-                    if (typeof s === 'string' && s.trim().toLowerCase() === styleKey) {
-                      styleOccasionsSet.add(catName.toUpperCase());
-                    }
-                  });
+                if (!hiddenCols[catName]) {
+                  const catObj = racks[catName];
+                  if (catObj && typeof catObj === 'object') {
+                    Object.values(catObj).forEach((s) => {
+                      if (typeof s === 'string' && s.trim().toLowerCase() === styleKey) {
+                        styleOccasionsSet.add(catName.toUpperCase());
+                      }
+                    });
+                  }
                 }
               });
             }
@@ -535,8 +538,39 @@ export function GalleryPage() {
     }
   };
 
-  // Determine active category list based on filter mode
-  const activeCategoryTabs = activeFilter === 'garmentTypes' ? GARMENT_TYPE_CATEGORIES : OCCASION_CATEGORIES;
+  // 1. Available Occasion Tabs: Only non-hidden occasions AND occasions that actually have items in settings.items!
+  const availableOccasionTabs = useMemo(() => {
+    return OCCASION_CATEGORIES.filter((occ) => {
+      // Check if hidden in Storefront Catalog settings
+      const isHidden = Object.keys(hiddenCollections).some(
+        (k) => k.toUpperCase() === occ.toUpperCase() && hiddenCollections[k] === true
+      );
+      if (isHidden) return false;
+
+      // Check if there is at least one item with this occasion
+      return settings.items.some(
+        (item) => item.occasions && item.occasions.some((o) => o.toUpperCase() === occ.toUpperCase())
+      );
+    });
+  }, [hiddenCollections, settings.items]);
+
+  // 2. Available Garment Type Tabs: Only garment types that actually have items in settings.items!
+  const availableGarmentTypeTabs = useMemo(() => {
+    return GARMENT_TYPE_CATEGORIES.filter((gt) => {
+      return settings.items.some(
+        (item) => item.category && item.category.toUpperCase() === gt.toUpperCase()
+      );
+    });
+  }, [settings.items]);
+
+  const activeCategoryTabs = activeFilter === 'garmentTypes' ? availableGarmentTypeTabs : availableOccasionTabs;
+
+  // Auto-switch selected category tab if currently selected tab is not available
+  useEffect(() => {
+    if (activeCategoryTabs.length > 0 && !activeCategoryTabs.map((t) => t.toUpperCase()).includes(selectedCategory.toUpperCase())) {
+      setSelectedCategory(activeCategoryTabs[0]);
+    }
+  }, [activeCategoryTabs, selectedCategory]);
 
   // Filter items by active filter mode & selected category tab
   const displayItems = settings.items.filter((item) => {
