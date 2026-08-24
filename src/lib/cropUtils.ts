@@ -49,8 +49,8 @@ export async function getCroppedImg(
 }
 
 /**
- * Auto-crops an image to its exact visible bounds (trimming outer transparent & white margins)
- * and returns a clean, trimmed PNG File / Blob / DataURL.
+ * Auto-crops an image to its exact visible bounds (trimming outer transparent, white & light grey margins)
+ * and outputs a high-resolution PNG (minimum 2400px / 200+ PPI for print production).
  */
 export async function autoCropLogoToPng(
   imageSrc: string,
@@ -59,49 +59,81 @@ export async function autoCropLogoToPng(
     whiteThreshold?: number;
     alphaThreshold?: number;
     padding?: number;
+    minDimension?: number;
   }
 ): Promise<{ blob: Blob; dataUrl: string; file: File; width: number; height: number; trimmed: boolean } | null> {
   const trimWhite = options?.trimWhiteBackground ?? true;
-  const whiteThresh = options?.whiteThreshold ?? 245;
-  const alphaThresh = options?.alphaThreshold ?? 10;
+  const whiteThresh = options?.whiteThreshold ?? 220; // lower threshold to catch light grey/off-white boxes
+  const alphaThresh = options?.alphaThreshold ?? 20;
   const padding = options?.padding ?? 0;
+  const minDimension = options?.minDimension ?? 2400; // minimum width/height for high-res 200+ PPI print quality
 
   try {
     const img = await createImage(imageSrc);
-    const canvas = document.createElement('canvas');
-    const width = img.naturalWidth || img.width;
-    const height = img.naturalHeight || img.height;
-    canvas.width = width;
-    canvas.height = height;
+    const origW = img.naturalWidth || img.width;
+    const origH = img.naturalHeight || img.height;
 
-    const ctx = canvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.width = origW;
+    canvas.height = origH;
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
     ctx.drawImage(img, 0, 0);
-    const imageData = ctx.getImageData(0, 0, width, height);
+    const imageData = ctx.getImageData(0, 0, origW, origH);
     const data = imageData.data;
 
-    let minX = width;
-    let minY = height;
+    // Detect background color by sampling 4 corners
+    const getPixel = (x: number, y: number) => {
+      const idx = (y * origW + x) * 4;
+      return { r: data[idx], g: data[idx + 1], b: data[idx + 2], a: data[idx + 3] };
+    };
+
+    const corners = [
+      getPixel(0, 0),
+      getPixel(origW - 1, 0),
+      getPixel(0, origH - 1),
+      getPixel(origW - 1, origH - 1)
+    ];
+
+    // Check if corners share a common light background color (within tolerance)
+    const refCorner = corners[0];
+    const isCornerBgLight = refCorner.a > 20 && refCorner.r > 200 && refCorner.g > 200 && refCorner.b > 200;
+
+    let minX = origW;
+    let minY = origH;
     let maxX = -1;
     let maxY = -1;
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (y * width + x) * 4;
+    for (let y = 0; y < origH; y++) {
+      for (let x = 0; x < origW; x++) {
+        const idx = (y * origW + x) * 4;
         const r = data[idx];
         const g = data[idx + 1];
         const b = data[idx + 2];
         const a = data[idx + 3];
 
         const isTransparent = a <= alphaThresh;
-        const isWhite = trimWhite && r >= whiteThresh && g >= whiteThresh && b >= whiteThresh;
+        
+        let isBg = isTransparent;
+        if (trimWhite) {
+          const isWhite = r >= whiteThresh && g >= whiteThresh && b >= whiteThresh;
+          const isCornerMatch = isCornerBgLight && 
+            Math.abs(r - refCorner.r) < 35 && 
+            Math.abs(g - refCorner.g) < 35 && 
+            Math.abs(b - refCorner.b) < 35;
+          isBg = isTransparent || isWhite || isCornerMatch;
+        }
 
-        if (!isTransparent && !isWhite) {
+        if (!isBg) {
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
           if (y > maxY) maxY = y;
+        } else if (trimWhite) {
+          // Clear background pixel to transparent so output has no grey/white box
+          data[idx + 3] = 0;
         }
       }
     }
@@ -109,22 +141,46 @@ export async function autoCropLogoToPng(
     if (maxX < minX || maxY < minY) {
       minX = 0;
       minY = 0;
-      maxX = width - 1;
-      maxY = height - 1;
+      maxX = origW - 1;
+      maxY = origH - 1;
+    }
+
+    // Put updated imageData with transparent background back to original canvas
+    if (trimWhite) {
+      ctx.putImageData(imageData, 0, 0);
     }
 
     const cropX = Math.max(0, minX - padding);
     const cropY = Math.max(0, minY - padding);
-    const cropW = Math.min(width - cropX, (maxX - minX + 1) + 2 * padding);
-    const cropH = Math.min(height - cropY, (maxY - minY + 1) + 2 * padding);
+    const cropW = Math.min(origW - cropX, (maxX - minX + 1) + 2 * padding);
+    const cropH = Math.min(origH - cropY, (maxY - minY + 1) + 2 * padding);
+
+    // Calculate high resolution output dimensions (min 2400px / 200+ PPI)
+    const aspectRatio = cropW / cropH;
+    let targetW = cropW;
+    let targetH = cropH;
+
+    if (cropW < minDimension && cropH < minDimension) {
+      if (aspectRatio >= 1) {
+        targetW = minDimension;
+        targetH = Math.round(minDimension / aspectRatio);
+      } else {
+        targetH = minDimension;
+        targetW = Math.round(minDimension * aspectRatio);
+      }
+    }
 
     const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = cropW;
-    croppedCanvas.height = cropH;
+    croppedCanvas.width = targetW;
+    croppedCanvas.height = targetH;
     const croppedCtx = croppedCanvas.getContext('2d');
     if (!croppedCtx) return null;
 
-    croppedCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    // Enable high quality image smoothing for upscaling
+    croppedCtx.imageSmoothingEnabled = true;
+    croppedCtx.imageSmoothingQuality = 'high';
+
+    croppedCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, targetW, targetH);
 
     return new Promise((resolve) => {
       croppedCanvas.toBlob((blob) => {
@@ -133,9 +189,9 @@ export async function autoCropLogoToPng(
           return;
         }
         const dataUrl = croppedCanvas.toDataURL('image/png');
-        const file = new File([blob], 'trimmed_logo.png', { type: 'image/png' });
-        const trimmed = cropW < width || cropH < height;
-        resolve({ blob, dataUrl, file, width: cropW, height: cropH, trimmed });
+        const file = new File([blob], 'trimmed_highres_logo.png', { type: 'image/png' });
+        const trimmed = cropW < origW || cropH < origH || targetW > cropW;
+        resolve({ blob, dataUrl, file, width: targetW, height: targetH, trimmed });
       }, 'image/png');
     });
   } catch (err) {
