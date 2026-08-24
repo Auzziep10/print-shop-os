@@ -622,12 +622,12 @@ export function StartCTASection({
 
   const panels = [
     {
-      mode: 'racks' as const,
+      mode: 'types' as const,
       num: '01',
-      badge: 'Cohesive collection',
-      title: settings?.ctaCardTitle || 'Design Your Rack',
-      body: settings?.ctaCardBody || 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
-      cta: settings?.ctaCardBtnText || 'Design a cohesive line',
+      badge: 'Curated Catalog',
+      title: settings?.ctaCardTitle || 'Shop Garment Types',
+      body: settings?.ctaCardBody || 'Browse our full catalog by garment type — tees, polos, long sleeves, hoodies, sweatpants, hats, and accessories — customized with your logo.',
+      cta: settings?.ctaCardBtnText || 'Browse Garment Types',
       img: settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png',
       mobileImg: settings?.ctaCardMobileImageUrl || undefined,
       dark: true,
@@ -812,7 +812,7 @@ export function LandingFooter({
           <div className="flex flex-wrap items-center gap-6 text-[11px] font-bold uppercase tracking-[0.2em]">
             <button
               data-cursor
-              onClick={() => onStart('racks')}
+              onClick={() => onStart('types')}
               className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
             >
               Start a project
