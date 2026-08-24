@@ -709,7 +709,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       >
       {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
-        const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'Produced', 'Shipped', 'Received'];
+        const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'In Production', 'Shipped', 'Received'];
 
         let visualIndex = 0;
         const statusIdx = typeof order.statusIndex === 'number' ? order.statusIndex : 0;
@@ -726,7 +726,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         } else if (statusIdx === 5) {
           visualIndex = 3; // Sourced
         } else if (statusIdx === 6) {
-          visualIndex = 4; // Produced
+          visualIndex = 4; // In Production
         } else if (statusIdx === 7) {
           visualIndex = 5; // Shipped
         } else if (statusIdx === 8) {
