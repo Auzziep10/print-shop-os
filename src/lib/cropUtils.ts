@@ -66,8 +66,17 @@ export async function autoCropLogoToPng(
 
   try {
     const img = await createImage(imageSrc);
-    const width = img.naturalWidth || img.width;
-    const height = img.naturalHeight || img.height;
+    let width = img.naturalWidth || img.width || 800;
+    let height = img.naturalHeight || img.height || 800;
+
+    const isSvg = imageSrc.toLowerCase().includes('.svg') || imageSrc.startsWith('data:image/svg+xml');
+
+    // Vector SVGs can be cleanly scaled to 3000px high-res for 300 DPI print quality without pixelation!
+    if (isSvg && width < 3000) {
+      const aspect = width / height;
+      width = 3000;
+      height = Math.round(3000 / aspect);
+    }
 
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -76,7 +85,7 @@ export async function autoCropLogoToPng(
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img, 0, 0, width, height);
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 

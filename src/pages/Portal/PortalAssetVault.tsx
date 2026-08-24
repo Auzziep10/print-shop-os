@@ -540,8 +540,8 @@ export function PortalAssetVault() {
     setIsTrimmingVaultLogos(true);
     try {
       const cropped = await autoCropLogoToPng(asset.url, { trimWhiteBackground: true, padding: 0 });
-      if (!cropped || !cropped.trimmed) {
-        alert(`Logo "${asset.name}" is already trimmed to exact visible edges.`);
+      if (!cropped) {
+        alert(`Failed to process "${asset.name}".`);
         return;
       }
 
@@ -553,7 +553,7 @@ export function PortalAssetVault() {
       const updated = assets.map(a => a.id === asset.id ? { ...a, url: downloadUrl, name: cleanFileName, lastTrimmedAt: new Date().toISOString() } : a);
       await updateDoc(doc(db, 'customers', currentCustomerId), { assets: updated });
       setAssets(updated);
-      alert(`Successfully trimmed "${asset.name}" to exact PNG edges!`);
+      alert(`Successfully converted and trimmed "${asset.name}" to high-resolution PNG!`);
     } catch (err) {
       console.error("Failed to trim asset logo:", err);
       alert("Failed to auto-crop logo.");
@@ -575,7 +575,7 @@ export function PortalAssetVault() {
         if (!asset.url || asset.type === 'folder' || !asset.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) continue;
 
         const cropped = await autoCropLogoToPng(asset.url, { trimWhiteBackground: true, padding: 0 });
-        if (cropped && cropped.trimmed) {
+        if (cropped) {
           const cleanFileName = asset.name.replace(/\.[^/.]+$/, "") + '_trimmed.png';
           const storageRef = ref(storage, `customers/${currentCustomerId}/vault/${Date.now()}_${i}_${cleanFileName}`);
           await uploadBytes(storageRef, cropped.file);
