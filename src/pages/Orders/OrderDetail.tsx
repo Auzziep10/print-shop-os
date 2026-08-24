@@ -818,6 +818,11 @@ const generateFinalSheetsForPrintAndCut = async (
     const FONT_SIZE_LARGE = BASE_DPI / 4;
     const FONT_SIZE_MEDIUM = BASE_DPI / 6;
     const FONT_SIZE_SMALL = BASE_DPI / 8;
+    
+    // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
+    drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+    drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
     const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
         const headerY = 1.0 * BASE_DPI;
         if (isCut) {
@@ -825,7 +830,8 @@ const generateFinalSheetsForPrintAndCut = async (
             ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
         }
         
-        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
+        // Start header content at 420px (1.4 inches) to ensure 100% clearance from top-left L-mark (which ends at 300px / 1.0 inch)
+        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 120; 
         
         if (!isCut) {
             ctx.drawImage(qrImg, contentStartX, headerY + 10);
@@ -858,9 +864,6 @@ const generateFinalSheetsForPrintAndCut = async (
     };
 
     drawHeader(printCtx, false);
-
-    drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
-    drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
 
     // --- Generate SVG Cut File ---
     let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
@@ -2650,6 +2653,10 @@ export function OrderDetail() {
       const FONT_SIZE_MEDIUM = BASE_DPI / 6;
       const FONT_SIZE_SMALL = BASE_DPI / 8;
 
+      // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
+      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
       const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
         const headerY = 1.0 * BASE_DPI;
         if (isCut) {
@@ -2657,7 +2664,8 @@ export function OrderDetail() {
           ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
         }
         
-        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
+        // Start header content at 420px (1.4 inches) to ensure 100% clearance from top-left L-mark (which ends at 300px / 1.0 inch)
+        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 120; 
         
         if (!isCut) {
           ctx.drawImage(qrImg, contentStartX, headerY + 10);
@@ -2689,9 +2697,6 @@ export function OrderDetail() {
 
       drawHeader(printCtx, false);
       drawHeader(cutCtx, true);
-
-      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
-      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
 
       let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
       svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
