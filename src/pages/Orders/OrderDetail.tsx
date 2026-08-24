@@ -506,6 +506,7 @@ const generateFinalSheetsForPrintAndCut = async (
             y: number;
             height: number;
             currentX: number;
+            placements: Placement[];
         }
 
         interface PackResult {
@@ -520,7 +521,7 @@ const generateFinalSheetsForPrintAndCut = async (
             const placementsList: Placement[] = [];
             const shelves: Shelf[] = [];
 
-            const getDims = (w: number, h: number, currentX: number) => {
+            const getDims = (w: number, h: number, currentX: number, shelfHeight?: number) => {
                 const normW = w;
                 const normH = h;
                 const rotW = h;
@@ -538,42 +539,60 @@ const generateFinalSheetsForPrintAndCut = async (
                 const fitsRot = currentX + rotW <= designWidthInches;
 
                 if (fitsNorm && fitsRot) {
-                    // Choose the one that leaves more room on the shelf (smaller width)
-                    if (normW <= rotW) {
+                    const currentH = shelfHeight || 0;
+                    const expNorm = Math.max(currentH, normH);
+                    const expRot = Math.max(currentH, rotH);
+                    if (expNorm < expRot) {
                         return { w: normW, h: normH, rotated: false };
-                    } else {
+                    } else if (expRot < expNorm) {
                         return { w: rotW, h: rotH, rotated: true };
+                    } else {
+                        // Same height expansion: choose smaller width to leave more shelf space
+                        return normW <= rotW 
+                            ? { w: normW, h: normH, rotated: false }
+                            : { w: rotW, h: rotH, rotated: true };
                     }
                 } else if (fitsNorm) {
                     return { w: normW, h: normH, rotated: false };
                 } else if (fitsRot) {
                     return { w: rotW, h: rotH, rotated: true };
                 } else {
-                    // Neither fits. Choose orientation with smaller height to minimize shelf expansion
-                    if (normH <= rotH) {
-                        return { w: normW, h: normH, rotated: false };
-                    } else {
-                        return { w: rotW, h: rotH, rotated: true };
-                    }
+                    // Neither fits horizontally on current shelf: pick orientation with smaller height
+                    return normH <= rotH 
+                        ? { w: normW, h: normH, rotated: false }
+                        : { w: rotW, h: rotH, rotated: true };
                 }
             };
 
             items.forEach(inst => {
                 let placed = false;
-                for (const shelf of shelves) {
-                    const dims = getDims(inst.w, inst.h, shelf.currentX);
+                for (let sIdx = 0; sIdx < shelves.length; sIdx++) {
+                    const shelf = shelves[sIdx];
+                    const dims = getDims(inst.w, inst.h, shelf.currentX, shelf.height);
                     if (shelf.currentX + dims.w <= designWidthInches) {
-                        placementsList.push({
+                        const newPlacement: Placement = {
                             url: inst.url,
                             x: shelf.currentX,
                             y: shelf.y,
                             w: dims.w,
                             h: dims.h,
                             rotated: dims.rotated
-                        });
+                        };
+                        placementsList.push(newPlacement);
+                        shelf.placements.push(newPlacement);
                         shelf.currentX += dims.w + SPACING_INCHES;
+
                         if (dims.h > shelf.height) {
+                            const deltaY = dims.h - shelf.height;
                             shelf.height = dims.h;
+                            // Shift all subsequent lower shelves AND their placements down by deltaY
+                            for (let nextIdx = sIdx + 1; nextIdx < shelves.length; nextIdx++) {
+                                const lowerShelf = shelves[nextIdx];
+                                lowerShelf.y += deltaY;
+                                lowerShelf.placements.forEach(p => {
+                                    p.y += deltaY;
+                                });
+                            }
                         }
                         placed = true;
                         break;
@@ -586,26 +605,30 @@ const generateFinalSheetsForPrintAndCut = async (
                         ? SPACING_INCHES 
                         : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
                     
-                    shelves.push({
-                        y: newY,
-                        height: dims.h,
-                        currentX: dims.w + SPACING_INCHES
-                    });
-
-                    placementsList.push({
+                    const newPlacement: Placement = {
                         url: inst.url,
                         x: 0,
                         y: newY,
                         w: dims.w,
                         h: dims.h,
                         rotated: dims.rotated
-                    });
+                    };
+
+                    const newShelf: Shelf = {
+                        y: newY,
+                        height: dims.h,
+                        currentX: dims.w + SPACING_INCHES,
+                        placements: [newPlacement]
+                    };
+
+                    shelves.push(newShelf);
+                    placementsList.push(newPlacement);
                 }
             });
 
             const totalHeight = shelves.length === 0 
                 ? 0 
-                : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
+                : Math.max(...shelves.map(s => s.y + s.height)) + SPACING_INCHES;
 
             return { placements: placementsList, height: totalHeight };
         };
