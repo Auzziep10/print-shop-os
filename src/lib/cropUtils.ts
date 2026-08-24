@@ -107,20 +107,17 @@ export async function autoCropLogoToPng(
       ];
 
       const isSimilarToCorner = (r: number, g: number, b: number, a: number) => {
-        if (a < 20) return true; // transparent
+        if (a < 20) return true; // transparent background
         for (const c of cornerColors) {
-          // If corner is light (white/grey) and current pixel matches corner color within tolerance
-          if (c.r > 180 && c.g > 180 && c.b > 180) {
-            if (
-              Math.abs(r - c.r) <= tolerance &&
-              Math.abs(g - c.g) <= tolerance &&
-              Math.abs(b - c.b) <= tolerance
-            ) {
-              return true;
-            }
+          if (c.a < 20) continue;
+          // Only match if current pixel matches the outer corner background color within tolerance
+          if (
+            Math.abs(r - c.r) <= tolerance &&
+            Math.abs(g - c.g) <= tolerance &&
+            Math.abs(b - c.b) <= tolerance
+          ) {
+            return true;
           }
-          // Also match pure white/near white regardless
-          if (r >= 235 && g >= 235 && b >= 235) return true;
         }
         return false;
       };
