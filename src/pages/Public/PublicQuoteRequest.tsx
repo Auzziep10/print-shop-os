@@ -3671,7 +3671,7 @@ export function PublicQuoteRequest() {
                   </button>
                 )}
 
-                <div className="flex items-center justify-center gap-1.5 bg-zinc-950/5 px-3.5 h-9 border border-zinc-200/60 rounded-full">
+                <div className="hidden sm:flex items-center justify-center gap-1.5 bg-zinc-950/5 px-3.5 h-9 border border-zinc-200/60 rounded-full">
                   <Lock size={12} className="text-zinc-400" />
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Secure</span>
                 </div>
