@@ -953,7 +953,16 @@ export function PortalAssetVault() {
 
               {/* Card Actions */}
               <div className="flex items-center justify-end border-t border-neutral-100 pt-4 mt-4">
-                
+                {isImageFile(asset.name) && (
+                  <button 
+                    disabled={isTrimmingVaultLogos}
+                    onClick={() => handleAutoCropSingleAsset(asset)}
+                    className="p-1.5 text-neutral-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-center mr-1"
+                    title="Auto-crop transparent & white margins to PNG"
+                  >
+                    <Crop size={14} className="text-emerald-600" />
+                  </button>
+                )}
                 <button 
                   disabled={deletingId === asset.id}
                   onClick={() => handleDeleteAsset(asset)}
