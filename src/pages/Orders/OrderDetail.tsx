@@ -648,13 +648,8 @@ const generateFinalSheetsForPrintAndCut = async (
         sheetContentHeightInches = orderItem.sheetHeight || 24;
     }
 
-    // Now calculate dynamic DPI to stay within browser canvas limits (max height 30,000px)
-    const finalCanvasHeightInches = sheetContentHeightInches + HEADER_HEIGHT_INCHES + (2 * MARGIN_INCHES) + HEADER_TO_DESIGN_GAP_INCHES;
-    let BASE_DPI = 300;
-    if (finalCanvasHeightInches * 300 > 30000) {
-        BASE_DPI = Math.min(300, Math.max(72, Math.floor(30000 / finalCanvasHeightInches)));
-        console.log(`Scaling down DPI to ${BASE_DPI} to keep canvas height within safe limits (${Math.floor(finalCanvasHeightInches * BASE_DPI)}px)`);
-    }
+    // Strictly enforce 300 DPI for all print & cut master gang sheets (1 inch = 300 pixels)
+    const BASE_DPI = 300;
 
     const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px at 300 DPI
     const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI
