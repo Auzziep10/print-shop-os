@@ -62,7 +62,7 @@ const drawGraphtecRegistrationMarks = (
     const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
     const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
     const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
-    const padding = 0.15 * BASE_DPI; // 45px (0.15 inch padding for the white background squares)
+    const padding = 0.03 * BASE_DPI; // 9px (approx 0.75 mm padding for the white background squares, bounded inside 1.0" margin)
 
     const xLeft = margin;
     const xRight = width - margin;
@@ -72,37 +72,34 @@ const drawGraphtecRegistrationMarks = (
     if (drawBackground) {
         ctx.fillStyle = 'white';
         
+        // Cap white boxes so they stay within the outer 1.0" margin band (xLeft + markLength = 300px, xRight - markLength = width - 300px)
         // 1. Top-Left White Background
-        ctx.fillRect(
-            xLeft - padding,
-            yTop - padding,
-            markLength + (2 * padding),
-            markLength + (2 * padding)
-        );
+        const tlX = Math.max(0, xLeft - padding);
+        const tlY = Math.max(0, yTop - padding);
+        const tlW = Math.min(xLeft + markLength, width) - tlX;
+        const tlH = Math.min(yTop + markLength, height) - tlY;
+        ctx.fillRect(tlX, tlY, tlW, tlH);
 
         // 2. Top-Right White Background
-        ctx.fillRect(
-            xRight - markLength - padding,
-            yTop - padding,
-            markLength + (2 * padding),
-            markLength + (2 * padding)
-        );
+        const trX = Math.max(0, xRight - markLength);
+        const trY = Math.max(0, yTop - padding);
+        const trW = Math.min(xRight + padding, width) - trX;
+        const trH = Math.min(yTop + markLength, height) - trY;
+        ctx.fillRect(trX, trY, trW, trH);
 
         // 3. Bottom-Left White Background
-        ctx.fillRect(
-            xLeft - padding,
-            yBottom - markLength - padding,
-            markLength + (2 * padding),
-            markLength + (2 * padding)
-        );
+        const blX = Math.max(0, xLeft - padding);
+        const blY = Math.max(0, yBottom - markLength);
+        const blW = Math.min(xLeft + markLength, width) - blX;
+        const blH = Math.min(yBottom + padding, height) - blY;
+        ctx.fillRect(blX, blY, blW, blH);
 
         // 4. Bottom-Right White Background
-        ctx.fillRect(
-            xRight - markLength - padding,
-            yBottom - markLength - padding,
-            markLength + (2 * padding),
-            markLength + (2 * padding)
-        );
+        const brX = Math.max(0, xRight - markLength);
+        const brY = Math.max(0, yBottom - markLength);
+        const brW = Math.min(xRight + padding, width) - brX;
+        const brH = Math.min(yBottom + padding, height) - brY;
+        ctx.fillRect(brX, brY, brW, brH);
     }
 
     ctx.fillStyle = 'black';
