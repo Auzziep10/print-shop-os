@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '../../lib/firebase';
 import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop, GripVertical, Folder, FolderPlus, Sparkles } from 'lucide-react';
 import Cropper from 'react-easy-crop';
-import { getCroppedImg } from '../../lib/cropUtils';
+import { getCroppedImg, autoCropLogoToPng } from '../../lib/cropUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 
 export function PortalAssetVault() {
@@ -533,6 +533,79 @@ export function PortalAssetVault() {
     return <FileText size={24} className="text-neutral-500" />;
   };
 
+  const [isTrimmingVaultLogos, setIsTrimmingVaultLogos] = useState(false);
+
+  const handleAutoCropSingleAsset = async (asset: any) => {
+    if (!currentCustomerId || !asset.url) return;
+    setIsTrimmingVaultLogos(true);
+    try {
+      const cropped = await autoCropLogoToPng(asset.url, { trimWhiteBackground: true, padding: 0 });
+      if (!cropped || !cropped.trimmed) {
+        alert(`Logo "${asset.name}" is already trimmed to exact visible edges.`);
+        return;
+      }
+
+      const cleanFileName = asset.name.replace(/\.[^/.]+$/, "") + '_trimmed.png';
+      const storageRef = ref(storage, `customers/${currentCustomerId}/vault/${Date.now()}_${cleanFileName}`);
+      await uploadBytes(storageRef, cropped.file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const updated = assets.map(a => a.id === asset.id ? { ...a, url: downloadUrl, name: cleanFileName, lastTrimmedAt: new Date().toISOString() } : a);
+      await updateDoc(doc(db, 'customers', currentCustomerId), { assets: updated });
+      setAssets(updated);
+      alert(`Successfully trimmed "${asset.name}" to exact PNG edges!`);
+    } catch (err) {
+      console.error("Failed to trim asset logo:", err);
+      alert("Failed to auto-crop logo.");
+    } finally {
+      setIsTrimmingVaultLogos(false);
+    }
+  };
+
+  const handleAutoCropAllAssets = async () => {
+    if (!currentCustomerId || assets.length === 0) return;
+    if (!window.confirm("Auto-crop and convert ALL logos in this vault to PNG trimmed to exact visible edges?")) return;
+
+    setIsTrimmingVaultLogos(true);
+    let trimmedCount = 0;
+    try {
+      const updatedAssets = [...assets];
+      for (let i = 0; i < updatedAssets.length; i++) {
+        const asset = updatedAssets[i];
+        if (!asset.url || asset.type === 'folder' || !asset.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) continue;
+
+        const cropped = await autoCropLogoToPng(asset.url, { trimWhiteBackground: true, padding: 0 });
+        if (cropped && cropped.trimmed) {
+          const cleanFileName = asset.name.replace(/\.[^/.]+$/, "") + '_trimmed.png';
+          const storageRef = ref(storage, `customers/${currentCustomerId}/vault/${Date.now()}_${i}_${cleanFileName}`);
+          await uploadBytes(storageRef, cropped.file);
+          const downloadUrl = await getDownloadURL(storageRef);
+
+          updatedAssets[i] = {
+            ...asset,
+            url: downloadUrl,
+            name: cleanFileName,
+            lastTrimmedAt: new Date().toISOString()
+          };
+          trimmedCount++;
+        }
+      }
+
+      if (trimmedCount > 0) {
+        await updateDoc(doc(db, 'customers', currentCustomerId), { assets: updatedAssets });
+        setAssets(updatedAssets);
+        alert(`Successfully trimmed and converted ${trimmedCount} logo(s) to exact PNG edges!`);
+      } else {
+        alert("All vault logos are already trimmed to exact visible edges.");
+      }
+    } catch (err) {
+      console.error("Failed to bulk auto-crop vault logos:", err);
+      alert("Failed to crop some logos.");
+    } finally {
+      setIsTrimmingVaultLogos(false);
+    }
+  };
+
   const isImageFile = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase();
     return ['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'svg', 'avif', 'bmp'].includes(ext || '');
@@ -625,6 +698,23 @@ export function PortalAssetVault() {
             </button>
           )}
 
+          {assets.length > 0 && (
+            <button
+              type="button"
+              onClick={handleAutoCropAllAssets}
+              disabled={isTrimmingVaultLogos}
+              className="bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 px-5 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              title="Auto-crop all logos to PNG trimmed to exact visible edges"
+            >
+              {isTrimmingVaultLogos ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Crop size={16} className="text-emerald-600" />
+              )}
+              {isTrimmingVaultLogos ? "Trimming..." : "Trim All to PNG"}
+            </button>
+          )}
+
           <label 
             data-tour="vault-upload-btn"
             className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer"
@@ -635,7 +725,7 @@ export function PortalAssetVault() {
             ) : (
               <Plus size={16} />
             )}
-        {isUploading ? "Uploading..." : "Upload New Asset"}
+            {isUploading ? "Uploading..." : "Upload New Asset"}
           </label>
         </div>
       </div>
