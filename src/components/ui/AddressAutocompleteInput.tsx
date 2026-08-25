@@ -22,19 +22,34 @@ export function normalizeState(stateName: string): string {
   return STATE_ABBRS[lower] || trimmed.toUpperCase();
 }
 
+export function isOrdinal(token: string): boolean {
+  if (!token) return false;
+  return /^\d+(?:st|nd|rd|th)$/i.test(token.trim());
+}
+
+export function extractHouseNumber(query: string): string | null {
+  if (!query) return null;
+  const match = query.trim().match(/^(\d+[A-Za-z\-\/]*)\b/);
+  if (!match) return null;
+  const candidate = match[1];
+  if (isOrdinal(candidate)) return null;
+  return candidate;
+}
+
+export function hasHouseNumber(street: string): boolean {
+  if (!street) return false;
+  return extractHouseNumber(street) !== null;
+}
+
 export function preserveHouseNumber(userQuery: string, parsedStreet: string): string {
   if (!parsedStreet) return userQuery ? userQuery.trim() : '';
   if (!userQuery) return parsedStreet;
   
-  // Extract leading house number from user query (e.g. "712", "712B", "10420", "123-A")
-  const queryHouseNumMatch = userQuery.trim().match(/^(\d+[A-Za-z\-\/]*)\b/);
-  if (!queryHouseNumMatch) return parsedStreet;
-  
-  const queryHouseNum = queryHouseNumMatch[1];
+  const queryHouseNum = extractHouseNumber(userQuery);
+  if (!queryHouseNum) return parsedStreet;
   
   // Check if parsedStreet already starts with a house number
-  const streetHasHouseNum = /^(\d+[A-Za-z\-\/]*)\s+/.test(parsedStreet.trim());
-  if (streetHasHouseNum) return parsedStreet;
+  if (hasHouseNumber(parsedStreet)) return parsedStreet;
   
   // Prepend the user's typed house number to the street name
   return `${queryHouseNum} ${parsedStreet.trim()}`.trim();
@@ -300,8 +315,7 @@ export function AddressAutocompleteInput({
               else if (types.includes('postal_code')) zip = c.long_name;
             });
 
-            const queryHouseNumMatch = value.trim().match(/^(\d+[A-Za-z\-\/]*)\b/);
-            const typedHouseNum = queryHouseNumMatch ? queryHouseNumMatch[1] : '';
+            const typedHouseNum = extractHouseNumber(value) || '';
             const effectiveHouseNum = streetNum || typedHouseNum;
             const baseStreet = route || s.street;
             const preciseStreet = effectiveHouseNum 
