@@ -28,6 +28,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import { trackVisitorEvent } from '../../lib/visitorTracking';
+import { processUploadedLogoFile } from '../../lib/cropUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, sortGarmentsByTypeOrder, type GarmentTypeId } from '../../lib/garmentUtils';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
@@ -1731,22 +1732,25 @@ export function PublicQuoteRequest() {
 
     setIsUploadingLogo(true);
     try {
+      // Automatically trim and convert non-PNG logo images to high-res transparent PNGs
+      const fileToUpload = await processUploadedLogoFile(file);
+
       const dataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = (event) => {
           if (event.target?.result) resolve(event.target.result as string);
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileToUpload);
       });
 
       setOriginalArtworkUrl(dataUrl);
       extractDominantColors(dataUrl);
-      setArtworkName(file.name);
+      setArtworkName(fileToUpload.name);
 
       try {
         const tempId = `logo_${Date.now()}`;
-        const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
-        await uploadBytes(storageRef, file);
+        const storageRef = ref(storage, `public_quotes/logos/${tempId}/${fileToUpload.name}`);
+        await uploadBytes(storageRef, fileToUpload);
         const url = await getDownloadURL(storageRef);
         setLogoUrl(url);
         setOriginalFileUrl(url);

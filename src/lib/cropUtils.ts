@@ -222,3 +222,48 @@ export async function autoCropLogoToPng(
   }
 }
 
+/**
+ * Automatically processes any uploaded logo file.
+ * If the file is an image and is NOT already a PNG (e.g. JPG, JPEG, WEBP, GIF, SVG, BMP, AVIF),
+ * or if forceTrimPng is true, it converts it to high-res PNG and trims outer transparent/white margins
+ * using autoCropLogoToPng.
+ */
+export async function processUploadedLogoFile(
+  file: File,
+  options?: { forceTrimPng?: boolean; trimWhiteBackground?: boolean; padding?: number }
+): Promise<File> {
+  if (!file) return file;
+
+  const isImage = file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|avif)$/i);
+  if (!isImage) {
+    // Non-image files (PDF, AI, EPS, PSD, ZIP) return as-is
+    return file;
+  }
+
+  const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+  const shouldTrim = options?.forceTrimPng || !isPng;
+
+  if (shouldTrim) {
+    const tempUrl = URL.createObjectURL(file);
+    try {
+      const cropped = await autoCropLogoToPng(tempUrl, {
+        trimWhiteBackground: options?.trimWhiteBackground ?? true,
+        padding: options?.padding ?? 0,
+      });
+
+      if (cropped && cropped.file) {
+        const baseName = file.name.replace(/\.[^/.]+$/, '');
+        const newFileName = `${baseName}_trimmed.png`;
+        return new File([cropped.file], newFileName, { type: 'image/png' });
+      }
+    } catch (err) {
+      console.warn('Auto-trimming uploaded logo file failed, using original file:', err);
+    } finally {
+      URL.revokeObjectURL(tempUrl);
+    }
+  }
+
+  return file;
+}
+
+

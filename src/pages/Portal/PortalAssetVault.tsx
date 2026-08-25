@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '../../lib/firebase';
 import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop, GripVertical, Folder, FolderPlus, Sparkles } from 'lucide-react';
 import Cropper from 'react-easy-crop';
-import { getCroppedImg, autoCropLogoToPng } from '../../lib/cropUtils';
+import { getCroppedImg, autoCropLogoToPng, processUploadedLogoFile } from '../../lib/cropUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 
 export function PortalAssetVault() {
@@ -431,7 +431,9 @@ export function PortalAssetVault() {
       const newAssets: any[] = [];
       
       // Upload all selected files concurrently
-      await Promise.all(Array.from(files).map(async (file, idx) => {
+      await Promise.all(Array.from(files).map(async (rawFile, idx) => {
+        // Automatically trim and convert non-PNG logo images to high-res transparent PNGs
+        const file = await processUploadedLogoFile(rawFile);
         // Add idx and random string to prevent filename/timestamp collisions
         const randomStr = Math.random().toString(36).substr(2, 5);
         const storageRef = ref(storage, `portal/${currentCustomerId}/vault/${Date.now()}_${idx}_${randomStr}_${file.name}`);

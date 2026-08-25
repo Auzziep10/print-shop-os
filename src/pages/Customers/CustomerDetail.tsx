@@ -8,7 +8,7 @@ import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
-import { getCroppedImg, autoCropLogoToPng } from '../../lib/cropUtils';
+import { getCroppedImg, autoCropLogoToPng, processUploadedLogoFile } from '../../lib/cropUtils';
 import { ShoppingBag } from 'lucide-react';
 import { AddressAutocompleteInput } from '../../components/ui/AddressAutocompleteInput';
 import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
@@ -515,13 +515,14 @@ export function CustomerDetail() {
 
     setIsUploadingLogoVault(true);
     try {
-      const storageRef = ref(storage, `portal/${id}/vault/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
+      const fileToUpload = await processUploadedLogoFile(file);
+      const storageRef = ref(storage, `portal/${id}/vault/${Date.now()}_${fileToUpload.name}`);
+      await uploadBytes(storageRef, fileToUpload);
       const downloadUrl = await getDownloadURL(storageRef);
 
       const newAsset = {
         id: `asset-${Date.now()}`,
-        name: file.name,
+        name: fileToUpload.name,
         url: downloadUrl,
         uploadedAt: new Date().toISOString()
       };

@@ -9,6 +9,7 @@ import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
 import { getFilteredProductColors, resolveGarmentPlacementData, getFrameContentBounds, getImageContentInfo, remapBoxToFrame, detectPrintSizeFromPlacement, type FrameContentBounds } from '../../lib/garmentUtils';
+import { processUploadedLogoFile } from '../../lib/cropUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -1694,11 +1695,13 @@ export function GarmentCustomizerModal({
   if (!isOpen || !activeGarment) return null;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
     setIsUploading(true);
     try {
+      // Automatically trim and convert non-PNG logo images to high-res transparent PNGs
+      const file = await processUploadedLogoFile(rawFile);
       let downloadUrl = '';
       try {
         const uploadPath = (!customerId || customerId === 'PUBLIC_VISITOR') 
