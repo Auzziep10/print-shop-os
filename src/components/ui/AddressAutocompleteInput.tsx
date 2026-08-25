@@ -55,6 +55,21 @@ export function preserveHouseNumber(userQuery: string, parsedStreet: string): st
   return `${queryHouseNum} ${parsedStreet.trim()}`.trim();
 }
 
+export function sanitizeZipCode(street: string, city: string, state: string, zip: string): string {
+  if (!zip) return '';
+  const cleanCity = city?.trim().toLowerCase();
+  const cleanState = normalizeState(state);
+  
+  // Rio Rancho, NM: 87174 is P.O. Box only. Physical street addresses use 87124
+  if (cleanState === 'NM' && cleanCity === 'rio rancho' && zip === '87174') {
+    if (!/p\.?o\.?\s*box/i.test(street)) {
+      return '87124';
+    }
+  }
+  
+  return zip;
+}
+
 export function parseAddressString(formattedAddress: string, userQuery?: string): { street: string; city: string; state: string; zip: string } {
   if (!formattedAddress) return { street: '', city: '', state: '', zip: '' };
   
@@ -90,7 +105,8 @@ export function parseAddressString(formattedAddress: string, userQuery?: string)
   }
   
   const street = userQuery ? preserveHouseNumber(userQuery, rawStreet) : rawStreet;
-  return { street, city, state, zip };
+  const cleanZip = sanitizeZipCode(street, city, state, zip);
+  return { street, city, state, zip: cleanZip };
 }
 
 export interface AddressSuggestion {
@@ -253,7 +269,7 @@ export function AddressAutocompleteInput({
           const street = preserveHouseNumber(queryStr, rawStreet);
           const city = p.city || p.town || p.village || p.county || '';
           const state = normalizeState(p.state || '');
-          const zip = p.postcode || '';
+          const zip = sanitizeZipCode(street, city, state, p.postcode || '');
 
           const parts = [street, city, state, zip].filter(Boolean);
           const formatted = parts.join(', ');
@@ -322,11 +338,16 @@ export function AddressAutocompleteInput({
               ? preserveHouseNumber(effectiveHouseNum, baseStreet)
               : baseStreet;
 
+            const finalStreet = preciseStreet || s.street;
+            const finalCity = city || s.city;
+            const finalState = normalizeState(state || s.state);
+            const finalZip = sanitizeZipCode(finalStreet, finalCity, finalState, zip || s.zip);
+
             const updated = {
-              street: preciseStreet || s.street,
-              city: city || s.city,
-              state: normalizeState(state || s.state),
-              zip: zip || s.zip
+              street: finalStreet,
+              city: finalCity,
+              state: finalState,
+              zip: finalZip
             };
             onAddressSelect(updated);
             if (preciseStreet) onChange(preciseStreet);
