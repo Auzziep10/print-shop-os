@@ -508,7 +508,8 @@ export function GalleryPage() {
   const handleSaveGallerySettings = async () => {
     setIsSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'gallery'), editSettings, { merge: true });
+      const cleanPayload = JSON.parse(JSON.stringify(editSettings));
+      await setDoc(doc(db, 'settings', 'gallery'), cleanPayload, { merge: true });
       setSettings(editSettings);
       try {
         localStorage.setItem('inktheory_gallery_settings', JSON.stringify(editSettings));
@@ -516,9 +517,9 @@ export function GalleryPage() {
         // ignore
       }
       setIsEditing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving gallery settings:', err);
-      alert('Failed to save gallery settings. Please try again.');
+      alert(`Failed to save gallery settings: ${err?.message || 'Unknown error'}`);
     } finally {
       setIsSaving(false);
     }
