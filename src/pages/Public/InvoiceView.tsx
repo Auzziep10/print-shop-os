@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
@@ -14,33 +14,39 @@ export function InvoiceView() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!orderId) return;
-      try {
-        const busSnap = await getDoc(doc(db, 'settings', 'business'));
-        if (busSnap.exists()) {
-          setGlobalSettings(busSnap.data());
-        }
+    if (!orderId) return;
+    
+    // Fetch business settings
+    getDoc(doc(db, 'settings', 'business')).then(busSnap => {
+      if (busSnap.exists()) setGlobalSettings(busSnap.data());
+    }).catch(console.error);
 
-        const orderDoc = await getDoc(doc(db, 'orders', orderId));
-        if (orderDoc.exists()) {
-          const orderData = orderDoc.data();
-          setOrder({ id: orderDoc.id, ...orderData });
-          
-          if (orderData.customerId) {
-             const custDoc = await getDoc(doc(db, 'customers', orderData.customerId));
-             if (custDoc.exists()) {
-               setCustomer(custDoc.data());
-             }
+    // Live subscription to order document
+    const unsub = onSnapshot(doc(db, 'orders', orderId), async (orderDoc) => {
+      if (orderDoc.exists()) {
+        const orderData = orderDoc.data();
+        setOrder({ id: orderDoc.id, ...orderData });
+        
+        if (orderData.customerId) {
+          try {
+            const custDoc = await getDoc(doc(db, 'customers', orderData.customerId));
+            if (custDoc.exists()) {
+              setCustomer(custDoc.data());
+            }
+          } catch (err) {
+            console.error("Error fetching customer:", err);
           }
         }
-      } catch (err) {
-        console.error("Error fetching order:", err);
-      } finally {
-        setLoading(false);
+      } else {
+        setOrder(null);
       }
-    };
-    fetchData();
+      setLoading(false);
+    }, (err) => {
+      console.error("Error subscribing to order:", err);
+      setLoading(false);
+    });
+
+    return () => unsub();
   }, [orderId]);
 
   if (loading) {
