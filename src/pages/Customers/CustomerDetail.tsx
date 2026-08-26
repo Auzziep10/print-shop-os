@@ -2,7 +2,16 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette } from 'lucide-react';
+
+export interface ColorVariation {
+  id: string;
+  color: string;
+  frontImage: string;
+  backImage: string;
+  isUploadingFront?: boolean;
+  isUploadingBack?: boolean;
+}
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -209,8 +218,117 @@ export function CustomerDetail() {
 
   const [allOtherSuggestions, setAllOtherSuggestions] = useState<any[]>([]);
   const [suggestionsSearchQuery, setSuggestionsSearchQuery] = useState('');
-  const [templateImages, setTemplateImages] = useState<Record<string, string>>({});
-  const [templateBackImages, setTemplateBackImages] = useState<Record<string, string>>({});
+  const [colorVariations, setColorVariations] = useState<ColorVariation[]>([]);
+
+  const handleAddColorVariation = (colorName = '') => {
+    setColorVariations(prev => [
+      ...prev,
+      {
+        id: `col-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        color: colorName,
+        frontImage: '',
+        backImage: ''
+      }
+    ]);
+  };
+
+  const handleAddQuickColors = (colorsArr: string[]) => {
+    setColorVariations(prev => {
+      const existingNames = new Set(prev.map(c => c.color.toLowerCase().trim()));
+      const newVars: ColorVariation[] = [];
+      colorsArr.forEach(col => {
+        if (!existingNames.has(col.toLowerCase().trim())) {
+          newVars.push({
+            id: `col-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            color: col,
+            frontImage: '',
+            backImage: ''
+          });
+        }
+      });
+      return [...prev, ...newVars];
+    });
+  };
+
+  const handleRemoveColorVariation = (varId: string) => {
+    setColorVariations(prev => prev.filter(c => c.id !== varId));
+  };
+
+  const handleUpdateColorVariation = (varId: string, updates: Partial<ColorVariation>) => {
+    setColorVariations(prev => prev.map(c => c.id === varId ? { ...c, ...updates } : c));
+  };
+
+  const handleUploadColorMockup = async (varId: string, side: 'front' | 'back', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    
+    handleUpdateColorVariation(varId, { [side === 'front' ? 'isUploadingFront' : 'isUploadingBack']: true });
+
+    try {
+      const storageRef = ref(storage, `suggested_items/${id}/${Date.now()}_${side}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      setColorVariations(prev => prev.map(c => {
+        if (c.id !== varId) return c;
+        return {
+          ...c,
+          [side === 'front' ? 'frontImage' : 'backImage']: downloadUrl,
+          [side === 'front' ? 'isUploadingFront' : 'isUploadingBack']: false
+        };
+      }));
+
+      if (side === 'front' && !customSuggestedItem.image) {
+        setCustomSuggestedItem(prev => ({ ...prev, image: downloadUrl }));
+      }
+    } catch (err) {
+      console.error(`Upload ${side} mockup failed:`, err);
+      alert(`Failed to upload ${side} mockup image.`);
+      handleUpdateColorVariation(varId, { [side === 'front' ? 'isUploadingFront' : 'isUploadingBack']: false });
+    }
+  };
+
+  const openEditModal = (item: any, type: 'suggested' | 'sample') => {
+    setEditingSuggestedItem(item);
+    setSuggestedModalType(type);
+    setCustomSuggestedItem({
+      style: item.style || '',
+      itemNum: item.itemNum || '',
+      description: item.description || '',
+      image: item.image || '',
+      colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
+      price: String(item.price || ''),
+      gender: item.gender || 'Unisex',
+      visible: item.visible ?? true
+    });
+
+    const rawColors: string[] = Array.isArray(item.colors) 
+      ? item.colors 
+      : (typeof item.colors === 'string' && item.colors ? item.colors.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+    
+    const itemImages = item.images || {};
+    const itemBackImages = item.backImages || {};
+
+    const allColorNames = Array.from(new Set([
+      ...rawColors,
+      ...Object.keys(itemImages),
+      ...Object.keys(itemBackImages)
+    ])).filter(Boolean);
+
+    if (allColorNames.length === 0 && item.image) {
+      allColorNames.push('Custom Color');
+    }
+
+    const initialVariations: ColorVariation[] = allColorNames.map((c, i) => ({
+      id: `col-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`,
+      color: c,
+      frontImage: itemImages[c] || (i === 0 && typeof item.image === 'string' ? item.image : ''),
+      backImage: itemBackImages[c] || ''
+    }));
+
+    setColorVariations(initialVariations);
+    setIsAddingSuggestedModalOpen(true);
+  };
 
   useEffect(() => {
     if (!isAddingSuggestedModalOpen) return;
@@ -358,6 +476,21 @@ export function CustomerDetail() {
       initialColors[c] = true;
     });
     setSelectedColors(initialColors);
+
+    // Pre-populate colorVariations from SanMar product colors & images
+    const sanMarVariations: ColorVariation[] = (product.colors || []).map((c: string, i: number) => {
+      const imgSet = product.images?.[c];
+      const frontUrl = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front || '') : '';
+      const backUrl = imgSet && typeof imgSet !== 'string' ? imgSet.back || '' : '';
+      return {
+        id: `col-${Date.now()}-${i}`,
+        color: c,
+        frontImage: frontUrl,
+        backImage: backUrl
+      };
+    });
+    setColorVariations(sanMarVariations);
+
     setIsGarmentBrowserOpen(false);
   };
 
@@ -373,6 +506,8 @@ export function CustomerDetail() {
         description: garmentToAdd.description || '',
         image: garmentToAdd.image || garmentToAdd.original_image || garmentToAdd.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
         colors: garmentToAdd.colors || ['Custom Color'],
+        images: garmentToAdd.images || {},
+        backImages: garmentToAdd.backImages || {},
         price: parseFloat(garmentToAdd.price || garmentToAdd.msrp || 0),
         gender: garmentToAdd.gender || 'Unisex',
         ...(isSample ? { visible: garmentToAdd.visible ?? true } : {})
@@ -383,36 +518,59 @@ export function CustomerDetail() {
         return;
       }
 
-      let finalColors = customSuggestedItem.colors ? customSuggestedItem.colors.split(',').map(s => s.trim()) : ['Custom Color'];
+      let finalColors: string[] = [];
       let imagesMap: Record<string, string> = {};
       let backImagesMap: Record<string, string> = {};
-      let mainImage = customSuggestedItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+      let mainImage = customSuggestedItem.image || '';
 
       if (selectedSanMarProduct) {
         const chosenColors = selectedSanMarProduct.colors.filter((c: string) => !!selectedColors[c]);
         if (chosenColors.length > 0) {
           finalColors = chosenColors;
           chosenColors.forEach((color: string) => {
+            const customVar = colorVariations.find(cv => cv.color.toLowerCase().trim() === color.toLowerCase().trim());
             const imgSet = selectedSanMarProduct.images[color];
-            const url = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
-            if (url) {
-              imagesMap[color] = url;
-            }
-            const backUrl = imgSet && typeof imgSet !== 'string' ? imgSet.back : '';
-            if (backUrl) {
-              backImagesMap[color] = backUrl;
-            }
+            const defaultFront = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
+            const defaultBack = imgSet && typeof imgSet !== 'string' ? imgSet.back : '';
+
+            const frontUrl = customVar?.frontImage || defaultFront;
+            const backUrl = customVar?.backImage || defaultBack;
+
+            if (frontUrl) imagesMap[color] = frontUrl;
+            if (backUrl) backImagesMap[color] = backUrl;
           });
           const defaultColor = (selectedInitialColor && chosenColors.includes(selectedInitialColor))
             ? selectedInitialColor
             : chosenColors[0];
-          if (defaultColor && imagesMap[defaultColor]) {
+          if (defaultColor && imagesMap[defaultColor] && !mainImage) {
             mainImage = imagesMap[defaultColor];
           }
         }
       } else {
-        imagesMap = templateImages;
-        backImagesMap = templateBackImages;
+        colorVariations.forEach(cv => {
+          const cName = cv.color.trim();
+          if (!cName) return;
+          finalColors.push(cName);
+          if (cv.frontImage) imagesMap[cName] = cv.frontImage;
+          if (cv.backImage) backImagesMap[cName] = cv.backImage;
+        });
+
+        if (finalColors.length === 0 && customSuggestedItem.colors) {
+          finalColors = customSuggestedItem.colors.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        
+        if (finalColors.length === 0) {
+          finalColors = ['Custom Color'];
+        }
+
+        if (!mainImage) {
+          const firstFront = colorVariations.find(cv => !!cv.frontImage)?.frontImage;
+          if (firstFront) {
+            mainImage = firstFront;
+          } else {
+            mainImage = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+          }
+        }
       }
 
       itemObj = {
@@ -449,12 +607,11 @@ export function CustomerDetail() {
       }
       setIsAddingSuggestedModalOpen(false);
       setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex', visible: true });
+      setColorVariations([]);
       setEditingSuggestedItem(null);
       setSelectedSanMarProduct(null);
       setSelectedColors({});
       setSelectedInitialColor('');
-      setTemplateImages({});
-      setTemplateBackImages({});
       setSuggestionsSearchQuery('');
     } catch (err) {
       console.error(`Error saving ${isSample ? 'sample' : 'suggested'} item:`, err);
@@ -1666,21 +1823,7 @@ export function CustomerDetail() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => {
-                              setEditingSuggestedItem(item);
-                              setSuggestedModalType('suggested');
-                              setCustomSuggestedItem({
-                                style: item.style,
-                                itemNum: item.itemNum || '',
-                                description: item.description || '',
-                                image: item.image || '',
-                                colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
-                                price: String(item.price || ''),
-                                gender: item.gender || 'Unisex',
-                                visible: true
-                              });
-                              setIsAddingSuggestedModalOpen(true);
-                            }}
+                            onClick={() => openEditModal(item, 'suggested')}
                             className="text-neutral-400 hover:text-brand-primary transition-colors p-2 cursor-pointer"
                             title="Edit Suggestion"
                           >
@@ -1737,21 +1880,7 @@ export function CustomerDetail() {
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditingSuggestedItem(item);
-                              setSuggestedModalType('sample');
-                              setCustomSuggestedItem({
-                                style: item.style,
-                                itemNum: item.itemNum || '',
-                                description: item.description || '',
-                                image: item.image || '',
-                                colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
-                                price: String(item.price || ''),
-                                gender: item.gender || 'Unisex',
-                                visible: item.visible ?? true
-                              });
-                              setIsAddingSuggestedModalOpen(true);
-                            }}
+                            onClick={() => openEditModal(item, 'sample')}
                             className="text-neutral-400 hover:text-brand-primary transition-colors p-2 cursor-pointer"
                             title="Edit Sample Item"
                           >
@@ -3305,8 +3434,7 @@ export function CustomerDetail() {
                   setSelectedSanMarProduct(null);
                   setSelectedColors({});
                   setSelectedInitialColor('');
-                  setTemplateImages({});
-                  setTemplateBackImages({});
+                  setColorVariations([]);
                   setSuggestionsSearchQuery('');
                 }} 
                 className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
@@ -3403,8 +3531,31 @@ export function CustomerDetail() {
                               gender: item.gender || 'Unisex',
                               visible: item.visible ?? true
                             });
-                            setTemplateImages(item.images || {});
-                            setTemplateBackImages(item.backImages || {});
+                            const rawColors: string[] = Array.isArray(item.colors) 
+                              ? item.colors 
+                              : (typeof item.colors === 'string' && item.colors ? item.colors.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+                            
+                            const itemImages = item.images || {};
+                            const itemBackImages = item.backImages || {};
+
+                            const allColorNames = Array.from(new Set([
+                              ...rawColors,
+                              ...Object.keys(itemImages),
+                              ...Object.keys(itemBackImages)
+                            ])).filter(Boolean);
+
+                            if (allColorNames.length === 0 && item.image) {
+                              allColorNames.push('Custom Color');
+                            }
+
+                            const initialVariations: ColorVariation[] = allColorNames.map((c, i) => ({
+                              id: `col-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`,
+                              color: c,
+                              frontImage: itemImages[c] || (i === 0 && typeof item.image === 'string' ? item.image : ''),
+                              backImage: itemBackImages[c] || ''
+                            }));
+
+                            setColorVariations(initialVariations);
                             setSelectedSanMarProduct(null);
                           }}
                           className="flex items-center gap-3 w-full p-2 bg-white border border-neutral-200 hover:border-brand-primary/40 rounded-xl hover:bg-neutral-50 text-left transition-colors cursor-pointer group"
@@ -3609,6 +3760,202 @@ export function CustomerDetail() {
                       onChange={e => setCustomSuggestedItem({...customSuggestedItem, image: e.target.value})} 
                       placeholder="Image URL link"
                     />
+                  </div>
+                </div>
+
+                {/* Color Variations & Mockup Images Section */}
+                <div className="flex flex-col gap-3 bg-neutral-50 p-4 border border-brand-border/80 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-700 flex items-center gap-1.5">
+                        <Palette size={14} className="text-brand-primary" />
+                        <span>Color Variations & Mockups</span>
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                        Add color options and upload front/back mockup images per color.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold bg-white border border-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full shrink-0">
+                      {colorVariations.length} {colorVariations.length === 1 ? 'Color' : 'Colors'}
+                    </span>
+                  </div>
+
+                  {/* Quick Add Actions */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddColorVariation('')}
+                      className="flex items-center gap-1 text-xs font-bold bg-white text-neutral-800 border border-neutral-300 hover:border-black px-3 py-1.5 rounded-lg shadow-2xs hover:bg-neutral-100 transition-all cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Add Color</span>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickColors(['Black', 'White', 'Navy', 'Heather Grey'])}
+                      className="text-[11px] font-bold text-neutral-600 bg-white hover:bg-neutral-100 border border-neutral-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      + Basics
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddQuickColors(['Red', 'Royal Blue', 'Forest Green', 'Sand'])}
+                      className="text-[11px] font-bold text-neutral-600 bg-white hover:bg-neutral-100 border border-neutral-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      + Accents
+                    </button>
+
+                    {colorVariations.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Remove all color variations?")) {
+                            setColorVariations([]);
+                          }
+                        }}
+                        className="text-[11px] font-bold text-red-500 hover:text-red-700 ml-auto cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Variations List */}
+                  <div className="space-y-3 mt-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {colorVariations.length === 0 ? (
+                      <div className="text-center py-4 border border-dashed border-neutral-200 rounded-xl bg-white text-xs text-neutral-400 font-medium">
+                        No color variations added yet. Click "+ Add Color" above.
+                      </div>
+                    ) : (
+                      colorVariations.map((cv, idx) => {
+                        const swatchHex = getSwatchColor(cv.color, true);
+                        return (
+                          <div key={cv.id || idx} className="bg-white border border-neutral-200 rounded-xl p-3 shadow-2xs space-y-3">
+                            {/* Color Header */}
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="w-5 h-5 rounded-full border border-neutral-300 shrink-0 shadow-2xs" 
+                                style={{
+                                  backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                  backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                                }}
+                                title={cv.color || 'Color Preview'}
+                              />
+                              <input 
+                                type="text" 
+                                placeholder="Color Name (e.g. Vintage Black)" 
+                                value={cv.color} 
+                                onChange={(e) => handleUpdateColorVariation(cv.id, { color: e.target.value })}
+                                className="flex-1 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5 text-xs font-bold text-neutral-900 focus:outline-none focus:bg-white focus:border-brand-primary"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveColorVariation(cv.id)}
+                                className="text-neutral-400 hover:text-red-500 p-1 rounded-md transition-colors cursor-pointer"
+                                title="Remove color variation"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+
+                            {/* Front & Back Mockups Uploaders */}
+                            <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+                              
+                              {/* Front Mockup */}
+                              <div className="flex flex-col gap-1 bg-neutral-50 p-2 border border-neutral-200/80 rounded-lg">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Front Mockup</span>
+                                
+                                {cv.frontImage ? (
+                                  <div className="relative group w-full h-18 bg-white border border-neutral-200 rounded-md overflow-hidden flex items-center justify-center p-1">
+                                    <img src={cv.frontImage} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateColorVariation(cv.id, { frontImage: '' })}
+                                      className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded shadow hover:bg-red-600 transition-colors"
+                                      title="Clear front mockup"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="flex flex-col items-center justify-center h-18 border border-dashed border-neutral-300 hover:border-brand-primary/50 bg-white rounded-md cursor-pointer transition-all p-1 text-center">
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept="image/*" 
+                                      onChange={(e) => handleUploadColorMockup(cv.id, 'front', e)} 
+                                    />
+                                    {cv.isUploadingFront ? (
+                                      <Loader2 size={14} className="animate-spin text-neutral-400" />
+                                    ) : (
+                                      <>
+                                        <Upload size={13} className="text-neutral-400 mb-0.5" />
+                                        <span className="text-[10px] font-bold text-neutral-600">Upload Front</span>
+                                      </>
+                                    )}
+                                  </label>
+                                )}
+
+                                <input 
+                                  type="text" 
+                                  placeholder="or Front URL" 
+                                  value={cv.frontImage} 
+                                  onChange={(e) => handleUpdateColorVariation(cv.id, { frontImage: e.target.value })}
+                                  className="w-full bg-white border border-neutral-200 rounded px-2 py-1 text-[10px] font-medium text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-brand-primary"
+                                />
+                              </div>
+
+                              {/* Back Mockup */}
+                              <div className="flex flex-col gap-1 bg-neutral-50 p-2 border border-neutral-200/80 rounded-lg">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Back Mockup</span>
+                                
+                                {cv.backImage ? (
+                                  <div className="relative group w-full h-18 bg-white border border-neutral-200 rounded-md overflow-hidden flex items-center justify-center p-1">
+                                    <img src={cv.backImage} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateColorVariation(cv.id, { backImage: '' })}
+                                      className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded shadow hover:bg-red-600 transition-colors"
+                                      title="Clear back mockup"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <label className="flex flex-col items-center justify-center h-18 border border-dashed border-neutral-300 hover:border-brand-primary/50 bg-white rounded-md cursor-pointer transition-all p-1 text-center">
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept="image/*" 
+                                      onChange={(e) => handleUploadColorMockup(cv.id, 'back', e)} 
+                                    />
+                                    {cv.isUploadingBack ? (
+                                      <Loader2 size={14} className="animate-spin text-neutral-400" />
+                                    ) : (
+                                      <>
+                                        <Upload size={13} className="text-neutral-400 mb-0.5" />
+                                        <span className="text-[10px] font-bold text-neutral-600">Upload Back</span>
+                                      </>
+                                    )}
+                                  </label>
+                                )}
+
+                                <input 
+                                  type="text" 
+                                  placeholder="or Back URL" 
+                                  value={cv.backImage} 
+                                  onChange={(e) => handleUpdateColorVariation(cv.id, { backImage: e.target.value })}
+                                  className="w-full bg-white border border-neutral-200 rounded px-2 py-1 text-[10px] font-medium text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:border-brand-primary"
+                                />
+                              </div>
+
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
