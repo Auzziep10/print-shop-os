@@ -3,10 +3,12 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3, Sparkles, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
+import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
+import type { BoxLabelPreset } from '../../types/boxLabel';
 
 type DraftBox = {
   id: string;
@@ -34,6 +36,11 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [shopSettings, setShopSettings] = useState<any>(null);
+  
+  // Print QR Label options modal state
+  const [printModalBox, setPrintModalBox] = useState<any | null>(null);
+  const [availablePresets, setAvailablePresets] = useState<BoxLabelPreset[]>([]);
+  const [activePrintPresetId, setActivePrintPresetId] = useState<string>('clean-white');
   
   // Pre-load shop settings for origin address
   useEffect(() => {
@@ -341,8 +348,20 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     await setDoc(doc(db, 'orders', order.id), dbUpdate, { merge: true });
   };
 
-  const handlePrintLabel = (boxId: string) => {
-    window.open(`/print/label/${order.id}/${boxId}`, '_blank', 'width=600,height=800');
+  const handlePrintLabel = async (box: any) => {
+    try {
+      const loadedPresets = await fetchBoxLabelPresets();
+      setAvailablePresets(loadedPresets);
+      if (order?.boxLabelPreset?.id) {
+        setActivePrintPresetId(order.boxLabelPreset.id);
+      } else {
+        const def = loadedPresets.find(p => p.isDefault) || loadedPresets[0];
+        setActivePrintPresetId(def?.id || 'clean-white');
+      }
+    } catch (err) {
+      console.error("Error fetching presets:", err);
+    }
+    setPrintModalBox(box);
   };
 
   const baseUrl = window.location.origin;
@@ -754,12 +773,12 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                          <div 
                            className="bg-white p-2 border border-brand-border rounded-lg shadow-sm cursor-pointer hover:border-black transition-colors" 
                            title="Click to Print Thermal Label" 
-                           onClick={() => handlePrintLabel(box.id)}
+                           onClick={() => handlePrintLabel(box)}
                          >
                            <QRCode value={publicUrl} size={48} />
                          </div>
                          <div className="flex flex-col gap-2 min-w-[140px]">
-                           <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box.id)}>
+                           <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box)}>
                              <Printer size={14} className="mr-1.5" /> Print QR Label
                            </PillButton>
                            {box.labelUrl ? (
@@ -883,6 +902,169 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           order={order}
           boxId={customizerBoxId}
         />
+      )}
+
+      {/* Print QR Label Options Modal */}
+      {printModalBox && (
+        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-neutral-200 flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-600 rounded-xl">
+                  <Printer size={20} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-neutral-900">Print QR Label — {printModalBox.name}</h3>
+                  <p className="text-xs text-neutral-500">Choose printer format & preset style</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setPrintModalBox(null)} 
+                className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-900 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-6 max-h-[75vh] overflow-y-auto">
+              {/* Step 1: Select Preset */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-xs font-bold uppercase tracking-wider text-neutral-700 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-amber-500" /> Select Label Preset Style
+                  </label>
+                  <button
+                    onClick={() => {
+                      setCustomizerBoxId(printModalBox.id);
+                      setIsBoxLabelCustomizerOpen(true);
+                      setPrintModalBox(null);
+                    }}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <Sparkles size={12} /> Redesign Label
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2.5">
+                  {availablePresets.map((p) => {
+                    const isSelected = activePrintPresetId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={async () => {
+                          setActivePrintPresetId(p.id);
+                          try {
+                            await setDoc(doc(db, 'orders', order.id), { boxLabelPreset: p }, { merge: true });
+                          } catch (err) {}
+                        }}
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected 
+                            ? 'border-neutral-900 bg-neutral-50 ring-2 ring-neutral-900/10 shadow-2xs' 
+                            : 'border-neutral-200 bg-white hover:border-neutral-400'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            style={{
+                              backgroundColor: p.bgColor || '#ffffff',
+                              borderColor: p.borderColor || '#000000',
+                              color: p.textColor || '#000000'
+                            }}
+                            className="w-10 h-10 rounded-lg border-2 flex items-center justify-center font-bold text-xs shadow-2xs shrink-0"
+                          >
+                            QR
+                          </div>
+                          <div>
+                            <div className="font-bold text-xs text-neutral-900 flex items-center gap-2">
+                              {p.name}
+                              {p.isDefault && (
+                                <span className="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200">SHOP DEFAULT</span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-neutral-500 mt-0.5">
+                              {p.labelSize || '3x4'} • {p.theme === 'dark' ? 'Dark Theme' : 'Light Theme'} • {p.fontFamily || 'serif'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                          isSelected ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white'
+                        }`}>
+                          {isSelected && <Check size={12} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 2: Printer Type / Output Format */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-neutral-700 block mb-3">
+                  Choose Printer / Format
+                </label>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Thermal Printer Option */}
+                  <button
+                    onClick={() => {
+                      window.open(`/print/label/${order.id}/${printModalBox.id}?preset=${activePrintPresetId}`, '_blank', 'width=600,height=800');
+                      setPrintModalBox(null);
+                    }}
+                    className="p-4 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white hover:bg-neutral-50 transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="p-3 bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white rounded-xl transition-colors">
+                      <Printer size={24} />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-neutral-900">Thermal Roll Printer</div>
+                      <div className="text-[10px] text-neutral-500 mt-0.5">Single Roll (3x4", 4x6", 2x1")</div>
+                    </div>
+                  </button>
+
+                  {/* Sheet Page Option */}
+                  <button
+                    onClick={() => {
+                      window.open(`/print/labels-sheet/${order.id}?boxId=${printModalBox.id}&preset=${activePrintPresetId}`, '_blank');
+                      setPrintModalBox(null);
+                    }}
+                    className="p-4 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white hover:bg-neutral-50 transition-all flex flex-col items-center text-center gap-2.5 group cursor-pointer shadow-2xs"
+                  >
+                    <div className="p-3 bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white rounded-xl transition-colors">
+                      <Package size={24} />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-neutral-900">Avery Sheet (6-Up)</div>
+                      <div className="text-[10px] text-neutral-500 mt-0.5">Standard 8.5x11" Sheet (Avery 5164)</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-neutral-200 bg-neutral-50 flex justify-between items-center shrink-0">
+              <button
+                onClick={() => {
+                  setCustomizerBoxId(printModalBox.id);
+                  setIsBoxLabelCustomizerOpen(true);
+                  setPrintModalBox(null);
+                }}
+                className="text-xs font-bold text-neutral-700 hover:text-neutral-900 flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-500" /> Open Designer
+              </button>
+
+              <button
+                onClick={() => setPrintModalBox(null)}
+                className="text-xs font-bold text-neutral-600 hover:text-neutral-900 px-4 py-2 rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

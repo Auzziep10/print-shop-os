@@ -48,11 +48,23 @@ export function PrintLabelsSheet() {
              }
           }
 
-          // Load label preset
-          if (orderData.boxLabelPreset) {
+          // Load label preset (check URL search params for specific preset requested)
+          const requestedPresetId = searchParams.get('preset');
+          const allPresets = await fetchBoxLabelPresets();
+
+          if (requestedPresetId) {
+            const chosen = allPresets.find(p => p.id === requestedPresetId);
+            if (chosen) {
+              setPreset(chosen);
+            } else if (orderData.boxLabelPreset) {
+              setPreset(orderData.boxLabelPreset);
+            } else {
+              const def = allPresets.find(p => p.isDefault) || allPresets[0];
+              setPreset(def);
+            }
+          } else if (orderData.boxLabelPreset) {
             setPreset(orderData.boxLabelPreset);
           } else {
-            const allPresets = await fetchBoxLabelPresets();
             const def = allPresets.find(p => p.isDefault) || allPresets[0];
             setPreset(def);
           }
