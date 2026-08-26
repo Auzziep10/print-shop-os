@@ -3416,17 +3416,7 @@ export function OrderDetail() {
     return acc + (parseFloat(priceMatch) || 0);
   }, 0) || 0;
 
-  const rawDiscountAmount = (() => {
-    if (order.discountCode) {
-      const type = order.discountType || (order.discountCode.includes('50') ? 'percent' : 'fixed');
-      const val = order.discountValue || (type === 'percent' && order.discountCode.includes('50') ? 50 : order.discountAmount || 0);
-      if (type === 'percent' && val > 0) {
-        return Math.round(totalPriceRaw * (val / 100) * 100) / 100;
-      }
-      if (val > 0) return val;
-    }
-    return parseFloat(order.discountAmount) || 0;
-  })();
+  const rawDiscountAmount = parseFloat(order.discountAmount) || 0;
   const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
   const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);

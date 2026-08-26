@@ -259,27 +259,14 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   // Discount code (managed in Settings → Discount Codes). Pre-applied if the
   // order already carries one (e.g. entered on the public storefront checkout).
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(
-    order.discountCode
+    order.discountAmount > 0 || order.discountCode
       ? {
-          code: order.discountCode,
-          type: (order.discountType as any) || (order.discountCode.includes('50') ? 'percent' : 'fixed'),
-          value: order.discountValue || (order.discountCode.includes('50') ? 50 : order.discountAmount || 0)
+          code: order.discountCode || 'DISCOUNT',
+          type: 'fixed',
+          value: parseFloat(order.discountAmount || 0)
         }
-      : order.discountAmount > 0
-      ? { code: 'DISCOUNT', type: (order.discountType as any) || 'fixed', value: order.discountAmount }
       : null
   );
-
-  // Auto-validate discount code on mount to load latest discount definition (e.g. 50% percent vs fixed)
-  useEffect(() => {
-    if (order.discountCode) {
-      validateDiscountCode(order.discountCode).then(res => {
-        if (res.ok) {
-          setAppliedDiscount(res.discount);
-        }
-      });
-    }
-  }, [order.discountCode]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
