@@ -24,6 +24,7 @@ export interface BoxLabelPreset {
   showBoxItems?: boolean;
   showDestination?: boolean;
   qrSize: number;
+  qrMarginTop?: number; // Top spacing above QR code in px (0 to 32px)
   qrContainerStyle: 'white_box' | 'plain' | 'bordered';
   qrFgColor: string;
   qrBgColor: string;

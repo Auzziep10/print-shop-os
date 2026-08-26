@@ -311,7 +311,10 @@ export function PrintLabel() {
                   </div>
 
                   {/* QR Code */}
-                  <div className="flex-1 flex flex-col justify-center items-center my-1 w-full">
+                  <div 
+                    style={{ marginTop: `${preset.qrMarginTop ?? 4}px`, marginBottom: `${preset.qrMarginTop ?? 4}px` }}
+                    className="flex-1 flex flex-col justify-start items-center w-full"
+                  >
                      <div className={`p-2.5 transition-all ${
                        preset.qrContainerStyle === 'white_box'
                          ? 'bg-white rounded-md'

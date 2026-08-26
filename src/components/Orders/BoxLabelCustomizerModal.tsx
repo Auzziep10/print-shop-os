@@ -656,6 +656,28 @@ export function BoxLabelCustomizerModal({
                       </button>
                     </div>
                   </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">QR Code Top Spacing / Margin</label>
+                      <span className="text-xs font-bold text-neutral-900">{activePreset.qrMarginTop ?? 4}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="32"
+                      step="2"
+                      value={activePreset.qrMarginTop ?? 4}
+                      onChange={(e) => handleUpdatePresetField({ qrMarginTop: parseInt(e.target.value) })}
+                      className="w-full accent-neutral-900 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-neutral-500 font-medium mt-1">
+                      <span>Compact (0px)</span>
+                      <span>Tight (4px)</span>
+                      <span>Medium (16px)</span>
+                      <span>Spacious (32px)</span>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -954,7 +976,10 @@ export function BoxLabelCustomizerModal({
                         </div>
 
                         {/* QR Code Container */}
-                        <div className="flex-1 flex flex-col items-center justify-center w-full my-2">
+                        <div 
+                          style={{ marginTop: `${activePreset.qrMarginTop ?? 4}px`, marginBottom: `${activePreset.qrMarginTop ?? 4}px` }}
+                          className="flex-1 flex flex-col items-center justify-start w-full"
+                        >
                           <div className={`p-3 transition-all ${
                             activePreset.qrContainerStyle === 'white_box'
                               ? 'bg-white rounded-xl shadow-md'
