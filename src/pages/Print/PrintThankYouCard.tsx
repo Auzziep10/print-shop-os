@@ -247,8 +247,8 @@ export function PrintThankYouCard() {
             </div>
             )}
 
-            {/* Top Content */}
-            <div className="relative z-10 flex flex-col items-center text-center px-10">
+            {/* Top Content — sits below the panel's centre line, as in the reference */}
+            <div className="relative z-10 flex flex-col items-center text-center px-10" style={{ marginTop: '76px' }}>
               <h1
                 className="text-black"
                 style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
@@ -264,15 +264,17 @@ export function PrintThankYouCard() {
                 <span style={{ fontStyle: 'italic' }}>that just happens to be local.</span>
               </p>
 
-              {/* Bare QR with vertical caption, no card */}
-              <div className="mt-10 flex items-center gap-2">
+              {/* Bare QR with vertical caption, no card. The caption is capped to
+                  the QR's height so it can never hang past it. */}
+              <div className="mt-10 flex items-stretch gap-1.5" style={{ height: '54px' }}>
                 <span
-                  className="uppercase text-neutral-700"
+                  className="uppercase text-neutral-700 flex items-center justify-center"
                   style={{
                     fontFamily: SANS,
-                    fontSize: '5px',
+                    fontSize: '4px',
                     fontWeight: 700,
-                    letterSpacing: '0.18em',
+                    letterSpacing: '0.06em',
+                    lineHeight: 1,
                     writingMode: 'vertical-rl',
                     transform: 'rotate(180deg)',
                   }}
@@ -299,8 +301,8 @@ export function PrintThankYouCard() {
               />
             )}
 
-            {/* Bottom Content */}
-            <div className="relative z-10 flex flex-col items-center text-center px-12">
+            {/* Bottom Content — sits low in the panel, as in the reference */}
+            <div className="relative z-10 flex flex-col items-center text-center px-12" style={{ marginTop: '140px' }}>
               <h1
                 className="text-black"
                 style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
