@@ -24,7 +24,7 @@ export function BoxLabelCustomizerModal({
   onApplyToOrder
 }: BoxLabelCustomizerModalProps) {
   const [presets, setPresets] = useState<BoxLabelPreset[]>(DEFAULT_BOX_LABEL_PRESETS);
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('dark-minimal');
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('clean-white');
   const [activePreset, setActivePreset] = useState<BoxLabelPreset>(DEFAULT_BOX_LABEL_PRESETS[0]);
   const [activeTab, setActiveTab] = useState<'branding' | 'styling' | 'qr' | 'content'>('branding');
 
@@ -177,19 +177,19 @@ export function BoxLabelCustomizerModal({
     <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-neutral-200 flex flex-col overflow-hidden max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-neutral-900 text-white shrink-0">
+        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center bg-white text-neutral-900 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/10 rounded-lg">
-              <Sparkles size={20} className="text-amber-400" />
+            <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
+              <Sparkles size={20} className="text-amber-600" />
             </div>
             <div>
-              <h2 className="text-base font-bold tracking-tight">Box QR Label Designer</h2>
-              <p className="text-xs text-neutral-400">Customize box thermal QR labels & save presets for future orders</p>
+              <h2 className="text-base font-bold tracking-tight text-neutral-900">Box QR Label Designer</h2>
+              <p className="text-xs text-neutral-500">Customize box thermal QR labels & save presets for future orders</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-neutral-400 hover:text-white"
+            className="p-1.5 hover:bg-neutral-100 rounded-lg transition-colors text-neutral-400 hover:text-neutral-900 cursor-pointer"
           >
             <X size={20} />
           </button>
@@ -706,12 +706,12 @@ export function BoxLabelCustomizerModal({
           </div>
 
           {/* Live Thermal Preview Side (Right - 5 cols) */}
-          <div className="lg:col-span-5 bg-neutral-900 p-6 flex flex-col justify-between items-center overflow-y-auto">
+          <div className="lg:col-span-5 bg-neutral-100/90 p-6 flex flex-col justify-between items-center overflow-y-auto border-l border-neutral-200">
             <div className="w-full flex justify-between items-center mb-4">
-              <span className="text-xs font-bold uppercase tracking-widest text-neutral-400 flex items-center gap-2">
-                <Sparkles size={14} className="text-amber-400" /> Live Label Preview
+              <span className="text-xs font-bold uppercase tracking-widest text-neutral-700 flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-500" /> Live Label Preview
               </span>
-              <span className="text-[10px] font-mono font-bold text-neutral-500 bg-neutral-800 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-bold text-neutral-700 bg-white border border-neutral-300 px-2 py-0.5 rounded shadow-2xs">
                 {activePreset.labelSize} Thermal
               </span>
             </div>
@@ -802,7 +802,7 @@ export function BoxLabelCustomizerModal({
             </div>
 
             {/* Bottom Actions */}
-            <div className="w-full flex flex-col gap-2 pt-2 border-t border-neutral-800">
+            <div className="w-full flex flex-col gap-2 pt-2 border-t border-neutral-200">
               <button
                 type="button"
                 onClick={handleApplyToOrderAndSave}
@@ -816,7 +816,7 @@ export function BoxLabelCustomizerModal({
                 onClick={() => {
                   window.open(`/print/label/${order?.id || 'sample'}/${boxId || 'sample'}`, '_blank');
                 }}
-                className="w-full bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full bg-neutral-900 hover:bg-black text-white text-xs font-bold py-2 rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
               >
                 <Printer size={14} /> Print Sample Thermal Label
               </button>
