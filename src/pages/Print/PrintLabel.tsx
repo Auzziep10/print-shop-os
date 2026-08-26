@@ -203,7 +203,12 @@ export function PrintLabel() {
                       )}
 
                       {preset.subHeaderText && (
-                        <div className="text-[9px] font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full">
+                        <div 
+                          style={{
+                            fontSize: preset.subHeaderFontSize === 'sm' ? '8px' : preset.subHeaderFontSize === 'lg' ? '12px' : preset.subHeaderFontSize === 'xl' ? '14px' : '9px'
+                          }}
+                          className="font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full"
+                        >
                           {preset.subHeaderText}
                         </div>
                       )}
@@ -227,7 +232,12 @@ export function PrintLabel() {
                       )}
 
                       {preset.footerText && (
-                        <div className="text-[8px] opacity-70 uppercase tracking-widest mt-0.5">
+                        <div 
+                          style={{
+                            fontSize: preset.footerFontSize === 'sm' ? '8px' : preset.footerFontSize === 'lg' ? '12px' : preset.footerFontSize === 'xl' ? '14px' : '8px'
+                          }}
+                          className="opacity-70 uppercase tracking-widest mt-0.5"
+                        >
                           {preset.footerText}
                         </div>
                       )}
@@ -289,7 +299,12 @@ export function PrintLabel() {
                     )}
 
                     {preset.subHeaderText && (
-                      <div className="text-[9px] font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full">
+                      <div 
+                        style={{
+                          fontSize: preset.subHeaderFontSize === 'sm' ? '8px' : preset.subHeaderFontSize === 'lg' ? '12px' : preset.subHeaderFontSize === 'xl' ? '14px' : '9px'
+                        }}
+                        className="font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full"
+                      >
                         {preset.subHeaderText}
                       </div>
                     )}
@@ -334,7 +349,12 @@ export function PrintLabel() {
                     )}
 
                     {preset.footerText && (
-                      <div className="text-[8px] opacity-70 uppercase tracking-widest mt-0.5">
+                      <div 
+                        style={{
+                          fontSize: preset.footerFontSize === 'sm' ? '8px' : preset.footerFontSize === 'lg' ? '12px' : preset.footerFontSize === 'xl' ? '14px' : '8px'
+                        }}
+                        className="opacity-70 uppercase tracking-widest mt-0.5"
+                      >
                         {preset.footerText}
                       </div>
                     )}

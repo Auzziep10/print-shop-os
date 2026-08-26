@@ -703,27 +703,75 @@ export function BoxLabelCustomizerModal({
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-4">
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block mb-1">Custom Subheader Note (Below Order #)</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">Custom Subheader Note (Below Order #)</label>
+                        <span className="text-[10px] text-neutral-500 font-medium">Text Size</span>
+                      </div>
                       <input
                         type="text"
                         value={activePreset.subHeaderText || ''}
                         onChange={(e) => handleUpdatePresetField({ subHeaderText: e.target.value })}
                         placeholder="e.g. Fragile / Handle With Care, PO #12345, Rush Order"
-                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900 mb-1.5"
                       />
+                      <div className="flex items-center gap-1">
+                        {[
+                          { id: 'sm', label: 'Small (8px)' },
+                          { id: 'md', label: 'Medium (10px)' },
+                          { id: 'lg', label: 'Large (12px)' },
+                          { id: 'xl', label: 'X-Large (14px)' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handleUpdatePresetField({ subHeaderFontSize: s.id as any })}
+                            className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                              (activePreset.subHeaderFontSize || 'md') === s.id
+                                ? 'bg-neutral-900 text-white shadow-sm'
+                                : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block mb-1">Custom Footer Note</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">Custom Footer Note</label>
+                        <span className="text-[10px] text-neutral-500 font-medium">Text Size</span>
+                      </div>
                       <input
                         type="text"
                         value={activePreset.footerText || ''}
                         onChange={(e) => handleUpdatePresetField({ footerText: e.target.value })}
                         placeholder="e.g. Scan QR code to open digital packing slip"
-                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900 mb-1.5"
                       />
+                      <div className="flex items-center gap-1">
+                        {[
+                          { id: 'sm', label: 'Small (8px)' },
+                          { id: 'md', label: 'Medium (10px)' },
+                          { id: 'lg', label: 'Large (12px)' },
+                          { id: 'xl', label: 'X-Large (14px)' },
+                        ].map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => handleUpdatePresetField({ footerFontSize: s.id as any })}
+                            className={`flex-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                              (activePreset.footerFontSize || 'md') === s.id
+                                ? 'bg-neutral-900 text-white shadow-sm'
+                                : 'border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -807,7 +855,12 @@ export function BoxLabelCustomizerModal({
                             )}
 
                             {activePreset.subHeaderText && (
-                              <div className="text-[9px] font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full">
+                              <div 
+                                style={{
+                                  fontSize: activePreset.subHeaderFontSize === 'sm' ? '8px' : activePreset.subHeaderFontSize === 'lg' ? '12px' : activePreset.subHeaderFontSize === 'xl' ? '14px' : '10px'
+                                }}
+                                className="font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full"
+                              >
                                 {activePreset.subHeaderText}
                               </div>
                             )}
@@ -831,7 +884,12 @@ export function BoxLabelCustomizerModal({
                             )}
 
                             {activePreset.footerText && (
-                              <div className="text-[8px] opacity-60 uppercase tracking-widest truncate mt-0.5">
+                              <div 
+                                style={{
+                                  fontSize: activePreset.footerFontSize === 'sm' ? '8px' : activePreset.footerFontSize === 'lg' ? '12px' : activePreset.footerFontSize === 'xl' ? '14px' : '9px'
+                                }}
+                                className="opacity-60 uppercase tracking-widest truncate mt-0.5"
+                              >
                                 {activePreset.footerText}
                               </div>
                             )}
@@ -884,7 +942,12 @@ export function BoxLabelCustomizerModal({
                           )}
 
                           {activePreset.subHeaderText && (
-                            <div className="text-[9px] font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full">
+                            <div 
+                              style={{
+                                fontSize: activePreset.subHeaderFontSize === 'sm' ? '8px' : activePreset.subHeaderFontSize === 'lg' ? '12px' : activePreset.subHeaderFontSize === 'xl' ? '14px' : '10px'
+                              }}
+                              className="font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full"
+                            >
                               {activePreset.subHeaderText}
                             </div>
                           )}
@@ -928,7 +991,12 @@ export function BoxLabelCustomizerModal({
                           )}
 
                           {activePreset.footerText && (
-                            <div className="text-[9px] opacity-60 uppercase tracking-widest mt-1">
+                            <div 
+                              style={{
+                                fontSize: activePreset.footerFontSize === 'sm' ? '8px' : activePreset.footerFontSize === 'lg' ? '12px' : activePreset.footerFontSize === 'xl' ? '14px' : '9px'
+                              }}
+                              className="opacity-60 uppercase tracking-widest mt-1"
+                            >
                               {activePreset.footerText}
                             </div>
                           )}
