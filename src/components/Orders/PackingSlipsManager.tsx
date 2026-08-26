@@ -3,9 +3,10 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
+import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
 
 type DraftBox = {
   id: string;
@@ -20,6 +21,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [selectedSheetLabels, setSelectedSheetLabels] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isItemLabelsModalOpen, setIsItemLabelsModalOpen] = useState(false);
+  const [isBoxLabelCustomizerOpen, setIsBoxLabelCustomizerOpen] = useState(false);
+  const [customizerBoxId, setCustomizerBoxId] = useState<string | undefined>(undefined);
   const [labelFormat, setLabelFormat] = useState({ 
     fontFamily: 'serif',
     line1: 'style_before', line1Style: 'regular', 
@@ -349,6 +352,16 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
         <h2 className={tokens.typography.h2}>Packing Slips & Labels</h2>
         <div className="flex items-center gap-3">
+          <PillButton 
+            variant="outline" 
+            onClick={() => {
+               setCustomizerBoxId(order.boxes?.[0]?.id);
+               setIsBoxLabelCustomizerOpen(true);
+            }}  
+            className="gap-2 shrink-0 px-4 py-2 text-xs bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100 shadow-xs"
+          >
+            <Sparkles size={14} className="text-amber-600" /> Customize QR Label
+          </PillButton>
           <PillButton 
             variant="outline" 
             onClick={() => {
@@ -861,6 +874,15 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
               </div>
            </div>
          </div>
+      )}
+
+      {isBoxLabelCustomizerOpen && (
+        <BoxLabelCustomizerModal
+          isOpen={isBoxLabelCustomizerOpen}
+          onClose={() => setIsBoxLabelCustomizerOpen(false)}
+          order={order}
+          boxId={customizerBoxId}
+        />
       )}
     </div>
   );

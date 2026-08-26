@@ -3,11 +3,15 @@ import { useParams, useLocation } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { DEFAULT_BOX_LABEL_PRESETS } from '../../types/boxLabel';
+import type { BoxLabelPreset } from '../../types/boxLabel';
+import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
 
 export function PrintLabelsSheet() {
   const { orderId, itemId } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
+  const [preset, setPreset] = useState<BoxLabelPreset>(DEFAULT_BOX_LABEL_PRESETS[0]);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
@@ -43,6 +47,15 @@ export function PrintLabelsSheet() {
                setCustomer({ company: 'Unknown Customer' });
              }
           }
+
+          // Load label preset
+          if (orderData.boxLabelPreset) {
+            setPreset(orderData.boxLabelPreset);
+          } else {
+            const allPresets = await fetchBoxLabelPresets();
+            const def = allPresets.find(p => p.isDefault) || allPresets[0];
+            setPreset(def);
+          }
         }
       } catch (err) {
         console.error("Error fetching order:", err);
@@ -51,7 +64,7 @@ export function PrintLabelsSheet() {
       }
     };
     fetchData();
-  }, [orderId, itemId]);
+  }, [orderId, itemId, location.search]);
 
   // Wait a moment for rendering, then trigger print automatically
   useEffect(() => {
@@ -64,11 +77,11 @@ export function PrintLabelsSheet() {
   }, [loading, order]);
 
   if (loading || !order) {
-     return <div className="p-4 text-center">Loading label data...</div>;
+     return <div className="p-4 text-center font-sans text-sm">Loading label sheet data...</div>;
   }
 
   if (!order.boxes || order.boxes.length === 0) {
-     return <div className="p-4 text-center">No boxes found for this order.</div>;
+     return <div className="p-4 text-center font-sans text-sm">No boxes found for this order.</div>;
   }
 
   const cust = customer || { company: 'Unknown Customer' };
@@ -78,6 +91,8 @@ export function PrintLabelsSheet() {
   for (let i = 0; i < order.boxes.length; i += 6) {
     pages.push(order.boxes.slice(i, i + 6));
   }
+
+  const isDarkTheme = preset.theme === 'dark' || (!preset.theme && preset.bgColor === '#000000');
 
   return (
     <div className="bg-gray-200 print:bg-white min-h-screen print:min-h-0 print:pb-0 pb-10">
@@ -99,9 +114,19 @@ export function PrintLabelsSheet() {
           .page-break { page-break-after: always; }
         }
       `}} />
-      
-      <div className="no-print text-center py-4 text-sm text-gray-500">
-        Generating 8.5"x11" sheet (OnlineLabels OL500 / 6-up). Make sure margins are set to "None" in the print dialog.
+
+      {/* Non-print Top Controls */}
+      <div className="no-print bg-neutral-900 text-white p-4 max-w-[8.5in] mx-auto mb-4 mt-4 rounded-xl flex justify-between items-center shadow-lg">
+        <div>
+          <h1 className="text-base font-bold">Print Box QR Labels (Avery 5164 Sheet)</h1>
+          <p className="text-xs text-neutral-400">Preset: <span className="font-bold text-amber-400">{preset.name}</span> • 6 labels per 8.5" x 11" page</p>
+        </div>
+        <button 
+          onClick={() => window.print()}
+          className="bg-white text-black font-bold text-xs px-4 py-2 rounded-lg hover:bg-neutral-200 transition-colors cursor-pointer"
+        >
+          Print Sheet
+        </button>
       </div>
 
       {pages.map((pageBoxes, pageIndex) => (
@@ -121,65 +146,88 @@ export function PrintLabelsSheet() {
              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
              return (
                <div key={box.id} className="relative w-full h-full box-border flex items-center justify-center">
-                 {/* 
-                    Landscape 4w x 3h container (FULL BLEED).
-                    We use width/height 100% so the black background physically touches the edge 
-                    of the label cuts, completely removing artificial visual gaps between rows.
-                 */}
                  <div 
                    style={{ 
                      width: '100%', 
                      height: '100%',
+                     backgroundColor: preset.bgColor || '#000000',
+                     color: preset.textColor || '#ffffff',
+                     fontFamily: preset.fontFamily === 'sans' ? 'sans-serif' : preset.fontFamily === 'mono' ? 'monospace' : 'serif',
                      outline: '0.05in solid black'
                    }}
-                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-[0.75rem]"
+                   className="p-4 flex flex-row justify-between items-center box-border text-center rounded-[0.75rem] overflow-hidden"
                  >
-                   {/* Logo (Left side, rotated to read bottom-to-top) */}
+                   {/* Logo / Header (Left side, rotated -90deg) */}
                    <div className="relative h-full flex justify-center items-center w-20 shrink-0">
-                     <img 
-                       src="/logo.png" 
-                       alt={cust.company || 'WOVN'} 
-                       className="object-contain brightness-0 invert"
-                       style={{ 
-                         transform: 'rotate(-90deg)',
-                         width: '2.5in',
-                         height: 'auto',
-                         maxWidth: 'none'
-                       }}
-                       onError={(e) => {
-                         e.currentTarget.style.display = 'none';
-                         e.currentTarget.parentElement!.innerHTML = '<span class="text-[3.2rem] font-black italic tracking-tighter text-white whitespace-nowrap" style="transform: rotate(-90deg)">WOVN</span>';
-                       }}
-                     />
+                     {preset.logoType === 'wovn' && (
+                       <img 
+                         src="/logo.png" 
+                         alt={cust.company || 'WOVN'} 
+                         className={`object-contain ${isDarkTheme ? 'brightness-0 invert' : ''}`}
+                         style={{ 
+                           transform: 'rotate(-90deg)',
+                           width: '2.5in',
+                           height: 'auto',
+                           maxWidth: 'none'
+                         }}
+                         onError={(e) => {
+                           e.currentTarget.style.display = 'none';
+                           e.currentTarget.parentElement!.innerHTML = `<span class="text-[3.2rem] font-black italic tracking-tighter uppercase whitespace-nowrap" style="transform: rotate(-90deg); color: ${preset.textColor}">${preset.headerText || 'WOVN'}</span>`;
+                         }}
+                       />
+                     )}
+
+                     {preset.logoType === 'customer' && (
+                       <span className="text-xl font-bold uppercase tracking-wide whitespace-nowrap" style={{ transform: 'rotate(-90deg)', color: preset.textColor }}>
+                         {preset.headerText || cust.company || cust.name || 'CUSTOMER'}
+                       </span>
+                     )}
+
+                     {preset.logoType === 'custom' && preset.customLogoUrl && (
+                       <img src={preset.customLogoUrl} alt="Logo" className="max-h-16 object-contain" style={{ transform: 'rotate(-90deg)' }} />
+                     )}
                    </div>
 
                    {/* QR Code (Center) */}
                    <div className="flex-1 flex justify-center items-center mx-3 h-full">
-                      <div className="bg-white p-3 rounded-sm shadow-sm inline-block">
+                      <div className={`p-2.5 transition-all ${
+                        preset.qrContainerStyle === 'white_box'
+                          ? 'bg-white rounded-md shadow-sm'
+                          : preset.qrContainerStyle === 'bordered'
+                          ? 'border-2 border-current rounded-md bg-transparent p-2'
+                          : 'bg-transparent p-0'
+                      }`}>
                         <QRCode 
                           value={publicUrl} 
                           size={140} 
                           level="H" 
-                          bgColor="#ffffff"
-                          fgColor="#000000"
-                          style={{ maxWidth: "100%", height: "auto" }} 
+                          bgColor={preset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
+                          fgColor={preset.qrContainerStyle === 'white_box' ? '#000000' : preset.textColor || '#ffffff'}
+                          style={{ width: "100%", maxWidth: "140px", height: "auto" }} 
                         />
                       </div>
                    </div>
 
-                   {/* Box Name (Right side, rotated to read bottom-to-top) */}
-                   <div className="h-full flex justify-center items-center w-20 shrink-0">
-                     <div 
-                       className="flex flex-col items-center justify-center text-white font-serif tracking-wide whitespace-nowrap"
-                       style={{ transform: 'rotate(-90deg)' }}
-                     >
-                       {order.title && (
-                         <span className="text-xs font-sans tracking-widest uppercase opacity-80 mb-2 max-w-[2.5in] truncate block text-center">
-                           {order.title}
+                   {/* Box Name & Details (Right side, rotated 90deg) */}
+                   <div className="relative h-full flex flex-col justify-center items-center w-24 shrink-0">
+                      <div 
+                        className="flex flex-col items-center justify-center whitespace-nowrap"
+                        style={{ transform: 'rotate(90deg)' }}
+                      >
+                         <span className="text-[2.2rem] leading-none font-bold tracking-wide">
+                            {box.name}
                          </span>
-                       )}
-                       <span className="text-[3rem] leading-none">{box.name}</span>
-                     </div>
+                         {preset.showCustomerName && (
+                            <span className="text-[10px] uppercase font-bold tracking-wider opacity-85 mt-1">
+                              {cust.company || cust.name}
+                            </span>
+                         )}
+                         {preset.showOrderNum && (
+                            <span className="text-[9px] font-mono tracking-widest uppercase opacity-75">
+                              ORDER #{order.portalId || order.id}
+                            </span>
+                         )}
+                      </div>
                    </div>
                  </div>
                </div>

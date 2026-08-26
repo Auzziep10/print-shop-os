@@ -3,12 +3,16 @@ import { useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { DEFAULT_BOX_LABEL_PRESETS } from '../../types/boxLabel';
+import type { BoxLabelPreset } from '../../types/boxLabel';
+import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
 
 export function PrintLabel() {
   const { orderId, boxId, itemId } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [boxes, setBoxes] = useState<any[]>([]);
   const [customer, setCustomer] = useState<any>(null);
+  const [preset, setPreset] = useState<BoxLabelPreset>(DEFAULT_BOX_LABEL_PRESETS[0]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +42,15 @@ export function PrintLabel() {
                setCustomer({ company: 'Unknown Customer' });
              }
           }
+
+          // Load label preset
+          if (orderData.boxLabelPreset) {
+            setPreset(orderData.boxLabelPreset);
+          } else {
+            const allPresets = await fetchBoxLabelPresets();
+            const def = allPresets.find(p => p.isDefault) || allPresets[0];
+            setPreset(def);
+          }
         }
       } catch (err) {
         console.error("Error fetching order:", err);
@@ -53,18 +66,26 @@ export function PrintLabel() {
     if (!loading && order && boxes.length > 0) {
       const timer = setTimeout(() => {
         window.print();
-      }, 500);
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [loading, order, boxes]);
 
   if (loading || !order || boxes.length === 0) {
-     return <div className="p-4 text-center">Loading label data...</div>;
+     return <div className="p-4 text-center font-sans text-sm font-medium">Loading thermal label...</div>;
   }
 
-  const cust = customer || { company: 'Unknown Customer' };
+  const cust = customer || { company: order.customerName || 'Unknown Customer' };
 
-  // Render 3x4 thermal labels.
+  // Page size for print CSS
+  let pageSizeCss = 'size: 3in 4in;';
+  if (preset.labelSize === '4x6') pageSizeCss = 'size: 4in 6in;';
+  else if (preset.labelSize === '4x3') pageSizeCss = 'size: 4in 3in;';
+  else if (preset.labelSize === '2x1') pageSizeCss = 'size: 2in 1in;';
+
+  const containerW = preset.labelSize === '4x6' ? 'w-[4in]' : preset.labelSize === '4x3' ? 'w-[4in]' : preset.labelSize === '2x1' ? 'w-[2in]' : 'w-[3in]';
+  const containerH = preset.labelSize === '4x6' ? 'h-[6in]' : preset.labelSize === '4x3' ? 'h-[3in]' : preset.labelSize === '2x1' ? 'h-[1in]' : 'h-[4in]';
+
   return (
     <>
       <style dangerouslySetInnerHTML={{__html: `
@@ -73,7 +94,7 @@ export function PrintLabel() {
              margin: 0;
              padding: 0;
           }
-          @page { margin: 0; size: 3in 4in; }
+          @page { margin: 0; ${pageSizeCss} }
           body { 
             margin: 0; 
             -webkit-print-color-adjust: exact !important; 
@@ -82,42 +103,101 @@ export function PrintLabel() {
           }
         }
       `}} />
-      <div className="flex flex-col">
+      <div className="flex flex-col items-center">
         {boxes.map((b, index) => {
           const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${b.id}`;
+          const isDarkTheme = preset.theme === 'dark' || (!preset.theme && preset.bgColor === '#000000');
+
           return (
-            <div key={b.id} className={`w-[3in] h-[4in] max-w-full max-h-full bg-black text-white p-4 flex flex-col justify-between items-center mx-auto box-border font-serif text-center relative overflow-hidden ${index < boxes.length - 1 ? 'print:break-after-page mb-8 print:mb-0' : ''}`}>
+            <div 
+              key={b.id} 
+              style={{
+                backgroundColor: preset.bgColor || '#000000',
+                color: preset.textColor || '#ffffff',
+                fontFamily: preset.fontFamily === 'sans' ? 'sans-serif' : preset.fontFamily === 'mono' ? 'monospace' : 'serif'
+              }}
+              className={`${containerW} ${containerH} max-w-full max-h-full p-4 flex flex-col justify-between items-center mx-auto box-border text-center relative overflow-hidden ${index < boxes.length - 1 ? 'print:break-after-page mb-8 print:mb-0' : ''}`}
+            >
               <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
-                {/* Logo */}
-                <div className="w-full flex justify-center items-center h-16 mt-4">
-                  <img 
-                    src="/logo.png" 
-                    alt={cust.company || 'WOVN'} 
-                    className="w-[80%] h-full object-contain brightness-0 invert"
-                    onError={(e) => {
-                      // Fallback if logo.png is missing or broken
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = '<span class="text-5xl font-black italic tracking-tighter text-white">WOVN</span>';
-                    }}
-                  />
+                
+                {/* Header Logo & Title */}
+                <div className="w-full flex flex-col items-center justify-center shrink-0 pt-2">
+                  {preset.logoType === 'wovn' && (
+                    <div className="w-full flex justify-center items-center h-12">
+                      <img 
+                        src="/logo.png" 
+                        alt={cust.company || 'WOVN'} 
+                        className={`w-[75%] h-full object-contain ${isDarkTheme ? 'brightness-0 invert' : ''}`}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement!.innerHTML = `<span class="text-4xl font-black italic tracking-tighter uppercase font-serif" style="color: ${preset.textColor}">${preset.headerText || 'WOVN'}</span>`;
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {preset.logoType === 'customer' && (
+                    <div className="text-base font-bold uppercase tracking-wide truncate max-w-full">
+                      {preset.headerText || cust.company || cust.name || 'CUSTOMER'}
+                    </div>
+                  )}
+
+                  {preset.logoType === 'custom' && preset.customLogoUrl && (
+                    <img src={preset.customLogoUrl} alt="Logo" className="max-h-12 object-contain" />
+                  )}
+
+                  {preset.showOrderNum && (
+                    <div className="text-[10px] font-mono tracking-widest uppercase opacity-85 mt-0.5">
+                      ORDER #{order.portalId || order.id}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex-1 flex flex-col justify-center items-center my-4 w-full">
-                   <div className="bg-white p-3 rounded-sm">
+                {/* QR Code */}
+                <div className="flex-1 flex flex-col justify-center items-center my-2 w-full">
+                   <div className={`p-3.5 transition-all ${
+                     preset.qrContainerStyle === 'white_box'
+                       ? 'bg-white rounded-md'
+                       : preset.qrContainerStyle === 'bordered'
+                       ? 'border-2 border-current rounded-md bg-transparent p-2'
+                       : 'bg-transparent p-0'
+                   }`}>
                      <QRCode 
                        value={publicUrl} 
-                       size={180} 
+                       size={preset.qrSize || 180} 
                        level="H" 
-                       bgColor="#ffffff"
-                       fgColor="#000000"
-                       style={{ width: "100%", maxWidth: "160px", height: "auto" }} 
+                       bgColor={preset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
+                       fgColor={preset.qrContainerStyle === 'white_box' ? '#000000' : preset.textColor || '#ffffff'}
+                       style={{ width: "100%", maxWidth: `${preset.qrSize || 180}px`, height: "auto" }} 
                      />
                    </div>
                 </div>
 
-                <div className="text-[3rem] leading-none mb-6 text-white font-serif tracking-wide">
-                  {b.name}
+                {/* Footer Box Name & Details */}
+                <div className="w-full flex flex-col items-center shrink-0 pb-2 gap-0.5">
+                  {preset.showCustomerName && (
+                    <div className="text-xs font-bold uppercase tracking-wider opacity-90 truncate max-w-full">
+                      {cust.company || cust.name}
+                    </div>
+                  )}
+
+                  <div className="text-[2.75rem] leading-none font-bold tracking-wide">
+                    {b.name}
+                  </div>
+
+                  {preset.showBoxItems && b.items && b.items.length > 0 && (
+                    <div className="text-[10px] opacity-80 truncate max-w-full mt-1">
+                      {b.items.length} Items • {b.items.reduce((s: number, i: any) => s + (i.qty || 1), 0)} Pcs
+                    </div>
+                  )}
+
+                  {preset.footerText && (
+                    <div className="text-[9px] opacity-70 uppercase tracking-widest mt-0.5">
+                      {preset.footerText}
+                    </div>
+                  )}
                 </div>
+
               </div>
             </div>
           );
