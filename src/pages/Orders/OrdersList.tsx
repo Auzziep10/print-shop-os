@@ -232,8 +232,10 @@ export function OrdersList() {
                 return acc + (parseFloat(priceMatch) || 0);
               }, 0) || 0;
 
+              const discountAmt = parseFloat(order.discountAmount || 0);
+              const finalOrderTotal = Math.max(0, totalPriceRaw - discountAmt);
               // Format price beautifully
-              const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+              const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
 
               const liveCustomer = order.customerId ? liveCustomers[order.customerId] : null;
               
@@ -245,7 +247,7 @@ export function OrdersList() {
                  case 0: badgeStatus = 'quote'; break;
                  case 1: badgeStatus = 'notified'; break;
                  case 2: badgeStatus = 'quote_sent'; break;
-                 case 3: badgeStatus = 'awaiting_payment'; break;
+                 case 3: badgeStatus = 'approved'; break;
                  case 4: badgeStatus = 'shopping'; break;
                  case 5: badgeStatus = 'ordered'; break;
                  case 6: badgeStatus = 'processing'; break;
@@ -289,9 +291,16 @@ export function OrdersList() {
                     </div>
                   </div>
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
-                  <div className="text-right text-sm font-serif text-brand-primary flex items-center justify-end gap-1.5">
-                     {order.paymentStatus === 'paid' && <div title="Paid"><Check size={14} className="text-emerald-500" strokeWidth={3} /></div>}
-                     {hasPermission('viewPricing') ? totalFormatted : ''}
+                  <div className="text-right text-sm font-serif text-brand-primary flex flex-col items-end justify-center">
+                     <div className="flex items-center gap-1">
+                       {order.paymentStatus === 'paid' && <div title="Paid"><Check size={14} className="text-emerald-500" strokeWidth={3} /></div>}
+                       {hasPermission('viewPricing') ? totalFormatted : ''}
+                     </div>
+                     {order.discountCode && (
+                       <span className="text-[9px] uppercase font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded mt-0.5" title={`Applied Discount Code: ${order.discountCode}`}>
+                         {order.discountCode}
+                       </span>
+                     )}
                   </div>
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
                   <div className="flex justify-end">

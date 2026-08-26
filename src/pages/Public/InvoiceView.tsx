@@ -150,15 +150,17 @@ export function InvoiceView() {
     itemsSubtotal += price * qty;
   });
 
-  // Calculate shipping & tax
+  // Calculate shipping, tax & discounts
   const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
   const shippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
   const taxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
-  const grandTotal = itemsSubtotal + shippingFee + taxAmount;
+  const discountAmount = parseFloat(String(order.discountAmount || 0));
+  const grandTotal = Math.max(0, itemsSubtotal - discountAmount) + shippingFee + taxAmount;
 
   const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
   const formattedShippingFee = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingFee);
   const formattedTaxAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(taxAmount);
+  const formattedDiscountAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(discountAmount);
   const formattedGrandTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(grandTotal);
 
   const issueDate = order.date ? new Date(order.date).toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : new Date().toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
@@ -461,6 +463,13 @@ export function InvoiceView() {
                      <span>Deliverables Subtotal</span>
                      <span className="font-medium text-neutral-800">{formattedItemsSubtotal}</span>
                    </div>
+
+                   {discountAmount > 0 && (
+                     <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                       <span>Discount {order.discountCode ? `(${order.discountCode})` : ''}</span>
+                       <span>−{formattedDiscountAmount}</span>
+                     </div>
+                   )}
 
                    {shippingFee > 0 && (
                      <div className="flex justify-between items-center text-neutral-500">

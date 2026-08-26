@@ -25,6 +25,7 @@ import { GARMENT_TYPES, detectGarmentTypeTag } from '../../lib/garmentUtils';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
+import { validateDiscountCode } from '../../lib/discountUtils';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -978,6 +979,8 @@ export function OrderDetail() {
     title: '', date: '', statusIndex: 0,
     trackingCarrier: '', trackingNumber: '',
     fulfillmentType: '',
+    discountCode: '',
+    discountAmount: '',
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     thirdPartyBilling: { account: '', zip: '' }
   });
@@ -1419,6 +1422,8 @@ export function OrderDetail() {
           dueDate: order.dueDate || '',
           shippingFee: order.shippingFee || order.freight || 0,
           taxAmount: order.taxAmount || order.tax || 0,
+          discountCode: order.discountCode || '',
+          discountAmount: order.discountAmount || 0,
           stripePaymentUrl: order.stripePaymentUrl || '',
           subtitle: "For your Consideration",
           categoryTag: "VCG • ADHOC ORDERS",
@@ -1459,6 +1464,8 @@ export function OrderDetail() {
         dueDate: orderInvoiceForm.dueDate,
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
         taxAmount: parseFloat(String(orderInvoiceForm.taxAmount)) || 0,
+        discountCode: (orderInvoiceForm as any).discountCode ? String((orderInvoiceForm as any).discountCode).toUpperCase().trim() : '',
+        discountAmount: parseFloat(String((orderInvoiceForm as any).discountAmount)) || 0,
         stripePaymentUrl: orderInvoiceForm.stripePaymentUrl,
         updatedAt: new Date().toISOString()
       });
@@ -3242,6 +3249,8 @@ export function OrderDetail() {
         trackingCarrier: order.trackingCarrier || '',
         trackingNumber: order.trackingNumber || '',
         fulfillmentType: order.fulfillmentType || '',
+        discountCode: order.discountCode || '',
+        discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
         shippingAddress: hasOrderAddress ? order.shippingAddress : fallbackAddress,
         thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
       });
@@ -3253,6 +3262,7 @@ export function OrderDetail() {
     setIsSaving(true);
     try {
       const statusChanged = editForm.statusIndex !== order.statusIndex;
+      const parsedDiscountAmount = parseFloat(editForm.discountAmount) || 0;
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
@@ -3261,6 +3271,8 @@ export function OrderDetail() {
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
+        discountCode: editForm.discountCode.toUpperCase().trim(),
+        discountAmount: parsedDiscountAmount,
         shippingAddress: editForm.shippingAddress,
         thirdPartyBilling: editForm.thirdPartyBilling
       }, { merge: true });
@@ -3398,13 +3410,17 @@ export function OrderDetail() {
     return acc + (parseFloat(priceMatch) || 0);
   }, 0) || 0;
 
-  const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+  const rawDiscountAmount = parseFloat(order.discountAmount) || 0;
+  const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
+  const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
+  const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+  const discountFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(rawDiscountAmount);
 
   // Costs & Receipts Calculations
   const orderCosts = order.costs || [];
   const totalCosts = orderCosts.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
-  const profit = totalPriceRaw - totalCosts;
-  const margin = totalPriceRaw > 0 ? (profit / totalPriceRaw) * 100 : 0;
+  const profit = finalOrderTotal - totalCosts;
+  const margin = finalOrderTotal > 0 ? (profit / finalOrderTotal) * 100 : 0;
 
   // Map strict 7-step Index to Admin pipeline Badge component
   const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
@@ -3625,7 +3641,7 @@ export function OrderDetail() {
                </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-6 pt-6 border-t border-brand-border">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-6 pt-6 border-t border-brand-border">
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">
                     {order.neededByDate ? 'Needed By' : 'Due Date'}
@@ -3680,10 +3696,32 @@ export function OrderDetail() {
                     </a>
                   )}
                </div>
+               <div>
+                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Discount</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditDialogOpen(true)}
+                    className="font-serif text-lg text-emerald-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    title="Click to edit discount code / amount"
+                  >
+                    <Tag size={14} />
+                    <span>{rawDiscountAmount > 0 ? `-${discountFormatted}` : (order.discountCode || 'None')}</span>
+                  </button>
+                  {order.discountCode && (
+                    <span className="text-[10px] uppercase font-extrabold tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md inline-block mt-0.5">
+                      {order.discountCode}
+                    </span>
+                  )}
+               </div>
                {hasPermission('viewPricing') && (
                  <div>
                     <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
-                    <span className="font-serif text-lg">{totalFormatted}</span>
+                    <span className="font-serif text-lg block">{totalFormatted}</span>
+                    {rawDiscountAmount > 0 && (
+                      <span className="text-[10px] text-neutral-400 font-medium block">
+                        (Subtotal: {rawSubtotalFormatted})
+                      </span>
+                    )}
                  </div>
                )}
             </div>
@@ -6101,6 +6139,70 @@ export function OrderDetail() {
                 </div>
 
                 <div>
+                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2">
+                    <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div> Discount & Price Adjustments
+                  </h4>
+                  <div className="bg-emerald-50/40 p-4 rounded-xl border border-emerald-200/80 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">
+                          Discount Code
+                        </label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={editForm.discountCode}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, discountCode: e.target.value.toUpperCase() }))}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-bold text-brand-primary focus:border-brand-primary focus:outline-none uppercase"
+                            placeholder="e.g. PROMO10"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!editForm.discountCode.trim()) return;
+                              const res = await validateDiscountCode(editForm.discountCode);
+                              if (res.ok) {
+                                const d = res.discount;
+                                let amt = d.type === 'percent' ? Math.round(totalPriceRaw * (d.value / 100) * 100) / 100 : d.value;
+                                setEditForm(prev => ({ ...prev, discountCode: d.code, discountAmount: amt.toString() }));
+                              } else {
+                                alert(`Invalid discount code: ${res.error}`);
+                              }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors cursor-pointer shrink-0"
+                          >
+                            Lookup
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">
+                          Discount Amount ($)
+                        </label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          min="0"
+                          value={editForm.discountAmount}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, discountAmount: e.target.value }))}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-bold text-brand-primary focus:border-brand-primary focus:outline-none"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    {parseFloat(editForm.discountAmount) > 0 && (
+                      <div className="text-xs font-semibold text-emerald-800 flex items-center justify-between pt-1 border-t border-emerald-200/60">
+                        <span>New Order Total:</span>
+                        <span className="font-mono font-bold text-sm">
+                          ${Math.max(0, totalPriceRaw - (parseFloat(editForm.discountAmount) || 0)).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
                   <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-blue-500 rounded-full"></div> Pipeline & Legacy Tracking</h4>
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -6549,6 +6651,36 @@ export function OrderDetail() {
                       onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, taxAmount: parseFloat(e.target.value) || 0 })}
                       placeholder="0.00"
                       className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-neutral-200/60">
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Discount Code
+                    </label>
+                    <input
+                      type="text"
+                      value={(orderInvoiceForm as any).discountCode || ''}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountCode: e.target.value.toUpperCase() } as any)}
+                      placeholder="e.g. PROMO10"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Discount Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={(orderInvoiceForm as any).discountAmount ?? ''}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountAmount: parseFloat(e.target.value) || 0 } as any)}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                 </div>
