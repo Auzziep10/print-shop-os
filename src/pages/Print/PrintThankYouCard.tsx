@@ -4,7 +4,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Printer, ArrowLeft, Sparkles, PhoneCall } from 'lucide-react';
-import { DEFAULT_THANK_YOU_CARD, type ThankYouCardSettings } from '../Settings/ThankYouCardTab';
+import { DEFAULT_THANK_YOU_CARD, normalizeCardSettings, type ThankYouCardSettings } from '../Settings/ThankYouCardTab';
 
 export function PrintThankYouCard() {
   const { orderId } = useParams();
@@ -36,7 +36,7 @@ export function PrintThankYouCard() {
         // Card artwork (backgrounds + Design Studio QR)
         const cardDoc = await getDoc(doc(db, 'settings', 'thankYouCard'));
         if (cardDoc.exists()) {
-          const data = { ...DEFAULT_THANK_YOU_CARD, ...(cardDoc.data() as ThankYouCardSettings) };
+          const data = normalizeCardSettings(cardDoc.data() as ThankYouCardSettings);
           setCard(data);
           if (data.studioLink) setQuoLink(data.studioLink);
         }
@@ -194,13 +194,13 @@ export function PrintThankYouCard() {
                 className="absolute inset-0 bg-cover bg-center"
                 style={{
                   backgroundImage: `url('${card.topImageUrl}')`,
-                  filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
-                  opacity: (card.topImageOpacity ?? 12) / 100,
+                  opacity: (card.topImageOpacity ?? 100) / 100,
                 }}
               />
             )}
 
-            {/* Oversized watermark type — bleeds past every edge */}
+            {/* Generated watermark — skipped when uploaded artwork already carries it */}
+            {!card.topImageUrl && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none select-none flex items-center justify-center">
               <div
                 style={{
@@ -218,6 +218,7 @@ export function PrintThankYouCard() {
                 {WATERMARK}
               </div>
             </div>
+            )}
 
             {/* Top Content */}
             <div className="relative z-10 flex flex-col items-center text-center px-10">
@@ -266,8 +267,7 @@ export function PrintThankYouCard() {
                 className="absolute inset-0 bg-cover bg-center"
                 style={{
                   backgroundImage: `url('${card.bottomImageUrl}')`,
-                  filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
-                  opacity: (card.bottomImageOpacity ?? 13) / 100,
+                  opacity: (card.bottomImageOpacity ?? 100) / 100,
                 }}
               />
             )}

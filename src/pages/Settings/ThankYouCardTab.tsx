@@ -13,16 +13,32 @@ export interface ThankYouCardSettings {
   bottomImageOpacity?: number; // 0-100
   studioQrUrl?: string;        // uploaded QR image (wins over studioLink)
   studioLink?: string;         // used to generate a QR when no image is set
+  /** v1 washed uploads in-app; v2 prints them as-is. */
+  artworkVersion?: number;
 }
 
 export const DEFAULT_THANK_YOU_CARD: ThankYouCardSettings = {
   topImageUrl: '',
-  topImageOpacity: 12,
+  topImageOpacity: 100,
   bottomImageUrl: '',
-  bottomImageOpacity: 13,
+  bottomImageOpacity: 100,
   studioQrUrl: '',
   studioLink: 'https://quo.com',
+  artworkVersion: 2,
 };
+
+/**
+ * Uploaded artwork is printed exactly as supplied — no grayscale/brightness
+ * filtering. v1 defaulted to a heavy wash (12%) that erased already-faded
+ * artwork, so pre-v2 documents are read back at full strength.
+ */
+export function normalizeCardSettings(raw: ThankYouCardSettings): ThankYouCardSettings {
+  const merged = { ...DEFAULT_THANK_YOU_CARD, ...raw };
+  if ((raw.artworkVersion ?? 1) < 2) {
+    return { ...merged, topImageOpacity: 100, bottomImageOpacity: 100, artworkVersion: 2 };
+  }
+  return merged;
+}
 
 export function ThankYouCardTab() {
   const [settings, setSettings] = useState<ThankYouCardSettings>(DEFAULT_THANK_YOU_CARD);
@@ -40,7 +56,7 @@ export function ThankYouCardTab() {
     getDoc(doc(db, 'settings', 'thankYouCard'))
       .then(snap => {
         if (snap.exists()) {
-          setSettings({ ...DEFAULT_THANK_YOU_CARD, ...(snap.data() as ThankYouCardSettings) });
+          setSettings(normalizeCardSettings(snap.data() as ThankYouCardSettings));
         }
       })
       .catch(err => console.error('Failed to load thank you card settings:', err))
@@ -53,6 +69,7 @@ export function ThankYouCardTab() {
     try {
       await setDoc(doc(db, 'settings', 'thankYouCard'), {
         ...next,
+        artworkVersion: 2,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
       setSaved(true);
@@ -97,7 +114,7 @@ export function ThankYouCardTab() {
     folder: string
   ) => {
     const url = settings[key];
-    const opacity = settings[opacityKey] ?? 12;
+    const opacity = settings[opacityKey] ?? 100;
     return (
       <div className="rounded-xl border border-brand-border bg-brand-bg/40 p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -122,14 +139,10 @@ export function ThankYouCardTab() {
         >
           {url ? (
             <>
-              {/* Preview at the same wash used on the printed card */}
+              {/* Previewed exactly as it prints */}
               <div
                 className="absolute inset-0 bg-cover bg-center"
-                style={{
-                  backgroundImage: `url('${url}')`,
-                  filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
-                  opacity: opacity / 100,
-                }}
+                style={{ backgroundImage: `url('${url}')`, opacity: opacity / 100 }}
               />
               <span className="relative text-[10px] font-bold uppercase tracking-widest text-brand-secondary bg-white/70 px-2 py-1 rounded">
                 Click to replace
@@ -158,7 +171,7 @@ export function ThankYouCardTab() {
           <input
             type="range"
             min={0}
-            max={60}
+            max={100}
             value={opacity}
             onChange={(e) => setSettings(prev => ({ ...prev, [opacityKey]: parseInt(e.target.value) }))}
             onMouseUp={() => persist(settings)}
@@ -166,7 +179,7 @@ export function ThankYouCardTab() {
             className="w-full accent-brand-primary cursor-pointer"
           />
           <p className="text-[10px] text-brand-secondary mt-1">
-            Keep this low — the card's text sits directly on top of the photo.
+            Artwork prints exactly as uploaded. Lower this only if you need to fade it further.
           </p>
         </div>
       </div>
