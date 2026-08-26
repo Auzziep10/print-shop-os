@@ -717,88 +717,184 @@ export function BoxLabelCustomizerModal({
             </div>
 
             {/* Label Card Preview */}
-            <div className="flex-1 flex items-center justify-center my-4 w-full">
-              <div 
-                style={{
-                  backgroundColor: activePreset.bgColor || '#000000',
-                  color: activePreset.textColor || '#ffffff',
-                  fontFamily: activePreset.fontFamily === 'sans' ? 'sans-serif' : activePreset.fontFamily === 'mono' ? 'monospace' : 'serif',
-                  borderWidth: (activePreset.showBorder !== false) ? `${activePreset.borderWidth ?? 4}px` : '0px',
-                  borderStyle: (activePreset.showBorder !== false) ? 'solid' : 'none',
-                  borderColor: activePreset.borderColor || (activePreset.theme === 'light' ? '#000000' : activePreset.textColor || '#ffffff'),
-                  borderRadius: `${activePreset.borderRadius ?? 16}px`
-                }}
-                className={`w-[260px] h-[340px] p-5 flex flex-col justify-between items-center shadow-2xl relative overflow-hidden transition-all duration-300 text-center box-border`}
-              >
-                {/* Header Logo & Title */}
-                <div className="w-full flex flex-col items-center gap-1 shrink-0">
-                  {activePreset.logoType === 'wovn' && (
-                    <div className="text-3xl font-black italic tracking-tighter uppercase font-serif">
-                      {activePreset.headerText || 'WOVN'}
-                    </div>
-                  )}
+            <div className="flex-1 flex items-center justify-center my-4 w-full min-h-[360px]">
+              {(() => {
+                const config = (() => {
+                  switch (activePreset.labelSize) {
+                    case '4x6':
+                      return { width: '240px', height: '360px', isLandscape: false, isCompact: false, qrMax: Math.min(activePreset.qrSize || 160, 170) };
+                    case '4x3':
+                      return { width: '320px', height: '240px', isLandscape: true, isCompact: false, qrMax: Math.min(activePreset.qrSize || 140, 130) };
+                    case '2x1':
+                      return { width: '300px', height: '150px', isLandscape: true, isCompact: true, qrMax: Math.min(activePreset.qrSize || 100, 85) };
+                    case '3x4':
+                    default:
+                      return { width: '250px', height: '333px', isLandscape: false, isCompact: false, qrMax: Math.min(activePreset.qrSize || 160, 150) };
+                  }
+                })();
 
-                  {activePreset.logoType === 'customer' && (
-                    <div className="text-base font-bold uppercase tracking-wide truncate max-w-full">
-                      {activePreset.headerText || sampleCustomer}
-                    </div>
-                  )}
+                return (
+                  <div 
+                    style={{
+                      width: config.width,
+                      height: config.height,
+                      backgroundColor: activePreset.bgColor || '#000000',
+                      color: activePreset.textColor || '#ffffff',
+                      fontFamily: activePreset.fontFamily === 'sans' ? 'sans-serif' : activePreset.fontFamily === 'mono' ? 'monospace' : 'serif',
+                      borderWidth: (activePreset.showBorder !== false) ? `${activePreset.borderWidth ?? 4}px` : '0px',
+                      borderStyle: (activePreset.showBorder !== false) ? 'solid' : 'none',
+                      borderColor: activePreset.borderColor || (activePreset.theme === 'light' ? '#000000' : activePreset.textColor || '#ffffff'),
+                      borderRadius: `${activePreset.borderRadius ?? 16}px`
+                    }}
+                    className={`p-4 flex ${config.isLandscape ? 'flex-row justify-between items-center text-left' : 'flex-col justify-between items-center text-center'} shadow-2xl relative overflow-hidden transition-all duration-300 box-border`}
+                  >
+                    {config.isLandscape ? (
+                      <>
+                        {/* Left Column: Branding & Box Details */}
+                        <div className="flex-1 flex flex-col justify-between h-full pr-3 min-w-0">
+                          <div>
+                            {activePreset.logoType === 'wovn' && (
+                              <div className={`${config.isCompact ? 'text-lg' : 'text-2xl'} font-black italic tracking-tighter uppercase font-serif truncate`}>
+                                {activePreset.headerText || 'WOVN'}
+                              </div>
+                            )}
 
-                  {activePreset.logoType === 'custom' && activePreset.customLogoUrl && (
-                    <img src={activePreset.customLogoUrl} alt="Logo" className="max-h-10 object-contain" />
-                  )}
+                            {activePreset.logoType === 'customer' && (
+                              <div className={`${config.isCompact ? 'text-xs' : 'text-sm'} font-bold uppercase tracking-wide truncate`}>
+                                {activePreset.headerText || sampleCustomer}
+                              </div>
+                            )}
 
-                  {activePreset.showOrderNum && (
-                    <div className="text-[10px] font-mono tracking-widest uppercase opacity-80">
-                      ORDER #{sampleOrderNum}
-                    </div>
-                  )}
-                </div>
+                            {activePreset.logoType === 'custom' && activePreset.customLogoUrl && (
+                              <img src={activePreset.customLogoUrl} alt="Logo" className={`${config.isCompact ? 'max-h-6' : 'max-h-8'} object-contain`} />
+                            )}
 
-                {/* QR Code Container */}
-                <div className="flex-1 flex flex-col items-center justify-center w-full my-2">
-                  <div className={`p-3 transition-all ${
-                    activePreset.qrContainerStyle === 'white_box'
-                      ? 'bg-white rounded-xl shadow-md'
-                      : activePreset.qrContainerStyle === 'bordered'
-                      ? 'border-2 border-current rounded-xl p-2 bg-transparent'
-                      : 'bg-transparent p-0'
-                  }`}>
-                    <QRCode
-                      value={sampleQrUrl}
-                      size={activePreset.qrSize || 160}
-                      bgColor={activePreset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
-                      fgColor={activePreset.qrContainerStyle === 'white_box' ? '#000000' : activePreset.textColor || '#ffffff'}
-                      style={{ width: "100%", maxWidth: `${activePreset.qrSize || 160}px`, height: "auto" }}
-                    />
+                            {activePreset.showOrderNum && (
+                              <div className="text-[9px] font-mono tracking-widest uppercase opacity-80 mt-0.5">
+                                ORDER #{sampleOrderNum}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            {activePreset.showCustomerName && (
+                              <div className="text-[10px] font-bold uppercase tracking-wider opacity-90 truncate">
+                                {sampleCustomer}
+                              </div>
+                            )}
+
+                            <div className={`${config.isCompact ? 'text-xl' : 'text-2.5xl'} font-serif font-bold tracking-tight leading-none my-0.5`}>
+                              {sampleBoxName}
+                            </div>
+
+                            {activePreset.showBoxItems && (
+                              <div className="text-[9px] opacity-75 truncate">
+                                {sampleItemsText}
+                              </div>
+                            )}
+
+                            {activePreset.footerText && (
+                              <div className="text-[8px] opacity-60 uppercase tracking-widest truncate mt-0.5">
+                                {activePreset.footerText}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Column: QR Code */}
+                        <div className="shrink-0 flex items-center justify-center">
+                          <div className={`transition-all ${
+                            activePreset.qrContainerStyle === 'white_box'
+                              ? 'bg-white rounded-lg p-2 shadow-sm'
+                              : activePreset.qrContainerStyle === 'bordered'
+                              ? 'border-2 border-current rounded-lg p-1.5 bg-transparent'
+                              : 'bg-transparent p-0'
+                          }`}>
+                            <QRCode
+                              value={sampleQrUrl}
+                              size={config.qrMax}
+                              bgColor={activePreset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
+                              fgColor={activePreset.qrContainerStyle === 'white_box' ? '#000000' : activePreset.textColor || '#ffffff'}
+                              style={{ width: `${config.qrMax}px`, height: `${config.qrMax}px` }}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Header Logo & Title */}
+                        <div className="w-full flex flex-col items-center gap-1 shrink-0">
+                          {activePreset.logoType === 'wovn' && (
+                            <div className="text-3xl font-black italic tracking-tighter uppercase font-serif">
+                              {activePreset.headerText || 'WOVN'}
+                            </div>
+                          )}
+
+                          {activePreset.logoType === 'customer' && (
+                            <div className="text-base font-bold uppercase tracking-wide truncate max-w-full">
+                              {activePreset.headerText || sampleCustomer}
+                            </div>
+                          )}
+
+                          {activePreset.logoType === 'custom' && activePreset.customLogoUrl && (
+                            <img src={activePreset.customLogoUrl} alt="Logo" className="max-h-10 object-contain" />
+                          )}
+
+                          {activePreset.showOrderNum && (
+                            <div className="text-[10px] font-mono tracking-widest uppercase opacity-80">
+                              ORDER #{sampleOrderNum}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* QR Code Container */}
+                        <div className="flex-1 flex flex-col items-center justify-center w-full my-2">
+                          <div className={`p-3 transition-all ${
+                            activePreset.qrContainerStyle === 'white_box'
+                              ? 'bg-white rounded-xl shadow-md'
+                              : activePreset.qrContainerStyle === 'bordered'
+                              ? 'border-2 border-current rounded-xl p-2 bg-transparent'
+                              : 'bg-transparent p-0'
+                          }`}>
+                            <QRCode
+                              value={sampleQrUrl}
+                              size={config.qrMax}
+                              bgColor={activePreset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
+                              fgColor={activePreset.qrContainerStyle === 'white_box' ? '#000000' : activePreset.textColor || '#ffffff'}
+                              style={{ width: `${config.qrMax}px`, height: `${config.qrMax}px` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Footer Details */}
+                        <div className="w-full flex flex-col items-center shrink-0 gap-1">
+                          {activePreset.showCustomerName && (
+                            <div className="text-xs font-bold uppercase tracking-wider opacity-90 truncate max-w-full">
+                              {sampleCustomer}
+                            </div>
+                          )}
+
+                          <div className="text-3xl font-serif font-bold tracking-tight leading-none">
+                            {sampleBoxName}
+                          </div>
+
+                          {activePreset.showBoxItems && (
+                            <div className="text-[10px] opacity-75 truncate max-w-full mt-1">
+                              {sampleItemsText}
+                            </div>
+                          )}
+
+                          {activePreset.footerText && (
+                            <div className="text-[9px] opacity-60 uppercase tracking-widest mt-1">
+                              {activePreset.footerText}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-
-                {/* Footer Details */}
-                <div className="w-full flex flex-col items-center shrink-0 gap-1">
-                  {activePreset.showCustomerName && (
-                    <div className="text-xs font-bold uppercase tracking-wider opacity-90 truncate max-w-full">
-                      {sampleCustomer}
-                    </div>
-                  )}
-
-                  <div className="text-3xl font-serif font-bold tracking-tight leading-none">
-                    {sampleBoxName}
-                  </div>
-
-                  {activePreset.showBoxItems && (
-                    <div className="text-[10px] opacity-75 truncate max-w-full mt-1">
-                      {sampleItemsText}
-                    </div>
-                  )}
-
-                  {activePreset.footerText && (
-                    <div className="text-[9px] opacity-60 uppercase tracking-widest mt-1">
-                      {activePreset.footerText}
-                    </div>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
             </div>
 
             {/* Bottom Actions */}
