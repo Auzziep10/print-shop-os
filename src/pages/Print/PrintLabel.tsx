@@ -124,6 +124,34 @@ export function PrintLabel() {
           const isDarkTheme = preset.theme === 'dark' || (!preset.theme && preset.bgColor === '#000000');
           const isLandscape = preset.labelSize === '4x3' || preset.labelSize === '3x2' || preset.labelSize === '2x1';
           const isCompact = preset.labelSize === '2x1' || preset.labelSize === '3x2';
+          const isMedium = preset.labelSize === '2x3';
+
+          const qrSizeCalculated = (() => {
+            let maxAllowed = 140;
+            switch (preset.labelSize) {
+              case '4x6':
+                maxAllowed = 175;
+                break;
+              case '3x4':
+                maxAllowed = 140;
+                break;
+              case '2x3':
+                maxAllowed = 115;
+                break;
+              case '4x3':
+                maxAllowed = 120;
+                break;
+              case '3x2':
+                maxAllowed = 100;
+                break;
+              case '2x1':
+                maxAllowed = 80;
+                break;
+              default:
+                maxAllowed = 135;
+            }
+            return preset.qrSize ? Math.min(preset.qrSize, maxAllowed) : maxAllowed;
+          })();
 
           return (
             <div 
@@ -137,7 +165,7 @@ export function PrintLabel() {
                 borderColor: preset.borderColor || (preset.theme === 'light' ? '#000000' : preset.textColor || '#ffffff'),
                 borderRadius: `${preset.borderRadius ?? 16}px`
               }}
-              className={`${containerW} ${containerH} max-w-full max-h-full p-4 flex ${isLandscape ? 'flex-row justify-between items-center text-left' : 'flex-col justify-between items-center text-center'} mx-auto box-border relative overflow-hidden ${index < boxes.length - 1 ? 'print:break-after-page mb-8 print:mb-0' : ''}`}
+              className={`${containerW} ${containerH} max-w-full max-h-full p-3 flex ${isLandscape ? 'flex-row justify-between items-center text-left' : 'flex-col justify-between items-center text-center'} mx-auto box-border relative overflow-hidden ${index < boxes.length - 1 ? 'print:break-after-page mb-8 print:mb-0' : ''}`}
             >
               {isLandscape ? (
                 <>
@@ -217,11 +245,11 @@ export function PrintLabel() {
                     }`}>
                       <QRCode 
                         value={publicUrl} 
-                        size={isCompact ? 90 : (preset.qrSize || 130)} 
+                        size={qrSizeCalculated} 
                         level="H" 
                         bgColor={preset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
                         fgColor={preset.qrContainerStyle === 'white_box' ? '#000000' : preset.textColor || '#ffffff'}
-                        style={{ width: "100%", maxWidth: isCompact ? '90px' : `${preset.qrSize || 130}px`, height: "auto" }} 
+                        style={{ width: "100%", maxWidth: `${qrSizeCalculated}px`, height: "auto" }} 
                       />
                     </div>
                   </div>
@@ -229,29 +257,29 @@ export function PrintLabel() {
               ) : (
                 <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
                   {/* Header Logo & Title */}
-                  <div className="w-full flex flex-col items-center justify-center shrink-0 pt-2">
+                  <div className="w-full flex flex-col items-center justify-center shrink-0 pt-1">
                     {preset.logoType === 'wovn' && (
-                      <div className="w-full flex justify-center items-center h-12">
+                      <div className="w-full flex justify-center items-center h-10">
                         <img 
                           src="/logo.png" 
                           alt={cust.company || 'WOVN'} 
                           className={`w-[75%] h-full object-contain ${isDarkTheme ? 'brightness-0 invert' : ''}`}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
-                            e.currentTarget.parentElement!.innerHTML = `<span class="text-4xl font-black italic tracking-tighter uppercase font-serif" style="color: ${preset.textColor}">${preset.headerText || 'WOVN'}</span>`;
+                            e.currentTarget.parentElement!.innerHTML = `<span class="text-3xl font-black italic tracking-tighter uppercase font-serif" style="color: ${preset.textColor}">${preset.headerText || 'WOVN'}</span>`;
                           }}
                         />
                       </div>
                     )}
 
                     {preset.logoType === 'customer' && (
-                      <div className="text-base font-bold uppercase tracking-wide truncate max-w-full">
+                      <div className="text-sm font-bold uppercase tracking-wide truncate max-w-full">
                         {preset.headerText || cust.company || cust.name || 'CUSTOMER'}
                       </div>
                     )}
 
                     {preset.logoType === 'custom' && preset.customLogoUrl && (
-                      <img src={preset.customLogoUrl} alt="Logo" className="max-h-12 object-contain" />
+                      <img src={preset.customLogoUrl} alt="Logo" className="max-h-10 object-contain" />
                     )}
 
                     {preset.showOrderNum && (
@@ -268,45 +296,45 @@ export function PrintLabel() {
                   </div>
 
                   {/* QR Code */}
-                  <div className="flex-1 flex flex-col justify-center items-center my-2 w-full">
-                     <div className={`p-3.5 transition-all ${
+                  <div className="flex-1 flex flex-col justify-center items-center my-1 w-full">
+                     <div className={`p-2.5 transition-all ${
                        preset.qrContainerStyle === 'white_box'
                          ? 'bg-white rounded-md'
                          : preset.qrContainerStyle === 'bordered'
-                         ? 'border-2 border-current rounded-md bg-transparent p-2'
+                         ? 'border-2 border-current rounded-md bg-transparent p-1.5'
                          : 'bg-transparent p-0'
                      }`}>
                        <QRCode 
                          value={publicUrl} 
-                         size={preset.qrSize || 180} 
+                         size={qrSizeCalculated} 
                          level="H" 
                          bgColor={preset.qrContainerStyle === 'white_box' ? '#ffffff' : 'transparent'}
                          fgColor={preset.qrContainerStyle === 'white_box' ? '#000000' : preset.textColor || '#ffffff'}
-                         style={{ width: "100%", maxWidth: `${preset.qrSize || 180}px`, height: "auto" }} 
+                         style={{ width: "100%", maxWidth: `${qrSizeCalculated}px`, height: "auto" }} 
                        />
                      </div>
                   </div>
 
                   {/* Footer Box Name & Details */}
-                  <div className="w-full flex flex-col items-center shrink-0 pb-2 gap-0.5">
+                  <div className="w-full flex flex-col items-center shrink-0 pb-1 gap-0.5">
                     {preset.showCustomerName && (
-                      <div className="text-xs font-bold uppercase tracking-wider opacity-90 truncate max-w-full">
+                      <div className="text-[11px] font-bold uppercase tracking-wider opacity-90 truncate max-w-full">
                         {cust.company || cust.name}
                       </div>
                     )}
 
-                    <div className="text-[2.75rem] leading-none font-bold tracking-wide">
+                    <div className={`${isMedium ? 'text-2.5xl' : 'text-3.5xl'} leading-none font-bold tracking-wide`}>
                       {b.name}
                     </div>
 
                     {preset.showBoxItems && b.items && b.items.length > 0 && (
-                      <div className="text-[10px] opacity-80 truncate max-w-full mt-1">
+                      <div className="text-[9px] opacity-80 truncate max-w-full mt-0.5">
                         {b.items.length} Items • {b.items.reduce((s: number, i: any) => s + (i.qty || 1), 0)} Pcs
                       </div>
                     )}
 
                     {preset.footerText && (
-                      <div className="text-[9px] opacity-70 uppercase tracking-widest mt-0.5">
+                      <div className="text-[8px] opacity-70 uppercase tracking-widest mt-0.5">
                         {preset.footerText}
                       </div>
                     )}

@@ -820,7 +820,7 @@ export function BoxLabelCustomizerModal({
                               </div>
                             )}
 
-                            <div className={`${config.isCompact ? 'text-xl' : 'text-2.5xl'} font-serif font-bold tracking-tight leading-none my-0.5`}>
+                            <div className={`${config.isCompact ? 'text-xl' : 'text-2.5xl'} font-bold tracking-tight leading-none my-0.5`}>
                               {sampleBoxName}
                             </div>
 
@@ -917,7 +917,7 @@ export function BoxLabelCustomizerModal({
                             </div>
                           )}
 
-                          <div className="text-3xl font-serif font-bold tracking-tight leading-none">
+                          <div className="text-3xl font-bold tracking-tight leading-none">
                             {sampleBoxName}
                           </div>
 
