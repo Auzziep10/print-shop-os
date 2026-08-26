@@ -781,6 +781,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                            <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box)}>
                              <Printer size={14} className="mr-1.5" /> Print QR Label
                            </PillButton>
+                           <button 
+                             type="button"
+                             onClick={() => window.open(`/print/thank-you-card/${order.id}`, '_blank')}
+                             className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white bg-black hover:bg-neutral-800 transition-colors w-full h-[32px] rounded-full border border-black shadow-sm"
+                             title="Print Thank You & QUO Phone Insert Card"
+                           >
+                             <Sparkles size={12} className="text-amber-400" /> Thank You Card
+                           </button>
                            {box.labelUrl ? (
                               <div className="flex w-full">
                                 <button onClick={() => window.open(box.labelUrl, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors h-[32px] rounded-l-full border border-r-0 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">

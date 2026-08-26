@@ -47,6 +47,7 @@ const PrintLabel = safeLazy(() => import('./pages/Print/PrintLabel').then(m => (
 const PrintLabelsSheet = safeLazy(() => import('./pages/Print/PrintLabelsSheet').then(m => ({ default: m.PrintLabelsSheet })));
 const PrintCourierLabel = safeLazy(() => import('./pages/Print/PrintCourierLabel').then(m => ({ default: m.PrintCourierLabel })));
 const PrintItemLabels = safeLazy(() => import('./pages/Print/PrintItemLabels').then(m => ({ default: m.PrintItemLabels })));
+const PrintThankYouCard = safeLazy(() => import('./pages/Print/PrintThankYouCard').then(m => ({ default: m.PrintThankYouCard })));
 const PublicQuoteRequest = safeLazy(() => import('./pages/Public/PublicQuoteRequest').then(m => ({ default: m.PublicQuoteRequest })));
 const InvoiceView = safeLazy(() => import('./pages/Public/InvoiceView').then(m => ({ default: m.InvoiceView })));
 const SmsConsent = safeLazy(() => import('./pages/Public/SmsConsent').then(m => ({ default: m.SmsConsent })));
@@ -173,6 +174,11 @@ function App() {
           <Route path="/print/courier/:orderId/item/:itemId" element={
             <PrivateRoute>
               <PrintCourierLabel />
+            </PrivateRoute>
+          } />
+          <Route path="/print/thank-you-card/:orderId" element={
+            <PrivateRoute>
+              <PrintThankYouCard />
             </PrivateRoute>
           } />
 

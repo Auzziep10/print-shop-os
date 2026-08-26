@@ -4426,6 +4426,14 @@ export function OrderDetail() {
                                      <button onClick={(e) => { e.stopPropagation(); setTrackingBoxId(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'text-brand-primary hover:text-black bg-neutral-50 hover:bg-neutral-100'}`}>
                                        <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
                                      </button>
+                                     <button 
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); window.open(`/print/thank-you-card/${order.id}`, '_blank'); }} 
+                                        className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white bg-black hover:bg-neutral-800 transition-colors whitespace-nowrap px-3 py-1.5 rounded-full border border-black w-full text-center shadow-sm"
+                                        title="Print Thank You & QUO Phone Insert Card"
+                                      >
+                                        <Sparkles size={12} className="text-amber-400" /> Thank You Card
+                                      </button>
                                    </div>
                                  </div>
                 
