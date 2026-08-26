@@ -488,6 +488,112 @@ export function BoxLabelCustomizerModal({
                       </button>
                     </div>
                   </div>
+
+                  {/* Outer Border & Stroke Customization */}
+                  <div className="pt-3 border-t border-neutral-200 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">
+                        Outer Border / Stroke Line
+                      </label>
+                      <input
+                        type="checkbox"
+                        id="showBorder"
+                        checked={activePreset.showBorder !== false}
+                        onChange={(e) => handleUpdatePresetField({ showBorder: e.target.checked })}
+                        className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 cursor-pointer"
+                      />
+                    </div>
+
+                    {(activePreset.showBorder !== false) && (
+                      <div className="flex flex-col gap-3 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
+                        {/* Border Thickness */}
+                        <div>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <label className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider">
+                              Stroke Thickness
+                            </label>
+                            <span className="text-[11px] font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
+                              {activePreset.borderWidth ?? 4}px
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1.5 mb-2">
+                            {[2, 4, 8, 12].map((w) => (
+                              <button
+                                key={w}
+                                type="button"
+                                onClick={() => handleUpdatePresetField({ borderWidth: w })}
+                                className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
+                                  (activePreset.borderWidth ?? 4) === w
+                                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100'
+                                }`}
+                              >
+                                {w === 2 ? 'Thin (2px)' : w === 4 ? 'Standard (4px)' : w === 8 ? 'Bold (8px)' : 'Heavy (12px)'}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="16"
+                            value={activePreset.borderWidth ?? 4}
+                            onChange={(e) => handleUpdatePresetField({ borderWidth: parseInt(e.target.value) || 4 })}
+                            className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
+                          />
+                        </div>
+
+                        {/* Border Color */}
+                        <div>
+                          <label className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider block mb-1">
+                            Stroke Line Color
+                          </label>
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="color"
+                              value={activePreset.borderColor || (activePreset.theme === 'light' ? '#000000' : activePreset.textColor || '#ffffff')}
+                              onChange={(e) => handleUpdatePresetField({ borderColor: e.target.value })}
+                              className="w-10 h-8 rounded-lg cursor-pointer border border-neutral-300 shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={activePreset.borderColor || (activePreset.theme === 'light' ? '#000000' : activePreset.textColor || '#ffffff')}
+                              onChange={(e) => handleUpdatePresetField({ borderColor: e.target.value })}
+                              placeholder="#000000"
+                              className="flex-1 bg-white border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs font-mono text-neutral-900 focus:outline-none focus:border-neutral-900 uppercase"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Corner Radius */}
+                        <div>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <label className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider">
+                              Corner Radius
+                            </label>
+                            <span className="text-[11px] font-mono font-bold text-neutral-900 bg-white px-2 py-0.5 rounded border border-neutral-200">
+                              {activePreset.borderRadius ?? 16}px
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[0, 8, 16, 24].map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => handleUpdatePresetField({ borderRadius: r })}
+                                className={`py-1.5 text-[10px] font-bold rounded-lg border transition-all ${
+                                  (activePreset.borderRadius ?? 16) === r
+                                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100'
+                                }`}
+                              >
+                                {r === 0 ? 'Square (0)' : r === 8 ? 'Slight (8px)' : r === 16 ? 'Round (16px)' : 'Pill (24px)'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -616,9 +722,13 @@ export function BoxLabelCustomizerModal({
                 style={{
                   backgroundColor: activePreset.bgColor || '#000000',
                   color: activePreset.textColor || '#ffffff',
-                  fontFamily: activePreset.fontFamily === 'sans' ? 'sans-serif' : activePreset.fontFamily === 'mono' ? 'monospace' : 'serif'
+                  fontFamily: activePreset.fontFamily === 'sans' ? 'sans-serif' : activePreset.fontFamily === 'mono' ? 'monospace' : 'serif',
+                  borderWidth: (activePreset.showBorder !== false) ? `${activePreset.borderWidth ?? 4}px` : '0px',
+                  borderStyle: (activePreset.showBorder !== false) ? 'solid' : 'none',
+                  borderColor: activePreset.borderColor || (activePreset.theme === 'light' ? '#000000' : activePreset.textColor || '#ffffff'),
+                  borderRadius: `${activePreset.borderRadius ?? 16}px`
                 }}
-                className={`w-[260px] h-[340px] p-5 flex flex-col justify-between items-center rounded-lg shadow-2xl border border-neutral-700 relative overflow-hidden transition-all duration-300 text-center`}
+                className={`w-[260px] h-[340px] p-5 flex flex-col justify-between items-center shadow-2xl relative overflow-hidden transition-all duration-300 text-center box-border`}
               >
                 {/* Header Logo & Title */}
                 <div className="w-full flex flex-col items-center gap-1 shrink-0">

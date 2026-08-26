@@ -153,9 +153,12 @@ export function PrintLabelsSheet() {
                      backgroundColor: preset.bgColor || '#000000',
                      color: preset.textColor || '#ffffff',
                      fontFamily: preset.fontFamily === 'sans' ? 'sans-serif' : preset.fontFamily === 'mono' ? 'monospace' : 'serif',
-                     outline: '0.05in solid black'
+                     borderWidth: (preset.showBorder !== false) ? `${preset.borderWidth ?? 4}px` : '0px',
+                     borderStyle: (preset.showBorder !== false) ? 'solid' : 'none',
+                     borderColor: preset.borderColor || (preset.theme === 'light' ? '#000000' : preset.textColor || '#ffffff'),
+                     borderRadius: `${preset.borderRadius ?? 16}px`
                    }}
-                   className="p-4 flex flex-row justify-between items-center box-border text-center rounded-[0.75rem] overflow-hidden"
+                   className="p-4 flex flex-row justify-between items-center box-border text-center overflow-hidden"
                  >
                    {/* Logo / Header (Left side, rotated -90deg) */}
                    <div className="relative h-full flex justify-center items-center w-20 shrink-0">

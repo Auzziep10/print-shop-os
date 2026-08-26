@@ -114,7 +114,11 @@ export function PrintLabel() {
               style={{
                 backgroundColor: preset.bgColor || '#000000',
                 color: preset.textColor || '#ffffff',
-                fontFamily: preset.fontFamily === 'sans' ? 'sans-serif' : preset.fontFamily === 'mono' ? 'monospace' : 'serif'
+                fontFamily: preset.fontFamily === 'sans' ? 'sans-serif' : preset.fontFamily === 'mono' ? 'monospace' : 'serif',
+                borderWidth: (preset.showBorder !== false) ? `${preset.borderWidth ?? 4}px` : '0px',
+                borderStyle: (preset.showBorder !== false) ? 'solid' : 'none',
+                borderColor: preset.borderColor || (preset.theme === 'light' ? '#000000' : preset.textColor || '#ffffff'),
+                borderRadius: `${preset.borderRadius ?? 16}px`
               }}
               className={`${containerW} ${containerH} max-w-full max-h-full p-4 flex flex-col justify-between items-center mx-auto box-border text-center relative overflow-hidden ${index < boxes.length - 1 ? 'print:break-after-page mb-8 print:mb-0' : ''}`}
             >

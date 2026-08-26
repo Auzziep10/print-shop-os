@@ -7,6 +7,13 @@ export interface BoxLabelPreset {
   textColor: string;
   accentColor: string;
   fontFamily: 'serif' | 'sans' | 'mono';
+  
+  // Outer Border / Stroke Customization
+  showBorder?: boolean;
+  borderWidth?: number; // Thickness in px (0 to 16px)
+  borderColor?: string; // Border color hex (e.g. #000000)
+  borderRadius?: number; // Corner radius in px (0 to 32px)
+
   logoType: 'wovn' | 'customer' | 'custom' | 'none';
   customLogoUrl?: string;
   headerText?: string;
@@ -33,6 +40,10 @@ export const DEFAULT_BOX_LABEL_PRESETS: BoxLabelPreset[] = [
     textColor: '#ffffff',
     accentColor: '#ffffff',
     fontFamily: 'serif',
+    showBorder: false,
+    borderWidth: 4,
+    borderColor: '#ffffff',
+    borderRadius: 16,
     logoType: 'wovn',
     headerText: 'WOVN',
     showOrderNum: false,
@@ -55,6 +66,10 @@ export const DEFAULT_BOX_LABEL_PRESETS: BoxLabelPreset[] = [
     textColor: '#000000',
     accentColor: '#000000',
     fontFamily: 'sans',
+    showBorder: true,
+    borderWidth: 4,
+    borderColor: '#000000',
+    borderRadius: 16,
     logoType: 'wovn',
     headerText: 'WOVN PRINT LABS',
     showOrderNum: true,
@@ -77,6 +92,10 @@ export const DEFAULT_BOX_LABEL_PRESETS: BoxLabelPreset[] = [
     textColor: '#111827',
     accentColor: '#2563eb',
     fontFamily: 'sans',
+    showBorder: true,
+    borderWidth: 4,
+    borderColor: '#000000',
+    borderRadius: 16,
     logoType: 'customer',
     headerText: '',
     showOrderNum: true,
