@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Tag } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
@@ -12,6 +12,7 @@ import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { fetchDtfPricingSettings, autoQuoteItem, PLACEMENT_LABELS } from '../../lib/dtfAutoQuoting';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -492,6 +493,24 @@ export function PortalCreateOrder() {
   const [applySizingItem, setApplySizingItem] = useState<{ item: any; type: 'roster' | 'standard' } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+
+  const applyDiscountCode = async () => {
+    setIsApplyingDiscount(true);
+    setDiscountError('');
+    const result = await validateDiscountCode(discountInput);
+    if (result.ok) {
+      setAppliedDiscount(result.discount);
+      setDiscountInput('');
+    } else {
+      setDiscountError(result.error);
+    }
+    setIsApplyingDiscount(false);
+  };
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
@@ -1586,43 +1605,48 @@ export function PortalCreateOrder() {
          }, 0);
        }
 
-       const payload = {
-         id: orderId,
-         portalId: portalId,
-         customerId: customerId,
-         title: `${profileCompany ? profileCompany.trim() : 'Portal'} Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
-         statusIndex: finalStatusIndex, 
-         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
-         createdAt: new Date().toISOString(),
-         packaging: selectedPackaging,
-         deliveryOption: deliveryOption,
-         neededByDate: neededByDate,
-         orderType: orderType,
-         resaleCertificateUrl: resaleCertificateUrl,
-         resaleCertificateName: resaleCertificateName,
-         specialRequests: specialRequests,
-         shippingAddress: {
-           name: profileContactName.trim(),
-           company: profileCompany.trim(),
-           street1: profileStreet.trim(),
-           street2: '',
-           city: profileCity.trim(),
-           state: profileState.trim(),
-           zip: profileZip.trim(),
-           country: 'US'
-         },
-         totalAmount: Math.round(calculatedTotal * 100) / 100,
-         items: finalItems,
-         activities: [{
-           id: `act-${Date.now()}`,
-           type: 'system',
-           message: dtfSettings.autoQuotingEnabled 
-             ? `Order automatically quoted ($${calculatedTotal.toFixed(2)}) based on print dimensions & DTF pricing rules. Ready for customer payment.`
-             : `Order submitted by customer in portal. Awaiting shop quote approval.`,
-           user: profileContactName.trim() || customerId || 'Customer',
-           timestamp: new Date().toISOString()
-         }]
-       };
+        const dAmount = discountAmountFor(appliedDiscount, calculatedTotal);
+        const finalCalculatedTotal = Math.max(0, calculatedTotal - dAmount);
+
+        const payload = {
+          id: orderId,
+          portalId: portalId,
+          customerId: customerId,
+          title: `${profileCompany ? profileCompany.trim() : 'Portal'} Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
+          statusIndex: finalStatusIndex, 
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
+          createdAt: new Date().toISOString(),
+          packaging: selectedPackaging,
+          deliveryOption: deliveryOption,
+          neededByDate: neededByDate,
+          orderType: orderType,
+          resaleCertificateUrl: resaleCertificateUrl,
+          resaleCertificateName: resaleCertificateName,
+          specialRequests: specialRequests,
+          discountCode: appliedDiscount?.code || '',
+          discountAmount: dAmount,
+          shippingAddress: {
+            name: profileContactName.trim(),
+            company: profileCompany.trim(),
+            street1: profileStreet.trim(),
+            street2: '',
+            city: profileCity.trim(),
+            state: profileState.trim(),
+            zip: profileZip.trim(),
+            country: 'US'
+          },
+          totalAmount: Math.round(finalCalculatedTotal * 100) / 100,
+          items: finalItems,
+          activities: [{
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: dtfSettings.autoQuotingEnabled 
+              ? `Order automatically quoted ($${finalCalculatedTotal.toFixed(2)}) based on print dimensions & DTF pricing rules${appliedDiscount ? ` (Code: ${appliedDiscount.code})` : ''}. Ready for customer payment.`
+              : `Order submitted by customer in portal${appliedDiscount ? ` (Applied Discount Code: ${appliedDiscount.code})` : ''}. Awaiting shop quote approval.`,
+            user: profileContactName.trim() || customerId || 'Customer',
+            timestamp: new Date().toISOString()
+          }]
+        };
 
       await setDoc(doc(db, 'orders', orderId), payload);
 
@@ -2990,19 +3014,84 @@ export function PortalCreateOrder() {
                       <span>{orderItems.length} styles</span>
                     </div>
 
-                    {dtfCartSummary && (
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3.5 flex justify-between items-center text-xs font-bold text-neutral-900 shadow-xs animate-in fade-in duration-200">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[10px] uppercase font-extrabold text-neutral-600 tracking-wider">
-                            Estimated Order Total
-                          </span>
-                          <span className="text-[10px] font-medium text-neutral-500">Priced live based on tier quantities & dimensions</span>
-                        </div>
-                        <span className="text-xl font-black text-neutral-900 font-mono">
-                          ${dtfCartSummary.overallTotal.toFixed(2)}
+                    {/* Discount Code Input Box */}
+                    <div className="flex flex-col gap-1.5 bg-neutral-50 border border-neutral-200 rounded-2xl p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-extrabold text-neutral-600 tracking-wider flex items-center gap-1">
+                          <Tag size={12} className="text-neutral-500" />
+                          Discount Code
                         </span>
+                        {appliedDiscount && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            {appliedDiscount.code} ({formatDiscountLabel(appliedDiscount)})
+                            <button
+                              type="button"
+                              onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
+                              className="text-neutral-400 hover:text-red-500 ml-1 cursor-pointer"
+                              title="Remove discount"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        )}
                       </div>
-                    )}
+
+                      {!appliedDiscount && (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={discountInput}
+                            onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(''); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscountCode(); } }}
+                            placeholder="Enter discount code"
+                            className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-black uppercase"
+                          />
+                          <button
+                            type="button"
+                            onClick={applyDiscountCode}
+                            disabled={isApplyingDiscount || !discountInput.trim()}
+                            className="bg-black hover:bg-neutral-800 disabled:bg-neutral-200 text-white disabled:text-neutral-400 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed"
+                          >
+                            {isApplyingDiscount ? <Loader2 size={12} className="animate-spin" /> : 'Apply'}
+                          </button>
+                        </div>
+                      )}
+                      {discountError && <p className="text-[10px] text-red-600 font-bold">{discountError}</p>}
+                    </div>
+
+                    {dtfCartSummary && (() => {
+                      const subtotal = dtfCartSummary.overallTotal;
+                      const dAmt = discountAmountFor(appliedDiscount, subtotal);
+                      const cartFinalTotal = Math.max(0, subtotal - dAmt);
+
+                      return (
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3.5 flex flex-col gap-2 shadow-xs animate-in fade-in duration-200">
+                          {appliedDiscount && dAmt > 0 && (
+                            <div className="flex justify-between items-center text-xs text-neutral-600">
+                              <span>Subtotal</span>
+                              <span className="font-mono font-semibold">${subtotal.toFixed(2)}</span>
+                            </div>
+                          )}
+                          {appliedDiscount && dAmt > 0 && (
+                            <div className="flex justify-between items-center text-xs text-emerald-600 font-semibold border-b border-neutral-200/80 pb-2">
+                              <span>Discount ({appliedDiscount.code})</span>
+                              <span className="font-mono">−${dAmt.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] uppercase font-extrabold text-neutral-600 tracking-wider">
+                                Estimated Order Total
+                              </span>
+                              <span className="text-[10px] font-medium text-neutral-500">Priced live based on tier quantities & dimensions</span>
+                            </div>
+                            <span className="text-xl font-black text-neutral-900 font-mono">
+                              ${cartFinalTotal.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {hasLowQuantityItems && (
                       <div className="text-[9px] text-red-655 bg-red-50/55 border border-red-100 rounded-xl p-3 flex flex-col gap-0.5 leading-snug animate-in fade-in duration-300">
@@ -3025,7 +3114,7 @@ export function PortalCreateOrder() {
                         {isSubmitting
                           ? 'Submitting...'
                           : dtfCartSummary
-                          ? `Submit Order & Pay Now ($${dtfCartSummary.overallTotal.toFixed(2)})`
+                          ? `Submit Order & Pay Now ($${Math.max(0, dtfCartSummary.overallTotal - discountAmountFor(appliedDiscount, dtfCartSummary.overallTotal)).toFixed(2)})`
                           : 'Submit Quote Request'}
                       </button>
                       <button
