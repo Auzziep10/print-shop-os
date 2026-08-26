@@ -13,6 +13,8 @@ export function PrintThankYouCard() {
   const [loading, setLoading] = useState(true);
   const [quoLink, setQuoLink] = useState('https://quo.com');
   const [autoPrinted, setAutoPrinted] = useState(false);
+  // Falls back to a generated QR if public/design-studio-qr.png isn't there
+  const [studioQrOk, setStudioQrOk] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,6 +85,16 @@ export function PrintThankYouCard() {
   const portalUrl = `${origin}/portal/${customerId}`;
   const companyName = customer?.company || customer?.name || order.customerName || 'Valued Client';
 
+  // Fonts are declared explicitly here (rather than via the font-sans/font-serif
+  // utilities) so the printed card always sets in the brand faces.
+  const SANS = '"Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
+  const SERIF = '"Playfair Display", Georgia, serif';
+
+  // Oversized watermark: one long marquee string that bleeds past every edge
+  const WATERMARK = Array.from({ length: 14 })
+    .map(() => 'THANK YOU FOR SUPPORTING LOCAL')
+    .join(' • ') + ' • ';
+
   return (
     <div className="min-h-screen bg-neutral-100 font-sans print:bg-white print:min-h-0">
       {/* Printable Page Styles */}
@@ -96,6 +108,9 @@ export function PrintThankYouCard() {
             margin: 0;
             padding: 0;
             background: white !important;
+          }
+          /* Keep the panel tints and washed photo in the printed output */
+          * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -164,96 +179,121 @@ export function PrintThankYouCard() {
           {/* ========================================================================= */}
           {/* TOP PANEL: THANK YOU FOR SUPPORTING LOCAL & CLIENT PORTAL QR */}
           {/* ========================================================================= */}
-          <div className="h-1/2 relative flex flex-col items-center justify-center p-8 border-b border-neutral-300 overflow-hidden bg-neutral-100/70">
-            {/* Background Watermark Repeating Typography */}
-            <div className="absolute inset-0 opacity-[0.07] pointer-events-none flex flex-wrap content-center justify-center overflow-hidden font-black text-4xl sm:text-5xl leading-tight text-neutral-900 tracking-tighter uppercase select-none p-4">
-              THANK YOU FOR SUPPORTING LOCAL • THANK YOU FOR SUPPORTING LOCAL • THANK YOU FOR SUPPORTING LOCAL • THANK YOU FOR SUPPORTING LOCAL • THANK YOU FOR SUPPORTING LOCAL • THANK YOU FOR SUPPORTING LOCAL •
+          <div className="h-1/2 relative flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: '#d7d7d7' }}>
+            {/* Oversized watermark type — bleeds past every edge */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none select-none flex items-center justify-center">
+              <div
+                style={{
+                  fontFamily: SANS,
+                  fontWeight: 900,
+                  fontSize: '74px',
+                  lineHeight: 0.86,
+                  letterSpacing: '-0.03em',
+                  color: 'rgba(0,0,0,0.055)',
+                  width: '128%',
+                  textAlign: 'center',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {WATERMARK}
+              </div>
             </div>
 
             {/* Top Content */}
-            <div className="relative z-10 flex flex-col items-center text-center max-w-lg">
-              {/* Brand Header */}
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-black mb-1 uppercase font-serif">
+            <div className="relative z-10 flex flex-col items-center text-center px-10">
+              <h1
+                className="text-black"
+                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '62px', letterSpacing: '-0.035em', lineHeight: 1 }}
+              >
                 INKTHEORY
               </h1>
 
-              {/* Subtitle */}
-              <p className="font-serif italic text-base sm:text-lg text-neutral-700 mb-6">
+              <p
+                className="text-black mt-6"
+                style={{ fontFamily: SERIF, fontSize: '20px', lineHeight: 1.5 }}
+              >
                 Best in the business...<br />
-                <span className="text-neutral-600">that just happens to be local.</span>
+                <span style={{ fontStyle: 'italic' }}>that just happens to be local.</span>
               </p>
 
-              {/* Customer Portal QR Code Box */}
-              <div className="bg-white p-3 rounded-xl border border-neutral-300 shadow-md flex items-center gap-3">
-                <div className="p-1 bg-white">
-                  <QRCode
-                    value={portalUrl}
-                    size={110}
-                    level="H"
-                    bgColor="#ffffff"
-                    fgColor="#000000"
-                  />
-                </div>
-                <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest flex flex-col justify-center text-left leading-tight pr-2">
-                  <span className="font-bold text-neutral-900 text-xs mb-1">SCAN FOR</span>
-                  <span>CLIENT PORTAL</span>
-                  <span>ORDERS & QUOTES</span>
-                </div>
-              </div>
-
-              {/* Customer Dedicated Portal Link Subtext */}
-              <div className="mt-3 text-[11px] font-mono text-neutral-500 tracking-wider">
-                {portalUrl.replace(/^https?:\/\//, '')}
+              {/* Bare QR with vertical caption, no card */}
+              <div className="mt-10 flex items-center gap-2">
+                <span
+                  className="uppercase text-neutral-700"
+                  style={{
+                    fontFamily: SANS,
+                    fontSize: '6px',
+                    fontWeight: 700,
+                    letterSpacing: '0.18em',
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                  }}
+                >
+                  Your Brand's Destiny
+                </span>
+                <QRCode value={portalUrl} size={96} level="H" bgColor="#00000000" fgColor="#000000" />
               </div>
             </div>
           </div>
 
           {/* ========================================================================= */}
-          {/* BOTTOM PANEL: STATE OF THE ART FACILITY & QUO PHONE SYSTEM QR */}
+          {/* BOTTOM PANEL: STATE OF THE ART FACILITY & DESIGN STUDIO QR */}
           {/* ========================================================================= */}
-          <div className="h-1/2 relative flex flex-col items-center justify-center p-8 overflow-hidden bg-neutral-900 text-white">
-            {/* Background Facility Image with Overlay */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity filter contrast-125"
+          <div className="h-1/2 relative flex flex-col items-center justify-center overflow-hidden bg-white text-black">
+            {/* Washed-out facility photo */}
+            <div
+              className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1200&q=80')`
+                backgroundImage: `url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1600&q=80')`,
+                filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
+                opacity: 0.13,
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none" />
 
             {/* Bottom Content */}
-            <div className="relative z-10 flex flex-col items-center text-center max-w-xl">
-              {/* Brand Header */}
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-white mb-1 uppercase font-serif">
+            <div className="relative z-10 flex flex-col items-center text-center px-12">
+              <h1
+                className="text-black"
+                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '62px', letterSpacing: '-0.035em', lineHeight: 1 }}
+              >
                 INKTHEORY
               </h1>
 
-              {/* Subtitle */}
-              <p className="font-serif italic text-sm sm:text-base text-neutral-300 mb-4">
+              <p
+                className="text-black mt-6"
+                style={{ fontFamily: SERIF, fontSize: '19px', lineHeight: 1.5 }}
+              >
                 State of the Art facility...<br />
-                <span className="text-neutral-400">backed by state of the art ideas.</span>
+                <span style={{ fontStyle: 'italic' }}>backed by state of the art ideas.</span>
               </p>
 
-              {/* Bold Main Statement */}
-              <h2 className="text-lg sm:text-xl font-bold font-serif text-white tracking-wide mb-5 max-w-md leading-snug">
+              <h2
+                className="text-black mt-10"
+                style={{ fontFamily: SERIF, fontWeight: 700, fontSize: '23px', lineHeight: 1.35 }}
+              >
                 We help brands discover who they're capable of being.
               </h2>
 
-              {/* Call to Action & QUO Phone System QR */}
-              <div className="flex flex-col items-center">
-                <p className="text-xs font-serif font-bold uppercase tracking-wider text-amber-400 mb-2">
-                  Book time with our Design Studio
-                </p>
+              <p className="text-black mt-8" style={{ fontFamily: SERIF, fontSize: '15px' }}>
+                Book time with our Design Studio
+              </p>
 
-                <div className="bg-white p-2.5 rounded-xl border border-neutral-200 shadow-xl">
-                  <QRCode
-                    value={quoLink}
-                    size={100}
-                    level="H"
-                    bgColor="#ffffff"
-                    fgColor="#000000"
+              {/* Design Studio QR: uses public/design-studio-qr.png when present
+                  (drop your own QR image there), otherwise generates one from
+                  the link in the toolbar. */}
+              <div className="mt-4">
+                {studioQrOk ? (
+                  <img
+                    src="/design-studio-qr.png"
+                    alt="Design Studio QR"
+                    width={104}
+                    height={104}
+                    onError={() => setStudioQrOk(false)}
+                    style={{ imageRendering: 'pixelated', display: 'block' }}
                   />
-                </div>
+                ) : (
+                  <QRCode value={quoLink} size={104} level="H" bgColor="#00000000" fgColor="#000000" />
+                )}
               </div>
             </div>
           </div>
