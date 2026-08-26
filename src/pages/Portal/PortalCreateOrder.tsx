@@ -1624,6 +1624,8 @@ export function PortalCreateOrder() {
           resaleCertificateName: resaleCertificateName,
           specialRequests: specialRequests,
           discountCode: appliedDiscount?.code || '',
+          discountType: appliedDiscount?.type || 'fixed',
+          discountValue: appliedDiscount?.value || 0,
           discountAmount: dAmount,
           shippingAddress: {
             name: profileContactName.trim(),

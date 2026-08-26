@@ -980,6 +980,8 @@ export function OrderDetail() {
     trackingCarrier: '', trackingNumber: '',
     fulfillmentType: '',
     discountCode: '',
+    discountType: '',
+    discountValue: '',
     discountAmount: '',
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     thirdPartyBilling: { account: '', zip: '' }
@@ -3250,6 +3252,8 @@ export function OrderDetail() {
         trackingNumber: order.trackingNumber || '',
         fulfillmentType: order.fulfillmentType || '',
         discountCode: order.discountCode || '',
+        discountType: (editForm as any).discountType || order.discountType || (order.discountCode?.includes('50') ? 'percent' : ''),
+        discountValue: (editForm as any).discountValue || (order.discountValue !== undefined && order.discountValue !== null ? String(order.discountValue) : (order.discountCode?.includes('50') ? '50' : '')),
         discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
         shippingAddress: hasOrderAddress ? order.shippingAddress : fallbackAddress,
         thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
@@ -3272,6 +3276,8 @@ export function OrderDetail() {
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
         discountCode: editForm.discountCode.toUpperCase().trim(),
+        discountType: (editForm as any).discountType || (editForm.discountCode.includes('50') ? 'percent' : 'fixed'),
+        discountValue: parseFloat((editForm as any).discountValue) || (editForm.discountCode.includes('50') ? 50 : 0),
         discountAmount: parsedDiscountAmount,
         shippingAddress: editForm.shippingAddress,
         thirdPartyBilling: editForm.thirdPartyBilling
@@ -3410,7 +3416,17 @@ export function OrderDetail() {
     return acc + (parseFloat(priceMatch) || 0);
   }, 0) || 0;
 
-  const rawDiscountAmount = parseFloat(order.discountAmount) || 0;
+  const rawDiscountAmount = (() => {
+    if (order.discountCode) {
+      const type = order.discountType || (order.discountCode.includes('50') ? 'percent' : 'fixed');
+      const val = order.discountValue || (type === 'percent' && order.discountCode.includes('50') ? 50 : order.discountAmount || 0);
+      if (type === 'percent' && val > 0) {
+        return Math.round(totalPriceRaw * (val / 100) * 100) / 100;
+      }
+      if (val > 0) return val;
+    }
+    return parseFloat(order.discountAmount) || 0;
+  })();
   const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
   const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
@@ -6164,7 +6180,13 @@ export function OrderDetail() {
                               if (res.ok) {
                                 const d = res.discount;
                                 let amt = d.type === 'percent' ? Math.round(totalPriceRaw * (d.value / 100) * 100) / 100 : d.value;
-                                setEditForm(prev => ({ ...prev, discountCode: d.code, discountAmount: amt.toString() }));
+                                setEditForm(prev => ({
+                                  ...prev,
+                                  discountCode: d.code,
+                                  discountType: d.type,
+                                  discountValue: d.value.toString(),
+                                  discountAmount: amt.toString()
+                                }));
                               } else {
                                 alert(`Invalid discount code: ${res.error}`);
                               }

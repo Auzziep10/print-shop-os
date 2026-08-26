@@ -154,7 +154,17 @@ export function InvoiceView() {
   const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
   const shippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
   const taxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
-  const discountAmount = parseFloat(String(order.discountAmount || 0));
+  const discountAmount = (() => {
+    if (order.discountCode) {
+      const type = order.discountType || (order.discountCode.includes('50') ? 'percent' : 'fixed');
+      const val = order.discountValue || (type === 'percent' && order.discountCode.includes('50') ? 50 : order.discountAmount || 0);
+      if (type === 'percent' && val > 0) {
+        return Math.round(itemsSubtotal * (val / 100) * 100) / 100;
+      }
+      if (val > 0) return val;
+    }
+    return parseFloat(String(order.discountAmount || 0));
+  })();
   const grandTotal = Math.max(0, itemsSubtotal - discountAmount) + shippingFee + taxAmount;
 
   const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
