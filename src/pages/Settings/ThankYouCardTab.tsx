@@ -266,14 +266,18 @@ export function ThankYouCardTab() {
           />
 
           <div className="flex-1 min-w-[220px]">
-            <label className={tokens.typography.label}>Booking Link (fallback QR)</label>
+            <label className={tokens.typography.label}>Booking Link or Phone (fallback QR)</label>
             <input
               className={tokens.components.input + ' mt-1.5 bg-white'}
-              placeholder="https://quo.com/your-booking-link"
+              placeholder="https://quo.com/booking  ·  (505) 588-5252"
               value={settings.studioLink || ''}
               onChange={(e) => setSettings(prev => ({ ...prev, studioLink: e.target.value }))}
               onBlur={() => persist(settings)}
             />
+            <p className="text-[10px] text-brand-secondary mt-1.5 leading-snug">
+              Paste a link, a phone number, or an email — a phone number scans straight
+              into the dialer, and an email opens a new message.
+            </p>
           </div>
         </div>
       </div>

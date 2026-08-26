@@ -6,6 +6,31 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Printer, ArrowLeft, Sparkles, PhoneCall } from 'lucide-react';
 import { DEFAULT_THANK_YOU_CARD, normalizeCardSettings, type ThankYouCardSettings } from '../Settings/ThankYouCardTab';
 
+/**
+ * Make a pasted value actually actionable when scanned.
+ * A bare phone number encodes as plain text — most scanners just display it —
+ * so numbers become tel: URIs (US numbers get a +1), emails become mailto:,
+ * and bare domains get https://. Anything already carrying a scheme is left be.
+ */
+export function toScannableValue(raw: string): string {
+  const v = (raw || '').trim();
+  if (!v) return v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return v; // https:, tel:, sms:, mailto:…
+  if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(v)) return `mailto:${v}`;
+
+  if (/^[\d\s()+.\-]+$/.test(v)) {
+    const digits = v.replace(/[^\d+]/g, '');
+    const bare = digits.replace(/^\+/, '');
+    if (bare.length >= 7 && bare.length <= 15) {
+      if (digits.startsWith('+')) return `tel:${digits}`;
+      return `tel:${bare.length === 10 ? `+1${bare}` : bare}`;
+    }
+  }
+
+  if (/^[\w-]+(\.[\w-]+)+([/?#].*)?$/.test(v)) return `https://${v}`;
+  return v;
+}
+
 export function PrintThankYouCard() {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -102,6 +127,8 @@ export function PrintThankYouCard() {
   const WATERMARK = Array.from({ length: 14 })
     .map(() => 'THANK YOU FOR SUPPORTING LOCAL')
     .join(' • ') + ' • ';
+
+  const studioQrValue = toScannableValue(quoLink);
 
   return (
     <div className="min-h-screen bg-neutral-100 font-sans print:bg-white print:min-h-0">
@@ -312,7 +339,7 @@ export function PrintThankYouCard() {
                     style={{ imageRendering: 'pixelated', display: 'block' }}
                   />
                 ) : (
-                  <QRCode value={quoLink} size={72} level="H" bgColor="#00000000" fgColor="#000000" />
+                  <QRCode value={studioQrValue} size={72} level="H" bgColor="#00000000" fgColor="#000000" />
                 )}
               </div>
             </div>
