@@ -26,7 +26,7 @@ export interface BoxLabelPreset {
   qrFgColor: string;
   qrBgColor: string;
   footerText?: string;
-  labelSize: '3x4' | '4x6' | '4x3' | '2x1';
+  labelSize: '3x4' | '4x6' | '4x3' | '2x1' | '3x2' | '2x3';
   createdAt?: string;
 }
 

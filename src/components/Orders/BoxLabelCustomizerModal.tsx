@@ -481,6 +481,20 @@ export function BoxLabelCustomizerModal({
                       </button>
                       <button
                         type="button"
+                        onClick={() => handleUpdatePresetField({ labelSize: '3x2' })}
+                        className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all ${activePreset.labelSize === '3x2' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 hover:bg-neutral-50'}`}
+                      >
+                        3" x 2" (Medium Landscape)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdatePresetField({ labelSize: '2x3' })}
+                        className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all ${activePreset.labelSize === '2x3' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 hover:bg-neutral-50'}`}
+                      >
+                        2" x 3" (Medium Portrait)
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => handleUpdatePresetField({ labelSize: '2x1' })}
                         className={`p-2.5 rounded-xl border text-xs font-bold text-left transition-all ${activePreset.labelSize === '2x1' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 hover:bg-neutral-50'}`}
                       >
@@ -725,6 +739,10 @@ export function BoxLabelCustomizerModal({
                       return { width: '240px', height: '360px', isLandscape: false, isCompact: false, qrMax: Math.min(activePreset.qrSize || 160, 170) };
                     case '4x3':
                       return { width: '320px', height: '240px', isLandscape: true, isCompact: false, qrMax: Math.min(activePreset.qrSize || 140, 130) };
+                    case '3x2':
+                      return { width: '300px', height: '200px', isLandscape: true, isCompact: true, qrMax: Math.min(activePreset.qrSize || 120, 110) };
+                    case '2x3':
+                      return { width: '220px', height: '330px', isLandscape: false, isCompact: false, qrMax: Math.min(activePreset.qrSize || 140, 130) };
                     case '2x1':
                       return { width: '300px', height: '150px', isLandscape: true, isCompact: true, qrMax: Math.min(activePreset.qrSize || 100, 85) };
                     case '3x4':
