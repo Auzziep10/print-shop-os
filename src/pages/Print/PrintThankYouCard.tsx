@@ -224,14 +224,14 @@ export function PrintThankYouCard() {
             <div className="relative z-10 flex flex-col items-center text-center px-10">
               <h1
                 className="text-black"
-                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '62px', letterSpacing: '-0.035em', lineHeight: 1 }}
+                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
               >
                 INKTHEORY
               </h1>
 
               <p
                 className="text-black mt-6"
-                style={{ fontFamily: SERIF, fontSize: '20px', lineHeight: 1.5 }}
+                style={{ fontFamily: SERIF, fontSize: '15px', lineHeight: 1.5 }}
               >
                 Best in the business...<br />
                 <span style={{ fontStyle: 'italic' }}>that just happens to be local.</span>
@@ -243,7 +243,7 @@ export function PrintThankYouCard() {
                   className="uppercase text-neutral-700"
                   style={{
                     fontFamily: SANS,
-                    fontSize: '6px',
+                    fontSize: '5px',
                     fontWeight: 700,
                     letterSpacing: '0.18em',
                     writingMode: 'vertical-rl',
@@ -252,7 +252,7 @@ export function PrintThankYouCard() {
                 >
                   Your Brand's Destiny
                 </span>
-                <QRCode value={portalUrl} size={96} level="H" bgColor="#00000000" fgColor="#000000" />
+                <QRCode value={portalUrl} size={54} level="H" bgColor="#00000000" fgColor="#000000" />
               </div>
             </div>
           </div>
@@ -276,27 +276,27 @@ export function PrintThankYouCard() {
             <div className="relative z-10 flex flex-col items-center text-center px-12">
               <h1
                 className="text-black"
-                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '62px', letterSpacing: '-0.035em', lineHeight: 1 }}
+                style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
               >
                 INKTHEORY
               </h1>
 
               <p
                 className="text-black mt-6"
-                style={{ fontFamily: SERIF, fontSize: '19px', lineHeight: 1.5 }}
+                style={{ fontFamily: SERIF, fontSize: '15px', lineHeight: 1.5 }}
               >
                 State of the Art facility...<br />
                 <span style={{ fontStyle: 'italic' }}>backed by state of the art ideas.</span>
               </p>
 
               <h2
-                className="text-black mt-10"
-                style={{ fontFamily: SERIF, fontWeight: 700, fontSize: '23px', lineHeight: 1.35 }}
+                className="text-black mt-9"
+                style={{ fontFamily: SERIF, fontWeight: 700, fontSize: '17px', lineHeight: 1.35 }}
               >
                 We help brands discover who they're capable of being.
               </h2>
 
-              <p className="text-black mt-8" style={{ fontFamily: SERIF, fontSize: '15px' }}>
+              <p className="text-black mt-9" style={{ fontFamily: SERIF, fontSize: '11px' }}>
                 Book time with our Design Studio
               </p>
 
@@ -307,12 +307,12 @@ export function PrintThankYouCard() {
                   <img
                     src={card.studioQrUrl}
                     alt="Design Studio QR"
-                    width={104}
-                    height={104}
+                    width={72}
+                    height={72}
                     style={{ imageRendering: 'pixelated', display: 'block' }}
                   />
                 ) : (
-                  <QRCode value={quoLink} size={104} level="H" bgColor="#00000000" fgColor="#000000" />
+                  <QRCode value={quoLink} size={72} level="H" bgColor="#00000000" fgColor="#000000" />
                 )}
               </div>
             </div>
