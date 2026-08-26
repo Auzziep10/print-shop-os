@@ -17,6 +17,7 @@ export interface BoxLabelPreset {
   logoType: 'wovn' | 'customer' | 'custom' | 'none';
   customLogoUrl?: string;
   headerText?: string;
+  subHeaderText?: string; // Custom note/text right below the Order Number
   showOrderNum?: boolean;
   showCustomerName?: boolean;
   showBoxItems?: boolean;

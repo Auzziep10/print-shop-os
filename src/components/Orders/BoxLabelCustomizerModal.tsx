@@ -703,15 +703,28 @@ export function BoxLabelCustomizerModal({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block mb-1">Custom Footer Note</label>
-                    <input
-                      type="text"
-                      value={activePreset.footerText || ''}
-                      onChange={(e) => handleUpdatePresetField({ footerText: e.target.value })}
-                      placeholder="e.g. Scan QR code to open digital packing slip"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900"
-                    />
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block mb-1">Custom Subheader Note (Below Order #)</label>
+                      <input
+                        type="text"
+                        value={activePreset.subHeaderText || ''}
+                        onChange={(e) => handleUpdatePresetField({ subHeaderText: e.target.value })}
+                        placeholder="e.g. Fragile / Handle With Care, PO #12345, Rush Order"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block mb-1">Custom Footer Note</label>
+                      <input
+                        type="text"
+                        value={activePreset.footerText || ''}
+                        onChange={(e) => handleUpdatePresetField({ footerText: e.target.value })}
+                        placeholder="e.g. Scan QR code to open digital packing slip"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -792,6 +805,12 @@ export function BoxLabelCustomizerModal({
                                 ORDER #{sampleOrderNum}
                               </div>
                             )}
+
+                            {activePreset.subHeaderText && (
+                              <div className="text-[9px] font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full">
+                                {activePreset.subHeaderText}
+                              </div>
+                            )}
                           </div>
 
                           <div>
@@ -861,6 +880,12 @@ export function BoxLabelCustomizerModal({
                           {activePreset.showOrderNum && (
                             <div className="text-[10px] font-mono tracking-widest uppercase opacity-80">
                               ORDER #{sampleOrderNum}
+                            </div>
+                          )}
+
+                          {activePreset.subHeaderText && (
+                            <div className="text-[9px] font-mono tracking-wider uppercase opacity-80 mt-0.5 truncate max-w-full">
+                              {activePreset.subHeaderText}
                             </div>
                           )}
                         </div>

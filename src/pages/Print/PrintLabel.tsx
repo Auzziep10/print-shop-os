@@ -173,6 +173,12 @@ export function PrintLabel() {
                           ORDER #{order.portalId || order.id}
                         </div>
                       )}
+
+                      {preset.subHeaderText && (
+                        <div className="text-[9px] font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full">
+                          {preset.subHeaderText}
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -251,6 +257,12 @@ export function PrintLabel() {
                     {preset.showOrderNum && (
                       <div className="text-[10px] font-mono tracking-widest uppercase opacity-85 mt-0.5">
                         ORDER #{order.portalId || order.id}
+                      </div>
+                    )}
+
+                    {preset.subHeaderText && (
+                      <div className="text-[9px] font-mono tracking-wider uppercase opacity-85 mt-0.5 truncate max-w-full">
+                        {preset.subHeaderText}
                       </div>
                     )}
                   </div>

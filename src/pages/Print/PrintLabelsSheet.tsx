@@ -242,6 +242,11 @@ export function PrintLabelsSheet() {
                               ORDER #{order.portalId || order.id}
                             </span>
                          )}
+                         {preset.subHeaderText && (
+                            <span className="text-[8px] font-mono tracking-wider uppercase opacity-75 mt-0.5">
+                              {preset.subHeaderText}
+                            </span>
+                         )}
                       </div>
                    </div>
                  </div>
