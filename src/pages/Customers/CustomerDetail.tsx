@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -25,10 +25,12 @@ import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { Shirt } from 'lucide-react';
+import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);
 
@@ -1446,6 +1448,14 @@ export function CustomerDetail() {
           Back to Customers
         </button>
         <div className="flex items-center gap-3">
+          <PillButton 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => setIsQrModalOpen(true)}
+          >
+            <QrCode size={16} />
+            Share Portal QR
+          </PillButton>
           <PillButton 
             variant="outline" 
             className="gap-2"
@@ -3068,11 +3078,19 @@ export function CustomerDetail() {
                <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className={tokens.typography.h2}>Portal Access</h2>
-                    {!isAddingContact && (
-                      <button onClick={() => setIsAddingContact(true)} className="text-brand-secondary hover:text-brand-primary transition-colors flex items-center gap-1 text-xs font-bold">
-                        <Plus size={16} /> Add Contact
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setIsQrModalOpen(true)} 
+                        className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                      >
+                        <QrCode size={14} /> Share Portal QR
                       </button>
-                    )}
+                      {!isAddingContact && (
+                        <button onClick={() => setIsAddingContact(true)} className="text-brand-secondary hover:text-brand-primary transition-colors flex items-center gap-1 text-xs font-bold ml-2">
+                          <Plus size={16} /> Add Contact
+                        </button>
+                      )}
+                    </div>
                  </div>
                  
                  {isAddingContact && (
@@ -4063,6 +4081,20 @@ export function CustomerDetail() {
            </div>
         </div>
       )}
+
+      {/* Customer Portal QR Modal */}
+      <CustomerPortalQrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        customer={{
+          id: id || '',
+          company: liveCustomerData?.company || liveCustomerData?.name,
+          contactName: liveCustomerData?.contactName || liveCustomerData?.email,
+          logo: liveCustomerData?.logo,
+          croppedLogo: liveCustomerData?.croppedLogo,
+          portalId: liveCustomerData?.portalId
+        }}
+      />
     </div>
   );
 }

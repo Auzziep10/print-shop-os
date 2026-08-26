@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User, Trash2, UserPlus } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Building2, User, Trash2, UserPlus, QrCode } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
@@ -10,12 +10,14 @@ import { db } from '../../lib/firebase';
 import { collection, onSnapshot, doc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { useOrders } from '../../hooks/useOrders';
 import { NewCustomerModal } from './NewCustomerModal';
+import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
 
 export function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
+  const [qrModalCustomer, setQrModalCustomer] = useState<any | null>(null);
 
   const handleDeleteCustomer = async (e: React.MouseEvent, custId: string, companyName: string) => {
     e.stopPropagation();
@@ -236,6 +238,17 @@ export function CustomersList() {
                 <div className="flex justify-end items-center gap-1">
                    <button 
                      type="button"
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       setQrModalCustomer(customer);
+                     }}
+                     className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-md transition-colors"
+                     title="Share Portal QR Code"
+                   >
+                     <QrCode size={16} />
+                   </button>
+                   <button 
+                     type="button"
                      onClick={(e) => handleDeleteCustomer(e, customer.id, customer.company)}
                      disabled={deletingCustomerId === customer.id}
                      className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
@@ -243,15 +256,19 @@ export function CustomersList() {
                    >
                      <Trash2 size={16} />
                    </button>
-                   <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
-                     <MoreHorizontal size={18} />
-                   </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Customer Portal QR Modal */}
+      <CustomerPortalQrModal
+        isOpen={!!qrModalCustomer}
+        onClose={() => setQrModalCustomer(null)}
+        customer={qrModalCustomer}
+      />
     </div>
   );
 }
