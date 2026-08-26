@@ -302,7 +302,7 @@ export function PrintThankYouCard() {
             )}
 
             {/* Bottom Content — sits low in the panel, as in the reference */}
-            <div className="relative z-10 flex flex-col items-center text-center px-12" style={{ marginTop: '140px' }}>
+            <div className="relative z-10 flex flex-col items-center text-center px-12" style={{ marginTop: '120px' }}>
               <h1
                 className="text-black"
                 style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
@@ -325,7 +325,7 @@ export function PrintThankYouCard() {
                 We help brands discover who they're capable of being.
               </h2>
 
-              <p className="text-black mt-9" style={{ fontFamily: SERIF, fontSize: '11px' }}>
+              <p className="text-black mt-4" style={{ fontFamily: SERIF, fontSize: '11px' }}>
                 Book time with our Design Studio
               </p>
 
