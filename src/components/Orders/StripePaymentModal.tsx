@@ -281,6 +281,18 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       : null
   );
 
+  useEffect(() => {
+    if (order.discountAmount > 0 || order.discountCode) {
+      setAppliedDiscount({
+        code: order.discountCode || 'DISCOUNT',
+        type: 'fixed',
+        value: parseFloat(order.discountAmount || 0)
+      });
+    } else {
+      setAppliedDiscount(null);
+    }
+  }, [order.discountAmount, order.discountCode]);
+
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
