@@ -9,6 +9,19 @@ import { validateDiscountCode, discountAmountFor, type AppliedDiscount } from '.
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
+const sortSizes = (a: string, b: string) => {
+  const orderMap: Record<string, number> = { 
+    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, '6xl':11, 'osfa':12, 'os':13 
+  };
+  const aKey = a.split(' ')[0].toLowerCase();
+  const bKey = b.split(' ')[0].toLowerCase();
+  const aVal = orderMap[aKey] ?? 99;
+  const bVal = orderMap[bKey] ?? 99;
+  if (aVal !== bVal) return aVal - bVal;
+  return a.localeCompare(b);
+};
+
 const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -620,7 +633,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                     {/* Sizes Display Spread */}
                     {item.sizes && Object.keys(item.sizes).length > 0 && (
                       <div className="flex gap-1 mt-1.5 flex-wrap animate-in fade-in duration-300">
-                        {Object.entries(item.sizes).map(([size, q]: [string, any]) => {
+                        {Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, q]: [string, any]) => {
                           if (!q) return null;
                           return (
                             <span key={size} className="text-[9px] font-bold bg-neutral-50 border border-neutral-200 text-neutral-600 px-1.5 py-0.5 rounded uppercase leading-none">
