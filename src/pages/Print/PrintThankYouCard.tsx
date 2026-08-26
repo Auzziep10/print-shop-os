@@ -302,7 +302,7 @@ export function PrintThankYouCard() {
             )}
 
             {/* Bottom Content — sits low in the panel, as in the reference */}
-            <div className="relative z-10 flex flex-col items-center text-center px-12" style={{ marginTop: '120px' }}>
+            <div className="relative z-10 flex flex-col items-center text-center px-12" style={{ marginTop: '102px' }}>
               <h1
                 className="text-black"
                 style={{ fontFamily: SANS, fontWeight: 900, fontSize: '42px', letterSpacing: '-0.035em', lineHeight: 1 }}
@@ -336,12 +336,12 @@ export function PrintThankYouCard() {
                   <img
                     src={card.studioQrUrl}
                     alt="Design Studio QR"
-                    width={72}
-                    height={72}
+                    width={54}
+                    height={54}
                     style={{ imageRendering: 'pixelated', display: 'block' }}
                   />
                 ) : (
-                  <QRCode value={studioQrValue} size={72} level="H" bgColor="#00000000" fgColor="#000000" />
+                  <QRCode value={studioQrValue} size={54} level="H" bgColor="#00000000" fgColor="#000000" />
                 )}
               </div>
             </div>
