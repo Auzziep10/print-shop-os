@@ -4,6 +4,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Printer, ArrowLeft, Sparkles, PhoneCall } from 'lucide-react';
+import { DEFAULT_THANK_YOU_CARD, type ThankYouCardSettings } from '../Settings/ThankYouCardTab';
 
 export function PrintThankYouCard() {
   const { orderId } = useParams();
@@ -13,8 +14,8 @@ export function PrintThankYouCard() {
   const [loading, setLoading] = useState(true);
   const [quoLink, setQuoLink] = useState('https://quo.com');
   const [autoPrinted, setAutoPrinted] = useState(false);
-  // Falls back to a generated QR if public/design-studio-qr.png isn't there
-  const [studioQrOk, setStudioQrOk] = useState(true);
+  // Artwork from Settings → Thank You Card
+  const [card, setCard] = useState<ThankYouCardSettings>(DEFAULT_THANK_YOU_CARD);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,6 +32,13 @@ export function PrintThankYouCard() {
               setCustomer({ id: custDoc.id, ...custDoc.data() });
             }
           }
+        }
+        // Card artwork (backgrounds + Design Studio QR)
+        const cardDoc = await getDoc(doc(db, 'settings', 'thankYouCard'));
+        if (cardDoc.exists()) {
+          const data = { ...DEFAULT_THANK_YOU_CARD, ...(cardDoc.data() as ThankYouCardSettings) };
+          setCard(data);
+          if (data.studioLink) setQuoLink(data.studioLink);
         }
       } catch (err) {
         console.error('Error fetching order for Thank You Card:', err);
@@ -180,6 +188,18 @@ export function PrintThankYouCard() {
           {/* TOP PANEL: THANK YOU FOR SUPPORTING LOCAL & CLIENT PORTAL QR */}
           {/* ========================================================================= */}
           <div className="h-1/2 relative flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: '#d7d7d7' }}>
+            {/* Optional background photo (Settings → Thank You Card) */}
+            {card.topImageUrl && (
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url('${card.topImageUrl}')`,
+                  filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
+                  opacity: (card.topImageOpacity ?? 12) / 100,
+                }}
+              />
+            )}
+
             {/* Oversized watermark type — bleeds past every edge */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none select-none flex items-center justify-center">
               <div
@@ -240,15 +260,17 @@ export function PrintThankYouCard() {
           {/* BOTTOM PANEL: STATE OF THE ART FACILITY & DESIGN STUDIO QR */}
           {/* ========================================================================= */}
           <div className="h-1/2 relative flex flex-col items-center justify-center overflow-hidden bg-white text-black">
-            {/* Washed-out facility photo */}
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage: `url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1600&q=80')`,
-                filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
-                opacity: 0.13,
-              }}
-            />
+            {/* Washed-out facility photo (Settings → Thank You Card) */}
+            {card.bottomImageUrl && (
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage: `url('${card.bottomImageUrl}')`,
+                  filter: 'grayscale(1) brightness(1.5) contrast(0.85)',
+                  opacity: (card.bottomImageOpacity ?? 13) / 100,
+                }}
+              />
+            )}
 
             {/* Bottom Content */}
             <div className="relative z-10 flex flex-col items-center text-center px-12">
@@ -278,17 +300,15 @@ export function PrintThankYouCard() {
                 Book time with our Design Studio
               </p>
 
-              {/* Design Studio QR: uses public/design-studio-qr.png when present
-                  (drop your own QR image there), otherwise generates one from
-                  the link in the toolbar. */}
+              {/* Design Studio QR: uploaded image wins, otherwise generated
+                  from the booking link (Settings → Thank You Card). */}
               <div className="mt-4">
-                {studioQrOk ? (
+                {card.studioQrUrl ? (
                   <img
-                    src="/design-studio-qr.png"
+                    src={card.studioQrUrl}
                     alt="Design Studio QR"
                     width={104}
                     height={104}
-                    onError={() => setStudioQrOk(false)}
                     style={{ imageRendering: 'pixelated', display: 'block' }}
                   />
                 ) : (

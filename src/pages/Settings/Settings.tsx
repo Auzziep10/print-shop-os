@@ -7,6 +7,7 @@ import { AppsTab } from './AppsTab';
 import { StorefrontCatalogTab } from './StorefrontCatalogTab';
 import { ShopManagerTab } from './ShopManagerTab';
 import { DiscountCodesTab } from './DiscountCodesTab';
+import { ThankYouCardTab } from './ThankYouCardTab';
 import { Signatures } from '../Signatures/Signatures';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
@@ -142,6 +143,16 @@ export function Settings() {
               Discount Codes
             </button>
             <button
+              onClick={() => setActiveTab('thank-you-card')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'thank-you-card'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Thank You Card
+            </button>
+            <button
               onClick={() => setActiveTab('signatures')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'signatures' 
@@ -185,6 +196,7 @@ export function Settings() {
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'brand-shop' && <ShopManagerTab />}
           {activeTab === 'discounts' && <DiscountCodesTab />}
+          {activeTab === 'thank-you-card' && <ThankYouCardTab />}
           {activeTab === 'signatures' && <Signatures />}
           {activeTab === 'email' && <AhaSendTab />}
           {activeTab === 'sms' && <QuoTab />}
