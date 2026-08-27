@@ -563,12 +563,16 @@ export function ImmersiveLandingPage() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-zinc-900">Manifesto Brand Text</label>
                     <textarea
-                      rows={4}
-                      placeholder="e.g. Your brand deserves better than clip-art on a blank..."
+                      rows={6}
+                      placeholder={'e.g. State-of-the-Art*ist*.\n\nWorldclass design + decoration studio -\nthat your brand can trust.'}
                       value={editSettings.manifestoText || DEFAULT_SETTINGS.manifestoText || ''}
                       onChange={e => setEditSettings({ ...editSettings, manifestoText: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-y"
                     />
+                    <p className="text-[10px] text-zinc-500">
+                      Line breaks are kept exactly as you type them — press Enter twice for a paragraph gap.
+                      Wrap anything in *asterisks* to italicize it, even mid-word (Art*ist*).
+                    </p>
                   </div>
                 </div>
               )}
@@ -692,10 +696,10 @@ export function ImmersiveLandingPage() {
                     />
                     <textarea
                       rows={3}
-                      placeholder="Statement text..."
+                      placeholder="Statement text — line breaks kept, *asterisks* italicize"
                       value={editSettings.interludeText || DEFAULT_SETTINGS.interludeText || ''}
                       onChange={e => setEditSettings({ ...editSettings, interludeText: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-y"
                     />
                   </div>
 

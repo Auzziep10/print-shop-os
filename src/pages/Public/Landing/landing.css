@@ -4,7 +4,7 @@
 
 .landing-root {
   --landing-ink: #111110;
-  --landing-cream: #faf9f5;
+  --landing-cream: #ffffff;
   --landing-bone: #e5e0d5;
   background: var(--landing-cream);
   color: var(--landing-ink);

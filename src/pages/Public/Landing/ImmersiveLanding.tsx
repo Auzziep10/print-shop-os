@@ -298,7 +298,7 @@ function LandingNav({
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
         visible ? 'translate-y-0' : '-translate-y-full'
-      } ${scrolled ? 'border-b border-zinc-200/60 bg-[#faf9f5]/90 backdrop-blur-md' : 'bg-transparent'}`}
+      } ${scrolled ? 'border-b border-zinc-200/60 bg-white/90 backdrop-blur-md' : 'bg-transparent'}`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4 md:px-12">
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">

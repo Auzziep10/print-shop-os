@@ -22,6 +22,20 @@ function renderAccentTitle(title: string) {
   );
 }
 
+/** Same *star* convention at body weight — works mid-word, e.g. "State-of-the-Art*ist*." */
+function renderAccent(text: string) {
+  if (!text.includes('*')) return text;
+  return text.split('*').map((part, idx) =>
+    idx % 2 === 1 ? (
+      <span key={idx} className="italic">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Hero                                                               */
 /* ------------------------------------------------------------------ */
@@ -263,7 +277,8 @@ const MANIFESTO =
 export function ManifestoSection({ settings }: { settings?: StorefrontSettingsShape }) {
   const sectionRef = useRef<HTMLElement>(null);
   const manifestoText = settings?.manifestoText || MANIFESTO;
-  const words = manifestoText.split(' ');
+  // Line breaks typed in the customizer are kept; words still animate one by one
+  const lines = manifestoText.split(/\r?\n/);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -292,17 +307,29 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
   }, [manifestoText]);
 
   return (
-    <section id="manifesto" ref={sectionRef} className="bg-[#faf9f5] px-6 py-28 md:px-12 md:py-44">
+    <section id="manifesto" ref={sectionRef} className="bg-white px-6 py-28 md:px-12 md:py-44">
       <div className="mx-auto max-w-5xl">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
         </p>
         <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight text-zinc-950">
-          {words.map((word, i) => (
-            <span key={i} className="manifesto-word">
-              {word}{' '}
-            </span>
-          ))}
+          {lines.map((line, li) =>
+            line.trim() === '' ? (
+              // Blank line typed in the customizer = paragraph break
+              <span key={li} className="block h-[0.7em]" aria-hidden="true" />
+            ) : (
+              <span key={li} className="block">
+                {line
+                  .trim()
+                  .split(/\s+/)
+                  .map((word, wi) => (
+                    <span key={wi} className="manifesto-word">
+                      {renderAccent(word)}{' '}
+                    </span>
+                  ))}
+              </span>
+            )
+          )}
         </p>
       </div>
     </section>
@@ -371,7 +398,7 @@ export function DecorationSection({
     <section
       id="decoration"
       ref={sectionRef}
-      className="relative min-h-[92svh] overflow-hidden bg-[#faf9f5] text-zinc-950"
+      className="relative min-h-[92svh] overflow-hidden bg-white text-zinc-950"
     >
       <div className="decoration-media absolute inset-[-7%] will-change-transform">
         <img
@@ -425,7 +452,7 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   const text =
     settings?.interludeText ||
     'Better blanks make better merch — every piece starts on a garment people actually want to wear.';
-  const words = text.split(' ');
+  const lines = text.split(/\r?\n/);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -454,17 +481,28 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   }, [text]);
 
   return (
-    <section id="interlude" ref={sectionRef} className="bg-[#faf9f5] px-6 py-24 text-zinc-950 md:px-12 md:py-36">
+    <section id="interlude" ref={sectionRef} className="bg-white px-6 py-24 text-zinc-950 md:px-12 md:py-36">
       <div className="mx-auto max-w-5xl">
         <p className="interlude-label font-inter mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
         <p className="font-serif text-center text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
-          {words.map((word, i) => (
-            <span key={i} className="interlude-word">
-              {word}{' '}
-            </span>
-          ))}
+          {lines.map((line, li) =>
+            line.trim() === '' ? (
+              <span key={li} className="block h-[0.7em]" aria-hidden="true" />
+            ) : (
+              <span key={li} className="block">
+                {line
+                  .trim()
+                  .split(/\s+/)
+                  .map((word, wi) => (
+                    <span key={wi} className="interlude-word">
+                      {renderAccent(word)}{' '}
+                    </span>
+                  ))}
+              </span>
+            )
+          )}
         </p>
       </div>
     </section>
@@ -664,7 +702,7 @@ export function ShowcaseSection({
           data-cursor
           onPointerDown={handlePointerDown}
           onClick={handleCardClick}
-          className="group relative flex aspect-square w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[52vw] lg:h-[62vh] lg:w-auto"
+          className="group relative flex aspect-square w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-xl border border-white/15 bg-white p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[52vw] lg:h-[62vh] lg:w-auto"
         >
           <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-400">
             {String(SHOWCASE_ITEMS.length + 1).padStart(2, '0')}
@@ -769,7 +807,7 @@ export function FinishSection({
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
 
   return (
-    <section id="finish" ref={sectionRef} className="bg-[#faf9f5] pt-28 md:pt-40">
+    <section id="finish" ref={sectionRef} className="bg-white pt-28 md:pt-40">
       <div className="finish-copy mx-auto max-w-7xl px-6 md:px-12">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -854,7 +892,7 @@ export function ProcessSection({ settings }: { settings?: StorefrontSettingsShap
   }, []);
 
   return (
-    <section id="process" ref={sectionRef} className="bg-[#faf9f5] px-6 py-28 md:px-12 md:py-40">
+    <section id="process" ref={sectionRef} className="bg-white px-6 py-28 md:px-12 md:py-40">
       <div className="mx-auto max-w-7xl">
         <div className="process-heading mb-16 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -958,7 +996,7 @@ export function StartCTASection({
             data-cursor
             onClick={() => onStart(panel.mode)}
             className={`cta-panel group relative min-h-[70vh] flex-1 cursor-pointer overflow-hidden ${
-              panel.dark ? 'bg-zinc-950 text-white' : 'bg-[#faf9f5] text-zinc-950'
+              panel.dark ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950'
             }`}
           >
             <div className="absolute inset-0 overflow-hidden">
@@ -984,7 +1022,7 @@ export function StartCTASection({
                 className={`absolute inset-0 ${
                   panel.dark
                     ? 'bg-gradient-to-t from-black/25 via-transparent to-black/20'
-                    : 'bg-gradient-to-t from-[#faf9f5]/40 via-transparent to-transparent'
+                    : 'bg-gradient-to-t from-white/40 via-transparent to-transparent'
                 }`}
               />
             </div>
