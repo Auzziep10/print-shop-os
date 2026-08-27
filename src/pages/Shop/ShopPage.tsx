@@ -64,16 +64,28 @@ function useShopProducts(): { products: ShopProduct[]; loading: boolean } {
 /* ------------------------------------------------------------------ */
 
 function ProductCard({ product }: { product: ShopProduct }) {
+  const hasSecondary = Boolean(product.images?.[1]);
+
   return (
     <Link to={`/shop/product/${product.id}`} className="shop-card group block w-full cursor-pointer text-left">
-      <div className="aspect-[4/5] w-full overflow-hidden bg-[#f2f2f0]">
-        {product.images[0] ? (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            loading="lazy"
-            className="shop-card-img h-full w-full object-cover"
-          />
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#f2f2f0]">
+        {product.images?.[0] ? (
+          <>
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              loading="lazy"
+              className="shop-card-img h-full w-full object-cover"
+            />
+            {hasSecondary && (
+              <img
+                src={product.images[1]}
+                alt={`${product.name} alternate view`}
+                loading="lazy"
+                className="shop-card-img absolute inset-0 h-full w-full object-cover opacity-0 group-hover:opacity-100"
+              />
+            )}
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.3em] text-neutral-400">
             Coming soon
