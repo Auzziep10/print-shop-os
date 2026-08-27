@@ -1361,17 +1361,27 @@ export function LandingFooter({
             </div>
           )}
 
-          {paymentMethods.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 md:justify-end">
-              {paymentMethods.map((m) => (
-                <span
-                  key={m}
-                  className="font-inter rounded bg-white px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider text-zinc-800"
-                >
-                  {m}
-                </span>
-              ))}
+          {settings.footerPaymentImageUrl ? (
+            <div className="flex md:justify-end">
+              <img
+                src={settings.footerPaymentImageUrl}
+                alt="Accepted payment methods"
+                className="h-6 max-w-full object-contain object-left md:object-right"
+              />
             </div>
+          ) : (
+            paymentMethods.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 md:justify-end">
+                {paymentMethods.map((m) => (
+                  <span
+                    key={m}
+                    className="font-inter rounded bg-white px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider text-zinc-800"
+                  >
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )
           )}
         </div>
 

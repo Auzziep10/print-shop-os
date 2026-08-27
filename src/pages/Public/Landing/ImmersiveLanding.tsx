@@ -114,6 +114,8 @@ export interface StorefrontSettingsShape {
   footerInstagramUrl?: string;
   /** Comma-separated payment marks, e.g. "Visa, Amex, Apple Pay" */
   footerPaymentMethods?: string;
+  /** A single image strip of the payment marks — replaces the text badges. */
+  footerPaymentImageUrl?: string;
   showFooterBadge?: boolean;
   footerBadgeTopText?: string;
   footerBadgeMainText?: string;

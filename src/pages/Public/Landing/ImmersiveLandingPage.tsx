@@ -47,7 +47,8 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   footerFacebookUrl: '',
   footerXUrl: '',
   footerInstagramUrl: '',
-  footerPaymentMethods: 'Amex, Apple Pay, Diners, Discover, G Pay, Mastercard, Shop Pay, Visa',
+  footerPaymentMethods: 'Amex, Apple Pay, Diners, Discover, G Pay, Mastercard, Visa',
+  footerPaymentImageUrl: '',
   showFooterBadge: true,
   footerBadgeTopText: 'NM ORIGINAL',
   footerBadgeMainText: 'NO. 505',
@@ -1318,6 +1319,41 @@ export function ImmersiveLandingPage() {
                       onChange={e => setEditSettings({ ...editSettings, footerPaymentMethods: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
                     />
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-500">
+                        Payment marks image (a single strip — replaces the text badges above)
+                      </span>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                        {uploadingField === 'footerPaymentImageUrl' ? (
+                          <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                        ) : (
+                          <><Upload size={13} /><span>Upload Marks</span></>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'footerPaymentImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'footerPaymentImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {editSettings.footerPaymentImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-zinc-900 border border-zinc-200 rounded-xl">
+                        <img src={editSettings.footerPaymentImageUrl} alt="Payment marks" className="h-6 object-contain" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, footerPaymentImageUrl: '' })}
+                          className="text-xs text-red-400 hover:underline font-bold"
+                        >
+                          Remove Marks Image
+                        </button>
+                      </div>
+                    )}
 
                     {/* Certified badge */}
                     <div className="pt-2 border-t border-zinc-200 space-y-2">
