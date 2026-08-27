@@ -483,10 +483,10 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   return (
     <section id="interlude" ref={sectionRef} className="bg-white px-6 py-24 text-zinc-950 md:px-12 md:py-36">
       <div className="mx-auto max-w-5xl">
-        <p className="interlude-label font-inter mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+        <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
-        <p className="font-serif text-center text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
+        <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
           {lines.map((line, li) =>
             line.trim() === '' ? (
               <span key={li} className="block h-[0.7em]" aria-hidden="true" />
@@ -814,7 +814,7 @@ export function FinishSection({
             <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
               {settings?.finishLabel || '( One logo )'}
             </p>
-            <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-zinc-950">
+            <h2 className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight text-zinc-950">
               {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
             </h2>
           </div>
