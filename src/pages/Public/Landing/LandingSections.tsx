@@ -531,8 +531,6 @@ export function ShowcaseSection({
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLSpanElement>(null);
-  const totalCards = SHOWCASE_ITEMS.length + 1; // + terminal rack card
 
   useLayoutEffect(() => {
     const mm = gsap.matchMedia();
@@ -563,32 +561,12 @@ export function ShowcaseSection({
             pin: true,
             scrub: 1,
             invalidateOnRefresh: true,
-            onUpdate: (self) => {
-              if (!counterRef.current) return;
-              const idx = Math.min(
-                totalCards,
-                Math.max(1, Math.round(self.progress * (totalCards - 1)) + 1)
-              );
-              counterRef.current.textContent = String(idx);
-            },
           },
         });
       }
     );
     return () => mm.revert();
-  }, [totalCards]);
-
-  // Mobile/tablet: the track scrolls natively — keep the counter in sync
-  const handleTrackScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const max = el.scrollWidth - el.clientWidth;
-    if (max <= 0 || !counterRef.current) return;
-    const idx = Math.min(
-      totalCards,
-      Math.max(1, Math.round((el.scrollLeft / max) * (totalCards - 1)) + 1)
-    );
-    counterRef.current.textContent = String(idx);
-  };
+  }, []);
 
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -620,13 +598,33 @@ export function ShowcaseSection({
     ));
   }
 
+  // Rendered twice — stacked above the cards on mobile, inside the track on desktop
+  const renderRail = () => (
+    <>
+      <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+        {settings?.showcaseLabel || '( The catalog )'}
+      </p>
+      <h2 className="font-serif text-[clamp(2.4rem,7.5vw,8rem)] leading-[0.98] tracking-tight">
+        {titleContent}
+      </h2>
+      <p className="font-inter mt-5 max-w-[19rem] text-xs font-light leading-relaxed text-zinc-300">
+        {settings?.showcaseSubtitle || '1 of 1 Blanks that set your brand apart.'}
+      </p>
+      <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
+        Swipe sideways <ArrowRight size={11} className="text-amber-400" />
+      </span>
+    </>
+  );
+
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-zinc-950 text-[#faf9f5]">
-      <div className="flex px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:items-center lg:pt-0 lg:pb-0">
-        {/* Card track — the title rail rides along with the cards */}
+      <div className="flex flex-col px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:flex-row lg:items-center lg:pt-0 lg:pb-0">
+        {/* Mobile: the rail sits above the cards so scroll-snap can't hide it */}
+        <div className="mb-8 lg:hidden">{renderRail()}</div>
+
+        {/* Card track — on desktop the title rail rides along with the cards */}
         <div
           ref={trackRef}
-          onScroll={handleTrackScroll}
           className="flex items-center overflow-x-auto gap-4 pb-2 scrollbar-none md:gap-5 lg:w-max lg:overflow-visible lg:pr-12 snap-x snap-mandatory lg:snap-none"
           style={{
             scrollbarWidth: 'none',
@@ -635,22 +633,8 @@ export function ShowcaseSection({
             overscrollBehaviorX: 'contain',
           }}
         >
-          {/* Title rail */}
-          <div className="w-[72vw] shrink-0 pr-6 sm:w-[40vw] lg:w-[26vw] lg:pr-10">
-            <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-              {settings?.showcaseLabel || '( The catalog )'}
-            </p>
-            <h2 className="font-serif text-[clamp(2.4rem,5vw,5.25rem)] leading-[0.98] tracking-tight">
-              {titleContent}
-            </h2>
-            <p className="font-inter mt-5 max-w-[17rem] text-xs font-light leading-relaxed text-zinc-300">
-              <span ref={counterRef}>1</span> of {totalCards}{' '}
-              {settings?.showcaseSubtitle || 'Blanks that set your brand apart.'}
-            </p>
-            <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
-              Swipe sideways <ArrowRight size={11} className="text-amber-400" />
-            </span>
-          </div>
+          {/* Title rail (desktop) */}
+          <div className="hidden shrink-0 lg:block lg:w-[26vw] lg:pr-10">{renderRail()}</div>
 
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
@@ -1218,10 +1202,9 @@ export function LandingFooter({
     settings.footerCopyright ||
     `© {year} ${settings.logoText} | ${settings.email || ''}`
   ).replace(/\{year\}/g, String(year));
-  const paymentMethods = (settings.footerPaymentMethods || '')
-    .split(',')
-    .map((m) => m.trim())
-    .filter(Boolean);
+  // An uploaded strip wins; otherwise the bundled marks ship by default, so a
+  // stale empty value in saved settings can't blank them out.
+  const paymentImg = settings.footerPaymentImageUrl?.trim() || '/images/payment-marks.png';
 
   const socials = [
     { url: settings.footerFacebookUrl, node: <Facebook size={15} />, label: 'Facebook' },
@@ -1232,8 +1215,8 @@ export function LandingFooter({
   const linkCls = 'font-inter cursor-pointer text-sm text-zinc-300 transition-colors hover:text-white';
 
   return (
-    <footer className="bg-zinc-950 px-6 pt-20 pb-10 text-[#faf9f5] md:px-12">
-      <div className="mx-auto max-w-7xl">
+    <footer className="w-full bg-zinc-950 px-6 pt-20 pb-10 text-[#faf9f5] md:px-12">
+      <div className="w-full">
         <div className="grid gap-14 lg:grid-cols-[1.15fr_1fr]">
           {/* Left — wordmark + about */}
           <div>
@@ -1361,27 +1344,14 @@ export function LandingFooter({
             </div>
           )}
 
-          {settings.footerPaymentImageUrl ? (
+          {settings.showPaymentMarks !== false && (
             <div className="flex md:justify-end">
               <img
-                src={settings.footerPaymentImageUrl}
+                src={paymentImg}
                 alt="Accepted payment methods"
                 className="h-6 max-w-full object-contain object-left md:object-right"
               />
             </div>
-          ) : (
-            paymentMethods.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 md:justify-end">
-                {paymentMethods.map((m) => (
-                  <span
-                    key={m}
-                    className="font-inter rounded bg-white px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider text-zinc-800"
-                  >
-                    {m}
-                  </span>
-                ))}
-              </div>
-            )
           )}
         </div>
 

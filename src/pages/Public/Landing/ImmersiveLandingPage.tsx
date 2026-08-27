@@ -47,7 +47,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   footerFacebookUrl: '',
   footerXUrl: '',
   footerInstagramUrl: '',
-  footerPaymentMethods: 'Amex, Apple Pay, Diners, Discover, G Pay, Mastercard, Visa',
+  showPaymentMarks: true,
   footerPaymentImageUrl: '',
   showFooterBadge: true,
   footerBadgeTopText: 'NM ORIGINAL',
@@ -1312,17 +1312,25 @@ export function ImmersiveLandingPage() {
                     </div>
                     <p className="text-[10px] text-zinc-500 -mt-1">Social icons only appear for the URLs you fill in.</p>
 
-                    <input
-                      type="text"
-                      placeholder="Payment marks, comma separated — leave blank to hide"
-                      value={editSettings.footerPaymentMethods ?? DEFAULT_SETTINGS.footerPaymentMethods ?? ''}
-                      onChange={e => setEditSettings({ ...editSettings, footerPaymentMethods: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
-                    />
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Show Payment Marks</span>
+                        <span className="text-[10px] text-zinc-500">Amex, Apple Pay, Diners, Discover, G Pay, Mastercard and Visa.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showPaymentMarks !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showPaymentMarks: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-zinc-500">
-                        Payment marks image (a single strip — replaces the text badges above)
+                        Optional: upload your own marks strip to replace the built-in one
                       </span>
                       <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
                         {uploadingField === 'footerPaymentImageUrl' ? (
