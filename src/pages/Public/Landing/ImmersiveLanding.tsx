@@ -6,7 +6,10 @@ import {
   HeroSection,
   AnnouncementMarquee,
   ManifestoSection,
+  DecorationSection,
+  InterludeSection,
   ShowcaseSection,
+  FinishSection,
   ProcessSection,
   StartCTASection,
   LandingFooter,
@@ -37,6 +40,25 @@ export interface StorefrontSettingsShape {
   // Manifesto
   manifestoLabel?: string;
   manifestoText?: string;
+
+  // Decoration feature (photo section) — use *word* in the title for italic accent
+  showDecorationSection?: boolean;
+  decorationLabel?: string;
+  decorationTitle?: string;
+  decorationBody?: string;
+  decorationImageUrl?: string;
+
+  // Interlude statement (between decoration and the catalog)
+  showInterludeSection?: boolean;
+  interludeLabel?: string;
+  interludeText?: string;
+
+  // Finish feature ("One logo — every finish") — copy + big photo
+  showFinishSection?: boolean;
+  finishLabel?: string;
+  finishTitle?: string;
+  finishBody?: string;
+  finishImageUrl?: string;
 
   // Showcase
   showcaseLabel?: string;
@@ -71,6 +93,12 @@ export interface StorefrontSettingsShape {
   ctaCardBtnText?: string;
   ctaCardImageUrl?: string;
   ctaCardMobileImageUrl?: string;
+
+  // Footer newsletter ("THEORY TRENDS")
+  showSubscribe?: boolean;
+  subscribeTitle?: string;
+  subscribeBody?: string;
+  subscribeBtnText?: string;
 }
 
 export interface ImmersiveLandingProps {
@@ -451,7 +479,10 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
         <HeroSection settings={settings} introPlay={introDone} onScrollTo={scrollToId} onStart={onStart} />
         {settings.announcement && <AnnouncementMarquee text={settings.announcement} />}
         <ManifestoSection settings={settings} />
+        {settings.showDecorationSection !== false && <DecorationSection settings={settings} />}
+        {settings.showInterludeSection !== false && <InterludeSection settings={settings} />}
         <ShowcaseSection settings={settings} onStart={onStart} />
+        {settings.showFinishSection !== false && <FinishSection settings={settings} onStart={onStart} />}
         <ProcessSection settings={settings} />
         <StartCTASection settings={settings} onStart={onStart} />
       </main>

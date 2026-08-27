@@ -19,6 +19,23 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   heroFooterTagline: 'Print · Embroidery · Cut & Sew',
   manifestoLabel: '( Our promise )',
   manifestoText: 'Your brand deserves better than clip-art on a blank. We turn logos into lookbooks — cohesive collections built on premium garments, designed by you in minutes and produced by people who print every day.',
+  showDecorationSection: true,
+  decorationLabel: '( The decoration )',
+  decorationTitle: 'Better *Decoration*',
+  decorationBody: 'Screen-quality DTF, embroidery and puff print — dialed in by people who decorate every day, so your logo looks exactly the way it was designed to look.',
+  decorationImageUrl: '',
+  showInterludeSection: true,
+  interludeLabel: '( The blanks )',
+  interludeText: 'Better blanks make better merch — every piece starts on a garment people actually want to wear.',
+  showFinishSection: true,
+  finishLabel: '( One logo )',
+  finishTitle: 'One logo — *every finish*',
+  finishBody: 'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.',
+  finishImageUrl: '',
+  showSubscribe: true,
+  subscribeTitle: 'Theory Trends',
+  subscribeBody: 'New drops, blank restocks and studio news — once in a while, never spam.',
+  subscribeBtnText: 'Subscribe',
   showcaseLabel: '( The catalog )',
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
@@ -65,7 +82,7 @@ export function ImmersiveLandingPage() {
   });
   const [currentTime, setCurrentTime] = useState('');
   const [isEditingStorefront, setIsEditingStorefront] = useState(false);
-  const [activeTab, setActiveTab] = useState<'branding' | 'hero' | 'manifesto' | 'showcase' | 'process' | 'cta'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'hero' | 'manifesto' | 'sections' | 'showcase' | 'process' | 'cta'>('branding');
   const [editSettings, setEditSettings] = useState<StorefrontSettingsShape>(settings);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
@@ -225,6 +242,7 @@ export function ImmersiveLandingPage() {
                 { id: 'branding', label: 'Branding & Logo' },
                 { id: 'hero', label: 'Hero Media & Copy' },
                 { id: 'manifesto', label: 'Manifesto' },
+                { id: 'sections', label: 'Photo Sections' },
                 { id: 'showcase', label: 'Showcase Cards' },
                 { id: 'process', label: 'Process Steps' },
                 { id: 'cta', label: 'CTA & Footer' },
@@ -527,6 +545,192 @@ export function ImmersiveLandingPage() {
                       onChange={e => setEditSettings({ ...editSettings, manifestoText: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: PHOTO SECTIONS (Decoration / Interlude / Finish) */}
+              {activeTab === 'sections' && (
+                <div className="space-y-4">
+                  {/* Decoration feature */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Decoration Photo Section</span>
+                        <span className="text-[10px] text-zinc-500">Full-screen photo feature after the manifesto. Use *word* in the title for italic accent.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showDecorationSection !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showDecorationSection: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Eyebrow label — e.g. ( The decoration )"
+                        value={editSettings.decorationLabel || DEFAULT_SETTINGS.decorationLabel || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationLabel: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Title — e.g. Better *Decoration*"
+                        value={editSettings.decorationTitle || DEFAULT_SETTINGS.decorationTitle || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationTitle: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Supporting copy..."
+                      value={editSettings.decorationBody || DEFAULT_SETTINGS.decorationBody || ''}
+                      onChange={e => setEditSettings({ ...editSettings, decorationBody: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                    />
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-zinc-500">Background photo (high-res, fills the screen)</span>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
+                        {uploadingField === 'decorationImageUrl' ? (
+                          <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                        ) : (
+                          <><Upload size={13} /><span>Upload Photo</span></>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'decorationImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'decorationImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {editSettings.decorationImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                        <img src={editSettings.decorationImageUrl} alt="Decoration section" className="h-12 w-20 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, decorationImageUrl: '' })}
+                          className="text-xs text-red-500 hover:underline font-bold"
+                        >
+                          Remove Photo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interlude statement */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Interlude Statement</span>
+                        <span className="text-[10px] text-zinc-500">Big scroll-reveal line before the catalog cards ("Better blanks...").</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showInterludeSection !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showInterludeSection: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Eyebrow label — e.g. ( The blanks )"
+                      value={editSettings.interludeLabel || DEFAULT_SETTINGS.interludeLabel || ''}
+                      onChange={e => setEditSettings({ ...editSettings, interludeLabel: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+                    <textarea
+                      rows={3}
+                      placeholder="Statement text..."
+                      value={editSettings.interludeText || DEFAULT_SETTINGS.interludeText || ''}
+                      onChange={e => setEditSettings({ ...editSettings, interludeText: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                    />
+                  </div>
+
+                  {/* Finish feature */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">"One Logo — Every Finish" Section</span>
+                        <span className="text-[10px] text-zinc-500">Copy + full-width photo after the catalog. Use *word* in the title for italic accent.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showFinishSection !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showFinishSection: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Eyebrow label — e.g. ( One logo )"
+                        value={editSettings.finishLabel || DEFAULT_SETTINGS.finishLabel || ''}
+                        onChange={e => setEditSettings({ ...editSettings, finishLabel: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Title — e.g. One logo — *every finish*"
+                        value={editSettings.finishTitle || DEFAULT_SETTINGS.finishTitle || ''}
+                        onChange={e => setEditSettings({ ...editSettings, finishTitle: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Supporting copy..."
+                      value={editSettings.finishBody || DEFAULT_SETTINGS.finishBody || ''}
+                      onChange={e => setEditSettings({ ...editSettings, finishBody: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                    />
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-zinc-500">Full-width photo (the big tee shot)</span>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
+                        {uploadingField === 'finishImageUrl' ? (
+                          <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                        ) : (
+                          <><Upload size={13} /><span>Upload Photo</span></>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'finishImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'finishImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {editSettings.finishImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                        <img src={editSettings.finishImageUrl} alt="Finish section" className="h-12 w-20 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, finishImageUrl: '' })}
+                          className="text-xs text-red-500 hover:underline font-bold"
+                        >
+                          Remove Photo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -932,6 +1136,48 @@ export function ImmersiveLandingPage() {
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  {/* Footer Newsletter */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Footer Newsletter Signup</span>
+                        <span className="text-[10px] text-zinc-500">The "Theory Trends" subscribe block in the footer. Signups save to the newsletter_signups collection.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showSubscribe !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showSubscribe: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Newsletter title — e.g. Theory Trends"
+                        value={editSettings.subscribeTitle || DEFAULT_SETTINGS.subscribeTitle || ''}
+                        onChange={e => setEditSettings({ ...editSettings, subscribeTitle: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Button label — e.g. Subscribe"
+                        value={editSettings.subscribeBtnText || DEFAULT_SETTINGS.subscribeBtnText || ''}
+                        onChange={e => setEditSettings({ ...editSettings, subscribeBtnText: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Short pitch under the title..."
+                      value={editSettings.subscribeBody || DEFAULT_SETTINGS.subscribeBody || ''}
+                      onChange={e => setEditSettings({ ...editSettings, subscribeBody: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                    />
                   </div>
                 </div>
               )}

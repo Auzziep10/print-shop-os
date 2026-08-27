@@ -1,10 +1,26 @@
 import { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, ArrowDown } from 'lucide-react';
+import { ArrowRight, ArrowDown, Check, Loader2 } from 'lucide-react';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import type { StorefrontSettingsShape } from './ImmersiveLanding';
 
 gsap.registerPlugin(ScrollTrigger);
+
+/** Renders "One logo — *every finish*" with the starred span in italic serif accent. */
+function renderAccentTitle(title: string) {
+  if (!title.includes('*')) return title;
+  return title.split('*').map((part, idx) =>
+    idx % 2 === 1 ? (
+      <span key={idx} className="italic font-light">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* Hero                                                               */
@@ -294,6 +310,127 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
 }
 
 /* ------------------------------------------------------------------ */
+/* Decoration — full-bleed photo feature                              */
+/* ------------------------------------------------------------------ */
+
+export function DecorationSection({ settings }: { settings?: StorefrontSettingsShape }) {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return;
+      gsap.to('.decoration-media', {
+        yPercent: 12,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: true,
+        },
+      });
+      gsap.from('.decoration-copy', {
+        autoAlpha: 0,
+        y: 40,
+        duration: 1,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.current, start: 'top 70%' },
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  const img = settings?.decorationImageUrl || '/images/custom-apparel-hero.png';
+
+  return (
+    <section
+      id="decoration"
+      ref={sectionRef}
+      className="relative min-h-[85svh] overflow-hidden bg-zinc-950 text-white"
+    >
+      <div className="decoration-media absolute inset-[-8%] will-change-transform">
+        <img
+          src={img}
+          alt={settings?.decorationTitle?.replace(/\*/g, '') || 'Better Decoration'}
+          className="h-full w-full object-cover opacity-90"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/25 to-zinc-950/40" />
+      </div>
+
+      <div className="decoration-copy relative z-10 flex min-h-[85svh] flex-col justify-end px-6 pb-14 md:px-12 md:pb-20">
+        <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-300">
+          {settings?.decorationLabel || '( The decoration )'}
+        </p>
+        <h2 className="font-serif max-w-4xl text-[clamp(2.4rem,6.5vw,6rem)] leading-[1.02] tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+          {renderAccentTitle(settings?.decorationTitle || 'Better *Decoration*')}
+        </h2>
+        <p className="font-inter mt-6 max-w-md text-sm font-light leading-relaxed text-zinc-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
+          {settings?.decorationBody ||
+            'Screen-quality DTF, embroidery and puff print — dialed in by people who decorate every day, so your logo looks exactly the way it was designed to look.'}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Interlude — big statement between decoration and the catalog       */
+/* ------------------------------------------------------------------ */
+
+export function InterludeSection({ settings }: { settings?: StorefrontSettingsShape }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const text =
+    settings?.interludeText ||
+    'Better blanks make better merch — every piece starts on a garment people actually want to wear.';
+  const words = text.split(' ');
+
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return;
+      gsap.set('.interlude-word', { opacity: 0.14 });
+      gsap.to('.interlude-word', {
+        opacity: 1,
+        stagger: 0.04,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: 'top 75%',
+          end: 'bottom 55%',
+          scrub: 0.6,
+        },
+      });
+      gsap.from('.interlude-label', {
+        autoAlpha: 0,
+        y: 20,
+        duration: 0.8,
+        scrollTrigger: { trigger: sectionRef.current, start: 'top 80%' },
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, [text]);
+
+  return (
+    <section id="interlude" ref={sectionRef} className="bg-zinc-950 px-6 py-24 text-[#faf9f5] md:px-12 md:py-36">
+      <div className="mx-auto max-w-5xl">
+        <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+          {settings?.interludeLabel || '( The blanks )'}
+        </p>
+        <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
+          {words.map((word, i) => (
+            <span key={i} className="interlude-word">
+              {word}{' '}
+            </span>
+          ))}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Showcase — pinned horizontal catalog gallery                       */
 /* ------------------------------------------------------------------ */
 
@@ -495,6 +632,85 @@ export function ShowcaseSection({
           </span>
         </button>
       </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Finish — "One logo, every finish" copy + big photo                 */
+/* ------------------------------------------------------------------ */
+
+export function FinishSection({
+  settings,
+  onStart,
+}: {
+  settings?: StorefrontSettingsShape;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return;
+      gsap.from('.finish-copy', {
+        autoAlpha: 0,
+        y: 40,
+        duration: 1,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.current, start: 'top 75%' },
+      });
+      gsap.fromTo(
+        '.finish-photo img',
+        { scale: 1.12 },
+        {
+          scale: 1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: '.finish-photo',
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: true,
+          },
+        }
+      );
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
+
+  return (
+    <section id="finish" ref={sectionRef} className="bg-[#faf9f5] pt-28 md:pt-40">
+      <div className="finish-copy mx-auto max-w-7xl px-6 md:px-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+              {settings?.finishLabel || '( One logo )'}
+            </p>
+            <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-zinc-950">
+              {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
+            </h2>
+          </div>
+          <p className="font-inter max-w-xs text-xs font-light leading-relaxed text-zinc-500">
+            {settings?.finishBody ||
+              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'}
+          </p>
+        </div>
+      </div>
+
+      <button
+        data-cursor
+        onClick={() => onStart('types')}
+        className="finish-photo relative mt-12 block h-[70svh] w-full cursor-pointer overflow-hidden md:mt-16 md:h-[88svh]"
+      >
+        <img
+          src={img}
+          alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
+          className="h-full w-full object-cover will-change-transform"
+          loading="lazy"
+        />
+      </button>
     </section>
   );
 }
@@ -752,6 +968,69 @@ export function StartCTASection({
 /* Footer                                                             */
 /* ------------------------------------------------------------------ */
 
+function NewsletterForm({ settings }: { settings: StorefrontSettingsShape }) {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
+    setStatus('sending');
+    try {
+      await addDoc(collection(db, 'newsletter_signups'), {
+        email: trimmed,
+        source: 'landing-footer',
+        createdAt: serverTimestamp(),
+      });
+      setStatus('done');
+      setEmail('');
+    } catch (err) {
+      console.error('Newsletter signup failed:', err);
+      // Fall back to a pre-filled email so the signup is never lost
+      if (settings.email) {
+        window.location.href = `mailto:${settings.email}?subject=${encodeURIComponent(
+          'Subscribe me to ' + (settings.subscribeTitle || 'Theory Trends')
+        )}&body=${encodeURIComponent('Please add ' + trimmed + ' to the list.')}`;
+      }
+      setStatus('error');
+    }
+  };
+
+  if (status === 'done') {
+    return (
+      <p className="font-inter flex items-center gap-2 text-sm font-light text-emerald-400">
+        <Check size={15} /> You're on the list.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex w-full max-w-sm items-center gap-2">
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@brand.com"
+        className="font-inter min-w-0 flex-1 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm font-light text-white placeholder:text-zinc-500 outline-none transition-colors focus:border-white/50"
+      />
+      <button
+        data-cursor
+        type="submit"
+        disabled={status === 'sending'}
+        className="font-inter flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-60"
+      >
+        {status === 'sending' ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          settings.subscribeBtnText || 'Subscribe'
+        )}
+      </button>
+    </form>
+  );
+}
+
 export function LandingFooter({
   settings,
   currentTime,
@@ -808,47 +1087,78 @@ export function LandingFooter({
           </div>
         </div>
 
-        <div className="font-inter flex flex-col gap-8 py-10 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-6 text-[11px] font-bold uppercase tracking-[0.2em]">
-            <button
-              data-cursor
-              onClick={() => onStart('types')}
-              className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-            >
-              Start a project
-            </button>
-            {settings?.showGalleryNav !== false && (
-              <a
-                data-cursor
-                href="/gallery"
-                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-              >
-                Lookbook Gallery
-              </a>
-            )}
-            <button
-              data-cursor
-              onClick={isClient ? onPortal : onLogin}
-              className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-            >
-              Client portal
-            </button>
-            {!hasUser && (
+        <div className="font-inter flex flex-col gap-10 border-b border-white/10 py-12 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+              Quicklinks
+            </p>
+            <div className="flex flex-col items-start gap-4 text-[11px] font-bold uppercase tracking-[0.2em]">
               <button
                 data-cursor
-                onClick={onLogin}
+                onClick={() => onStart('types')}
                 className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
               >
-                Create an account
+                Start a project
               </button>
-            )}
+              <a
+                data-cursor
+                href="/shop"
+                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
+              >
+                Shop
+              </a>
+              {settings?.showGalleryNav !== false && (
+                <a
+                  data-cursor
+                  href="/gallery"
+                  className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
+                >
+                  Lookbook Gallery
+                </a>
+              )}
+              <button
+                data-cursor
+                onClick={isClient ? onPortal : onLogin}
+                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
+              >
+                Client portal
+              </button>
+              {!hasUser && (
+                <button
+                  data-cursor
+                  onClick={onLogin}
+                  className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
+                >
+                  Create an account
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
-            <span>Local time {currentTime || '00:00:00'}</span>
-            <span>
-              © {year} {settings.logoText}
-            </span>
-          </div>
+
+          {settings.showSubscribe !== false && (
+            <div className="w-full md:max-w-md">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+                ( Newsletter )
+              </p>
+              <h3 className="font-sans mb-3 text-2xl font-black tracking-tighter uppercase md:text-3xl">
+                {settings.subscribeTitle || 'Theory Trends'}
+              </h3>
+              <p className="mb-5 max-w-sm text-sm font-light leading-relaxed text-zinc-400">
+                {settings.subscribeBody ||
+                  'New drops, blank restocks and studio news — once in a while, never spam.'}
+              </p>
+              <NewsletterForm settings={settings} />
+            </div>
+          )}
+        </div>
+
+        <div className="font-inter flex flex-col gap-4 pt-8 md:flex-row md:items-center md:justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
+            Local time {currentTime || '00:00:00'}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
+            © {year} {settings.logoText}
+          </span>
         </div>
       </div>
     </footer>
