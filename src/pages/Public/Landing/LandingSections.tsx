@@ -308,7 +308,7 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="manifesto" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-fit max-w-4xl text-left">
+      <div className="mx-auto w-full max-w-6xl text-left">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
         </p>
@@ -482,7 +482,7 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="interlude" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 text-zinc-950 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-fit max-w-4xl text-left">
+      <div className="mx-auto w-full max-w-6xl text-left">
         <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
@@ -791,8 +791,8 @@ export function FinishSection({
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
 
   return (
-    <section id="finish" ref={sectionRef} className="bg-white pt-14 md:pt-20">
-      <div className="finish-copy mx-auto w-fit max-w-4xl px-6 text-left md:px-12">
+    <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
+      <div className="finish-copy mx-auto w-full max-w-6xl text-left">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-12">
           <div>
             <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
@@ -812,7 +812,7 @@ export function FinishSection({
       <button
         data-cursor
         onClick={() => onStart('types')}
-        className="finish-photo relative mt-12 block h-[70svh] w-full cursor-pointer overflow-hidden md:mt-16 md:h-[88svh]"
+        className="finish-photo relative -mx-6 mt-12 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:mt-16 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
       >
         <img
           src={img}
