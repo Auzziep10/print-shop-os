@@ -307,7 +307,7 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
   }, [manifestoText]);
 
   return (
-    <section id="manifesto" ref={sectionRef} className="bg-white px-6 py-10 md:px-12 md:py-12">
+    <section id="manifesto" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 md:px-12 md:pt-12 md:pb-20">
       <div className="mx-auto w-fit max-w-4xl text-left">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
@@ -481,7 +481,7 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   }, [text]);
 
   return (
-    <section id="interlude" ref={sectionRef} className="bg-white px-6 py-10 text-zinc-950 md:px-12 md:py-12">
+    <section id="interlude" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 text-zinc-950 md:px-12 md:pt-12 md:pb-20">
       <div className="mx-auto w-fit max-w-4xl text-left">
         <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
