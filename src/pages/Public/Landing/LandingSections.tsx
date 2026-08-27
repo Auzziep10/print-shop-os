@@ -313,7 +313,13 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
 /* Decoration — full-bleed photo feature                              */
 /* ------------------------------------------------------------------ */
 
-export function DecorationSection({ settings }: { settings?: StorefrontSettingsShape }) {
+export function DecorationSection({
+  settings,
+  onStart,
+}: {
+  settings?: StorefrontSettingsShape;
+  onStart?: (mode?: 'racks' | 'basics' | 'types') => void;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
@@ -321,7 +327,7 @@ export function DecorationSection({ settings }: { settings?: StorefrontSettingsS
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (reduce) return;
       gsap.to('.decoration-media', {
-        yPercent: 12,
+        yPercent: 10,
         ease: 'none',
         scrollTrigger: {
           trigger: sectionRef.current,
@@ -343,33 +349,68 @@ export function DecorationSection({ settings }: { settings?: StorefrontSettingsS
 
   const img = settings?.decorationImageUrl || '/images/custom-apparel-hero.png';
 
+  const rawTitle = settings?.decorationTitle || 'Better *Decoration*';
+  let titleContent: React.ReactNode;
+  if (rawTitle.includes('*')) {
+    titleContent = renderAccentTitle(rawTitle);
+  } else {
+    const titleLines = splitTitleLines(rawTitle);
+    titleContent = titleLines.map((line, i) => (
+      <span key={i} className="block">
+        <span className={i === titleLines.length - 1 ? 'italic font-light' : ''}>{line}</span>
+      </span>
+    ));
+  }
+
+  const btnText = settings?.decorationBtnText || 'Book a Consultation';
+  const btnUrl = settings?.decorationBtnUrl?.trim();
+  const btnClass =
+    'font-inter mt-8 block w-fit cursor-pointer rounded-full bg-zinc-950 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-zinc-800';
+
   return (
     <section
       id="decoration"
       ref={sectionRef}
-      className="relative min-h-[85svh] overflow-hidden bg-zinc-950 text-white"
+      className="relative min-h-[92svh] overflow-hidden bg-[#faf9f5] text-zinc-950"
     >
-      <div className="decoration-media absolute inset-[-8%] will-change-transform">
+      <div className="decoration-media absolute inset-[-7%] will-change-transform">
         <img
           src={img}
           alt={settings?.decorationTitle?.replace(/\*/g, '') || 'Better Decoration'}
-          className="h-full w-full object-cover opacity-90"
+          className="h-full w-full object-cover"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/85 via-zinc-950/25 to-zinc-950/40" />
+        {/* Soft white wash so the ink type stays readable on any upload */}
+        <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" />
       </div>
 
-      <div className="decoration-copy relative z-10 flex min-h-[85svh] flex-col justify-end px-6 pb-14 md:px-12 md:pb-20">
-        <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-300">
-          {settings?.decorationLabel || '( The decoration )'}
-        </p>
-        <h2 className="font-serif max-w-4xl text-[clamp(2.4rem,6.5vw,6rem)] leading-[1.02] tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
-          {renderAccentTitle(settings?.decorationTitle || 'Better *Decoration*')}
+      <div className="decoration-copy relative z-10 px-6 pt-24 pb-32 md:px-12 md:pt-28">
+        <h2 className="font-serif max-w-[7em] text-[clamp(3rem,7.5vw,8rem)] leading-[1.02] tracking-tight">
+          {titleContent}
         </h2>
-        <p className="font-inter mt-6 max-w-md text-sm font-light leading-relaxed text-zinc-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
+        <p className="font-inter mt-4 max-w-md text-xs font-light leading-relaxed text-zinc-800">
           {settings?.decorationBody ||
-            'Screen-quality DTF, embroidery and puff print — dialed in by people who decorate every day, so your logo looks exactly the way it was designed to look.'}
+            'State-of-the-Art Design Studio — built to provide design solutions to level up your brand.'}
         </p>
+        {btnUrl ? (
+          <a data-cursor href={btnUrl} className={btnClass}>
+            {btnText}
+          </a>
+        ) : (
+          <button data-cursor onClick={() => onStart?.('types')} className={btnClass}>
+            {btnText}
+          </button>
+        )}
+      </div>
+
+      {/* Bottom methods strip */}
+      <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 md:px-12">
+        <div className="border-t border-zinc-900/60 pt-3">
+          <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-900">
+            {settings?.decorationFooterText ||
+              'DTF · Screen Printing · Dye Sub · Embroidery · Vinyl'}
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -413,12 +454,12 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   }, [text]);
 
   return (
-    <section id="interlude" ref={sectionRef} className="bg-zinc-950 px-6 py-24 text-[#faf9f5] md:px-12 md:py-36">
+    <section id="interlude" ref={sectionRef} className="bg-[#faf9f5] px-6 py-24 text-zinc-950 md:px-12 md:py-36">
       <div className="mx-auto max-w-5xl">
-        <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-          {settings?.interludeLabel || '( The blanks )'}
+        <p className="interlude-label font-inter mb-10 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+          {settings?.interludeLabel || '( What better looks like )'}
         </p>
-        <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
+        <p className="font-serif text-center text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
           {words.map((word, i) => (
             <span key={i} className="interlude-word">
               {word}{' '}
@@ -469,8 +510,8 @@ export function ShowcaseSection({
         const section = sectionRef.current;
         if (!track || !section) return;
 
-        // Cards travel until the last one reaches the right edge; the left
-        // title rail stays pinned beside them.
+        // The whole track — title rail included — travels until the last card
+        // reaches the right edge.
         const getShift = () =>
           Math.max(0, track.scrollWidth - (window.innerWidth - track.offsetLeft));
 
@@ -543,30 +584,12 @@ export function ShowcaseSection({
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-zinc-950 text-[#faf9f5]">
-      <div className="flex flex-col gap-10 px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:flex-row lg:items-center lg:gap-0 lg:pt-0 lg:pb-0">
-        {/* Left title rail — cards slide in front of it while pinned */}
-        <div className="relative shrink-0 lg:w-[30vw] lg:pr-10">
-          <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-            {settings?.showcaseLabel || '( The catalog )'}
-          </p>
-          <h2 className="font-serif text-[clamp(2.4rem,5vw,5.25rem)] leading-[0.98] tracking-tight">
-            {titleContent}
-          </h2>
-          <p className="font-inter mt-5 max-w-[17rem] text-xs font-light leading-relaxed text-zinc-300">
-            <span ref={counterRef}>1</span> of {totalCards}{' '}
-            {settings?.showcaseSubtitle ||
-              'Blanks that set your brand apart.'}
-          </p>
-          <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
-            Swipe sideways <ArrowRight size={11} className="text-amber-400" />
-          </span>
-        </div>
-
-        {/* Card track */}
+      <div className="flex px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:items-center lg:pt-0 lg:pb-0">
+        {/* Card track — the title rail rides along with the cards */}
         <div
           ref={trackRef}
           onScroll={handleTrackScroll}
-          className="relative z-10 flex overflow-x-auto gap-4 pb-2 scrollbar-none md:gap-5 lg:w-max lg:overflow-visible lg:pr-12 snap-x snap-mandatory lg:snap-none"
+          className="flex items-center overflow-x-auto gap-4 pb-2 scrollbar-none md:gap-5 lg:w-max lg:overflow-visible lg:pr-12 snap-x snap-mandatory lg:snap-none"
           style={{
             scrollbarWidth: 'none',
             WebkitOverflowScrolling: 'touch',
@@ -574,6 +597,23 @@ export function ShowcaseSection({
             overscrollBehaviorX: 'contain',
           }}
         >
+          {/* Title rail */}
+          <div className="w-[72vw] shrink-0 pr-6 sm:w-[40vw] lg:w-[26vw] lg:pr-10">
+            <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+              {settings?.showcaseLabel || '( The catalog )'}
+            </p>
+            <h2 className="font-serif text-[clamp(2.4rem,5vw,5.25rem)] leading-[0.98] tracking-tight">
+              {titleContent}
+            </h2>
+            <p className="font-inter mt-5 max-w-[17rem] text-xs font-light leading-relaxed text-zinc-300">
+              <span ref={counterRef}>1</span> of {totalCards}{' '}
+              {settings?.showcaseSubtitle || 'Blanks that set your brand apart.'}
+            </p>
+            <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
+              Swipe sideways <ArrowRight size={11} className="text-amber-400" />
+            </span>
+          </div>
+
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
           const cardHoverImg = settings?.showcaseHoverImages?.[item.label];
@@ -584,7 +624,7 @@ export function ShowcaseSection({
               data-cursor
               onPointerDown={handlePointerDown}
               onClick={handleCardClick}
-              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 cursor-pointer overflow-hidden rounded-xl bg-zinc-900 text-left snap-start lg:snap-align-none sm:w-[44vw] lg:h-[62vh] lg:w-[26vw]"
+              className="showcase-card group relative aspect-square w-[78vw] shrink-0 cursor-pointer overflow-hidden rounded-xl bg-zinc-900 text-left snap-start lg:snap-align-none sm:w-[52vw] lg:h-[62vh] lg:w-auto"
             >
               <img
                 src={cardImg}
@@ -624,7 +664,7 @@ export function ShowcaseSection({
           data-cursor
           onPointerDown={handlePointerDown}
           onClick={handleCardClick}
-          className="group relative flex h-[52vh] w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[44vw] lg:h-[62vh] lg:w-[26vw]"
+          className="group relative flex aspect-square w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[52vw] lg:h-[62vh] lg:w-auto"
         >
           <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-400">
             {String(SHOWCASE_ITEMS.length + 1).padStart(2, '0')}

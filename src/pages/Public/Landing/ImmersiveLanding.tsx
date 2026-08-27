@@ -47,6 +47,9 @@ export interface StorefrontSettingsShape {
   decorationTitle?: string;
   decorationBody?: string;
   decorationImageUrl?: string;
+  decorationBtnText?: string;
+  decorationBtnUrl?: string;
+  decorationFooterText?: string;
 
   // Interlude statement (between decoration and the catalog)
   showInterludeSection?: boolean;
@@ -480,7 +483,7 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
         <HeroSection settings={settings} introPlay={introDone} onScrollTo={scrollToId} onStart={onStart} />
         {settings.announcement && <AnnouncementMarquee text={settings.announcement} />}
         <ManifestoSection settings={settings} />
-        {settings.showDecorationSection !== false && <DecorationSection settings={settings} />}
+        {settings.showDecorationSection !== false && <DecorationSection settings={settings} onStart={onStart} />}
         {settings.showInterludeSection !== false && <InterludeSection settings={settings} />}
         <ShowcaseSection settings={settings} onStart={onStart} />
         {settings.showFinishSection !== false && <FinishSection settings={settings} onStart={onStart} />}

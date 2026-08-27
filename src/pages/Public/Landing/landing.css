@@ -127,6 +127,11 @@
   height: 56px;
 }
 
+/* The blend-mode cursor sits above modals — hide it while one is open */
+body.customizer-open .landing-cursor {
+  display: none;
+}
+
 /* --- Footer giant brand --- */
 .footer-brand {
   line-height: 0.95;

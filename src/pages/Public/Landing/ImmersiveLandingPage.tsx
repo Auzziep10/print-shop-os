@@ -22,10 +22,13 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   showDecorationSection: true,
   decorationLabel: '( The decoration )',
   decorationTitle: 'Better *Decoration*',
-  decorationBody: 'Screen-quality DTF, embroidery and puff print — dialed in by people who decorate every day, so your logo looks exactly the way it was designed to look.',
+  decorationBody: 'State-of-the-Art Design Studio — built to provide design solutions to level up your brand.',
   decorationImageUrl: '',
+  decorationBtnText: 'Book a Consultation',
+  decorationBtnUrl: '',
+  decorationFooterText: 'DTF · Screen Printing · Dye Sub · Embroidery · Vinyl',
   showInterludeSection: true,
-  interludeLabel: '( The blanks )',
+  interludeLabel: '( What better looks like )',
   interludeText: 'Better blanks make better merch — every piece starts on a garment people actually want to wear.',
   showFinishSection: true,
   finishLabel: '( One logo )',
@@ -115,6 +118,19 @@ export function ImmersiveLandingPage() {
   useEffect(() => {
     trackVisitorEvent('Visited Landing Page', { step: 0, stepName: 'Landing (/)' });
   }, []);
+
+  // Freeze the page behind the customizer: Lenis drives window scroll, so the
+  // modal marks itself data-lenis-prevent and the body is locked while open.
+  useEffect(() => {
+    if (!isEditingStorefront) return;
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
+    document.body.classList.add('customizer-open');
+    return () => {
+      document.body.style.overflow = overflow;
+      document.body.classList.remove('customizer-open');
+    };
+  }, [isEditingStorefront]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -216,8 +232,12 @@ export function ImmersiveLandingPage() {
       />
 
       {isEditingStorefront && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 z-[200] animate-in fade-in duration-200">
-          <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 text-zinc-950">
+        <div
+          data-lenis-prevent
+          onWheel={(e) => e.stopPropagation()}
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 z-[200] animate-in fade-in duration-200"
+        >
+          <div className="bg-white border border-neutral-200 rounded-3xl p-6 sm:p-8 max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200 text-zinc-950">
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-neutral-100">
               <div>
@@ -238,7 +258,7 @@ export function ImmersiveLandingPage() {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex overflow-x-auto gap-1 border-b border-neutral-100 py-3 scrollbar-none">
+            <div className="flex flex-wrap gap-1.5 border-b border-neutral-100 py-3">
               {[
                 { id: 'branding', label: 'Branding & Logo' },
                 { id: 'hero', label: 'Hero Media & Copy' },
@@ -263,7 +283,10 @@ export function ImmersiveLandingPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto py-6 space-y-5 pr-2">
+            <div
+              data-lenis-prevent
+              className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-6 space-y-5 pr-2"
+            >
               {/* TAB 1: BRANDING & LOGO */}
               {activeTab === 'branding' && (
                 <div className="space-y-4">
@@ -573,16 +596,16 @@ export function ImmersiveLandingPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
-                        placeholder="Eyebrow label — e.g. ( The decoration )"
-                        value={editSettings.decorationLabel || DEFAULT_SETTINGS.decorationLabel || ''}
-                        onChange={e => setEditSettings({ ...editSettings, decorationLabel: e.target.value })}
+                        placeholder="Title — e.g. Better *Decoration*"
+                        value={editSettings.decorationTitle || DEFAULT_SETTINGS.decorationTitle || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationTitle: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
                       />
                       <input
                         type="text"
-                        placeholder="Title — e.g. Better *Decoration*"
-                        value={editSettings.decorationTitle || DEFAULT_SETTINGS.decorationTitle || ''}
-                        onChange={e => setEditSettings({ ...editSettings, decorationTitle: e.target.value })}
+                        placeholder="Bottom strip — e.g. DTF · Screen Printing · Dye Sub..."
+                        value={editSettings.decorationFooterText || DEFAULT_SETTINGS.decorationFooterText || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationFooterText: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
                       />
                     </div>
@@ -593,6 +616,22 @@ export function ImmersiveLandingPage() {
                       onChange={e => setEditSettings({ ...editSettings, decorationBody: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
                     />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Button label — e.g. Book a Consultation"
+                        value={editSettings.decorationBtnText || DEFAULT_SETTINGS.decorationBtnText || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationBtnText: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Button link (blank = starts the design flow)"
+                        value={editSettings.decorationBtnUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationBtnUrl: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                    </div>
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-[10px] text-zinc-500">Background photo (high-res, fills the screen)</span>
                       <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
