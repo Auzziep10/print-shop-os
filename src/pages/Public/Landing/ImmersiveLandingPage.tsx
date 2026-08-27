@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
   showcaseBadge: 'Good · Better · Best',
+  showcaseFooterText: 'T-Shirt · Long Sleeve · Sweatshirts · Hats · Jackets · Accessories',
   rackCardTitle: 'Or design the *entire rack* at once.',
   rackCardBody: 'Hat, tee, polo, crewneck, hoodie and long sleeve — one cohesive collection, your branding on every piece.',
   rackCardBtnText: 'Design a cohesive line',
@@ -750,10 +751,10 @@ export function ImmersiveLandingPage() {
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-bold text-zinc-900">Section Title</label>
+                      <label className="text-xs font-bold text-zinc-900">Section Title (big left title — use *word* for italic)</label>
                       <input
                         type="text"
-                        placeholder="e.g. Built on premium blanks"
+                        placeholder="e.g. Better *Blanks*"
                         value={editSettings.showcaseTitle || DEFAULT_SETTINGS.showcaseTitle || ''}
                         onChange={e => setEditSettings({ ...editSettings, showcaseTitle: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
@@ -762,25 +763,37 @@ export function ImmersiveLandingPage() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-zinc-900">Section Subtitle</label>
+                    <label className="text-xs font-bold text-zinc-900">Counter Caption (shown after "1 of {'{count}'}" under the title)</label>
                     <textarea
                       rows={2}
-                      placeholder="e.g. Every category is curated Good / Better / Best..."
+                      placeholder="e.g. Blanks that set your brand apart."
                       value={editSettings.showcaseSubtitle || DEFAULT_SETTINGS.showcaseSubtitle || ''}
                       onChange={e => setEditSettings({ ...editSettings, showcaseSubtitle: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-zinc-900">Default Card Pill Badge Text</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Good · Better · Best"
-                      value={editSettings.showcaseBadge || DEFAULT_SETTINGS.showcaseBadge || ''}
-                      onChange={e => setEditSettings({ ...editSettings, showcaseBadge: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-zinc-900">Default Card Pill Badge Text</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Good · Better · Best"
+                        value={editSettings.showcaseBadge || DEFAULT_SETTINGS.showcaseBadge || ''}
+                        onChange={e => setEditSettings({ ...editSettings, showcaseBadge: e.target.value })}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-zinc-900">Bottom Category Strip Text</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. T-Shirt · Long Sleeve · Sweatshirts · Hats..."
+                        value={editSettings.showcaseFooterText || DEFAULT_SETTINGS.showcaseFooterText || ''}
+                        onChange={e => setEditSettings({ ...editSettings, showcaseFooterText: e.target.value })}
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                      />
+                    </div>
                   </div>
 
                   <div className="pt-2">

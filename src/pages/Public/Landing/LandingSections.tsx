@@ -452,6 +452,8 @@ export function ShowcaseSection({
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const counterRef = useRef<HTMLSpanElement>(null);
+  const totalCards = SHOWCASE_ITEMS.length + 1; // + terminal rack card
 
   useLayoutEffect(() => {
     const mm = gsap.matchMedia();
@@ -467,22 +469,47 @@ export function ShowcaseSection({
         const section = sectionRef.current;
         if (!track || !section) return;
 
+        // Cards travel until the last one reaches the right edge; the left
+        // title rail stays pinned beside them.
+        const getShift = () =>
+          Math.max(0, track.scrollWidth - (window.innerWidth - track.offsetLeft));
+
         gsap.to(track, {
-          x: () => -(track.scrollWidth - window.innerWidth),
+          x: () => -getShift(),
           ease: 'none',
           scrollTrigger: {
             trigger: section,
             start: 'top top',
-            end: () => `+=${track.scrollWidth - window.innerWidth}`,
+            end: () => `+=${getShift()}`,
             pin: true,
             scrub: 1,
             invalidateOnRefresh: true,
+            onUpdate: (self) => {
+              if (!counterRef.current) return;
+              const idx = Math.min(
+                totalCards,
+                Math.max(1, Math.round(self.progress * (totalCards - 1)) + 1)
+              );
+              counterRef.current.textContent = String(idx);
+            },
           },
         });
       }
     );
     return () => mm.revert();
-  }, []);
+  }, [totalCards]);
+
+  // Mobile/tablet: the track scrolls natively — keep the counter in sync
+  const handleTrackScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 0 || !counterRef.current) return;
+    const idx = Math.min(
+      totalCards,
+      Math.max(1, Math.round((el.scrollLeft / max) * (totalCards - 1)) + 1)
+    );
+    counterRef.current.textContent = String(idx);
+  };
 
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -501,40 +528,52 @@ export function ShowcaseSection({
     onStart('types');
   };
 
+  const rawTitle = settings?.showcaseTitle || 'Built on premium blanks';
+  let titleContent: React.ReactNode;
+  if (rawTitle.includes('*')) {
+    titleContent = renderAccentTitle(rawTitle);
+  } else {
+    const titleLines = splitTitleLines(rawTitle);
+    titleContent = titleLines.map((line, i) => (
+      <span key={i} className="block">
+        <span className={i === titleLines.length - 1 ? 'italic font-light' : ''}>{line}</span>
+      </span>
+    ));
+  }
+
   return (
-    <section ref={sectionRef} className="overflow-hidden bg-zinc-950 text-[#faf9f5]">
-      <div className="flex items-end justify-between px-6 pt-20 pb-8 md:px-12 md:pt-28 md:pb-10">
-        <div>
-          <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+    <section ref={sectionRef} className="relative overflow-hidden bg-zinc-950 text-[#faf9f5]">
+      <div className="flex flex-col gap-10 px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:flex-row lg:items-center lg:gap-0 lg:pt-0 lg:pb-0">
+        {/* Left title rail — cards slide in front of it while pinned */}
+        <div className="relative shrink-0 lg:w-[30vw] lg:pr-10">
+          <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
             {settings?.showcaseLabel || '( The catalog )'}
           </p>
-          <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight">
-            {settings?.showcaseTitle || (
-              <>Built on <span className="italic font-light">premium</span> blanks</>
-            )}
+          <h2 className="font-serif text-[clamp(2.4rem,5vw,5.25rem)] leading-[0.98] tracking-tight">
+            {titleContent}
           </h2>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <p className="font-inter hidden max-w-xs text-xs font-light leading-relaxed text-zinc-400 md:block">
+          <p className="font-inter mt-5 max-w-[17rem] text-xs font-light leading-relaxed text-zinc-300">
+            <span ref={counterRef}>1</span> of {totalCards}{' '}
             {settings?.showcaseSubtitle ||
-              'Every category is curated Good / Better / Best — compare options side by side, then make them yours.'}
+              'Blanks that set your brand apart.'}
           </p>
-          <span className="font-inter flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
+          <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
             Swipe sideways <ArrowRight size={11} className="text-amber-400" />
           </span>
         </div>
-      </div>
 
-      <div
-        ref={trackRef}
-        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible snap-x snap-mandatory lg:snap-none"
-        style={{
-          scrollbarWidth: 'none',
-          WebkitOverflowScrolling: 'touch',
-          touchAction: 'pan-x pan-y',
-          overscrollBehaviorX: 'contain',
-        }}
-      >
+        {/* Card track */}
+        <div
+          ref={trackRef}
+          onScroll={handleTrackScroll}
+          className="relative z-10 flex overflow-x-auto gap-4 pb-2 scrollbar-none md:gap-5 lg:w-max lg:overflow-visible lg:pr-12 snap-x snap-mandatory lg:snap-none"
+          style={{
+            scrollbarWidth: 'none',
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x pan-y',
+            overscrollBehaviorX: 'contain',
+          }}
+        >
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
           const cardHoverImg = settings?.showcaseHoverImages?.[item.label];
@@ -545,7 +584,7 @@ export function ShowcaseSection({
               data-cursor
               onPointerDown={handlePointerDown}
               onClick={handleCardClick}
-              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left snap-start lg:snap-align-none sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 cursor-pointer overflow-hidden rounded-xl bg-zinc-900 text-left snap-start lg:snap-align-none sm:w-[44vw] lg:h-[62vh] lg:w-[26vw]"
             >
               <img
                 src={cardImg}
@@ -585,7 +624,7 @@ export function ShowcaseSection({
           data-cursor
           onPointerDown={handlePointerDown}
           onClick={handleCardClick}
-          className="group relative flex h-[52vh] w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+          className="group relative flex h-[52vh] w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 snap-start lg:snap-align-none sm:w-[44vw] lg:h-[62vh] lg:w-[26vw]"
         >
           <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-400">
             {String(SHOWCASE_ITEMS.length + 1).padStart(2, '0')}
@@ -631,6 +670,15 @@ export function ShowcaseSection({
             {settings?.rackCardBtnText || 'Design a cohesive line'} <ArrowRight size={13} />
           </span>
         </button>
+        </div>
+      </div>
+
+      {/* Bottom category strip */}
+      <div className="relative z-10 border-t border-white/15 px-6 py-5 md:px-12">
+        <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-400">
+          {settings?.showcaseFooterText ||
+            'T-Shirt · Long Sleeve · Sweatshirts · Hats · Jackets · Accessories'}
+        </p>
       </div>
     </section>
   );
