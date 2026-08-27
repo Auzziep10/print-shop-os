@@ -308,7 +308,7 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="manifesto" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-full max-w-4xl text-left">
+      <div className="mx-auto w-full max-w-[50rem] text-left">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
         </p>
@@ -482,7 +482,7 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="interlude" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 text-zinc-950 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-full max-w-4xl text-left">
+      <div className="mx-auto w-full max-w-[50rem] text-left">
         <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
@@ -792,7 +792,7 @@ export function FinishSection({
 
   return (
     <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
-      <div className="finish-copy mx-auto w-full max-w-4xl text-left">
+      <div className="finish-copy mx-auto w-full max-w-[50rem] text-left">
         <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.finishLabel || '( One logo )'}
         </p>
