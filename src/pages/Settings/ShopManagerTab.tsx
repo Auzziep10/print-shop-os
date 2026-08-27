@@ -497,9 +497,10 @@ function StorefrontSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [uploadingField, setUploadingField] = useState<'hero' | 'footer' | null>(null);
+  const [uploadingField, setUploadingField] = useState<'hero' | 'footer' | 'logo' | null>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const footerInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', SHOP_SETTINGS_DOC), snap => {
@@ -530,12 +531,18 @@ function StorefrontSection() {
     }
   };
 
-  const handleBannerUpload = async (field: 'hero' | 'footer', files: FileList | null) => {
+  const handleBannerUpload = async (field: 'hero' | 'footer' | 'logo', files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingField(field);
     try {
       const url = await uploadShopImage(files[0], 'banners');
-      set(field === 'hero' ? { heroImageUrl: url } : { footerImageUrl: url });
+      set(
+        field === 'hero'
+          ? { heroImageUrl: url }
+          : field === 'footer'
+          ? { footerImageUrl: url }
+          : { logoUrl: url }
+      );
     } catch (err) {
       console.error('Banner upload failed:', err);
       alert('Image upload failed. Please try again.');
@@ -552,16 +559,38 @@ function StorefrontSection() {
     );
   }
 
-  const bannerTile = (field: 'hero' | 'footer', label: string, url?: string) => (
+  const bannerTile = (field: 'hero' | 'footer' | 'logo', label: string, url?: string) => (
     <div>
-      <label className={tokens.typography.label}>{label}</label>
+      <div className="flex items-center justify-between">
+        <label className={tokens.typography.label}>{label}</label>
+        {field === 'logo' && url && (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation();
+              set({ logoUrl: '' });
+            }}
+            className="text-[10px] font-semibold text-red-600 hover:underline"
+          >
+            Remove logo (use text)
+          </button>
+        )}
+      </div>
       <div
-        className="relative mt-2 flex h-36 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-brand-border bg-brand-bg transition-colors hover:border-brand-primary"
-        onClick={() => (field === 'hero' ? heroInputRef : footerInputRef).current?.click()}
+        className={`relative mt-2 flex h-36 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-dashed border-brand-border transition-colors hover:border-brand-primary ${
+          field === 'logo' ? 'bg-neutral-900' : 'bg-brand-bg'
+        }`}
+        onClick={() =>
+          (field === 'hero' ? heroInputRef : field === 'footer' ? footerInputRef : logoInputRef).current?.click()
+        }
       >
         {url ? (
           <>
-            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={url}
+              alt=""
+              className={`absolute inset-0 h-full w-full ${field === 'logo' ? 'object-contain p-4' : 'object-cover'}`}
+            />
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
               <span className="text-xs font-medium text-white">Replace image</span>
             </div>
@@ -574,7 +603,7 @@ function StorefrontSection() {
         )}
       </div>
       <input
-        ref={field === 'hero' ? heroInputRef : footerInputRef}
+        ref={field === 'hero' ? heroInputRef : field === 'footer' ? footerInputRef : logoInputRef}
         type="file"
         accept="image/*"
         className="hidden"
@@ -607,20 +636,23 @@ function StorefrontSection() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          {bannerTile('logo', 'Header Logo / Graphic (replaces typed text if uploaded)', settings.logoUrl)}
+        </div>
         <div>
           <label className={tokens.typography.label}>Top strip text</label>
           <input className={tokens.components.input + ' mt-1.5'} value={settings.topBanner} onChange={e => set({ topBanner: e.target.value })} />
         </div>
         <div>
-          <label className={tokens.typography.label}>Brand line (above title)</label>
+          <label className={tokens.typography.label}>Brand line {settings.logoUrl ? '(fallback)' : '(above title)'}</label>
           <input className={tokens.components.input + ' mt-1.5'} value={settings.brandLine} onChange={e => set({ brandLine: e.target.value })} />
         </div>
         <div>
-          <label className={tokens.typography.label}>Collection title</label>
+          <label className={tokens.typography.label}>Collection title {settings.logoUrl ? '(fallback)' : ''}</label>
           <input className={tokens.components.input + ' mt-1.5'} value={settings.collectionTitle} onChange={e => set({ collectionTitle: e.target.value })} />
         </div>
         <div>
-          <label className={tokens.typography.label}>Collection subtitle</label>
+          <label className={tokens.typography.label}>Collection subtitle {settings.logoUrl ? '(fallback)' : ''}</label>
           <input className={tokens.components.input + ' mt-1.5'} value={settings.collectionSubtitle} onChange={e => set({ collectionSubtitle: e.target.value })} />
         </div>
         <div>
@@ -668,7 +700,7 @@ function StorefrontSection() {
             {settings.collectTax !== false ? 'Sales tax collected at checkout (Stripe Tax)' : 'Sales tax NOT collected at checkout'}
           </button>
         </div>
-        {bannerTile('hero', 'Hero image (wide, moody)', settings.heroImageUrl)}
+        {bannerTile('hero', 'Hero background image (wide, moody)', settings.heroImageUrl)}
         {bannerTile('footer', 'Footer banner image', settings.footerImageUrl)}
         <div className="md:col-span-2 flex items-center gap-3 border-t border-brand-border pt-4">
           <button

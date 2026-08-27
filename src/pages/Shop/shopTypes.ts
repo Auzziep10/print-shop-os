@@ -28,6 +28,7 @@ export interface ShopSettings {
   brandLine: string;         // small line above the collection title
   collectionTitle: string;   // big hero title
   collectionSubtitle: string;// small line under the title
+  logoUrl?: string;          // optional hero header logo/graphic image URL
   heroImageUrl?: string;
   footerImageUrl?: string;
   footerScript: string;      // script overlay on the footer banner

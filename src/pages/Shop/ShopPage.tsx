@@ -356,16 +356,26 @@ export function ShopPage() {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/40" />
-        <div className="relative z-10 flex flex-col items-center text-white">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.5em] md:text-xs">
-            {settings.brandLine}
-          </span>
-          <h1 className="mt-3 text-4xl font-light uppercase tracking-[0.3em] md:text-6xl md:tracking-[0.35em]">
-            {settings.collectionTitle}
-          </h1>
-          <span className="mt-3 text-[10px] font-medium uppercase tracking-[0.5em] md:text-xs">
-            {settings.collectionSubtitle}
-          </span>
+        <div className="relative z-10 flex flex-col items-center text-white px-4 text-center">
+          {settings.logoUrl ? (
+            <img
+              src={settings.logoUrl}
+              alt={settings.collectionTitle || 'Header Logo'}
+              className="max-h-[160px] w-auto max-w-[85vw] object-contain md:max-h-[220px] drop-shadow-md"
+            />
+          ) : (
+            <>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.5em] md:text-xs">
+                {settings.brandLine}
+              </span>
+              <h1 className="mt-3 text-4xl font-light uppercase tracking-[0.3em] md:text-6xl md:tracking-[0.35em]">
+                {settings.collectionTitle}
+              </h1>
+              <span className="mt-3 text-[10px] font-medium uppercase tracking-[0.5em] md:text-xs">
+                {settings.collectionSubtitle}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
