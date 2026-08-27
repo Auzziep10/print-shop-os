@@ -308,7 +308,7 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="manifesto" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-full max-w-6xl text-left">
+      <div className="mx-auto w-full max-w-4xl text-left">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
         </p>
@@ -482,7 +482,7 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
 
   return (
     <section id="interlude" ref={sectionRef} className="bg-white px-6 pt-10 pb-16 text-zinc-950 md:px-12 md:pt-12 md:pb-20">
-      <div className="mx-auto w-full max-w-6xl text-left">
+      <div className="mx-auto w-full max-w-4xl text-left">
         <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
@@ -792,21 +792,19 @@ export function FinishSection({
 
   return (
     <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
-      <div className="finish-copy mx-auto w-full max-w-6xl text-left">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-12">
-          <div>
-            <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-              {settings?.finishLabel || '( One logo )'}
-            </p>
-            <h2 className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
-              {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
-            </h2>
-          </div>
-          <p className="font-inter max-w-xs text-xs font-light leading-relaxed text-zinc-500">
+      <div className="finish-copy mx-auto w-full max-w-4xl text-left">
+        <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+          {settings?.finishLabel || '( One logo )'}
+        </p>
+        <h2 className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
+          {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
+        </h2>
+        {settings?.finishBody !== '' && (
+          <p className="font-inter mt-4 max-w-xl text-xs font-light leading-relaxed text-zinc-500">
             {settings?.finishBody ||
               'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'}
           </p>
-        </div>
+        )}
       </div>
 
       <button
