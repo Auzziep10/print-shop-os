@@ -411,7 +411,7 @@ export function DecorationSection({
         <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" />
       </div>
 
-      <div className="decoration-copy relative z-10 px-6 pt-24 pb-32 md:px-12 md:pt-28">
+      <div className="decoration-copy relative z-10 flex min-h-[92svh] flex-col justify-center px-6 pt-24 pb-28 md:px-12">
         <h2 className="font-serif max-w-[7em] text-[clamp(3rem,7.5vw,8rem)] leading-[1.02] tracking-tight">
           {titleContent}
         </h2>
@@ -807,7 +807,7 @@ export function FinishSection({
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
 
   return (
-    <section id="finish" ref={sectionRef} className="bg-white pt-28 md:pt-40">
+    <section id="finish" ref={sectionRef} className="bg-white pt-14 md:pt-20">
       <div className="finish-copy mx-auto max-w-7xl px-6 md:px-12">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
