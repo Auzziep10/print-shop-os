@@ -103,6 +103,22 @@ export interface StorefrontSettingsShape {
   subscribeTitle?: string;
   subscribeBody?: string;
   subscribeBtnText?: string;
+
+  // Footer
+  footerAbout?: string;
+  /** One "Label | /path" per line. Use "start" as the path for the design flow. */
+  footerQuicklinks?: string;
+  footerCopyright?: string;
+  footerFacebookUrl?: string;
+  footerXUrl?: string;
+  footerInstagramUrl?: string;
+  /** Comma-separated payment marks, e.g. "Visa, Amex, Apple Pay" */
+  footerPaymentMethods?: string;
+  showFooterBadge?: boolean;
+  footerBadgeTopText?: string;
+  footerBadgeMainText?: string;
+  footerBadgeSubText?: string;
+  footerBadgeImageUrl?: string;
 }
 
 export interface ImmersiveLandingProps {

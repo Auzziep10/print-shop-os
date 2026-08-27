@@ -37,8 +37,22 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   finishImageUrl: '',
   showSubscribe: true,
   subscribeTitle: 'Theory Trends',
-  subscribeBody: 'New drops, blank restocks and studio news — once in a while, never spam.',
+  subscribeBody: 'Give your brand the edge.\nSubscribe to get notified on our latest products and trends.',
   subscribeBtnText: 'Subscribe',
+  footerAbout:
+    'INKTHEORY is a design and decoration studio built around one idea: brands deserve better. Better blanks, better design, better decoration and a better process — all handled in-house from concept through production.\n\nWe make the things your brand asks for, and solve the details it hasn’t thought of yet.',
+  footerQuicklinks:
+    'Our Story | #manifesto\nGallery | /gallery\nClient Portal | /portal\nShop | /shop\nContact | mailto:hello@inktheory.studio',
+  footerCopyright: '© {year} INKTHEORY | Rio Rancho NM · Nashville TN | www.inktheory.studio',
+  footerFacebookUrl: '',
+  footerXUrl: '',
+  footerInstagramUrl: '',
+  footerPaymentMethods: 'Amex, Apple Pay, Diners, Discover, G Pay, Mastercard, Shop Pay, Visa',
+  showFooterBadge: true,
+  footerBadgeTopText: 'NM ORIGINAL',
+  footerBadgeMainText: 'NO. 505',
+  footerBadgeSubText: 'CERTIFIED',
+  footerBadgeImageUrl: '',
   showcaseLabel: '( The catalog )',
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
@@ -1232,8 +1246,152 @@ export function ImmersiveLandingPage() {
                       placeholder="Short pitch under the title..."
                       value={editSettings.subscribeBody || DEFAULT_SETTINGS.subscribeBody || ''}
                       onChange={e => setEditSettings({ ...editSettings, subscribeBody: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-none"
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-y"
                     />
+                  </div>
+
+                  {/* Footer content */}
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 block">Footer — About Text</span>
+                      <span className="text-[10px] text-zinc-500">Sits under the big wordmark. Leave a blank line between paragraphs.</span>
+                    </div>
+                    <textarea
+                      rows={5}
+                      placeholder="INKTHEORY is a design and decoration studio built around one idea..."
+                      value={editSettings.footerAbout ?? DEFAULT_SETTINGS.footerAbout ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, footerAbout: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-y"
+                    />
+
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 block">Footer — Quicklinks</span>
+                      <span className="text-[10px] text-zinc-500">
+                        One per line as <code className="font-mono">Label | /path</code>. Use <code className="font-mono">/portal</code> for the client portal and <code className="font-mono">start</code> to open the design flow.
+                      </span>
+                    </div>
+                    <textarea
+                      rows={6}
+                      placeholder={'Our Story | #manifesto\nGallery | /gallery\nClient Portal | /portal'}
+                      value={editSettings.footerQuicklinks ?? DEFAULT_SETTINGS.footerQuicklinks ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, footerQuicklinks: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium font-mono resize-y"
+                    />
+
+                    <input
+                      type="text"
+                      placeholder="Copyright line — {year} is replaced automatically"
+                      value={editSettings.footerCopyright ?? DEFAULT_SETTINGS.footerCopyright ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, footerCopyright: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Facebook URL"
+                        value={editSettings.footerFacebookUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, footerFacebookUrl: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="X / Twitter URL"
+                        value={editSettings.footerXUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, footerXUrl: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Instagram URL"
+                        value={editSettings.footerInstagramUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, footerInstagramUrl: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                      />
+                    </div>
+                    <p className="text-[10px] text-zinc-500 -mt-1">Social icons only appear for the URLs you fill in.</p>
+
+                    <input
+                      type="text"
+                      placeholder="Payment marks, comma separated — leave blank to hide"
+                      value={editSettings.footerPaymentMethods ?? DEFAULT_SETTINGS.footerPaymentMethods ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, footerPaymentMethods: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+
+                    {/* Certified badge */}
+                    <div className="pt-2 border-t border-zinc-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-zinc-900 block">Certified Badge (footer center)</span>
+                          <span className="text-[10px] text-zinc-500">Upload your own mark, or leave it blank to use the typeset version.</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={editSettings.showFooterBadge !== false}
+                            onChange={e => setEditSettings({ ...editSettings, showFooterBadge: e.target.checked })}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          placeholder="Top line — NM ORIGINAL"
+                          value={editSettings.footerBadgeTopText ?? DEFAULT_SETTINGS.footerBadgeTopText ?? ''}
+                          onChange={e => setEditSettings({ ...editSettings, footerBadgeTopText: e.target.value })}
+                          className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Main — NO. 505"
+                          value={editSettings.footerBadgeMainText ?? DEFAULT_SETTINGS.footerBadgeMainText ?? ''}
+                          onChange={e => setEditSettings({ ...editSettings, footerBadgeMainText: e.target.value })}
+                          className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Sub — CERTIFIED"
+                          value={editSettings.footerBadgeSubText ?? DEFAULT_SETTINGS.footerBadgeSubText ?? ''}
+                          onChange={e => setEditSettings({ ...editSettings, footerBadgeSubText: e.target.value })}
+                          className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-500">Badge image (optional, replaces the text above)</span>
+                        <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
+                          {uploadingField === 'footerBadgeImageUrl' ? (
+                            <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                          ) : (
+                            <><Upload size={13} /><span>Upload Badge</span></>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingField === 'footerBadgeImageUrl'}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(f, 'footerBadgeImageUrl');
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {editSettings.footerBadgeImageUrl && (
+                        <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                          <img src={editSettings.footerBadgeImageUrl} alt="Footer badge" className="h-10 object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setEditSettings({ ...editSettings, footerBadgeImageUrl: '' })}
+                            className="text-xs text-red-500 hover:underline font-bold"
+                          >
+                            Remove Badge
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

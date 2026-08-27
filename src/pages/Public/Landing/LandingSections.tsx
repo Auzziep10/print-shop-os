@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, ArrowDown, Check, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowDown, Check, Loader2, Facebook, Instagram } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type { StorefrontSettingsShape } from './ImmersiveLanding';
@@ -307,12 +307,12 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
   }, [manifestoText]);
 
   return (
-    <section id="manifesto" ref={sectionRef} className="bg-white px-6 py-28 md:px-12 md:py-44">
-      <div className="mx-auto max-w-5xl">
+    <section id="manifesto" ref={sectionRef} className="bg-white px-6 py-10 md:px-12 md:py-12">
+      <div className="mx-auto w-fit max-w-4xl text-left">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
         </p>
-        <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight text-zinc-950">
+        <p className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
           {lines.map((line, li) =>
             line.trim() === '' ? (
               // Blank line typed in the customizer = paragraph break
@@ -481,12 +481,12 @@ export function InterludeSection({ settings }: { settings?: StorefrontSettingsSh
   }, [text]);
 
   return (
-    <section id="interlude" ref={sectionRef} className="bg-white px-6 py-24 text-zinc-950 md:px-12 md:py-36">
-      <div className="mx-auto max-w-5xl">
+    <section id="interlude" ref={sectionRef} className="bg-white px-6 py-10 text-zinc-950 md:px-12 md:py-12">
+      <div className="mx-auto w-fit max-w-4xl text-left">
         <p className="interlude-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.interludeLabel || '( What better looks like )'}
         </p>
-        <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight">
+        <p className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight">
           {lines.map((line, li) =>
             line.trim() === '' ? (
               <span key={li} className="block h-[0.7em]" aria-hidden="true" />
@@ -808,13 +808,13 @@ export function FinishSection({
 
   return (
     <section id="finish" ref={sectionRef} className="bg-white pt-14 md:pt-20">
-      <div className="finish-copy mx-auto max-w-7xl px-6 md:px-12">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="finish-copy mx-auto w-fit max-w-4xl px-6 text-left md:px-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-12">
           <div>
             <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
               {settings?.finishLabel || '( One logo )'}
             </p>
-            <h2 className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight text-zinc-950">
+            <h2 className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
               {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
             </h2>
           </div>
@@ -1132,20 +1132,23 @@ function NewsletterForm({ settings }: { settings: StorefrontSettingsShape }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-sm items-center gap-2">
+    <form
+      onSubmit={handleSubmit}
+      className="flex w-full items-center gap-2 rounded-lg bg-white py-1 pl-5 pr-2"
+    >
       <input
         type="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@brand.com"
-        className="font-inter min-w-0 flex-1 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm font-light text-white placeholder:text-zinc-500 outline-none transition-colors focus:border-white/50"
+        placeholder="Email address"
+        className="font-inter min-w-0 flex-1 bg-transparent py-2.5 text-sm font-light text-zinc-900 placeholder:text-zinc-400 outline-none"
       />
       <button
         data-cursor
         type="submit"
         disabled={status === 'sending'}
-        className="font-inter flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-white px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-60"
+        className="font-inter flex shrink-0 cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-60"
       >
         {status === 'sending' ? (
           <Loader2 size={13} className="animate-spin" />
@@ -1154,6 +1157,33 @@ function NewsletterForm({ settings }: { settings: StorefrontSettingsShape }) {
         )}
       </button>
     </form>
+  );
+}
+
+/** "Label | /path" per line → quicklink list. */
+function parseQuicklinks(raw?: string) {
+  return (raw || '')
+    .split(/\r?\n/)
+    .map((line) => {
+      const [label, href] = line.split('|').map((p) => p.trim());
+      return label ? { label, href: href || '#' } : null;
+    })
+    .filter((x): x is { label: string; href: string } => x !== null);
+}
+
+const DEFAULT_QUICKLINKS = [
+  { label: 'Our Story', href: '#manifesto' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Client Portal', href: '/portal' },
+  { label: 'Shop', href: '/shop' },
+  { label: 'Contact', href: '#' },
+];
+
+function XIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+      <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.66l7.73-8.84L1.25 2.25h6.83l4.71 6.23zm-1.16 17.52h1.83L7.08 4.13H5.11z" />
+    </svg>
   );
 }
 
@@ -1176,116 +1206,178 @@ export function LandingFooter({
   onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const year = new Date().getFullYear();
+  const quicklinks = (() => {
+    const parsed = parseQuicklinks(settings.footerQuicklinks);
+    return parsed.length ? parsed : DEFAULT_QUICKLINKS;
+  })();
+  const aboutBlocks = (settings.footerAbout || '')
+    .split(/\r?\n\s*\r?\n/)
+    .map((b) => b.trim())
+    .filter(Boolean);
+  const copyright = (
+    settings.footerCopyright ||
+    `© {year} ${settings.logoText} | ${settings.email || ''}`
+  ).replace(/\{year\}/g, String(year));
+  const paymentMethods = (settings.footerPaymentMethods || '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+  const socials = [
+    { url: settings.footerFacebookUrl, node: <Facebook size={15} />, label: 'Facebook' },
+    { url: settings.footerXUrl, node: <XIcon />, label: 'X' },
+    { url: settings.footerInstagramUrl, node: <Instagram size={15} />, label: 'Instagram' },
+  ].filter((s) => s.url && s.url.trim() !== '');
+
+  const linkCls = 'font-inter cursor-pointer text-sm text-zinc-300 transition-colors hover:text-white';
+
   return (
-    <footer className="bg-zinc-950 px-6 pt-24 pb-10 text-[#faf9f5] md:px-12">
+    <footer className="bg-zinc-950 px-6 pt-20 pb-10 text-[#faf9f5] md:px-12">
       <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-12 border-b border-white/10 pb-16 md:flex-row md:items-end md:justify-between">
-          {settings.logoImageUrl ? (
-            <img src={settings.logoImageUrl} alt={settings.logoText || 'Logo'} className="h-16 max-w-[280px] object-contain mb-4" />
-          ) : settings.logoText === 'INKTHEORY' ? (
-            <h2 className="footer-brand font-sans text-[clamp(3rem,11vw,11rem)] font-black tracking-tighter uppercase">
-              INKTHEORY
-            </h2>
-          ) : (
-            <h2 className="footer-brand font-serif text-[clamp(3rem,11vw,11rem)] font-normal tracking-tight">
-              {settings.logoText}
-            </h2>
-          )}
-          <div className="font-inter flex flex-col gap-3 text-sm font-light text-zinc-400">
-            {settings.email && (
-              <a
-                data-cursor
-                href={`mailto:${settings.email}`}
-                className="transition-colors hover:text-white"
-              >
-                {settings.email}
-              </a>
-            )}
-            {settings.contactPhone && (
-              <a
-                data-cursor
-                href={`tel:${settings.contactPhone}`}
-                className="transition-colors hover:text-white"
-              >
-                {settings.contactPhone}
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div className="font-inter flex flex-col gap-10 border-b border-white/10 py-12 md:flex-row md:items-start md:justify-between">
+        <div className="grid gap-14 lg:grid-cols-[1.15fr_1fr]">
+          {/* Left — wordmark + about */}
           <div>
-            <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-              Quicklinks
-            </p>
-            <div className="flex flex-col items-start gap-4 text-[11px] font-bold uppercase tracking-[0.2em]">
-              <button
-                data-cursor
-                onClick={() => onStart('types')}
-                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-              >
-                Start a project
-              </button>
-              <a
-                data-cursor
-                href="/shop"
-                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-              >
-                Shop
-              </a>
-              {settings?.showGalleryNav !== false && (
-                <a
-                  data-cursor
-                  href="/gallery"
-                  className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-                >
-                  Lookbook Gallery
-                </a>
-              )}
-              <button
-                data-cursor
-                onClick={isClient ? onPortal : onLogin}
-                className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-              >
-                Client portal
-              </button>
-              {!hasUser && (
-                <button
-                  data-cursor
-                  onClick={onLogin}
-                  className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
-                >
-                  Create an account
-                </button>
-              )}
-            </div>
+            {settings.logoImageUrl ? (
+              <img
+                src={settings.logoImageUrl}
+                alt={settings.logoText || 'Logo'}
+                className="h-14 max-w-[280px] object-contain"
+              />
+            ) : settings.logoText === 'INKTHEORY' ? (
+              <h2 className="footer-brand font-sans text-[clamp(2.5rem,6vw,4.5rem)] font-black leading-none tracking-tighter uppercase">
+                INKTHEORY
+              </h2>
+            ) : (
+              <h2 className="footer-brand font-serif text-[clamp(2.5rem,6vw,4.5rem)] font-normal leading-none tracking-tight">
+                {settings.logoText}
+              </h2>
+            )}
+
+            {aboutBlocks.length > 0 && (
+              <div className="font-inter mt-8 flex max-w-xl flex-col gap-5 text-sm font-light leading-relaxed text-zinc-300">
+                {aboutBlocks.map((block, i) => (
+                  <p key={i} className="whitespace-pre-line">
+                    {block}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
 
-          {settings.showSubscribe !== false && (
-            <div className="w-full md:max-w-md">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-                ( Newsletter )
+          {/* Right — quicklinks + newsletter */}
+          <div className="flex flex-col gap-12 lg:items-end lg:text-right">
+            <div>
+              <p className="font-inter mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-zinc-400">
+                Quicklinks
               </p>
-              <h3 className="font-sans mb-3 text-2xl font-black tracking-tighter uppercase md:text-3xl">
-                {settings.subscribeTitle || 'Theory Trends'}
-              </h3>
-              <p className="mb-5 max-w-sm text-sm font-light leading-relaxed text-zinc-400">
-                {settings.subscribeBody ||
-                  'New drops, blank restocks and studio news — once in a while, never spam.'}
-              </p>
-              <NewsletterForm settings={settings} />
+              <div className="flex flex-col items-start gap-2.5 lg:items-end">
+                {quicklinks.map((link) =>
+                  link.href === '/portal' ? (
+                    <button
+                      key={link.label}
+                      data-cursor
+                      onClick={isClient ? onPortal : onLogin}
+                      className={linkCls}
+                    >
+                      {link.label}
+                    </button>
+                  ) : link.href === 'start' ? (
+                    <button key={link.label} data-cursor onClick={() => onStart('types')} className={linkCls}>
+                      {link.label}
+                    </button>
+                  ) : (
+                    <a key={link.label} data-cursor href={link.href} className={linkCls}>
+                      {link.label}
+                    </a>
+                  )
+                )}
+                {!hasUser && (
+                  <button data-cursor onClick={onLogin} className={linkCls}>
+                    Create an account
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {settings.showSubscribe !== false && (
+              <div className="w-full lg:max-w-md">
+                <p className="font-inter mb-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-zinc-400">
+                  {settings.subscribeTitle || 'Theory Trends'}
+                </p>
+                <p className="font-inter mb-4 text-sm font-light leading-relaxed text-zinc-300 whitespace-pre-line">
+                  {settings.subscribeBody ||
+                    'Give your brand the edge.\nSubscribe to get notified on our latest products and trends.'}
+                </p>
+                <NewsletterForm settings={settings} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom band — socials / certified badge / payment marks */}
+        <div className="mt-16 grid gap-10 md:grid-cols-3 md:items-end">
+          <div className="flex flex-col gap-5">
+            {socials.length > 0 && (
+              <div className="flex items-center gap-3">
+                {socials.map((s) => (
+                  <a
+                    key={s.label}
+                    data-cursor
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={s.label}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-200 transition-colors hover:bg-white hover:text-zinc-950"
+                  >
+                    {s.node}
+                  </a>
+                ))}
+              </div>
+            )}
+            <p className="font-inter text-xs font-light text-zinc-400">{copyright}</p>
+          </div>
+
+          {settings.showFooterBadge !== false && (
+            <div className="flex justify-start md:justify-center">
+              {settings.footerBadgeImageUrl ? (
+                <img
+                  src={settings.footerBadgeImageUrl}
+                  alt="Certified badge"
+                  className="h-16 object-contain"
+                />
+              ) : (
+                <div className="font-inter text-center leading-none text-zinc-300">
+                  <span className="block rotate-180 text-[9px] font-semibold tracking-[0.25em]">
+                    {settings.footerBadgeTopText || 'NM ORIGINAL'}
+                  </span>
+                  <span className="mt-1.5 block text-xl font-light tracking-[0.2em]">
+                    {settings.footerBadgeMainText || 'NO. 505'}
+                  </span>
+                  <span className="mt-1.5 block text-[8px] font-semibold tracking-[0.35em] text-zinc-500">
+                    {settings.footerBadgeSubText || 'CERTIFIED'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {paymentMethods.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 md:justify-end">
+              {paymentMethods.map((m) => (
+                <span
+                  key={m}
+                  className="font-inter rounded bg-white px-2 py-1.5 text-[8px] font-bold uppercase tracking-wider text-zinc-800"
+                >
+                  {m}
+                </span>
+              ))}
             </div>
           )}
         </div>
 
-        <div className="font-inter flex flex-col gap-4 pt-8 md:flex-row md:items-center md:justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
-            Local time {currentTime || '00:00:00'}
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-500">
-            © {year} {settings.logoText}
-          </span>
-        </div>
+        <p className="font-inter mt-10 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-600">
+          Local time {currentTime || '00:00:00'}
+        </p>
       </div>
     </footer>
   );
