@@ -1049,7 +1049,13 @@ export function StartCTASection({
     return () => ctx.revert();
   }, []);
 
-  const title = settings?.ctaCardTitle?.trim() || 'Better\n*People*';
+  // Titles saved before this panel became a full-bleed feature read as card
+  // labels, not display type — treat them as unset so the new default applies.
+  const LEGACY_CTA_TITLES = ['design your rack', 'shop garment types'];
+  const savedTitle = settings?.ctaCardTitle?.trim() || '';
+  const title = LEGACY_CTA_TITLES.includes(savedTitle.toLowerCase())
+    ? 'Better\n*People*'
+    : savedTitle || 'Better\n*People*';
   const titleLines = title.split(/\r?\n/);
   const body = settings?.ctaCardBody?.trim() || 'Tech forward - powered by the Human element.';
   const img = settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png';
