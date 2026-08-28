@@ -36,6 +36,29 @@ function renderAccent(text: string) {
   );
 }
 
+/** Section background that swaps to a portrait crop on phones when one is set. */
+function SectionImage({
+  src,
+  mobileSrc,
+  alt,
+  className,
+}: {
+  src: string;
+  mobileSrc?: string;
+  alt: string;
+  className: string;
+}) {
+  if (mobileSrc && mobileSrc.trim() !== '') {
+    return (
+      <picture className="contents">
+        <source media="(max-width: 639px)" srcSet={mobileSrc} />
+        <img src={src} alt={alt} className={className} loading="lazy" />
+      </picture>
+    );
+  }
+  return <img src={src} alt={alt} className={className} loading="lazy" />;
+}
+
 /* ------------------------------------------------------------------ */
 /* Hero                                                               */
 /* ------------------------------------------------------------------ */
@@ -401,11 +424,11 @@ export function DecorationSection({
       className="relative min-h-[92svh] overflow-hidden bg-white text-zinc-950"
     >
       <div className="decoration-media absolute inset-[-7%] will-change-transform">
-        <img
+        <SectionImage
           src={img}
+          mobileSrc={settings?.decorationMobileImageUrl}
           alt={settings?.decorationTitle?.replace(/\*/g, '') || 'Better Decoration'}
           className="h-full w-full object-cover"
-          loading="lazy"
         />
         {/* Soft white wash so the ink type stays readable on any upload */}
         <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" />
@@ -812,11 +835,11 @@ export function FinishSection({
         onClick={() => onStart('types')}
         className="finish-photo relative -mx-6 mt-12 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:mt-16 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
       >
-        <img
+        <SectionImage
           src={img}
+          mobileSrc={settings?.finishMobileImageUrl}
           alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
           className="h-full w-full object-cover will-change-transform"
-          loading="lazy"
         />
       </button>
     </section>
@@ -884,11 +907,11 @@ export function StandardSection({ settings }: { settings?: StorefrontSettingsSha
       {/* Full-bleed certification panel */}
       <div className="standard-panel relative min-h-[88svh] overflow-hidden bg-zinc-900 text-white">
         <div className="standard-media absolute inset-[-7%] will-change-transform">
-          <img
+          <SectionImage
             src={img}
+            mobileSrc={settings?.standardMobileImageUrl}
             alt={rawTitle.replace(/\*/g, '').replace(/\n/g, ' ')}
             className="h-full w-full object-cover"
-            loading="lazy"
           />
           {/* Keeps the white type legible over any upload */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
@@ -1082,24 +1105,12 @@ export function StartCTASection({
         className="cta-panel group relative min-h-[88svh] cursor-pointer overflow-hidden bg-zinc-950 text-white"
       >
         <div className="absolute inset-0 overflow-hidden">
-          {mobileImg ? (
-            <picture className="contents">
-              <source media="(max-width: 639px)" srcSet={mobileImg} />
-              <img
-                src={img}
-                alt={title.replace(/\*/g, '').replace(/\n/g, ' ')}
-                className="h-full w-full object-cover object-left sm:object-center"
-                loading="lazy"
-              />
-            </picture>
-          ) : (
-            <img
-              src={img}
-              alt={title.replace(/\*/g, '').replace(/\n/g, ' ')}
-              className="h-full w-full object-cover object-left sm:object-center"
-              loading="lazy"
-            />
-          )}
+          <SectionImage
+            src={img}
+            mobileSrc={mobileImg}
+            alt={title.replace(/\*/g, '').replace(/\n/g, ' ')}
+            className="h-full w-full object-cover object-left sm:object-center"
+          />
           {/* Keeps the white type legible over any upload */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/15 to-transparent" />
         </div>
@@ -1422,7 +1433,7 @@ export function LandingFooter({
           )}
 
           {settings.showPaymentMarks !== false && (
-            <div className="flex md:justify-end">
+            <div className="flex md:col-start-3 md:justify-end">
               <img
                 src={paymentImg}
                 alt="Accepted payment methods"

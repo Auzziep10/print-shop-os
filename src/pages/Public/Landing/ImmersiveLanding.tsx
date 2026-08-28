@@ -48,6 +48,7 @@ export interface StorefrontSettingsShape {
   decorationTitle?: string;
   decorationBody?: string;
   decorationImageUrl?: string;
+  decorationMobileImageUrl?: string;
   decorationBtnText?: string;
   decorationBtnUrl?: string;
   decorationFooterText?: string;
@@ -63,6 +64,7 @@ export interface StorefrontSettingsShape {
   finishTitle?: string;
   finishBody?: string;
   finishImageUrl?: string;
+  finishMobileImageUrl?: string;
 
   // Standard ("Non-toxic Certified") — statement band + full-bleed photo
   showStandardSection?: boolean;
@@ -72,6 +74,7 @@ export interface StorefrontSettingsShape {
   standardTitle?: string;
   standardBody?: string;
   standardImageUrl?: string;
+  standardMobileImageUrl?: string;
   standardBadgeImageUrl?: string;
   standardFooterText?: string;
 

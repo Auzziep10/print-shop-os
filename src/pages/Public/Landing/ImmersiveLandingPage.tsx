@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   decorationTitle: 'Better *Decoration*',
   decorationBody: 'State-of-the-Art Design Studio — built to provide design solutions to level up your brand.',
   decorationImageUrl: '',
+  decorationMobileImageUrl: '',
   decorationBtnText: 'Book a Consultation',
   decorationBtnUrl: '',
   decorationFooterText: 'DTF · Screen Printing · Dye Sub · Embroidery · Vinyl',
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   finishTitle: 'One logo — *every finish*',
   finishBody: 'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.',
   finishImageUrl: '',
+  finishMobileImageUrl: '',
   showSubscribe: true,
   subscribeTitle: 'Theory Trends',
   subscribeBody: 'Give your brand the edge.\nSubscribe to get notified on our latest products and trends.',
@@ -60,6 +62,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   standardTitle: 'Non-toxic\n*Certified*',
   standardBody: "Better Decoration shouldn't come with a toxic tradeoff",
   standardImageUrl: '',
+  standardMobileImageUrl: '',
   standardBadgeImageUrl: '',
   standardFooterText: 'Inks · Threads · Production · Air Quality · Press · Fabrics',
   showcaseLabel: '( The catalog )',
@@ -695,6 +698,39 @@ export function ImmersiveLandingPage() {
                         </button>
                       </div>
                     )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-zinc-500">Mobile photo (optional — shown on phones)</span>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                        {uploadingField === 'decorationMobileImageUrl' ? (
+                          <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                        ) : (
+                          <><Upload size={13} /><span>Upload Mobile</span></>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'decorationMobileImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'decorationMobileImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {editSettings.decorationMobileImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                        <img src={editSettings.decorationMobileImageUrl} alt="Decoration mobile" className="h-12 w-20 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, decorationMobileImageUrl: '' })}
+                          className="text-xs text-red-500 hover:underline font-bold"
+                        >
+                          Remove Mobile Photo
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Interlude statement */}
@@ -802,6 +838,39 @@ export function ImmersiveLandingPage() {
                         </button>
                       </div>
                     )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-zinc-500">Mobile photo (optional — shown on phones)</span>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                        {uploadingField === 'finishMobileImageUrl' ? (
+                          <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                        ) : (
+                          <><Upload size={13} /><span>Upload Mobile</span></>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'finishMobileImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'finishMobileImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {editSettings.finishMobileImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                        <img src={editSettings.finishMobileImageUrl} alt="Finish mobile" className="h-12 w-20 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, finishMobileImageUrl: '' })}
+                          className="text-xs text-red-500 hover:underline font-bold"
+                        >
+                          Remove Mobile Photo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -873,6 +942,7 @@ export function ImmersiveLandingPage() {
 
                   {[
                     { key: 'standardImageUrl' as const, label: 'Background photo (fills the panel)', btn: 'Upload Photo' },
+                    { key: 'standardMobileImageUrl' as const, label: 'Mobile photo (optional — shown on phones)', btn: 'Upload Mobile' },
                     { key: 'standardBadgeImageUrl' as const, label: 'Certification emblem (optional, sits by the title)', btn: 'Upload Emblem' },
                   ].map(({ key, label, btn }) => (
                     <div key={key} className="space-y-2">
