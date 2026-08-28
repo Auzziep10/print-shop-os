@@ -81,6 +81,8 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   processStep3Body: 'Create your account, approve your proof, and follow every status change from your client portal — current and future orders in one place.',
   processStep4Title: 'Production',
   processStep4Body: 'Printed, pressed and embroidered in-house, quality-checked piece by piece, and tracked from press to porch.',
+  showCtaSection: true,
+  showCtaHeading: false,
   ctaSectionLabel: '( Choose your path )',
   ctaSectionTitle: 'Start designing',
   ctaCardTitle: 'Design Your Rack',
@@ -1188,6 +1190,39 @@ export function ImmersiveLandingPage() {
               {/* TAB 6: CTA & FOOTER */}
               {activeTab === 'cta' && (
                 <div className="space-y-4">
+                  <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Show CTA Card</span>
+                        <span className="text-[10px] text-zinc-500">The image card with the buttons, between the process steps and the footer.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={editSettings.showCtaSection !== false}
+                          onChange={e => setEditSettings({ ...editSettings, showCtaSection: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Show "Start Designing" Heading Band</span>
+                        <span className="text-[10px] text-zinc-500">The black band with the eyebrow and title above the card. Currently hidden.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={!!editSettings.showCtaHeading}
+                          onChange={e => setEditSettings({ ...editSettings, showCtaHeading: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-bold text-zinc-900">CTA Section Eyebrow Label</label>

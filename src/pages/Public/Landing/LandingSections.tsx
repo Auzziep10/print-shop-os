@@ -1065,16 +1065,18 @@ export function StartCTASection({
 
   return (
     <section id="start-cta" ref={sectionRef} className="bg-zinc-950">
-      <div className="px-6 pt-16 pb-6 text-center sm:pt-20 sm:pb-10 md:px-12 md:pt-28">
-        <p className="font-inter mb-3 sm:mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-          {settings?.ctaSectionLabel || '( Choose your path )'}
-        </p>
-        <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-[#faf9f5]">
-          {settings?.ctaSectionTitle || (
-            <>Start <span className="italic font-light">designing</span></>
-          )}
-        </h2>
-      </div>
+      {settings?.showCtaHeading && (
+        <div className="px-6 pt-16 pb-6 text-center sm:pt-20 sm:pb-10 md:px-12 md:pt-28">
+          <p className="font-inter mb-3 sm:mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+            {settings?.ctaSectionLabel || '( Choose your path )'}
+          </p>
+          <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-[#faf9f5]">
+            {settings?.ctaSectionTitle || (
+              <>Start <span className="italic font-light">designing</span></>
+            )}
+          </h2>
+        </div>
+      )}
 
       <div className="flex flex-col gap-px lg:flex-row">
         {panels.map((panel) => (

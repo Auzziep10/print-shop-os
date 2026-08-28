@@ -102,6 +102,9 @@ export interface StorefrontSettingsShape {
   processStep4Body?: string;
 
   // CTA Section
+  showCtaSection?: boolean;
+  /** The eyebrow + "Start designing" band above the CTA card. */
+  showCtaHeading?: boolean;
   ctaSectionLabel?: string;
   ctaSectionTitle?: string;
   ctaCardTitle?: string;
@@ -518,7 +521,7 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
         {settings.showFinishSection !== false && <FinishSection settings={settings} onStart={onStart} />}
         {settings.showStandardSection !== false && <StandardSection settings={settings} />}
         <ProcessSection settings={settings} />
-        <StartCTASection settings={settings} onStart={onStart} />
+        {settings.showCtaSection !== false && <StartCTASection settings={settings} onStart={onStart} />}
       </main>
 
       <LandingFooter
