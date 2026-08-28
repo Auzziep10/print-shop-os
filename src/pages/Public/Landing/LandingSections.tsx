@@ -637,17 +637,20 @@ export function ShowcaseSection({
         return;
       }
       const mid = window.innerWidth / 2;
+      const REVEAL_AT = 0.75; // fraction of the trip to centre before it shows
       let winner: HTMLElement | null = null;
       let best = Infinity;
       cards.forEach((c) => {
         const r = c.getBoundingClientRect();
         const dist = Math.abs((r.left + r.right) / 2 - mid);
-        if (dist < best) {
+        // 0 when the card is just off-screen, 1 when it sits dead centre
+        const travel = 1 - dist / ((window.innerWidth + r.width) / 2);
+        if (travel >= REVEAL_AT && dist < best) {
           best = dist;
           winner = c;
         }
       });
-      cards.forEach((c) => c.classList.toggle('is-centered', c === winner && best < window.innerWidth * 0.45));
+      cards.forEach((c) => c.classList.toggle('is-centered', c === winner));
     };
 
     const onScroll = () => {
@@ -675,8 +678,8 @@ export function ShowcaseSection({
       <p className="font-inter mt-5 max-w-[19rem] text-xs font-light leading-relaxed text-zinc-300">
         {settings?.showcaseSubtitle || '1 of 1 Blanks that set your brand apart.'}
       </p>
-      <span className="font-inter mt-5 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
-        Swipe sideways <ArrowRight size={11} className="text-amber-400" />
+      <span className="font-inter mt-5 flex w-fit items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
+        Swipe sideways <ArrowRight size={11} className="text-white" />
       </span>
     </>
   );
