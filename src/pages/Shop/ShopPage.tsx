@@ -361,7 +361,7 @@ export function ShopPage() {
             <img
               src={settings.logoUrl}
               alt={settings.collectionTitle || 'Header Logo'}
-              className="max-h-[120px] w-auto max-w-[70vw] object-contain md:max-h-[165px] drop-shadow-md"
+              className="max-h-[96px] w-auto max-w-[55vw] object-contain md:max-h-[132px] drop-shadow-md"
             />
           ) : (
             <>
