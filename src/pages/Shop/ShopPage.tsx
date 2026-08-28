@@ -333,6 +333,12 @@ export function ShopPage() {
     <div className="shop-root">
       {/* Top strip */}
       <div className="relative z-20 bg-neutral-950 py-2.5 text-center">
+        <a
+          href="https://inktheory.studio"
+          className="absolute left-4 top-1/2 flex -translate-y-1/2 items-center gap-1 text-[9px] font-bold uppercase tracking-[0.25em] text-white/90 transition-colors hover:text-white"
+        >
+          ← inktheory.studio
+        </a>
         <span className="text-[9px] font-semibold uppercase tracking-[0.4em] text-white">
           {settings.topBanner}
         </span>
