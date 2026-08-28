@@ -142,7 +142,7 @@ export function ShopProductPage() {
                     key={i}
                     onMouseEnter={() => setImageIdx(i)}
                     onClick={() => setImageIdx(i)}
-                    className={`aspect-[4/5] w-full overflow-hidden bg-[#f2f2f0] transition-opacity ${
+                    className={`aspect-[4/5] w-full overflow-hidden rounded-md bg-[#f2f2f0] transition-opacity ${
                       i === imageIdx ? 'ring-1 ring-neutral-900' : 'opacity-70 hover:opacity-100'
                     }`}
                   >
@@ -154,7 +154,7 @@ export function ShopProductPage() {
 
             {/* Main image */}
             <div className="min-w-0 flex-1">
-              <div className="aspect-[4/5] w-full overflow-hidden bg-[#f2f2f0]">
+              <div className="aspect-[4/5] w-full overflow-hidden rounded-md bg-[#f2f2f0]">
                 {product.images[imageIdx] ? (
                   <img src={product.images[imageIdx]} alt={product.name} className="h-full w-full object-cover" />
                 ) : (
@@ -170,7 +170,7 @@ export function ShopProductPage() {
                     <button
                       key={i}
                       onClick={() => setImageIdx(i)}
-                      className={`h-20 w-16 shrink-0 overflow-hidden bg-[#f2f2f0] ${
+                      className={`h-20 w-16 shrink-0 overflow-hidden rounded-md bg-[#f2f2f0] ${
                         i === imageIdx ? 'ring-1 ring-neutral-900' : 'opacity-70'
                       }`}
                     >
