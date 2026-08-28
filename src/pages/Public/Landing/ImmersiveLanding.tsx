@@ -10,6 +10,7 @@ import {
   InterludeSection,
   ShowcaseSection,
   FinishSection,
+  StandardSection,
   ProcessSection,
   StartCTASection,
   LandingFooter,
@@ -62,6 +63,17 @@ export interface StorefrontSettingsShape {
   finishTitle?: string;
   finishBody?: string;
   finishImageUrl?: string;
+
+  // Standard ("Non-toxic Certified") — statement band + full-bleed photo
+  showStandardSection?: boolean;
+  standardLabel?: string;
+  standardStatement?: string;
+  /** Line breaks are kept; use *word* for the italic accent. */
+  standardTitle?: string;
+  standardBody?: string;
+  standardImageUrl?: string;
+  standardBadgeImageUrl?: string;
+  standardFooterText?: string;
 
   // Showcase
   showcaseLabel?: string;
@@ -504,6 +516,7 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
         {settings.showInterludeSection !== false && <InterludeSection settings={settings} />}
         <ShowcaseSection settings={settings} onStart={onStart} />
         {settings.showFinishSection !== false && <FinishSection settings={settings} onStart={onStart} />}
+        {settings.showStandardSection !== false && <StandardSection settings={settings} />}
         <ProcessSection settings={settings} />
         <StartCTASection settings={settings} onStart={onStart} />
       </main>

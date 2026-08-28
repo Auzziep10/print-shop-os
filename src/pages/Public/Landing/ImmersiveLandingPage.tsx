@@ -54,6 +54,14 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   footerBadgeMainText: 'NO. 505',
   footerBadgeSubText: 'CERTIFIED',
   footerBadgeImageUrl: '',
+  showStandardSection: true,
+  standardLabel: '( Our standard )',
+  standardStatement: 'What touches the garment matters.',
+  standardTitle: 'Non-toxic\n*Certified*',
+  standardBody: "Better Decoration shouldn't come with a toxic tradeoff",
+  standardImageUrl: '',
+  standardBadgeImageUrl: '',
+  standardFooterText: 'Inks · Threads · Production · Air Quality · Press · Fabrics',
   showcaseLabel: '( The catalog )',
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
@@ -791,6 +799,113 @@ export function ImmersiveLandingPage() {
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'sections' && (
+                <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 block">"Non-toxic Certified" Section</span>
+                      <span className="text-[10px] text-zinc-500">A statement line, then a full-screen photo panel. Sits after the tee photo, before the process steps.</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={editSettings.showStandardSection !== false}
+                        onChange={e => setEditSettings({ ...editSettings, showStandardSection: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Eyebrow — e.g. ( Our standard )"
+                      value={editSettings.standardLabel ?? DEFAULT_SETTINGS.standardLabel ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, standardLabel: e.target.value })}
+                      className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Statement — e.g. What touches the garment matters."
+                      value={editSettings.standardStatement ?? DEFAULT_SETTINGS.standardStatement ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, standardStatement: e.target.value })}
+                      className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-zinc-500">
+                      Big title — one line per row, *asterisks* italicize
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder={'Non-toxic\n*Certified*'}
+                      value={editSettings.standardTitle ?? DEFAULT_SETTINGS.standardTitle ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, standardTitle: e.target.value })}
+                      className="mt-1 w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium resize-y"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Subtitle under the title"
+                      value={editSettings.standardBody ?? DEFAULT_SETTINGS.standardBody ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, standardBody: e.target.value })}
+                      className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Bottom strip — Inks · Threads · Production..."
+                      value={editSettings.standardFooterText ?? DEFAULT_SETTINGS.standardFooterText ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, standardFooterText: e.target.value })}
+                      className="bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium"
+                    />
+                  </div>
+
+                  {[
+                    { key: 'standardImageUrl' as const, label: 'Background photo (fills the panel)', btn: 'Upload Photo' },
+                    { key: 'standardBadgeImageUrl' as const, label: 'Certification emblem (optional, sits by the title)', btn: 'Upload Emblem' },
+                  ].map(({ key, label, btn }) => (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                          {uploadingField === key ? (
+                            <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                          ) : (
+                            <><Upload size={13} /><span>{btn}</span></>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingField === key}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(f, key);
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {editSettings[key] && (
+                        <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                          <img src={editSettings[key]} alt="" className="h-12 w-20 object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setEditSettings({ ...editSettings, [key]: '' })}
+                            className="text-xs text-red-500 hover:underline font-bold"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 

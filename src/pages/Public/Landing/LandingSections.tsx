@@ -824,6 +824,111 @@ export function FinishSection({
 }
 
 /* ------------------------------------------------------------------ */
+/* Standard — statement band + full-bleed certification feature       */
+/* ------------------------------------------------------------------ */
+
+export function StandardSection({ settings }: { settings?: StorefrontSettingsShape }) {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const ctx = gsap.context(() => {
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce) return;
+      gsap.from('.standard-statement', {
+        autoAlpha: 0,
+        y: 30,
+        duration: 0.9,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: sectionRef.current, start: 'top 80%' },
+      });
+      gsap.to('.standard-media', {
+        yPercent: 10,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: '.standard-panel',
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: true,
+        },
+      });
+      gsap.from('.standard-copy', {
+        autoAlpha: 0,
+        y: 40,
+        duration: 1,
+        ease: 'power3.out',
+        scrollTrigger: { trigger: '.standard-panel', start: 'top 70%' },
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  const img = settings?.standardImageUrl || '/images/blank_basics_hero.png';
+  const rawTitle = settings?.standardTitle || 'Non-toxic\n*Certified*';
+  const titleLines = rawTitle.split(/\r?\n/);
+  const badge = settings?.standardBadgeImageUrl?.trim();
+
+  return (
+    <section id="standard" ref={sectionRef} className="bg-white">
+      {/* Statement band */}
+      <div className="px-6 pt-10 pb-16 md:px-12 md:pt-12 md:pb-20">
+        <div className="standard-statement mx-auto w-fit max-w-[50rem] text-left">
+          <p className="font-inter mb-6 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+            {settings?.standardLabel || '( Our standard )'}
+          </p>
+          <p className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
+            {renderAccent(settings?.standardStatement || 'What touches the garment matters.')}
+          </p>
+        </div>
+      </div>
+
+      {/* Full-bleed certification panel */}
+      <div className="standard-panel relative min-h-[88svh] overflow-hidden bg-zinc-900 text-white">
+        <div className="standard-media absolute inset-[-7%] will-change-transform">
+          <img
+            src={img}
+            alt={rawTitle.replace(/\*/g, '').replace(/\n/g, ' ')}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+          {/* Keeps the white type legible over any upload */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
+        </div>
+
+        <div className="standard-copy relative z-10 flex min-h-[88svh] flex-col justify-center px-6 pt-24 pb-28 md:px-12">
+          <h2 className="font-serif text-[clamp(3rem,7.5vw,8rem)] leading-[1.02] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]">
+            {titleLines.map((line, i) => (
+              <span key={i} className="block">
+                {renderAccentTitle(line)}
+                {i === 0 && badge && (
+                  <img
+                    src={badge}
+                    alt=""
+                    className="ml-2 inline-block h-[0.32em] w-[0.32em] align-top object-contain"
+                  />
+                )}
+              </span>
+            ))}
+          </h2>
+          <p className="font-inter mt-6 max-w-md text-xs font-light leading-relaxed text-zinc-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+            {settings?.standardBody || "Better Decoration shouldn't come with a toxic tradeoff"}
+          </p>
+        </div>
+
+        {/* Bottom credentials strip */}
+        <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 md:px-12">
+          <div className="border-t border-white/40 pt-3">
+            <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-white">
+              {settings?.standardFooterText ||
+                'Inks · Threads · Production · Air Quality · Press · Fabrics'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Process — numbered editorial rows                                  */
 /* ------------------------------------------------------------------ */
 
