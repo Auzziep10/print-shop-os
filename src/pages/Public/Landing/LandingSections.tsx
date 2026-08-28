@@ -917,7 +917,7 @@ export function StandardSection({ settings }: { settings?: StorefrontSettingsSha
         {/* Bottom credentials strip */}
         <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 md:px-12">
           <div className="border-t border-white/40 pt-3">
-            <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-white">
+            <p className="font-inter text-[10px] font-medium uppercase tracking-[0.25em] text-white">
               {settings?.standardFooterText ||
                 'Inks · Threads · Production · Air Quality · Press · Fabrics'}
             </p>
