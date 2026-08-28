@@ -85,9 +85,11 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   showCtaHeading: false,
   ctaSectionLabel: '( Choose your path )',
   ctaSectionTitle: 'Start designing',
-  ctaCardTitle: 'Design Your Rack',
-  ctaCardBody: 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
-  ctaCardBtnText: 'Design a cohesive line',
+  ctaCardTitle: 'Better\n*People*',
+  ctaCardBody: 'Tech forward - powered by the Human element.',
+  ctaCardBtnText: 'Start designing',
+  ctaFooterText: 'Designers · Platform UI · Kitting · Managers · Shipping · Logistics · Sales · Client Support',
+  showCtaButtons: false,
   ctaCardImageUrl: '',
   ctaCardMobileImageUrl: '',
   contactPhone: '(888) 896-8607',
@@ -1247,30 +1249,57 @@ export function ImmersiveLandingPage() {
                   </div>
 
                   <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
-                    <span className="text-xs font-bold text-zinc-900 block">Rack CTA Card Settings</span>
+                    <span className="text-xs font-bold text-zinc-900 block">CTA Card Settings</span>
                     <div className="flex flex-col gap-2">
-                      <input
-                        type="text"
-                        placeholder="Card Title (e.g. Design Your Rack)"
-                        value={editSettings.ctaCardTitle || DEFAULT_SETTINGS.ctaCardTitle || ''}
-                        onChange={e => setEditSettings({ ...editSettings, ctaCardTitle: e.target.value })}
-                        className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
-                      />
+                      <label className="text-[10px] font-semibold text-zinc-500 -mb-1">
+                        Big title — one line per row, *asterisks* italicize
+                      </label>
                       <textarea
                         rows={2}
-                        placeholder="Card Description..."
-                        value={editSettings.ctaCardBody || DEFAULT_SETTINGS.ctaCardBody || ''}
-                        onChange={e => setEditSettings({ ...editSettings, ctaCardBody: e.target.value })}
-                        className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
+                        placeholder={'Better\n*People*'}
+                        value={editSettings.ctaCardTitle ?? DEFAULT_SETTINGS.ctaCardTitle ?? ''}
+                        onChange={e => setEditSettings({ ...editSettings, ctaCardTitle: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-y"
                       />
                       <input
                         type="text"
-                        placeholder="Card Button Text (e.g. Design a cohesive line)"
-                        value={editSettings.ctaCardBtnText || DEFAULT_SETTINGS.ctaCardBtnText || ''}
-                        onChange={e => setEditSettings({ ...editSettings, ctaCardBtnText: e.target.value })}
+                        placeholder="Subtitle (e.g. Tech forward - powered by the Human element.)"
+                        value={editSettings.ctaCardBody ?? DEFAULT_SETTINGS.ctaCardBody ?? ''}
+                        onChange={e => setEditSettings({ ...editSettings, ctaCardBody: e.target.value })}
+                        className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Bottom strip — Designers · Platform UI · Kitting..."
+                        value={editSettings.ctaFooterText ?? DEFAULT_SETTINGS.ctaFooterText ?? ''}
+                        onChange={e => setEditSettings({ ...editSettings, ctaFooterText: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
                     </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">Show Buttons On The Card</span>
+                        <span className="text-[10px] text-zinc-500">Off matches the reference — the whole card still opens the design flow when clicked.</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={!!editSettings.showCtaButtons}
+                          onChange={e => setEditSettings({ ...editSettings, showCtaButtons: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-950"></div>
+                      </label>
+                    </div>
+
+                    <input
+                      type="text"
+                      placeholder="Button label (when buttons are shown)"
+                      value={editSettings.ctaCardBtnText ?? DEFAULT_SETTINGS.ctaCardBtnText ?? ''}
+                      onChange={e => setEditSettings({ ...editSettings, ctaCardBtnText: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                    />
 
                     <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
                       <div>

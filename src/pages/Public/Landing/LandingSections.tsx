@@ -1049,19 +1049,11 @@ export function StartCTASection({
     return () => ctx.revert();
   }, []);
 
-  const panels = [
-    {
-      mode: 'types' as const,
-      num: '01',
-      badge: 'Curated Catalog',
-      title: settings?.ctaCardTitle || 'Shop Garment Types',
-      body: settings?.ctaCardBody || 'Browse our full catalog by garment type — tees, polos, long sleeves, hoodies, sweatpants, hats, and accessories — customized with your logo.',
-      cta: settings?.ctaCardBtnText || 'Browse Garment Types',
-      img: settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png',
-      mobileImg: settings?.ctaCardMobileImageUrl || undefined,
-      dark: true,
-    },
-  ];
+  const title = settings?.ctaCardTitle?.trim() || 'Better\n*People*';
+  const titleLines = title.split(/\r?\n/);
+  const body = settings?.ctaCardBody?.trim() || 'Tech forward - powered by the Human element.';
+  const img = settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png';
+  const mobileImg = settings?.ctaCardMobileImageUrl || undefined;
 
   return (
     <section id="start-cta" ref={sectionRef} className="bg-zinc-950">
@@ -1078,102 +1070,76 @@ export function StartCTASection({
         </div>
       )}
 
-      <div className="flex flex-col gap-px lg:flex-row">
-        {panels.map((panel) => (
-          <div
-            key={panel.mode}
-            data-cursor
-            onClick={() => onStart(panel.mode)}
-            className={`cta-panel group relative min-h-[70vh] flex-1 cursor-pointer overflow-hidden ${
-              panel.dark ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-950'
-            }`}
-          >
-            <div className="absolute inset-0 overflow-hidden">
-              {panel.mobileImg ? (
-                <picture className="contents">
-                  <source media="(max-width: 639px)" srcSet={panel.mobileImg} />
-                  <img
-                    src={panel.img}
-                    alt={panel.title}
-                    className="h-full w-full object-cover object-left sm:object-center opacity-100"
-                    loading="lazy"
-                  />
-                </picture>
-              ) : (
-                <img
-                  src={panel.img}
-                  alt={panel.title}
-                  className="h-full w-full object-cover object-left sm:object-center opacity-100"
-                  loading="lazy"
-                />
-              )}
-              <div
-                className={`absolute inset-0 ${
-                  panel.dark
-                    ? 'bg-gradient-to-t from-black/25 via-transparent to-black/20'
-                    : 'bg-gradient-to-t from-white/40 via-transparent to-transparent'
-                }`}
+      <div
+        data-cursor
+        onClick={() => onStart('types')}
+        className="cta-panel group relative min-h-[88svh] cursor-pointer overflow-hidden bg-zinc-950 text-white"
+      >
+        <div className="absolute inset-0 overflow-hidden">
+          {mobileImg ? (
+            <picture className="contents">
+              <source media="(max-width: 639px)" srcSet={mobileImg} />
+              <img
+                src={img}
+                alt={title.replace(/\*/g, '').replace(/\n/g, ' ')}
+                className="h-full w-full object-cover object-left sm:object-center"
+                loading="lazy"
               />
+            </picture>
+          ) : (
+            <img
+              src={img}
+              alt={title.replace(/\*/g, '').replace(/\n/g, ' ')}
+              className="h-full w-full object-cover object-left sm:object-center"
+              loading="lazy"
+            />
+          )}
+          {/* Keeps the white type legible over any upload */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/15 to-transparent" />
+        </div>
+
+        <div className="relative z-10 flex min-h-[88svh] flex-col justify-center px-6 pt-24 pb-28 md:px-12">
+          <h2 className="font-serif text-[clamp(3rem,7.5vw,8rem)] leading-[1.02] tracking-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)]">
+            {titleLines.map((line, i) => (
+              <span key={i} className="block">
+                {renderAccentTitle(line)}
+              </span>
+            ))}
+          </h2>
+          <p className="font-inter mt-6 max-w-md text-xs font-light leading-relaxed text-zinc-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+            {body}
+          </p>
+
+          {settings?.showCtaButtons && (
+            <div className="mt-8 flex flex-col items-start gap-3">
+              <span className="font-inter flex w-fit items-center gap-3 rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors group-hover:bg-zinc-200">
+                {settings?.ctaCardBtnText || 'Start designing'}
+                <ArrowRight size={14} className="cta-arrow" />
+              </span>
+              {settings?.showGalleryNav !== false && (
+                <a
+                  data-cursor
+                  href="/gallery"
+                  onClick={(e) => e.stopPropagation()}
+                  className="font-inter flex w-fit items-center gap-3 rounded-full border border-white/40 bg-black/30 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-sm backdrop-blur-md transition-all hover:border-white hover:bg-white/20"
+                >
+                  Explore Lookbook Gallery
+                  <ArrowRight size={14} />
+                </a>
+              )}
             </div>
+          )}
+        </div>
 
-            <div className="relative z-10 flex h-full min-h-[65vh] sm:min-h-[70vh] flex-col justify-between p-6 pb-12 sm:p-10 md:p-14">
-              <div className="flex items-start justify-between pt-1 sm:pt-0">
-                <span
-                  className={`font-mono text-[10px] font-semibold tracking-[0.3em] uppercase ${
-                    panel.dark ? 'text-zinc-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-500'
-                  }`}
-                >
-                  {panel.num} / {panel.title}
-                </span>
-                <span
-                  className={`font-inter rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] backdrop-blur-md shadow-sm ${
-                    panel.dark
-                      ? 'border-white/30 bg-black/40 text-zinc-100'
-                      : 'border-zinc-300 bg-zinc-950/5 text-zinc-600'
-                  }`}
-                >
-                  {panel.badge}
-                </span>
-              </div>
-
-              <div className="max-w-lg mb-4 sm:mb-6">
-                <h3 className="font-serif text-3xl sm:text-4xl tracking-tight md:text-5xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">{panel.title}</h3>
-                <p
-                  className={`font-inter mt-3 sm:mt-4 text-sm font-light leading-relaxed ${
-                    panel.dark ? 'text-zinc-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-600'
-                  }`}
-                >
-                  {panel.body}
-                </p>
-
-                <div className="mt-6 sm:mt-8 flex flex-col items-start gap-3">
-                  <span
-                    className={`font-inter flex w-fit items-center gap-3 rounded-full px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
-                      panel.dark
-                        ? 'bg-white text-zinc-950 group-hover:bg-zinc-200'
-                        : 'bg-zinc-950 text-white group-hover:bg-zinc-800'
-                    }`}
-                  >
-                    {panel.cta}
-                    <ArrowRight size={14} className="cta-arrow" />
-                  </span>
-
-                  {settings?.showGalleryNav !== false && (
-                    <a
-                      data-cursor
-                      href="/gallery"
-                      onClick={(e) => e.stopPropagation()}
-                      className="font-inter flex w-fit items-center gap-3 rounded-full border border-white/40 bg-black/30 backdrop-blur-md px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white hover:border-white hover:bg-white/20 transition-all shadow-sm"
-                    >
-                      Explore Lookbook Gallery
-                      <ArrowRight size={14} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
+        {/* Bottom capabilities strip */}
+        <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-6 md:px-12">
+          <div className="border-t border-white/40 pt-3">
+            <p className="font-inter text-[10px] font-medium uppercase tracking-[0.25em] text-white">
+              {settings?.ctaFooterText ||
+                'Designers · Platform UI · Kitting · Managers · Shipping · Logistics · Sales · Client Support'}
+            </p>
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

@@ -112,6 +112,8 @@ export interface StorefrontSettingsShape {
   ctaCardBtnText?: string;
   ctaCardImageUrl?: string;
   ctaCardMobileImageUrl?: string;
+  ctaFooterText?: string;
+  showCtaButtons?: boolean;
 
   // Footer newsletter ("THEORY TRENDS")
   showSubscribe?: boolean;
