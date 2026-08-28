@@ -91,6 +91,17 @@
   }
 }
 
+/* Swiping the catalog on smaller screens stands in for hover: the card
+   crossing the middle of the screen shows its secondary photo. */
+@media (max-width: 1023px) {
+  .showcase-card.is-centered .showcase-hover {
+    opacity: 1;
+  }
+  .showcase-card.is-centered img {
+    transform: scale(1.04);
+  }
+}
+
 /* --- CTA panels --- */
 .cta-panel img {
   transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1);

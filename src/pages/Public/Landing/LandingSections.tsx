@@ -621,7 +621,49 @@ export function ShowcaseSection({
     ));
   }
 
-  // Rendered twice — stacked above the cards on mobile, inside the track on desktop
+  // Touch devices have no hover, so the card nearest the screen's centre
+  // reveals its secondary photo as you swipe.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const coarse = window.matchMedia('(max-width: 1023px)');
+    let raf = 0;
+
+    const update = () => {
+      raf = 0;
+      const cards = Array.from(track.querySelectorAll<HTMLElement>('.showcase-card'));
+      if (!coarse.matches) {
+        cards.forEach((c) => c.classList.remove('is-centered'));
+        return;
+      }
+      const mid = window.innerWidth / 2;
+      let winner: HTMLElement | null = null;
+      let best = Infinity;
+      cards.forEach((c) => {
+        const r = c.getBoundingClientRect();
+        const dist = Math.abs((r.left + r.right) / 2 - mid);
+        if (dist < best) {
+          best = dist;
+          winner = c;
+        }
+      });
+      cards.forEach((c) => c.classList.toggle('is-centered', c === winner && best < window.innerWidth * 0.45));
+    };
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    track.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+    return () => {
+      track.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   const renderRail = () => (
     <>
       <p className="font-inter mb-5 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
@@ -642,10 +684,7 @@ export function ShowcaseSection({
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-zinc-950 text-[#faf9f5]">
       <div className="flex flex-col px-6 pt-20 pb-10 md:px-12 lg:h-[calc(100svh_-_64px)] lg:flex-row lg:items-center lg:pt-0 lg:pb-0">
-        {/* Mobile: the rail sits above the cards so scroll-snap can't hide it */}
-        <div className="mb-8 lg:hidden">{renderRail()}</div>
-
-        {/* Card track — on desktop the title rail rides along with the cards */}
+        {/* Card track — the title rail rides along as the first card */}
         <div
           ref={trackRef}
           className="flex items-center overflow-x-auto gap-4 pb-2 scrollbar-none md:gap-5 lg:w-max lg:overflow-visible lg:pr-12 snap-x snap-mandatory lg:snap-none"
@@ -656,8 +695,10 @@ export function ShowcaseSection({
             overscrollBehaviorX: 'contain',
           }}
         >
-          {/* Title rail (desktop) */}
-          <div className="hidden shrink-0 lg:block lg:w-[26vw] lg:pr-10">{renderRail()}</div>
+          {/* Title rail — a snap target of its own so mobile can't skip past it */}
+          <div className="w-[78vw] shrink-0 snap-start pr-6 sm:w-[52vw] lg:w-[26vw] lg:snap-align-none lg:pr-10">
+            {renderRail()}
+          </div>
 
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
@@ -681,7 +722,7 @@ export function ShowcaseSection({
                 <img
                   src={cardHoverImg}
                   alt={`Custom ${item.label.toLowerCase()} hover`}
-                  className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:scale-105"
+                  className="showcase-hover absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-500 ease-in-out group-hover:opacity-100 group-hover:scale-105"
                   loading="lazy"
                 />
               )}
