@@ -5185,8 +5185,8 @@ export function PublicQuoteRequest() {
                   const qty = item.qty || Object.values(item.sizes || {}).reduce((s: number, q: any) => s + (parseFloat(q as any) || 0), 0) || 1;
                   const quote = getNormalizedAutoQuote(item, qty);
                   
-                  const TIER_MINS = [1, 25, 50, 100, 250, 500];
-                  const TIER_LABELS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500+"];
+                  const TIER_MINS = [1, 25, 50, 100, 250, 500, 1000];
+                  const TIER_LABELS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500–999", "1,000+"];
                   let tierIdx = 0;
                   for (let i = TIER_MINS.length - 1; i >= 0; i--) {
                     if (qty >= TIER_MINS[i]) {

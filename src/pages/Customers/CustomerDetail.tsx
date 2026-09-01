@@ -2662,7 +2662,7 @@ export function CustomerDetail() {
                              </div>
 
                              <div>
-                               <span className="text-[9px] font-bold text-neutral-400 uppercase block">500+ Tier Anchor</span>
+                               <span className="text-[9px] font-bold text-neutral-400 uppercase block">1,000+ Tier Anchor</span>
                                <div className="relative mt-1">
                                  <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
                                  <input

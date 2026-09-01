@@ -32,19 +32,19 @@
 // Constants — quantity tiers
 // ---------------------------------------------------------------------------
 
-/** Tier labels, index 0..5. */
-const TIERS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500+"];
+/** Tier labels, index 0..6. */
+const TIERS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500–999", "1,000+"];
 
 /** Lower bound (inclusive) of each tier. Used for tier lookup. */
-const TIER_MIN = [1, 25, 50, 100, 250, 500];
+const TIER_MIN = [1, 25, 50, 100, 250, 500, 1000];
 
 /**
  * Cost multipliers by tier.
  * Labor/overhead falls faster with volume than materials do, so they use
  * separate curves. Index matches TIERS.
  */
-const LABOR_MULT = [1.35, 1.15, 1.00, 0.88, 0.79, 0.72];
-const MATERIAL_MULT = [1.10, 1.05, 1.00, 0.96, 0.92, 0.88];
+const LABOR_MULT = [1.35, 1.15, 1.00, 0.88, 0.79, 0.72, 0.65];
+const MATERIAL_MULT = [1.10, 1.05, 1.00, 0.96, 0.92, 0.88, 0.84];
 
 // ---------------------------------------------------------------------------
 // Default configuration — OWNER-TUNABLE. These are benchmark starting values.
@@ -187,9 +187,9 @@ function findPlacement(placementId) {
 }
 
 /**
- * Map a piece count to a tier index 0..5.
+ * Map a piece count to a tier index 0..6.
  * @param {number} quantity
- * @returns {number} 0..5
+ * @returns {number} 0..6
  */
 function tierIndexFor(quantity) {
   const q = Number(quantity);
@@ -199,7 +199,8 @@ function tierIndexFor(quantity) {
   if (q < 100) return 2;
   if (q < 250) return 3;
   if (q < 500) return 4;
-  return 5;
+  if (q < 1000) return 5;
+  return 6;
 }
 
 /** Look up the competitor rate for a placement set, or null if unknown. */
@@ -262,7 +263,8 @@ function handlingCost(garmentId, tierIndex, costs) {
 function clampTier(i) {
   const t = Math.trunc(Number(i));
   if (!Number.isFinite(t) || t < 0) return 0;
-  return t > 5 ? 5 : t;
+  const maxTier = TIERS.length - 1;
+  return t > maxTier ? maxTier : t;
 }
 
 /**
@@ -328,13 +330,14 @@ function costBreakdown(garmentId, placementIds, tierIndex, costs = DEFAULT_COSTS
 
 /**
  * The reference product's price at a tier. Linear from the low anchor to the
- * high anchor across the six tiers.
+ * high anchor across the tiers.
  * @returns {number} USD
  */
 function referencePrice(tierIndex, ladder = DEFAULT_LADDER) {
   const lo = num(ladder.priceAtLowTier);
   const hi = num(ladder.priceAtHighTier);
-  return lo + (hi - lo) * (clampTier(tierIndex) / 5);
+  const maxTier = TIERS.length - 1;
+  return lo + (hi - lo) * (clampTier(tierIndex) / maxTier);
 }
 
 /**

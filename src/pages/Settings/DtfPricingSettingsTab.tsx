@@ -329,7 +329,7 @@ export function DtfPricingSettingsTab() {
               <span className="text-gray-300 font-bold">→</span>
 
               <div className="flex items-center gap-2 bg-brand-bg/50 border border-brand-border rounded-xl px-3 py-2">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">500+ Tier</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase">1,000+ Tier</span>
                 <div className="relative w-28">
                   <DollarSign size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -385,7 +385,7 @@ export function DtfPricingSettingsTab() {
                 className="flex-1 accent-brand-primary h-1 rounded-full bg-neutral-200 cursor-pointer"
               />
               <span className="text-xs text-brand-secondary font-mono w-28 text-right font-bold">
-                {Math.round(DTFPricing.effectiveMargin(0, costs, ladder)*100)}% → {Math.round(DTFPricing.effectiveMargin(5, costs, ladder)*100)}%
+                {Math.round(DTFPricing.effectiveMargin(0, costs, ladder)*100)}% → {Math.round(DTFPricing.effectiveMargin(DTFPricing.TIERS.length - 1, costs, ladder)*100)}%
               </span>
             </div>
           </div>
