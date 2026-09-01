@@ -731,6 +731,59 @@ export function ImmersiveLandingPage() {
                         </button>
                       </div>
                     )}
+
+                    {/* Scroll-Scrubbed Video Option */}
+                    <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-2 mt-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                            <Sparkles size={14} className="text-amber-600" />
+                            Scroll-Scrubbed Video (Replaces Photo)
+                          </span>
+                          <span className="text-[10px] text-amber-800 leading-tight block">
+                            Upload an MP4/WebM video. Page locks in place while scrolling scrubs backward & forward through your video!
+                          </span>
+                        </div>
+                        <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                          {uploadingField === 'decorationVideoUrl' ? (
+                            <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                          ) : (
+                            <><Upload size={13} /><span>Upload Video</span></>
+                          )}
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/*"
+                            className="hidden"
+                            disabled={uploadingField === 'decorationVideoUrl'}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(f, 'decorationVideoUrl');
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <input
+                        type="url"
+                        placeholder="Or paste video file URL (https://...)"
+                        value={editSettings.decorationVideoUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, decorationVideoUrl: e.target.value })}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs font-medium"
+                      />
+                      {editSettings.decorationVideoUrl && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-amber-900 font-mono truncate max-w-[240px]">
+                            {editSettings.decorationVideoUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditSettings({ ...editSettings, decorationVideoUrl: '' })}
+                            className="text-xs text-red-600 hover:underline font-bold"
+                          >
+                            Remove Video
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Interlude statement */}
@@ -871,6 +924,59 @@ export function ImmersiveLandingPage() {
                         </button>
                       </div>
                     )}
+
+                    {/* Scroll-Scrubbed Video Option */}
+                    <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-2 mt-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                            <Sparkles size={14} className="text-amber-600" />
+                            Scroll-Scrubbed Video (Replaces Photo)
+                          </span>
+                          <span className="text-[10px] text-amber-800 leading-tight block">
+                            Upload an MP4/WebM video. Page locks in place while scrolling scrubs backward & forward through your video!
+                          </span>
+                        </div>
+                        <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all shrink-0">
+                          {uploadingField === 'finishVideoUrl' ? (
+                            <><Loader2 className="animate-spin" size={13} /><span>Uploading...</span></>
+                          ) : (
+                            <><Upload size={13} /><span>Upload Video</span></>
+                          )}
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm,video/quicktime,video/*"
+                            className="hidden"
+                            disabled={uploadingField === 'finishVideoUrl'}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(f, 'finishVideoUrl');
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <input
+                        type="url"
+                        placeholder="Or paste video file URL (https://...)"
+                        value={editSettings.finishVideoUrl || ''}
+                        onChange={e => setEditSettings({ ...editSettings, finishVideoUrl: e.target.value })}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-3 py-1.5 text-xs font-medium"
+                      />
+                      {editSettings.finishVideoUrl && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-amber-900 font-mono truncate max-w-[240px]">
+                            {editSettings.finishVideoUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setEditSettings({ ...editSettings, finishVideoUrl: '' })}
+                            className="text-xs text-red-600 hover:underline font-bold"
+                          >
+                            Remove Video
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

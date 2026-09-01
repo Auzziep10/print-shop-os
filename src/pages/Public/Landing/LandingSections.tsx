@@ -397,7 +397,14 @@ export function DecorationSection({
     return () => ctx.revert();
   }, []);
 
-  const img = settings?.decorationImageUrl || '/images/custom-apparel-hero.png';
+  const decVideoUrl =
+    settings?.decorationVideoUrl?.trim() ||
+    (settings?.decorationImageUrl &&
+    (settings.decorationImageUrl.includes('.mp4') ||
+      settings.decorationImageUrl.includes('.webm') ||
+      settings.decorationImageUrl.includes('.mov'))
+      ? settings.decorationImageUrl
+      : '');
 
   const rawTitle = settings?.decorationTitle || 'Better *Decoration*';
   let titleContent: React.ReactNode;
@@ -414,6 +421,36 @@ export function DecorationSection({
 
   const btnText = settings?.decorationBtnText || 'Book a Consultation';
   const btnUrl = settings?.decorationBtnUrl?.trim();
+
+  if (decVideoUrl && settings?.decorationVideoScrub !== false) {
+    return (
+      <ScrollScrubVideoSection
+        id="decoration"
+        videoUrl={decVideoUrl}
+        posterUrl={settings?.decorationMobileImageUrl || settings?.decorationImageUrl}
+        label={settings?.decorationLabel || '( The decoration )'}
+        title={titleContent}
+        body={
+          settings?.decorationBody ||
+          'State-of-the-Art Design Studio — built to provide design solutions to level up your brand.'
+        }
+        buttonText={btnText}
+        footerText={
+          settings?.decorationFooterText ||
+          'DTF · Screen Printing · Dye Sub · Embroidery · Vinyl'
+        }
+        onButtonClick={() => {
+          if (btnUrl) {
+            window.location.href = btnUrl;
+          } else {
+            onStart?.('types');
+          }
+        }}
+      />
+    );
+  }
+
+  const img = settings?.decorationImageUrl || '/images/custom-apparel-hero.png';
   const btnClass =
     'font-inter mt-8 block w-fit cursor-pointer rounded-full bg-zinc-950 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:bg-zinc-800';
 
@@ -817,6 +854,145 @@ export function ShowcaseSection({
 /* Finish — "One logo, every finish" copy + big photo                 */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Scroll-Scrubbed Video Section Component                           */
+/* Pins viewport & scrubs through video currentTime on scroll         */
+/* ------------------------------------------------------------------ */
+
+export function ScrollScrubVideoSection({
+  videoUrl,
+  posterUrl,
+  title,
+  body,
+  label,
+  buttonText,
+  onButtonClick,
+  footerText,
+  id,
+}: {
+  videoUrl: string;
+  posterUrl?: string;
+  title?: React.ReactNode;
+  body?: string;
+  label?: string;
+  buttonText?: string;
+  onButtonClick?: () => void;
+  footerText?: string;
+  id?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    let trigger: ScrollTrigger | null = null;
+
+    const setupScrub = () => {
+      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
+
+      if (trigger) trigger.kill();
+
+      const duration = video.duration;
+
+      // Pin the section while scrubbing through video frames
+      trigger = ScrollTrigger.create({
+        trigger: container,
+        start: 'top top',
+        end: '+=250%', // 2.5 viewport heights of scroll distance to scrub through full video
+        pin: true,
+        scrub: 0.5, // smooth inertia scrubbing
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => {
+          if (video && duration > 0) {
+            const targetTime = self.progress * duration;
+            if (Math.abs(video.currentTime - targetTime) > 0.015) {
+              video.currentTime = targetTime;
+            }
+          }
+        },
+      });
+    };
+
+    if (video.readyState >= 1) {
+      setupScrub();
+    } else {
+      const handleMetadata = () => {
+        setupScrub();
+        ScrollTrigger.refresh();
+      };
+      video.addEventListener('loadedmetadata', handleMetadata);
+      return () => video.removeEventListener('loadedmetadata', handleMetadata);
+    }
+
+    return () => {
+      if (trigger) trigger.kill();
+    };
+  }, [videoUrl]);
+
+  return (
+    <section id={id} ref={containerRef} className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 text-white">
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        poster={posterUrl}
+        muted
+        playsInline
+        preload="auto"
+        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+      />
+
+      {/* Dark wash overlay for readable typography */}
+      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/20 to-zinc-950/40 pointer-events-none" />
+
+      {/* Content overlay */}
+      <div className="relative z-10 flex h-full flex-col justify-between p-6 md:p-12">
+        <div className="mx-auto w-full max-w-[50rem] text-left pt-16 md:pt-20">
+          {label && (
+            <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+              {label}
+            </p>
+          )}
+          {title && (
+            <h2 className="font-serif text-[clamp(2rem,4.5vw,4.2rem)] leading-[1.12] tracking-tight text-white drop-shadow-md">
+              {title}
+            </h2>
+          )}
+          {body && (
+            <p className="font-inter mt-4 max-w-xl text-xs sm:text-sm font-light leading-relaxed text-zinc-300 drop-shadow-sm">
+              {body}
+            </p>
+          )}
+          {buttonText && onButtonClick && (
+            <button
+              data-cursor
+              type="button"
+              onClick={onButtonClick}
+              className="font-inter mt-8 block w-fit cursor-pointer rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200 shadow-xl"
+            >
+              {buttonText}
+            </button>
+          )}
+        </div>
+
+        {footerText && (
+          <div className="border-t border-white/20 pt-4 pb-2">
+            <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-400">
+              {footerText}
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function FinishSection({
   settings,
   onStart,
@@ -854,6 +1030,35 @@ export function FinishSection({
     }, sectionRef);
     return () => ctx.revert();
   }, []);
+
+  const videoUrl =
+    settings?.finishVideoUrl?.trim() ||
+    (settings?.finishImageUrl &&
+    (settings.finishImageUrl.includes('.mp4') ||
+      settings.finishImageUrl.includes('.webm') ||
+      settings.finishImageUrl.includes('.mov'))
+      ? settings.finishImageUrl
+      : '');
+
+  if (videoUrl && settings?.finishVideoScrub !== false) {
+    return (
+      <ScrollScrubVideoSection
+        id="finish"
+        videoUrl={videoUrl}
+        posterUrl={settings?.finishMobileImageUrl || settings?.finishImageUrl}
+        label={settings?.finishLabel || '( One logo )'}
+        title={renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
+        body={
+          settings?.finishBody !== ''
+            ? settings?.finishBody ||
+              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'
+            : undefined
+        }
+        buttonText="Explore Finishes"
+        onButtonClick={() => onStart('types')}
+      />
+    );
+  }
 
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
 

@@ -49,6 +49,8 @@ export interface StorefrontSettingsShape {
   decorationBody?: string;
   decorationImageUrl?: string;
   decorationMobileImageUrl?: string;
+  decorationVideoUrl?: string;
+  decorationVideoScrub?: boolean;
   decorationBtnText?: string;
   decorationBtnUrl?: string;
   decorationFooterText?: string;
@@ -65,6 +67,8 @@ export interface StorefrontSettingsShape {
   finishBody?: string;
   finishImageUrl?: string;
   finishMobileImageUrl?: string;
+  finishVideoUrl?: string;
+  finishVideoScrub?: boolean;
 
   // Standard ("Non-toxic Certified") — statement band + full-bleed photo
   showStandardSection?: boolean;
