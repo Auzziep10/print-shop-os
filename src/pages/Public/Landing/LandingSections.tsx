@@ -892,32 +892,54 @@ export function ScrollScrubVideoSection({
     if (reduce) return;
 
     let trigger: ScrollTrigger | null = null;
+    let targetTime = 0;
+    let renderTime = 0;
+
+    const onTick = () => {
+      if (!video || !video.duration || video.duration <= 0) return;
+      const diff = targetTime - renderTime;
+      if (Math.abs(diff) > 0.0005) {
+        // Exponential decay lerp (0.12) creates smooth ramping down when scroll stops
+        renderTime += diff * 0.12;
+
+        // Prevent decoder stutter: only update currentTime when not actively seeking
+        if (!video.seeking) {
+          try {
+            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+              (video as any).fastSeek(renderTime);
+            } else {
+              video.currentTime = renderTime;
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    };
 
     const setupScrub = () => {
       if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
-
       if (trigger) trigger.kill();
 
       const duration = video.duration;
 
-      // Pin the section while scrubbing through video frames
+      // Pin the section while scrubbing through video frames with 1.2s smooth momentum
       trigger = ScrollTrigger.create({
         trigger: container,
         start: 'top top',
-        end: '+=250%', // 2.5 viewport heights of scroll distance to scrub through full video
+        end: '+=250%',
         pin: true,
-        scrub: 0.5, // smooth inertia scrubbing
+        scrub: 1.2, // Ramps scroll momentum naturally
         anticipatePin: 1,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
-          if (video && duration > 0) {
-            const targetTime = self.progress * duration;
-            if (Math.abs(video.currentTime - targetTime) > 0.015) {
-              video.currentTime = targetTime;
-            }
+          if (duration > 0) {
+            targetTime = self.progress * duration;
           }
         },
       });
+
+      gsap.ticker.add(onTick);
     };
 
     if (video.readyState >= 1) {
@@ -932,6 +954,7 @@ export function ScrollScrubVideoSection({
     }
 
     return () => {
+      gsap.ticker.remove(onTick);
       if (trigger) trigger.kill();
     };
   }, [videoUrl]);
@@ -1001,6 +1024,17 @@ export function FinishSection({
   onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const videoUrl =
+    settings?.finishVideoUrl?.trim() ||
+    (settings?.finishImageUrl &&
+    (settings.finishImageUrl.includes('.mp4') ||
+      settings.finishImageUrl.includes('.webm') ||
+      settings.finishImageUrl.includes('.mov'))
+      ? settings.finishImageUrl
+      : '');
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -1013,52 +1047,101 @@ export function FinishSection({
         ease: 'power3.out',
         scrollTrigger: { trigger: sectionRef.current, start: 'top 75%' },
       });
-      gsap.fromTo(
-        '.finish-photo img',
-        { scale: 1.12 },
-        {
-          scale: 1,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: '.finish-photo',
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: true,
-          },
-        }
-      );
+      if (!videoUrl) {
+        gsap.fromTo(
+          '.finish-photo img',
+          { scale: 1.12 },
+          {
+            scale: 1,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: '.finish-photo',
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: true,
+            },
+          }
+        );
+      }
     }, sectionRef);
     return () => ctx.revert();
-  }, []);
+  }, [videoUrl]);
 
-  const videoUrl =
-    settings?.finishVideoUrl?.trim() ||
-    (settings?.finishImageUrl &&
-    (settings.finishImageUrl.includes('.mp4') ||
-      settings.finishImageUrl.includes('.webm') ||
-      settings.finishImageUrl.includes('.mov'))
-      ? settings.finishImageUrl
-      : '');
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    const container = videoContainerRef.current;
+    if (!video || !container || !videoUrl) return;
 
-  if (videoUrl && settings?.finishVideoScrub !== false) {
-    return (
-      <ScrollScrubVideoSection
-        id="finish"
-        videoUrl={videoUrl}
-        posterUrl={settings?.finishMobileImageUrl || settings?.finishImageUrl}
-        label={settings?.finishLabel || '( One logo )'}
-        title={renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
-        body={
-          settings?.finishBody !== ''
-            ? settings?.finishBody ||
-              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'
-            : undefined
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    let trigger: ScrollTrigger | null = null;
+    let targetTime = 0;
+    let renderTime = 0;
+
+    const onTick = () => {
+      if (!video || !video.duration || video.duration <= 0) return;
+      const diff = targetTime - renderTime;
+      if (Math.abs(diff) > 0.0005) {
+        // Exponential decay lerp (0.12) creates smooth ramping down when scroll stops
+        renderTime += diff * 0.12;
+
+        // Prevent decoder stutter: only update currentTime when not actively seeking
+        if (!video.seeking) {
+          try {
+            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+              (video as any).fastSeek(renderTime);
+            } else {
+              video.currentTime = renderTime;
+            }
+          } catch (e) {
+            // ignore
+          }
         }
-        buttonText="Explore Finishes"
-        onButtonClick={() => onStart('types')}
-      />
-    );
-  }
+      }
+    };
+
+    const setupScrub = () => {
+      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
+      if (trigger) trigger.kill();
+
+      const duration = video.duration;
+
+      // Pin the section while scrubbing through video frames with 1.2s smooth momentum
+      trigger = ScrollTrigger.create({
+        trigger: container,
+        start: 'top top',
+        end: '+=250%',
+        pin: true,
+        scrub: 1.2, // Ramps scroll momentum naturally
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => {
+          if (duration > 0) {
+            targetTime = self.progress * duration;
+          }
+        },
+      });
+
+      gsap.ticker.add(onTick);
+    };
+
+    if (video.readyState >= 1) {
+      setupScrub();
+    } else {
+      const handleMetadata = () => {
+        setupScrub();
+        ScrollTrigger.refresh();
+      };
+      video.addEventListener('loadedmetadata', handleMetadata);
+      return () => video.removeEventListener('loadedmetadata', handleMetadata);
+    }
+
+    return () => {
+      gsap.ticker.remove(onTick);
+      if (trigger) trigger.kill();
+    };
+  }, [videoUrl]);
 
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
 
@@ -1079,18 +1162,38 @@ export function FinishSection({
         )}
       </div>
 
-      <button
-        data-cursor
-        onClick={() => onStart('types')}
-        className="finish-photo relative -mx-6 mt-12 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:mt-16 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
-      >
-        <SectionImage
-          src={img}
-          mobileSrc={settings?.finishMobileImageUrl}
-          alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
-          className="h-full w-full object-cover will-change-transform"
-        />
-      </button>
+      <div className="mt-12 md:mt-16 -mx-6 md:-mx-12">
+        {videoUrl && settings?.finishVideoScrub !== false ? (
+          <div
+            ref={videoContainerRef}
+            onClick={() => onStart('types')}
+            className="relative h-[85vh] md:h-[92vh] w-full overflow-hidden bg-zinc-950 cursor-pointer"
+          >
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              poster={settings?.finishMobileImageUrl || (settings?.finishImageUrl && !settings.finishImageUrl.includes('.mp4') ? settings.finishImageUrl : undefined)}
+              muted
+              playsInline
+              preload="auto"
+              className="h-full w-full object-cover pointer-events-none"
+            />
+          </div>
+        ) : (
+          <button
+            data-cursor
+            onClick={() => onStart('types')}
+            className="finish-photo relative block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:h-[88svh] md:w-[calc(100%_+_6rem)]"
+          >
+            <SectionImage
+              src={img}
+              mobileSrc={settings?.finishMobileImageUrl}
+              alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
+              className="h-full w-full object-cover will-change-transform"
+            />
+          </button>
+        )}
+      </div>
     </section>
   );
 }
