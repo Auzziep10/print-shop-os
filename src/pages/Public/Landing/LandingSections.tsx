@@ -891,6 +891,9 @@ export function ScrollScrubVideoSection({
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
 
+    video.muted = true;
+    video.playsInline = true;
+
     let trigger: ScrollTrigger | null = null;
     let targetTime = 0;
     let renderTime = 0;
@@ -899,17 +902,12 @@ export function ScrollScrubVideoSection({
       if (!video || !video.duration || video.duration <= 0) return;
       const diff = targetTime - renderTime;
       if (Math.abs(diff) > 0.0005) {
-        // Exponential decay lerp (0.12) creates smooth ramping down when scroll stops
-        renderTime += diff * 0.12;
+        renderTime += diff * 0.14;
 
-        // Prevent decoder stutter: only update currentTime when not actively seeking
         if (!video.seeking) {
           try {
-            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-              (video as any).fastSeek(renderTime);
-            } else {
-              video.currentTime = renderTime;
-            }
+            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
+            video.currentTime = clamped;
           } catch (e) {
             // ignore
           }
@@ -922,6 +920,21 @@ export function ScrollScrubVideoSection({
       if (trigger) trigger.kill();
 
       const duration = video.duration;
+
+      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
+      try {
+        const p = video.play();
+        if (p !== undefined) {
+          p.then(() => {
+            video.pause();
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          }).catch(() => {
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
 
       // Pin the section while scrubbing through video frames with 1.2s smooth momentum
       trigger = ScrollTrigger.create({
@@ -961,14 +974,24 @@ export function ScrollScrubVideoSection({
 
   return (
     <section id={id} ref={containerRef} className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 text-white">
+      {/* Background poster image so mobile browsers never show a black box */}
+      {posterUrl && (
+        <img
+          src={posterUrl}
+          alt="Preview"
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+        />
+      )}
       <video
         ref={videoRef}
         src={videoUrl}
         poster={posterUrl}
         muted
+        autoPlay
         playsInline
+        {...({ 'webkit-playsinline': 'true' } as any)}
         preload="auto"
-        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+        className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
       />
 
       {/* Dark wash overlay for readable typography */}
@@ -1075,6 +1098,9 @@ export function FinishSection({
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
 
+    video.muted = true;
+    video.playsInline = true;
+
     let trigger: ScrollTrigger | null = null;
     let targetTime = 0;
     let renderTime = 0;
@@ -1083,17 +1109,12 @@ export function FinishSection({
       if (!video || !video.duration || video.duration <= 0) return;
       const diff = targetTime - renderTime;
       if (Math.abs(diff) > 0.0005) {
-        // Exponential decay lerp (0.12) creates smooth ramping down when scroll stops
-        renderTime += diff * 0.12;
+        renderTime += diff * 0.14;
 
-        // Prevent decoder stutter: only update currentTime when not actively seeking
         if (!video.seeking) {
           try {
-            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-              (video as any).fastSeek(renderTime);
-            } else {
-              video.currentTime = renderTime;
-            }
+            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
+            video.currentTime = clamped;
           } catch (e) {
             // ignore
           }
@@ -1106,6 +1127,21 @@ export function FinishSection({
       if (trigger) trigger.kill();
 
       const duration = video.duration;
+
+      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
+      try {
+        const p = video.play();
+        if (p !== undefined) {
+          p.then(() => {
+            video.pause();
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          }).catch(() => {
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
 
       // Pin the section while scrubbing through video frames with 1.2s smooth momentum
       trigger = ScrollTrigger.create({
@@ -1144,6 +1180,7 @@ export function FinishSection({
   }, [videoUrl]);
 
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
+  const posterImg = settings?.finishMobileImageUrl || (settings?.finishImageUrl && !settings.finishImageUrl.includes('.mp4') ? settings.finishImageUrl : undefined);
 
   return (
     <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
@@ -1167,16 +1204,26 @@ export function FinishSection({
           <div
             ref={videoContainerRef}
             onClick={() => onStart('types')}
-            className="relative h-[85vh] md:h-[92vh] w-full overflow-hidden bg-zinc-950 cursor-pointer"
+            className="relative h-[85vh] md:h-[92vh] w-full overflow-hidden bg-zinc-900 cursor-pointer"
           >
+            {/* Background poster image so mobile browsers never show a black box */}
+            {posterImg && (
+              <img
+                src={posterImg}
+                alt="Preview"
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+              />
+            )}
             <video
               ref={videoRef}
               src={videoUrl}
-              poster={settings?.finishMobileImageUrl || (settings?.finishImageUrl && !settings.finishImageUrl.includes('.mp4') ? settings.finishImageUrl : undefined)}
+              poster={posterImg}
               muted
+              autoPlay
               playsInline
+              {...({ 'webkit-playsinline': 'true' } as any)}
               preload="auto"
-              className="h-full w-full object-cover pointer-events-none"
+              className="relative z-10 h-full w-full object-cover pointer-events-none"
             />
           </div>
         ) : (
