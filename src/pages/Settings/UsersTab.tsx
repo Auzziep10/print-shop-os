@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, auth, firebaseConfig } from '../../lib/firebase';
 import type { UserData, UserRole } from '../../contexts/AuthContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Trash2, Edit2, Shield, Loader2, Sparkles, ArrowUp, ArrowDown, ArrowUpDown, Search } from 'lucide-react';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { Plus, Trash2, Edit2, Shield, Loader2, Sparkles, ArrowUp, ArrowDown, ArrowUpDown, Search, Eye, EyeOff, Mail } from 'lucide-react';
 import { PillButton } from '../../components/ui/PillButton';
 
 interface CustomerOption {
@@ -31,6 +33,11 @@ export function UsersTab() {
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const ROLES: UserRole[] = ['Staff', 'Printer', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
 
@@ -76,6 +83,10 @@ export function UsersTab() {
     setCustomerId('');
     setPhone('');
     setCompanyName('');
+    setPassword('');
+    setShowPassword(false);
+    setFormError('');
+    setResetSent(false);
     setIsModalOpen(true);
   };
 
@@ -87,21 +98,76 @@ export function UsersTab() {
     setCustomerId(user.customerId || '');
     setPhone(user.phone || '');
     setCompanyName(user.companyName || '');
+    setPassword('');
+    setShowPassword(false);
+    setFormError('');
+    setResetSent(false);
     setIsModalOpen(true);
+  };
+
+  const handleSendResetEmail = async (targetEmail: string) => {
+    try {
+      await sendPasswordResetEmail(auth, targetEmail);
+      setResetSent(true);
+      setTimeout(() => setResetSent(false), 5000);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      alert(`Failed to send password reset email: ${err.message}`);
+    }
   };
 
   const handleSubmitUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
+    if (password.trim() && password.trim().length < 6) {
+      setFormError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError('');
+
     try {
+      let createdUid = editingUser?.uid || '';
+
+      // Create Firebase Auth credentials if a password is provided
+      if (password.trim()) {
+        const tempApp = initializeApp(firebaseConfig, `temp-auth-team-${Date.now()}`);
+        const tempAuth = getAuth(tempApp);
+        try {
+          const userCredential = await createUserWithEmailAndPassword(
+            tempAuth,
+            email.trim().toLowerCase(),
+            password.trim()
+          );
+          createdUid = userCredential.user.uid;
+        } catch (authErr: any) {
+          console.error("Auth creation error:", authErr);
+          if (authErr.code === 'auth/email-already-in-use') {
+            setFormError('An account with this email already exists in Firebase Auth. You can send a Password Reset email below.');
+            setIsSubmitting(false);
+            return;
+          } else {
+            setFormError(`Failed to set password: ${authErr.message}`);
+            setIsSubmitting(false);
+            return;
+          }
+        } finally {
+          await deleteApp(tempApp);
+        }
+      }
+
       const dbObj: any = {
-        email: email.toLowerCase(),
-        name,
+        email: email.toLowerCase().trim(),
+        name: name.trim(),
         role,
-        phone,
-        companyName,
+        phone: phone.trim(),
+        companyName: companyName.trim(),
       };
+      if (createdUid) {
+        dbObj.uid = createdUid;
+      }
       if (role === 'Client') dbObj.customerId = customerId;
       else dbObj.customerId = null;
 
@@ -118,8 +184,11 @@ export function UsersTab() {
       }
       
       setIsModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving user:', error);
+      setFormError(`Error saving user: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -199,50 +268,69 @@ export function UsersTab() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-brand-secondary">
-        <Loader2 className="animate-spin w-6 h-6" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="animate-spin text-brand-primary" size={24} />
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-brand-primary">Users & Permissions</h2>
-          <p className="text-sm text-brand-secondary mt-1">Manage team members and client access.</p>
+          <h2 className="text-xl font-bold text-brand-primary">Team Members &amp; Users</h2>
+          <p className="text-brand-secondary text-xs mt-0.5">Manage staff, managers, printers, clients, and role permissions.</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={15} />
-            <input
-              type="text"
-              placeholder="Search users, roles, or clients..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-brand-border rounded-xl text-xs font-medium focus:outline-none focus:border-brand-primary/40 transition-colors"
-            />
-          </div>
-          <PillButton variant="filled" className="gap-2 shrink-0" onClick={handleOpenCreate}>
-            <Plus size={16} />
-            Invite User
-          </PillButton>
-        </div>
+        <PillButton variant="filled" className="gap-2 self-start sm:self-auto" onClick={handleOpenCreate}>
+          <Plus size={16} />
+          Invite New User
+        </PillButton>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by name, email, role, or client profile..."
+          className="w-full pl-9 pr-4 py-2 border border-brand-border rounded-xl text-xs bg-brand-bg/50 focus:ring-1 focus:ring-brand-primary outline-none"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary hover:text-brand-primary text-xs font-semibold"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Pending Users Alert Banner */}
       {pendingUsers.length > 0 && (
-        <div className="mb-8 border border-yellow-200 bg-yellow-50 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-4 py-3 bg-yellow-100/50 border-b border-yellow-200 flex items-center gap-2">
-            <Sparkles className="text-yellow-600" size={16} />
-            <h3 className="text-sm font-bold text-yellow-800 tracking-wide uppercase">Requires Action ({pendingUsers.length})</h3>
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 space-y-3">
+          <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
+            <Sparkles size={16} />
+            <span>Pending Self-Registrations ({pendingUsers.length})</span>
           </div>
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <tbody>
+          <p className="text-amber-700/80 text-xs">
+            The following users signed up on the login screen and are waiting for an admin to assign their role.
+          </p>
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="border-b border-amber-500/20 text-amber-900/60 uppercase font-semibold">
+                <th className="py-2">User</th>
+                <th className="py-2">Email</th>
+                <th className="py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-500/10">
               {pendingUsers.map(user => (
-                <tr key={user.id} className="border-b border-yellow-200/50 hover:bg-yellow-100/30 last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-brand-primary">{user.name || 'Unnamed User'}</div>
-                    <div className="text-amber-700/70 text-xs">{user.email}</div>
+                <tr key={user.id}>
+                  <td className="py-2.5 font-medium text-amber-950">{user.name || 'Pending...'}</td>
+                  <td className="py-2.5 text-amber-900/80">
+                    {user.email}
                     {user.phone && user.phone !== '-' && (
                       <div className="text-amber-700/70 text-xs mt-0.5 font-medium">Phone: {user.phone}</div>
                     )}
@@ -365,28 +453,39 @@ export function UsersTab() {
       {/* Invite / Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-brand-primary mb-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-brand-primary mb-2">
               {editingUser ? 'Edit User' : 'Invite New User'}
             </h3>
+
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-medium">
+                {formError}
+              </div>
+            )}
+
             <form onSubmit={handleSubmitUser} className="space-y-4">
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Email</label>
                 <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="user@example.com" disabled={!!(editingUser && editingUser.uid)} />
                 {editingUser && editingUser.uid && <p className="text-[10px] text-brand-secondary mt-1">Logged-in user emails cannot be changed.</p>}
               </div>
+
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Name (Optional)</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="John Doe" />
               </div>
+
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Phone Number (Optional)</label>
                 <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="(555) 555-5555" />
               </div>
+
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Company Name (Optional)</label>
                 <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="Company Name" />
               </div>
+
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Role</label>
                 <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none">
@@ -408,11 +507,66 @@ export function UsersTab() {
                 </div>
               )}
 
+              {/* Password Input for non-customer staff/admin/users */}
+              <div>
+                <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">
+                  {editingUser && editingUser.uid ? 'Set New Password (Optional)' : 'Password (Optional)'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full px-3 py-2 pr-10 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none"
+                    placeholder={editingUser && editingUser.uid ? 'Enter new password to overwrite' : 'Create an initial login password'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary hover:text-brand-primary"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-brand-secondary mt-1">
+                  {editingUser && editingUser.uid
+                    ? 'Setting a new password allows this user to log in directly.'
+                    : 'If set, this creates an active login account for this team member immediately.'}
+                </p>
+              </div>
 
+              {/* Password Reset option for existing users */}
+              {editingUser && (
+                <div className="pt-2 border-t border-brand-border/60 flex items-center justify-between">
+                  <div className="text-xs text-brand-secondary">
+                    Send password reset link?
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSendResetEmail(editingUser.email)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-bg hover:bg-brand-border/40 text-brand-primary text-xs font-semibold rounded-lg transition-colors border border-brand-border"
+                  >
+                    <Mail size={13} />
+                    Send Reset Email
+                  </button>
+                </div>
+              )}
+
+              {resetSent && (
+                <div className="p-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg font-medium">
+                  ✓ Password reset email sent successfully!
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 mt-6">
-                <PillButton variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancel</PillButton>
-                <PillButton variant="filled" type="submit">{editingUser ? 'Save Changes' : 'Invite'}</PillButton>
+                <PillButton variant="outline" type="button" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" type="submit" disabled={isSubmitting} className="gap-2">
+                  {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+                  {editingUser ? 'Save Changes' : 'Invite User'}
+                </PillButton>
               </div>
             </form>
           </div>
