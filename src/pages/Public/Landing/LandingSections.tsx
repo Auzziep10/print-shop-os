@@ -901,16 +901,24 @@ export function ScrollScrubVideoSection({
     const onTick = () => {
       if (!video || !video.duration || video.duration <= 0) return;
       const diff = targetTime - renderTime;
-      if (Math.abs(diff) > 0.0005) {
-        renderTime += diff * 0.14;
+      const absDiff = Math.abs(diff);
 
-        if (!video.seeking) {
-          try {
-            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-            video.currentTime = clamped;
-          } catch (e) {
-            // ignore
-          }
+      if (absDiff < 0.008) {
+        // Snap to target frame near rest to eliminate tail-end sub-frame micro-stutters
+        renderTime = targetTime;
+      } else {
+        // Smooth adaptive easing: responsive during scroll, gentle cubic deceleration on rampdown
+        const factor = Math.min(0.25, Math.max(0.12, absDiff * 0.4));
+        renderTime += diff * factor;
+      }
+
+      // Quantize seek requests to 60 FPS frame steps (>= 15ms) to prevent video decoder thrashing
+      const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
+      if (!video.seeking && (Math.abs(clamped - video.currentTime) >= 0.015 || renderTime === targetTime)) {
+        try {
+          video.currentTime = clamped;
+        } catch (e) {
+          // ignore
         }
       }
     };
