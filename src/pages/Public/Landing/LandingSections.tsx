@@ -1047,8 +1047,6 @@ export function FinishSection({
   onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const videoUrl =
     settings?.finishVideoUrl?.trim() ||
@@ -1060,6 +1058,7 @@ export function FinishSection({
       : '');
 
   useLayoutEffect(() => {
+    if (videoUrl) return;
     const ctx = gsap.context(() => {
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (reduce) return;
@@ -1070,117 +1069,45 @@ export function FinishSection({
         ease: 'power3.out',
         scrollTrigger: { trigger: sectionRef.current, start: 'top 75%' },
       });
-      if (!videoUrl) {
-        gsap.fromTo(
-          '.finish-photo img',
-          { scale: 1.12 },
-          {
-            scale: 1,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: '.finish-photo',
-              start: 'top bottom',
-              end: 'bottom top',
-              scrub: true,
-            },
-          }
-        );
-      }
+      gsap.fromTo(
+        '.finish-photo img',
+        { scale: 1.12 },
+        {
+          scale: 1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: '.finish-photo',
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: true,
+          },
+        }
+      );
     }, sectionRef);
     return () => ctx.revert();
   }, [videoUrl]);
 
-  useLayoutEffect(() => {
-    const video = videoRef.current;
-    const container = videoContainerRef.current;
-    if (!video || !container || !videoUrl) return;
-
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
-
-    video.muted = true;
-    video.playsInline = true;
-
-    let trigger: ScrollTrigger | null = null;
-    let targetTime = 0;
-    let renderTime = 0;
-
-    const onTick = () => {
-      if (!video || !video.duration || video.duration <= 0) return;
-      const diff = targetTime - renderTime;
-      if (Math.abs(diff) > 0.0005) {
-        renderTime += diff * 0.14;
-
-        if (!video.seeking) {
-          try {
-            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-            video.currentTime = clamped;
-          } catch (e) {
-            // ignore
-          }
+  if (videoUrl && settings?.finishVideoScrub !== false) {
+    return (
+      <ScrollScrubVideoSection
+        id="finish"
+        videoUrl={videoUrl}
+        posterUrl={settings?.finishMobileImageUrl || settings?.finishImageUrl}
+        label={settings?.finishLabel || '( One logo )'}
+        title={renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
+        body={
+          settings?.finishBody !== ''
+            ? settings?.finishBody ||
+              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'
+            : undefined
         }
-      }
-    };
-
-    const setupScrub = () => {
-      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
-      if (trigger) trigger.kill();
-
-      const duration = video.duration;
-
-      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
-      try {
-        const p = video.play();
-        if (p !== undefined) {
-          p.then(() => {
-            video.pause();
-            if (video.currentTime === 0) video.currentTime = 0.001;
-          }).catch(() => {
-            if (video.currentTime === 0) video.currentTime = 0.001;
-          });
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      // Pin the section while scrubbing through video frames with 1.2s smooth momentum
-      trigger = ScrollTrigger.create({
-        trigger: container,
-        start: 'top top',
-        end: '+=250%',
-        pin: true,
-        scrub: 1.2, // Ramps scroll momentum naturally
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          if (duration > 0) {
-            targetTime = self.progress * duration;
-          }
-        },
-      });
-
-      gsap.ticker.add(onTick);
-    };
-
-    if (video.readyState >= 1) {
-      setupScrub();
-    } else {
-      const handleMetadata = () => {
-        setupScrub();
-        ScrollTrigger.refresh();
-      };
-      video.addEventListener('loadedmetadata', handleMetadata);
-      return () => video.removeEventListener('loadedmetadata', handleMetadata);
-    }
-
-    return () => {
-      gsap.ticker.remove(onTick);
-      if (trigger) trigger.kill();
-    };
-  }, [videoUrl]);
+        buttonText="Explore Finishes"
+        onButtonClick={() => onStart('types')}
+      />
+    );
+  }
 
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
-  const posterImg = settings?.finishMobileImageUrl || (settings?.finishImageUrl && !settings.finishImageUrl.includes('.mp4') ? settings.finishImageUrl : undefined);
 
   return (
     <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
@@ -1199,48 +1126,18 @@ export function FinishSection({
         )}
       </div>
 
-      <div className="mt-12 md:mt-16 -mx-6 md:-mx-12">
-        {videoUrl && settings?.finishVideoScrub !== false ? (
-          <div
-            ref={videoContainerRef}
-            onClick={() => onStart('types')}
-            className="relative h-[85vh] md:h-[92vh] w-full overflow-hidden bg-zinc-900 cursor-pointer"
-          >
-            {/* Background poster image so mobile browsers never show a black box */}
-            {posterImg && (
-              <img
-                src={posterImg}
-                alt="Preview"
-                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-              />
-            )}
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              poster={posterImg}
-              muted
-              autoPlay
-              playsInline
-              {...({ 'webkit-playsinline': 'true' } as any)}
-              preload="auto"
-              className="relative z-10 h-full w-full object-cover pointer-events-none"
-            />
-          </div>
-        ) : (
-          <button
-            data-cursor
-            onClick={() => onStart('types')}
-            className="finish-photo relative block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:h-[88svh] md:w-[calc(100%_+_6rem)]"
-          >
-            <SectionImage
-              src={img}
-              mobileSrc={settings?.finishMobileImageUrl}
-              alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
-              className="h-full w-full object-cover will-change-transform"
-            />
-          </button>
-        )}
-      </div>
+      <button
+        data-cursor
+        onClick={() => onStart('types')}
+        className="finish-photo relative -mx-6 mt-12 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:mt-16 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
+      >
+        <SectionImage
+          src={img}
+          mobileSrc={settings?.finishMobileImageUrl}
+          alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
+          className="h-full w-full object-cover will-change-transform"
+        />
+      </button>
     </section>
   );
 }
