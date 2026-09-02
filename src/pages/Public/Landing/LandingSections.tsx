@@ -1047,6 +1047,8 @@ export function FinishSection({
   onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
+  const videoSectionRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const videoUrl =
     settings?.finishVideoUrl?.trim() ||
@@ -1058,7 +1060,6 @@ export function FinishSection({
       : '');
 
   useLayoutEffect(() => {
-    if (videoUrl) return;
     const ctx = gsap.context(() => {
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (reduce) return;
@@ -1069,76 +1070,185 @@ export function FinishSection({
         ease: 'power3.out',
         scrollTrigger: { trigger: sectionRef.current, start: 'top 75%' },
       });
-      gsap.fromTo(
-        '.finish-photo img',
-        { scale: 1.12 },
-        {
-          scale: 1,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: '.finish-photo',
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: true,
-          },
-        }
-      );
+      if (!videoUrl) {
+        gsap.fromTo(
+          '.finish-photo img',
+          { scale: 1.12 },
+          {
+            scale: 1,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: '.finish-photo',
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: true,
+            },
+          }
+        );
+      }
     }, sectionRef);
     return () => ctx.revert();
   }, [videoUrl]);
 
-  if (videoUrl && settings?.finishVideoScrub !== false) {
-    return (
-      <ScrollScrubVideoSection
-        id="finish"
-        videoUrl={videoUrl}
-        posterUrl={settings?.finishMobileImageUrl || settings?.finishImageUrl}
-        label={settings?.finishLabel || '( One logo )'}
-        title={renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
-        body={
-          settings?.finishBody !== ''
-            ? settings?.finishBody ||
-              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'
-            : undefined
+  useLayoutEffect(() => {
+    const video = videoRef.current;
+    const container = videoSectionRef.current;
+    if (!video || !container || !videoUrl) return;
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    video.muted = true;
+    video.playsInline = true;
+
+    let trigger: ScrollTrigger | null = null;
+    let targetTime = 0;
+    let renderTime = 0;
+
+    const onTick = () => {
+      if (!video || !video.duration || video.duration <= 0) return;
+      const diff = targetTime - renderTime;
+      if (Math.abs(diff) > 0.0005) {
+        renderTime += diff * 0.14;
+
+        if (!video.seeking) {
+          try {
+            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
+            video.currentTime = clamped;
+          } catch (e) {
+            // ignore
+          }
         }
-        buttonText="Explore Finishes"
-        onButtonClick={() => onStart('types')}
-      />
-    );
-  }
+      }
+    };
+
+    const setupScrub = () => {
+      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
+      if (trigger) trigger.kill();
+
+      const duration = video.duration;
+
+      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
+      try {
+        const p = video.play();
+        if (p !== undefined) {
+          p.then(() => {
+            video.pause();
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          }).catch(() => {
+            if (video.currentTime === 0) video.currentTime = 0.001;
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Pin the video section when it reaches top top
+      trigger = ScrollTrigger.create({
+        trigger: container,
+        start: 'top top',
+        end: '+=250%',
+        pin: true,
+        scrub: 1.2,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+        onUpdate: (self) => {
+          if (duration > 0) {
+            targetTime = self.progress * duration;
+          }
+        },
+      });
+
+      gsap.ticker.add(onTick);
+    };
+
+    if (video.readyState >= 1) {
+      setupScrub();
+    } else {
+      const handleMetadata = () => {
+        setupScrub();
+        ScrollTrigger.refresh();
+      };
+      video.addEventListener('loadedmetadata', handleMetadata);
+      return () => video.removeEventListener('loadedmetadata', handleMetadata);
+    }
+
+    return () => {
+      gsap.ticker.remove(onTick);
+      if (trigger) trigger.kill();
+    };
+  }, [videoUrl]);
 
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
+  const posterImg =
+    settings?.finishMobileImageUrl ||
+    (settings?.finishImageUrl && !settings.finishImageUrl.includes('.mp4')
+      ? settings.finishImageUrl
+      : undefined);
 
   return (
-    <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 md:px-12 md:pt-20">
-      <div className="finish-copy mx-auto w-fit max-w-[50rem] text-left">
-        <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-          {settings?.finishLabel || '( One logo )'}
-        </p>
-        <h2 className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
-          {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
-        </h2>
-        {settings?.finishBody !== '' && (
-          <p className="font-inter mt-4 max-w-xl text-xs font-light leading-relaxed text-zinc-500">
-            {settings?.finishBody ||
-              'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'}
+    <>
+      {/* Top White Section with Words */}
+      <section id="finish" ref={sectionRef} className="bg-white px-6 pt-14 pb-10 md:px-12 md:pt-20 md:pb-14">
+        <div className="finish-copy mx-auto w-fit max-w-[50rem] text-left">
+          <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+            {settings?.finishLabel || '( One logo )'}
           </p>
-        )}
-      </div>
+          <h2 className="font-serif text-[clamp(1.3rem,2.8vw,2.6rem)] leading-[1.25] tracking-tight text-zinc-950">
+            {renderAccentTitle(settings?.finishTitle || 'One logo — *every finish*')}
+          </h2>
+          {settings?.finishBody !== '' && (
+            <p className="font-inter mt-4 max-w-xl text-xs font-light leading-relaxed text-zinc-500">
+              {settings?.finishBody ||
+                'Upload your logo once. We match it across print, puff and stitch so every piece on the rack looks like family.'}
+            </p>
+          )}
+        </div>
+      </section>
 
-      <button
-        data-cursor
-        onClick={() => onStart('types')}
-        className="finish-photo relative -mx-6 mt-12 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:mt-16 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
-      >
-        <SectionImage
-          src={img}
-          mobileSrc={settings?.finishMobileImageUrl}
-          alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
-          className="h-full w-full object-cover will-change-transform"
-        />
-      </button>
-    </section>
+      {/* Media Section: Scroll-Scrubbed Video or Static Photo */}
+      {videoUrl && settings?.finishVideoScrub !== false ? (
+        <div
+          ref={videoSectionRef}
+          onClick={() => onStart('types')}
+          className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 cursor-pointer"
+        >
+          {posterImg && (
+            <img
+              src={posterImg}
+              alt="Preview"
+              className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+            />
+          )}
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            poster={posterImg}
+            muted
+            autoPlay
+            playsInline
+            {...({ 'webkit-playsinline': 'true' } as any)}
+            preload="auto"
+            className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
+          />
+        </div>
+      ) : (
+        <section className="bg-white px-6 pb-14 md:px-12 md:pb-20">
+          <button
+            data-cursor
+            onClick={() => onStart('types')}
+            className="finish-photo relative -mx-6 block h-[70svh] w-[calc(100%_+_3rem)] cursor-pointer overflow-hidden md:-mx-12 md:h-[88svh] md:w-[calc(100%_+_6rem)]"
+          >
+            <SectionImage
+              src={img}
+              mobileSrc={settings?.finishMobileImageUrl}
+              alt={settings?.finishTitle?.replace(/\*/g, '') || 'One logo — every finish'}
+              className="h-full w-full object-cover will-change-transform"
+            />
+          </button>
+        </section>
+      )}
+    </>
   );
 }
 
