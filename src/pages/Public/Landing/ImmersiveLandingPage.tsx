@@ -783,6 +783,14 @@ export function ImmersiveLandingPage() {
                           </button>
                         </div>
                       )}
+                      <div className="mt-2 p-2.5 bg-amber-100/70 border border-amber-300/80 rounded-lg text-[10px] text-amber-950 space-y-1">
+                        <span className="font-bold block text-amber-900 flex items-center gap-1">
+                          ⚡ Pro-Tip for 60 FPS Smooth Scrubbing:
+                        </span>
+                        <p className="leading-normal">
+                          For butter-smooth scrolling without lag, use a <strong>1080p MP4 (H.264)</strong> under 15MB encoded with <strong>Keyframe Every Frame (GOP = 1 / Keyframe Interval = 1)</strong>. This allows instantaneous 0ms frame seeking!
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -976,6 +984,14 @@ export function ImmersiveLandingPage() {
                           </button>
                         </div>
                       )}
+                      <div className="mt-2 p-2.5 bg-amber-100/70 border border-amber-300/80 rounded-lg text-[10px] text-amber-950 space-y-1">
+                        <span className="font-bold block text-amber-900 flex items-center gap-1">
+                          ⚡ Pro-Tip for 60 FPS Smooth Scrubbing:
+                        </span>
+                        <p className="leading-normal">
+                          For butter-smooth scrolling without lag, use a <strong>1080p MP4 (H.264)</strong> under 15MB encoded with <strong>Keyframe Every Frame (GOP = 1 / Keyframe Interval = 1)</strong>. This allows instantaneous 0ms frame seeking!
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
