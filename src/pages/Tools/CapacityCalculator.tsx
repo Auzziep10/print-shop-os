@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Plus, Trash2, Printer, Users, Timer, Wrench, BarChart3, Calculator } from 'lucide-react';
 
 interface CrewMember {
