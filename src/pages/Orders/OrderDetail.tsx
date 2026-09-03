@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
@@ -21,12 +21,47 @@ import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomize
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
-import { GARMENT_TYPES, detectGarmentTypeTag } from '../../lib/garmentUtils';
+import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric } from '../../lib/garmentUtils';
+import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
 import { validateDiscountCode } from '../../lib/discountUtils';
 const sanmarCatalog = sanmarCatalogJson as any[];
+
+const cleanGarmentTitle = (title: string, styleId?: string): string => {
+  if (!title) return 'Custom Garment';
+
+  let cleaned = title
+    .replace(/®/g, '')
+    .replace(/™/g, '')
+    .replace(/\b(BELLA\+CANVAS|BELLA \+ CANVAS|District|Sport-Tek|Stanley\/Stella|Port & Company|Port and Company|Anvil|Gildan|Next Level|CornerStone|Mercer|Ogio|Jerzees|Hanes|Fruit of the Loom|Carhartt|Nike|Adidas|Champion|Comfort Colors|Rabbit Skins|LAT|Alternative)\b/gi, '')
+    .trim();
+
+  cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').trim();
+
+  if (styleId) {
+    const escapedStyle = styleId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const styleRegex = new RegExp(`[\\.\\s\\-–—•]*${escapedStyle}[\\s\\.]*`, 'gi');
+    cleaned = cleaned.replace(styleRegex, '').trim();
+  }
+
+  cleaned = cleaned.replace(/[\.\s\-–—•]*\b[A-Z0-9]{3,10}\b[\.\s]*$/gi, '').trim();
+  cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').replace(/[\s\-\.–—•:]+$/, '').trim();
+
+  return cleaned || title;
+};
+
+const DEFAULT_RACKS: Record<string, Record<string, string>> = {
+  Athleisure: { hat: 'STC70', shirt: 'BC3001', polo: 'ST640', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: 'BC3501' },
+  Casual: { hat: '112', shirt: '64000', polo: '64800', crewneck: 'SF000', hoodie: '18500', longsleeve: '6014' },
+  Formal: { hat: 'C402', shirt: 'BC3001', polo: 'K500', crewneck: 'DT1304', hoodie: '996M', longsleeve: 'BC3501' },
+  Active: { hat: 'STC70', shirt: 'BC3001', polo: 'ST550', crewneck: 'S6000', hoodie: 'DT6100', longsleeve: '29LS' },
+  Business: { hat: 'C402', shirt: 'K810', polo: 'K810', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: '6014' },
+  'Work Wear': { hat: '212', shirt: '5000', polo: 'K420', crewneck: '562M', hoodie: '18500', longsleeve: '6014' },
+  Outdoor: { hat: '112', shirt: 'BC3001', polo: 'K110', crewneck: '1566', hoodie: 'DT6100', longsleeve: '6014' },
+  Team: { hat: '112', shirt: '64000', polo: 'ST665', crewneck: 'S6000', hoodie: '996M', longsleeve: '29LS' }
+};
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -1590,9 +1625,314 @@ export function OrderDetail() {
   const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(false);
-  const [deckModalTab, setDeckModalTab] = useState<'types' | 'decks'>('types');
+  const [deckModalTab, setDeckModalTab] = useState<'storefront' | 'catalog' | 'decks'>('storefront');
   const [deckModalSearch, setDeckModalSearch] = useState<string>('');
   const [deckModalGarmentType, setDeckModalGarmentType] = useState<string>('all');
+  const [storefrontCatalogSettings, setStorefrontCatalogSettings] = useState<any>({});
+  const [isLoadingStorefrontCatalog, setIsLoadingStorefrontCatalog] = useState(false);
+  const [selectedCardColors, setSelectedCardColors] = useState<Record<string, string>>({});
+  const [recentlyAddedStyle, setRecentlyAddedStyle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDeckModalOpen) return;
+    setIsLoadingStorefrontCatalog(true);
+    const catRef = doc(db, 'settings', 'storefront-catalog');
+    const unsub = onSnapshot(catRef, (snap) => {
+      if (snap.exists()) {
+        setStorefrontCatalogSettings(snap.data());
+      }
+      setIsLoadingStorefrontCatalog(false);
+    }, (err) => {
+      console.error("Error subscribing to storefront catalog:", err);
+      setIsLoadingStorefrontCatalog(false);
+    });
+    return () => unsub();
+  }, [isDeckModalOpen]);
+
+  const storefrontCuratedProducts = useMemo(() => {
+    const racks = storefrontCatalogSettings?.racks || DEFAULT_RACKS;
+    const basics = storefrontCatalogSettings?.basics || {};
+    const customCatalogItems = storefrontCatalogSettings?.customCatalogItems || [];
+    const customNames = storefrontCatalogSettings?.customNames || { racks: {}, basics: {} };
+    const customPrices = storefrontCatalogSettings?.customPrices || { racks: {}, basics: {} };
+    const customSpecs = storefrontCatalogSettings?.customSpecs || { racks: {}, basics: {} };
+    const defaultColors = storefrontCatalogSettings?.defaultColors || {};
+    const customMockups = storefrontCatalogSettings?.customMockups || {};
+    const colorMockups = storefrontCatalogSettings?.colorMockups || {};
+    const allowedColors = storefrontCatalogSettings?.allowedColors || {};
+    const hiddenCollections = storefrontCatalogSettings?.hiddenCollections || {};
+
+    const stylesSet = new Set<string>();
+    if (racks) {
+      Object.keys(racks).forEach(cat => {
+        if (!hiddenCollections[cat]) {
+          const rackObj = racks[cat];
+          if (rackObj && typeof rackObj === 'object') {
+            Object.values(rackObj).forEach(val => {
+              if (val && typeof val === 'string' && val.trim()) {
+                stylesSet.add(val.trim().toLowerCase());
+              }
+            });
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(customCatalogItems)) {
+      customCatalogItems.forEach((item: any) => {
+        if (item?.style) stylesSet.add(item.style.trim().toLowerCase());
+      });
+    }
+
+    if (basics) {
+      Object.values(basics).forEach((tierObj: any) => {
+        if (tierObj && typeof tierObj === 'object') {
+          Object.values(tierObj).forEach((style: any) => {
+            if (typeof style === 'string' && style.trim()) {
+              stylesSet.add(style.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+
+    const catalogMap = new Map<string, any>();
+    sanmarCatalog.forEach((p: any) => catalogMap.set(p.style.toLowerCase(), p));
+    if (Array.isArray(customCatalogItems)) {
+      customCatalogItems.forEach((p: any) => catalogMap.set(p.style.toLowerCase(), p));
+    }
+
+    return Array.from(stylesSet).map(styleId => {
+      const prod = catalogMap.get(styleId.toLowerCase());
+      if (!prod) return null;
+
+      let customTitle = prod.customName || '';
+      let customImage = '';
+      let customPrice = prod.price;
+      let customSpec = prod.customSpecs || null;
+      let resolvedDefaultColor = prod.defaultColor || '';
+
+      // 1. Search in racks
+      if (racks) {
+        for (const cat of Object.keys(racks)) {
+          const catObj = racks[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleId.toLowerCase()) {
+                if (!customTitle && customNames.racks?.[cat]?.[sKey]) {
+                  customTitle = customNames.racks[cat][sKey];
+                }
+                if (!customImage && customMockups?.racks?.[cat]?.[sKey]) {
+                  customImage = customMockups.racks[cat][sKey];
+                }
+                if (customPrices.racks?.[cat]?.[sKey] !== undefined && customPrices.racks[cat][sKey] !== null) {
+                  customPrice = customPrices.racks[cat][sKey];
+                }
+                if (!customSpec && customSpecs?.racks?.[cat]?.[sKey]) {
+                  customSpec = customSpecs.racks[cat][sKey];
+                }
+                if (!resolvedDefaultColor && defaultColors?.racks?.[cat]?.[sKey]) {
+                  resolvedDefaultColor = defaultColors.racks[cat][sKey];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Search in basics
+      if (basics && customNames.basics) {
+        for (const bCat of Object.keys(customNames.basics)) {
+          const slots = customNames.basics[bCat];
+          const styles = basics[bCat];
+          if (slots && styles) {
+            for (const tierKey of Object.keys(slots)) {
+              if (styles[tierKey]?.toLowerCase() === styleId.toLowerCase()) {
+                if (!customTitle && slots[tierKey]?.trim()) {
+                  customTitle = slots[tierKey].trim();
+                }
+                if (!customImage && customMockups?.basics?.[bCat]?.[tierKey]) {
+                  customImage = customMockups.basics[bCat][tierKey];
+                }
+                if (customPrices.basics?.[bCat]?.[tierKey] !== undefined && customPrices.basics[bCat][tierKey] !== null) {
+                  customPrice = customPrices.basics[bCat][tierKey];
+                }
+                if (!customSpec && customSpecs?.basics?.[bCat]?.[tierKey]) {
+                  customSpec = customSpecs.basics[bCat][tierKey];
+                }
+                if (!resolvedDefaultColor && defaultColors?.basics?.[bCat]?.[tierKey]) {
+                  resolvedDefaultColor = defaultColors.basics[bCat][tierKey];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Search by style
+      if (!resolvedDefaultColor && defaultColors?.byStyle) {
+        const matchKey = Object.keys(defaultColors.byStyle).find(k => k.toLowerCase().trim() === styleId.toLowerCase());
+        if (matchKey && defaultColors.byStyle[matchKey]) {
+          resolvedDefaultColor = defaultColors.byStyle[matchKey];
+        }
+      }
+
+      const filteredColors = getFilteredProductColors(prod, allowedColors);
+      const finalDefaultColor = resolvedDefaultColor || prod.defaultColor || filteredColors[0] || prod.colors?.[0] || 'Black';
+      
+      let imgUrl = customImage || prod.image || prod.mockup_image || '';
+      if (!imgUrl && colorMockups) {
+        const candidateKeys = [prod.style, prod.itemNum].filter(Boolean).map(s => String(s).toLowerCase().trim());
+        for (const cand of candidateKeys) {
+          if (colorMockups[cand]?.[finalDefaultColor]) {
+            imgUrl = colorMockups[cand][finalDefaultColor];
+            break;
+          }
+        }
+      }
+      if (!imgUrl && prod.images) {
+        const colorSet = prod.images[finalDefaultColor] || (Object.values(prod.images)[0] as any);
+        if (typeof colorSet === 'string') imgUrl = colorSet;
+        else if (colorSet?.front) imgUrl = colorSet.front;
+      }
+      if (!imgUrl) {
+        imgUrl = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+      }
+
+      const weightAndFabric = getGarmentWeightAndFabric(prod);
+
+      return {
+        ...prod,
+        title: customTitle || cleanGarmentTitle(prod.title || '', prod.style) || prod.style,
+        style: prod.style,
+        itemNum: prod.style,
+        brand: prod.brand || '',
+        price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : (prod.price || 0),
+        colors: filteredColors.length > 0 ? filteredColors : (prod.colors || ['White', 'Black']),
+        defaultColor: finalDefaultColor,
+        image: imgUrl,
+        weight: weightAndFabric.weight || prod.weight || '',
+        fabric: weightAndFabric.fabric || prod.fabric || '',
+        description: prod.description || weightAndFabric.formatted || '',
+        isStorefront: true
+      };
+    }).filter(Boolean) as any[];
+  }, [storefrontCatalogSettings]);
+
+  const allBlanksList = useMemo(() => {
+    const customCatalogItems = storefrontCatalogSettings?.customCatalogItems || [];
+    const map = new Map<string, any>();
+    sanmarCatalog.forEach((p: any) => map.set(p.style.toLowerCase(), p));
+    if (Array.isArray(customCatalogItems)) {
+      customCatalogItems.forEach((p: any) => map.set(p.style.toLowerCase(), p));
+    }
+    return Array.from(map.values());
+  }, [storefrontCatalogSettings?.customCatalogItems]);
+
+  const handleAddGarmentDirectlyToQuote = async (item: any, chosenColor?: string) => {
+    if (!id || !order) return;
+    try {
+      const activeColor = chosenColor || selectedCardColors[item.style] || item.defaultColor || (item.colors && item.colors[0]) || 'White';
+      const numericPrice = parseFloat(item.price || item.msrp || 0) || 0;
+      
+      let imgUrl = item.image;
+      if (item.images && item.images[activeColor]) {
+        const cImg = item.images[activeColor];
+        imgUrl = typeof cImg === 'string' ? cImg : (cImg?.front || imgUrl);
+      } else if (storefrontCatalogSettings?.colorMockups?.[item.style?.toLowerCase()]?.[activeColor]) {
+        imgUrl = storefrontCatalogSettings.colorMockups[item.style.toLowerCase()][activeColor];
+      }
+
+      const styleTitle = item.customName || item.title || item.style || 'Custom Garment';
+      const itemNum = item.style || item.id || '';
+
+      const newItem = {
+        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        itemType: 'garment',
+        gender: item.gender || 'Unisex',
+        style: styleTitle,
+        itemNum: itemNum,
+        color: activeColor,
+        colors: item.colors || [activeColor],
+        sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
+        price: numericPrice > 0 ? numericPrice.toFixed(2) : '0.00',
+        blankCost: numericPrice > 0 ? numericPrice : 0,
+        qty: 0,
+        total: '$0.00',
+        image: imgUrl,
+        materialDetails: item.description || item.fabric || '',
+        materialFinish: item.finish || '',
+        fit: item.fit || '',
+        weight: item.weight || '',
+        careInstructions: item.careInstructions || '',
+        decoratingMethods: item.decoratingMethods || [],
+        costPrice: numericPrice,
+        wholesalePrice: numericPrice
+      };
+
+      const existingItems = order.items || [];
+      const updatedItems = [...existingItems, newItem];
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Added ${styleTitle} to quote`,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), { 
+        items: updatedItems,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+
+      setRecentlyAddedStyle(itemNum);
+      setTimeout(() => setRecentlyAddedStyle(null), 2200);
+    } catch (err) {
+      console.error("Error adding garment directly to quote:", err);
+    }
+  };
+
+  const handleSelectGarmentForSpecs = (item: any, chosenColor?: string) => {
+    const activeColor = chosenColor || selectedCardColors[item.style] || item.defaultColor || (item.colors && item.colors[0]) || 'White';
+    const numericPrice = parseFloat(item.price || item.msrp || 0) || 0;
+    
+    let imgUrl = item.image;
+    if (item.images && item.images[activeColor]) {
+      const cImg = item.images[activeColor];
+      imgUrl = typeof cImg === 'string' ? cImg : (cImg?.front || imgUrl);
+    } else if (storefrontCatalogSettings?.colorMockups?.[item.style?.toLowerCase()]?.[activeColor]) {
+      imgUrl = storefrontCatalogSettings.colorMockups[item.style.toLowerCase()][activeColor];
+    }
+
+    const styleTitle = item.customName || item.title || item.style || 'Custom Garment';
+    const itemNum = item.style || item.id || '';
+
+    setIsDeckModalOpen(false);
+    setEditItemObj((prev: any) => ({
+      ...(prev || {}),
+      id: prev?.id || `item-${Date.now()}`,
+      itemType: 'garment',
+      gender: item.gender || prev?.gender || 'Unisex',
+      style: styleTitle,
+      itemNum: itemNum,
+      color: activeColor,
+      colors: item.colors || [activeColor],
+      sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
+      price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice > 0 ? numericPrice.toFixed(2) : '0.00'),
+      blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
+      total: prev?.total || '$0.00',
+      image: imgUrl,
+      materialDetails: item.description || item.fabric || item.materialDetails || prev?.materialDetails || '',
+      materialFinish: item.finish || prev?.materialFinish || '',
+      fit: item.fit || prev?.fit || '',
+      weight: item.weight || prev?.weight || '',
+      careInstructions: item.careInstructions || prev?.careInstructions || '',
+      decoratingMethods: item.decoratingMethods || prev?.decoratingMethods || [],
+      costPrice: numericPrice,
+      wholesalePrice: numericPrice
+    }));
+  };
 
   const handleFetchDecks = async () => {
     if (!liveCustomer?.catalogLinkIds || liveCustomer.catalogLinkIds.length === 0) {
@@ -8153,14 +8493,25 @@ export function OrderDetail() {
                 <div className="flex bg-neutral-100 p-1 rounded-xl shrink-0">
                   <button
                     type="button"
-                    onClick={() => setDeckModalTab('types')}
+                    onClick={() => setDeckModalTab('storefront')}
                     className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
-                      deckModalTab === 'types' 
+                      deckModalTab === 'storefront' 
                         ? 'bg-white shadow-sm text-brand-primary' 
                         : 'text-brand-secondary hover:text-brand-primary'
                     }`}
                   >
-                    Garment Types
+                    Storefront Garment Types ({storefrontCuratedProducts.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeckModalTab('catalog')}
+                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                      deckModalTab === 'catalog' 
+                        ? 'bg-white shadow-sm text-brand-primary' 
+                        : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    All Blanks Catalog
                   </button>
                   {customerDecks.length > 0 && (
                     <button
@@ -8183,7 +8534,7 @@ export function OrderDetail() {
                     type="text"
                     value={deckModalSearch}
                     onChange={(e) => setDeckModalSearch(e.target.value)}
-                    placeholder="Search styles, item #, brands (e.g. District, Bella, Gildan)..."
+                    placeholder={deckModalTab === 'storefront' ? 'Search storefront styles, names, brands...' : 'Search styles, item #, brands (e.g. District, Bella)...'}
                     className="w-full bg-neutral-50 border border-brand-border rounded-xl pl-9 pr-8 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary focus:bg-white transition-all outline-none"
                   />
                   {deckModalSearch && (
@@ -8197,132 +8548,271 @@ export function OrderDetail() {
                 </div>
               </div>
 
-              {/* Garment Type Pills (when Garment Types tab active) */}
-              {deckModalTab === 'types' && (
+              {/* Garment Type Pills */}
+              {(deckModalTab === 'storefront' || deckModalTab === 'catalog') && (
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs font-medium border-t border-neutral-100 pt-3">
                   <button
                     type="button"
                     onClick={() => setDeckModalGarmentType('all')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                       deckModalGarmentType === 'all'
                         ? 'bg-brand-primary text-white'
                         : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
                     }`}
                   >
-                    All Types
+                    <span>All Types</span>
+                    {deckModalTab === 'storefront' && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        deckModalGarmentType === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                      }`}>
+                        {storefrontCuratedProducts.length}
+                      </span>
+                    )}
                   </button>
-                  {GARMENT_TYPES.map((gt) => (
-                    <button
-                      key={gt.id}
-                      type="button"
-                      onClick={() => setDeckModalGarmentType(gt.id)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                        deckModalGarmentType === gt.id
-                          ? 'bg-brand-primary text-white'
-                          : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                      }`}
-                    >
-                      {gt.label}
-                    </button>
-                  ))}
+                  {GARMENT_TYPES.map((gt) => {
+                    const count = (deckModalTab === 'storefront')
+                      ? storefrontCuratedProducts.filter((p: any) => detectGarmentTypeTag(p, storefrontCatalogSettings?.garmentTypeTags) === gt.id).length
+                      : 0;
+                    return (
+                      <button
+                        key={gt.id}
+                        type="button"
+                        onClick={() => setDeckModalGarmentType(gt.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                          deckModalGarmentType === gt.id
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                        }`}
+                      >
+                        <span>{gt.label}</span>
+                        {deckModalTab === 'storefront' && count > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                            deckModalGarmentType === gt.id ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar bg-neutral-50 min-h-[400px]">
-              {deckModalTab === 'types' ? (() => {
+              {deckModalTab === 'storefront' || deckModalTab === 'catalog' ? (() => {
                 const searchLower = deckModalSearch.trim().toLowerCase();
-                const filteredCatalog = sanmarCatalog.filter((item: any) => {
-                  if (deckModalGarmentType !== 'all') {
-                    const tag = detectGarmentTypeTag(item);
-                    if (tag !== deckModalGarmentType) return false;
-                  }
-                  if (searchLower) {
-                    const haystack = `${item.title || ''} ${item.style || ''} ${item.brand || ''} ${item.category || ''} ${item.description || ''}`.toLowerCase();
-                    if (!haystack.includes(searchLower)) return false;
-                  }
-                  return true;
-                });
+                const isStorefrontTab = deckModalTab === 'storefront';
 
-                if (filteredCatalog.length === 0) {
+                let rawItems = isStorefrontTab ? storefrontCuratedProducts : allBlanksList;
+
+                if (deckModalGarmentType !== 'all') {
+                  rawItems = rawItems.filter((item: any) => {
+                    const tag = detectGarmentTypeTag(item, storefrontCatalogSettings?.garmentTypeTags);
+                    return tag === deckModalGarmentType;
+                  });
+                  if (isStorefrontTab) {
+                    rawItems = sortGarmentsByTypeOrder(rawItems, deckModalGarmentType, storefrontCatalogSettings?.garmentTypeOrders);
+                  }
+                }
+
+                if (searchLower) {
+                  rawItems = rawItems.filter((item: any) => {
+                    const haystack = `${item.title || ''} ${item.customName || ''} ${item.style || ''} ${item.brand || ''} ${item.category || ''} ${item.description || ''}`.toLowerCase();
+                    return haystack.includes(searchLower);
+                  });
+                }
+
+                if (isLoadingStorefrontCatalog && isStorefrontTab) {
+                  return (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary h-full">
+                      <Loader2 size={32} className="animate-spin text-brand-primary mb-3" />
+                      <p className="font-bold text-sm text-brand-primary">Loading Storefront Catalog...</p>
+                    </div>
+                  );
+                }
+
+                if (rawItems.length === 0) {
                   return (
                     <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary h-full">
                       <Shirt size={40} className="mb-3 text-brand-secondary/30" />
-                      <p className="font-bold text-base text-brand-primary">No garments match your filter</p>
-                      <p className="text-xs mt-1 max-w-sm text-neutral-500">Try selecting "All Types" or clearing your search keywords to view the catalog.</p>
+                      <p className="font-bold text-base text-brand-primary">
+                        {isStorefrontTab ? 'No storefront garments found in this category' : 'No garments match your filter'}
+                      </p>
+                      <p className="text-xs mt-1 max-w-sm text-neutral-500">
+                        {isStorefrontTab 
+                          ? 'Tag garments for this garment type in Settings > Storefront Catalog, or browse the All Blanks Catalog.'
+                          : 'Try selecting "All Types" or clearing your search keywords to view the catalog.'}
+                      </p>
+                      {isStorefrontTab && (
+                        <button
+                          type="button"
+                          onClick={() => setDeckModalTab('catalog')}
+                          className="mt-4 px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-xl shadow-sm hover:bg-neutral-800 transition-colors cursor-pointer"
+                        >
+                          Browse All Blanks Catalog
+                        </button>
+                      )}
                     </div>
                   );
                 }
 
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredCatalog.slice(0, 80).map((item: any, idx: number) => {
-                      const style = item.title || item.style || 'Custom Garment';
+                    {rawItems.slice(0, 80).map((item: any, idx: number) => {
+                      const style = item.customName || cleanGarmentTitle(item.title || '', item.style) || item.style || 'Custom Garment';
                       const itemNum = item.style || item.id || '';
                       const brand = item.brand || '';
                       const colors = Array.isArray(item.colors) && item.colors.length > 0 ? item.colors : ['White', 'Black'];
                       
-                      let imgUrl = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      if (typeof item.image === 'string' && item.image) imgUrl = item.image;
-                      else if (typeof item.mockup_image === 'string' && item.mockup_image) imgUrl = item.mockup_image;
-                      else if (item.images) {
+                      const selectedColor = selectedCardColors[itemNum] || item.defaultColor || colors[0] || 'White';
+
+                      let imgUrl = item.image;
+                      if (item.images && item.images[selectedColor]) {
+                        const cImg = item.images[selectedColor];
+                        imgUrl = typeof cImg === 'string' ? cImg : (cImg?.front || imgUrl);
+                      } else if (storefrontCatalogSettings?.colorMockups?.[item.style?.toLowerCase()]?.[selectedColor]) {
+                        imgUrl = storefrontCatalogSettings.colorMockups[item.style.toLowerCase()][selectedColor];
+                      } else if (!imgUrl && item.images) {
                         const firstImg = Object.values(item.images)[0] as any;
                         if (typeof firstImg === 'string') imgUrl = firstImg;
                         else if (firstImg?.front) imgUrl = firstImg.front;
                       }
+                      if (!imgUrl) {
+                        imgUrl = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      }
 
                       const numericPrice = parseFloat(item.price || item.msrp || 0) || 0;
+                      const isRecentlyAdded = recentlyAddedStyle === itemNum;
+                      const inQuoteCount = (order?.items || []).filter((i: any) => 
+                        (i.itemNum && i.itemNum.toLowerCase() === itemNum.toLowerCase()) || 
+                        (i.style && i.style.toLowerCase() === style.toLowerCase())
+                      ).length;
 
                       return (
                         <div
                           key={`${itemNum}-${idx}`}
-                          onClick={() => {
-                            setIsDeckModalOpen(false);
-                            setEditItemObj((prev: any) => ({
-                              ...(prev || {}),
-                              id: prev?.id || `item-${Date.now()}`,
-                              itemType: 'garment',
-                              gender: item.gender || prev?.gender || 'Unisex',
-                              style: style,
-                              itemNum: itemNum,
-                              color: colors[0] || 'White',
-                              colors: colors,
-                              sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
-                              price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice > 0 ? numericPrice.toFixed(2) : '0.00'),
-                              blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
-                              total: prev?.total || '$0.00',
-                              image: imgUrl,
-                              materialDetails: item.description || item.fabric || item.materialDetails || prev?.materialDetails || '',
-                              materialFinish: item.finish || prev?.materialFinish || '',
-                              fit: item.fit || prev?.fit || '',
-                              weight: item.weight || prev?.weight || '',
-                              careInstructions: item.careInstructions || prev?.careInstructions || '',
-                              decoratingMethods: item.decoratingMethods || prev?.decoratingMethods || [],
-                              costPrice: numericPrice,
-                              wholesalePrice: numericPrice
-                            }));
-                          }}
-                          className="group flex items-center gap-4 bg-white border border-brand-border hover:border-brand-primary transition-all rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                          onClick={() => handleSelectGarmentForSpecs(item, selectedColor)}
+                          className="group relative flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 bg-white border border-brand-border hover:border-brand-primary transition-all rounded-2xl p-4 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5"
                         >
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 shrink-0 flex items-center justify-center p-1 border border-neutral-100">
+                          {/* Garment Image */}
+                          <div className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 shrink-0 flex items-center justify-center p-1.5 border border-neutral-100 self-center sm:self-auto">
                             <img src={imgUrl} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
                           </div>
+
+                          {/* Garment Details */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <h4 className="font-bold text-brand-primary text-sm truncate">{style}</h4>
+                              <h4 className="font-bold text-brand-primary text-sm truncate" title={style}>
+                                {style}
+                              </h4>
                               {numericPrice > 0 && (
-                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">${numericPrice.toFixed(2)}</span>
+                                <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                                  ${numericPrice.toFixed(2)}
+                                </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              {brand && <span className="text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">{brand}</span>}
-                              {itemNum && <span className="text-xs font-semibold text-neutral-500">{itemNum}</span>}
+
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                              {brand && (
+                                <span className="text-[9px] font-extrabold uppercase tracking-wider text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">
+                                  {brand}
+                                </span>
+                              )}
+                              {itemNum && (
+                                <span className="text-xs font-semibold text-neutral-500">
+                                  {itemNum}
+                                </span>
+                              )}
+                              {item.isStorefront && (
+                                <span className="text-[9px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.25 rounded">
+                                  Storefront
+                                </span>
+                              )}
+                              {inQuoteCount > 0 && (
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.25 rounded flex items-center gap-0.5">
+                                  <Check size={9} /> In Quote ({inQuoteCount})
+                                </span>
+                              )}
                             </div>
-                            <p className="text-[11px] text-neutral-400 font-medium mt-1 truncate max-w-xs">{colors.join(' • ')}</p>
+
+                            {/* Fabric & Weight snippet if available */}
+                            {(item.weight || item.fabric) && (
+                              <p className="text-[10px] text-neutral-500 font-medium truncate mb-1.5">
+                                {[item.weight, item.fabric].filter(Boolean).join(' • ')}
+                              </p>
+                            )}
+
+                            {/* Color Swatches */}
+                            <div className="flex items-center gap-1 overflow-x-auto py-0.5 scrollbar-none" onClick={(e) => e.stopPropagation()}>
+                              {colors.slice(0, 7).map((colorName: string) => {
+                                const swatchHex = getSwatchColor(colorName, true);
+                                const isSelected = selectedColor === colorName;
+                                const isWhite = colorName.toLowerCase() === 'white';
+                                return (
+                                  <button
+                                    key={colorName}
+                                    type="button"
+                                    title={colorName}
+                                    onClick={() => setSelectedCardColors(prev => ({ ...prev, [itemNum]: colorName }))}
+                                    className={`w-4 h-4 rounded-full border transition-transform cursor-pointer shrink-0 ${
+                                      isSelected ? 'ring-2 ring-black scale-110' : 'hover:scale-105 border-neutral-300'
+                                    }`}
+                                    style={{
+                                      backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                      backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                                      borderColor: isWhite ? '#d4d4d4' : undefined
+                                    }}
+                                  />
+                                );
+                              })}
+                              {colors.length > 7 && (
+                                <span className="text-[9px] font-bold text-neutral-400 shrink-0">
+                                  +{colors.length - 7}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-neutral-400 font-medium truncate ml-1">
+                                {selectedColor}
+                              </span>
+                            </div>
                           </div>
-                          <div className="w-8 h-8 rounded-full bg-brand-bg text-brand-secondary group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shrink-0">
-                            <PackagePlus size={16} strokeWidth={2.5} />
+
+                          {/* Action Button: Quick Add or Select */}
+                          <div className="flex sm:flex-col items-center justify-end sm:justify-center gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddGarmentDirectlyToQuote(item, selectedColor);
+                              }}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                                isRecentlyAdded
+                                  ? 'bg-emerald-600 text-white shadow-xs scale-102'
+                                  : 'bg-black hover:bg-neutral-800 text-white'
+                              }`}
+                              title="Add directly to current quote"
+                            >
+                              {isRecentlyAdded ? (
+                                <>
+                                  <Check size={13} />
+                                  <span>Added!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <PackagePlus size={13} />
+                                  <span>+ Add to Quote</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectGarmentForSpecs(item, selectedColor)}
+                              className="text-[10px] font-bold text-neutral-500 hover:text-black hover:underline px-1 py-0.5 transition-colors"
+                              title="Configure size quantities, artwork, or specs"
+                            >
+                              {editItemObj ? 'Apply to Item' : 'Configure Specs'}
+                            </button>
                           </div>
                         </div>
                       );
@@ -8442,6 +8932,29 @@ export function OrderDetail() {
                   ))
                 )
               )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-white border-t border-brand-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-brand-secondary">
+                  Items in quote: <strong className="text-brand-primary font-bold">{order?.items?.length || 0}</strong>
+                </span>
+                {recentlyAddedStyle && (
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 animate-in fade-in flex items-center gap-1">
+                    <Check size={12} /> Garment added!
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeckModalOpen(false)}
+                  className="px-5 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  Done / Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
