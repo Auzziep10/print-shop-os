@@ -15,6 +15,7 @@ import { AhaSendTab } from './AhaSendTab';
 import { QuoTab } from './QuoTab';
 import { MetaAdsTab } from './MetaAdsTab';
 import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
+import { StudioQrTab } from './StudioQrTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -133,6 +134,16 @@ export function Settings() {
               Brand Shop
             </button>
             <button
+              onClick={() => setActiveTab('studio-qr')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'studio-qr' || activeTab === 'qr-code'
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Studio QR Code
+            </button>
+            <button
               onClick={() => setActiveTab('discounts')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'discounts'
@@ -195,6 +206,7 @@ export function Settings() {
           {activeTab === 'meta-ads' && <MetaAdsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'brand-shop' && <ShopManagerTab />}
+          {(activeTab === 'studio-qr' || activeTab === 'qr-code') && <StudioQrTab />}
           {activeTab === 'discounts' && <DiscountCodesTab />}
           {activeTab === 'thank-you-card' && <ThankYouCardTab />}
           {activeTab === 'signatures' && <Signatures />}

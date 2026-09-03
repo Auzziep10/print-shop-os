@@ -23,7 +23,7 @@ export const DEFAULT_THANK_YOU_CARD: ThankYouCardSettings = {
   bottomImageUrl: '',
   bottomImageOpacity: 100,
   studioQrUrl: '',
-  studioLink: 'https://quo.com',
+  studioLink: 'https://inktheory.studio',
   artworkVersion: 2,
 };
 

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Building2, Save, Loader2, MapPin } from 'lucide-react';
+import { Building2, Save, Loader2, MapPin, QrCode } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 
 export function BusinessTab() {
+  const [, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
@@ -250,6 +252,29 @@ export function BusinessTab() {
                 If left empty or default, clicking the invoice payment button automatically opens the native in-app Stripe credit card checkout!
               </p>
             </div>
+          </div>
+        </div>
+
+        <div className="pt-6 border-t border-brand-border mt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-brand-border bg-brand-bg/40">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white border border-brand-border flex items-center justify-center text-brand-primary shrink-0 shadow-2xs">
+                <QrCode size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-brand-primary">Studio QR Code (inktheory.studio)</h4>
+                <p className="text-xs text-brand-secondary mt-0.5">
+                  View, customize, download (PNG/SVG), and share high-resolution QR codes for your storefront and studio.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchParams({ tab: 'studio-qr' })}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-black hover:bg-neutral-800 text-white transition-all shrink-0 cursor-pointer shadow-2xs"
+            >
+              Open Studio QR
+            </button>
           </div>
         </div>
       </div>
