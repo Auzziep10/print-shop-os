@@ -882,17 +882,104 @@ export function ScrollScrubVideoSection({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [blobUrl, setBlobUrl] = useState<string>(videoUrl);
+  const [videoReady, setVideoReady] = useState(false);
+  const lastSeekTime = useRef(0);
 
+  // 1. Pre-buffer remote video to a local Blob URL in device memory to eliminate HTTP Range request lag during scroll scrubbing
+  useEffect(() => {
+    let isMounted = true;
+    let createdUrl = '';
+
+    if (videoUrl && videoUrl.startsWith('http')) {
+      fetch(videoUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error('Fetch failed');
+          return res.blob();
+        })
+        .then((blob) => {
+          if (isMounted && blob.size > 0) {
+            createdUrl = URL.createObjectURL(blob);
+            setBlobUrl(createdUrl);
+          }
+        })
+        .catch(() => {
+          if (isMounted) setBlobUrl(videoUrl);
+        });
+    } else {
+      setBlobUrl(videoUrl);
+    }
+
+    return () => {
+      isMounted = false;
+      if (createdUrl && createdUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [videoUrl]);
+
+  // 2. Hardware Canvas Drawing & GSAP ScrollTrigger
   useLayoutEffect(() => {
     const video = videoRef.current;
+    const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!video || !container) return;
+    if (!video || !container || !canvas) return;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
 
     video.muted = true;
     video.playsInline = true;
+
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    // Render current video frame to canvas with object-cover fit
+    const drawCoverFrame = () => {
+      if (!ctx || !video || video.readyState < 2) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      if (w === 0 || h === 0) return;
+
+      const vw = video.videoWidth || w;
+      const vh = video.videoHeight || h;
+      const videoRatio = vw / vh;
+      const canvasRatio = w / h;
+
+      let drawW = w;
+      let drawH = h;
+      let offX = 0;
+      let offY = 0;
+
+      if (canvasRatio > videoRatio) {
+        drawH = w / videoRatio;
+        offY = (h - drawH) / 2;
+      } else {
+        drawW = h * videoRatio;
+        offX = (w - drawW) / 2;
+      }
+
+      ctx.drawImage(video, offX, offY, drawW, drawH);
+      setVideoReady(true);
+    };
+
+    const updateCanvasSize = () => {
+      const rect = container.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      drawCoverFrame();
+    };
+
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
+
+    const onSeekOrUpdate = () => {
+      drawCoverFrame();
+    };
+    video.addEventListener('seeked', onSeekOrUpdate);
+    video.addEventListener('timeupdate', onSeekOrUpdate);
+    video.addEventListener('loadedmetadata', updateCanvasSize);
 
     let trigger: ScrollTrigger | null = null;
     let targetTime = 0;
@@ -903,24 +990,29 @@ export function ScrollScrubVideoSection({
       const diff = targetTime - renderTime;
       const absDiff = Math.abs(diff);
 
-      if (absDiff < 0.008) {
-        // Snap to target frame near rest to eliminate tail-end sub-frame micro-stutters
+      if (absDiff < 0.005) {
         renderTime = targetTime;
       } else {
-        // Smooth adaptive easing: responsive during scroll, gentle cubic deceleration on rampdown
-        const factor = Math.min(0.25, Math.max(0.12, absDiff * 0.4));
-        renderTime += diff * factor;
+        renderTime += diff * 0.22;
       }
 
-      // Quantize seek requests to 60 FPS frame steps (>= 15ms) to prevent video decoder thrashing
       const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-      if (!video.seeking && (Math.abs(clamped - video.currentTime) >= 0.015 || renderTime === targetTime)) {
+
+      // Continuous non-blocking seek throttled to 60 FPS delta
+      if (Math.abs(clamped - lastSeekTime.current) >= 0.01 || renderTime === targetTime) {
+        lastSeekTime.current = clamped;
         try {
-          video.currentTime = clamped;
+          if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+            (video as any).fastSeek(clamped);
+          } else {
+            video.currentTime = clamped;
+          }
         } catch (e) {
           // ignore
         }
       }
+
+      drawCoverFrame();
     };
 
     const setupScrub = () => {
@@ -929,28 +1021,29 @@ export function ScrollScrubVideoSection({
 
       const duration = video.duration;
 
-      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
+      // Warm up video decoder on mobile / WebKit
       try {
         const p = video.play();
         if (p !== undefined) {
           p.then(() => {
             video.pause();
             if (video.currentTime === 0) video.currentTime = 0.001;
+            drawCoverFrame();
           }).catch(() => {
             if (video.currentTime === 0) video.currentTime = 0.001;
+            drawCoverFrame();
           });
         }
       } catch (e) {
         // ignore
       }
 
-      // Pin the section while scrubbing through video frames with 1.2s smooth momentum
       trigger = ScrollTrigger.create({
         trigger: container,
         start: 'top top',
         end: '+=250%',
         pin: true,
-        scrub: 1.2, // Ramps scroll momentum naturally
+        scrub: 0.8,
         anticipatePin: 1,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
@@ -971,78 +1064,92 @@ export function ScrollScrubVideoSection({
         ScrollTrigger.refresh();
       };
       video.addEventListener('loadedmetadata', handleMetadata);
-      return () => video.removeEventListener('loadedmetadata', handleMetadata);
     }
 
     return () => {
+      window.removeEventListener('resize', updateCanvasSize);
+      video.removeEventListener('seeked', onSeekOrUpdate);
+      video.removeEventListener('timeupdate', onSeekOrUpdate);
+      video.removeEventListener('loadedmetadata', updateCanvasSize);
       gsap.ticker.remove(onTick);
       if (trigger) trigger.kill();
     };
-  }, [videoUrl]);
+  }, [blobUrl]);
 
   return (
     <section id={id} ref={containerRef} className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 text-white">
-      {/* Background poster image so mobile browsers never show a black box */}
+      {/* Fallback poster image until video canvas is ready */}
       {posterUrl && (
         <img
           src={posterUrl}
           alt="Preview"
-          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          className={`absolute inset-0 h-full w-full object-cover pointer-events-none transition-opacity duration-500 z-0 ${
+            videoReady ? 'opacity-0' : 'opacity-100'
+          }`}
         />
       )}
+
+      {/* Hardware-accelerated canvas for butter-smooth frame scrubbing */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
+      />
+
+      {/* Hidden underlying video engine */}
       <video
         ref={videoRef}
-        src={videoUrl}
-        poster={posterUrl}
+        src={blobUrl}
         muted
         autoPlay
         playsInline
         {...({ 'webkit-playsinline': 'true' } as any)}
         preload="auto"
-        className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
+        className="hidden"
       />
 
       {/* Dark wash overlay for readable typography */}
-      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/20 to-zinc-950/40 pointer-events-none" />
+      <div className="absolute inset-0 z-20 bg-gradient-to-t from-zinc-950/90 via-zinc-950/20 to-zinc-950/40 pointer-events-none" />
 
       {/* Content overlay */}
-      <div className="relative z-10 flex h-full flex-col justify-between p-6 md:p-12">
-        <div className="mx-auto w-full max-w-[50rem] text-left pt-16 md:pt-20">
-          {label && (
-            <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-              {label}
-            </p>
-          )}
-          {title && (
-            <h2 className="font-serif text-[clamp(2rem,4.5vw,4.2rem)] leading-[1.12] tracking-tight text-white drop-shadow-md">
-              {title}
-            </h2>
-          )}
-          {body && (
-            <p className="font-inter mt-4 max-w-xl text-xs sm:text-sm font-light leading-relaxed text-zinc-300 drop-shadow-sm">
-              {body}
-            </p>
-          )}
-          {buttonText && onButtonClick && (
-            <button
-              data-cursor
-              type="button"
-              onClick={onButtonClick}
-              className="font-inter mt-8 block w-fit cursor-pointer rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200 shadow-xl"
-            >
-              {buttonText}
-            </button>
+      {(label || title || body || (buttonText && onButtonClick)) && (
+        <div className="relative z-30 flex h-full flex-col justify-between p-6 md:p-12">
+          <div className="mx-auto w-full max-w-[50rem] text-left pt-16 md:pt-20">
+            {label && (
+              <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
+                {label}
+              </p>
+            )}
+            {title && (
+              <h2 className="font-serif text-[clamp(2rem,4.5vw,4.2rem)] leading-[1.12] tracking-tight text-white drop-shadow-md">
+                {title}
+              </h2>
+            )}
+            {body && (
+              <p className="font-inter mt-4 max-w-xl text-xs sm:text-sm font-light leading-relaxed text-zinc-300 drop-shadow-sm">
+                {body}
+              </p>
+            )}
+            {buttonText && onButtonClick && (
+              <button
+                data-cursor
+                type="button"
+                onClick={onButtonClick}
+                className="font-inter mt-8 block w-fit cursor-pointer rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200 shadow-xl"
+              >
+                {buttonText}
+              </button>
+            )}
+          </div>
+
+          {footerText && (
+            <div className="border-t border-white/20 pt-4 pb-2">
+              <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-400">
+                {footerText}
+              </p>
+            </div>
           )}
         </div>
-
-        {footerText && (
-          <div className="border-t border-white/20 pt-4 pb-2">
-            <p className="font-inter text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-400">
-              {footerText}
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </section>
   );
 }
@@ -1055,8 +1162,6 @@ export function FinishSection({
   onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const videoSectionRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const videoUrl =
     settings?.finishVideoUrl?.trim() ||
@@ -1098,95 +1203,6 @@ export function FinishSection({
     return () => ctx.revert();
   }, [videoUrl]);
 
-  useLayoutEffect(() => {
-    const video = videoRef.current;
-    const container = videoSectionRef.current;
-    if (!video || !container || !videoUrl) return;
-
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
-
-    video.muted = true;
-    video.playsInline = true;
-
-    let trigger: ScrollTrigger | null = null;
-    let targetTime = 0;
-    let renderTime = 0;
-
-    const onTick = () => {
-      if (!video || !video.duration || video.duration <= 0) return;
-      const diff = targetTime - renderTime;
-      if (Math.abs(diff) > 0.0005) {
-        renderTime += diff * 0.14;
-
-        if (!video.seeking) {
-          try {
-            const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-            video.currentTime = clamped;
-          } catch (e) {
-            // ignore
-          }
-        }
-      }
-    };
-
-    const setupScrub = () => {
-      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
-      if (trigger) trigger.kill();
-
-      const duration = video.duration;
-
-      // Force iOS WebKit video decoder warm-up to prevent black screen on mobile
-      try {
-        const p = video.play();
-        if (p !== undefined) {
-          p.then(() => {
-            video.pause();
-            if (video.currentTime === 0) video.currentTime = 0.001;
-          }).catch(() => {
-            if (video.currentTime === 0) video.currentTime = 0.001;
-          });
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      // Pin the video section when it reaches top top
-      trigger = ScrollTrigger.create({
-        trigger: container,
-        start: 'top top',
-        end: '+=250%',
-        pin: true,
-        scrub: 1.2,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          if (duration > 0) {
-            targetTime = self.progress * duration;
-          }
-        },
-      });
-
-      gsap.ticker.add(onTick);
-    };
-
-    if (video.readyState >= 1) {
-      setupScrub();
-    } else {
-      const handleMetadata = () => {
-        setupScrub();
-        ScrollTrigger.refresh();
-      };
-      video.addEventListener('loadedmetadata', handleMetadata);
-      return () => video.removeEventListener('loadedmetadata', handleMetadata);
-    }
-
-    return () => {
-      gsap.ticker.remove(onTick);
-      if (trigger) trigger.kill();
-    };
-  }, [videoUrl]);
-
   const img = settings?.finishImageUrl || '/images/blank_basics_hero.png';
   const posterImg =
     settings?.finishMobileImageUrl ||
@@ -1216,30 +1232,12 @@ export function FinishSection({
 
       {/* Media Section: Scroll-Scrubbed Video or Static Photo */}
       {videoUrl && settings?.finishVideoScrub !== false ? (
-        <div
-          ref={videoSectionRef}
-          onClick={() => onStart('types')}
-          className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 cursor-pointer"
-        >
-          {posterImg && (
-            <img
-              src={posterImg}
-              alt="Preview"
-              className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-            />
-          )}
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            poster={posterImg}
-            muted
-            autoPlay
-            playsInline
-            {...({ 'webkit-playsinline': 'true' } as any)}
-            preload="auto"
-            className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
-          />
-        </div>
+        <ScrollScrubVideoSection
+          id="finish-video"
+          videoUrl={videoUrl}
+          posterUrl={posterImg}
+          onButtonClick={() => onStart('types')}
+        />
       ) : (
         <section className="bg-white px-6 pb-14 md:px-12 md:pb-20">
           <button
