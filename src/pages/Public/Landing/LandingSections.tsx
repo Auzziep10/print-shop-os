@@ -894,22 +894,36 @@ export function ScrollScrubVideoSection({
     video.muted = true;
     video.playsInline = true;
 
-    let trigger: ScrollTrigger | null = null;
-    let targetTime = 0;
-    let renderTime = 0;
+    let targetProgress = 0;
+    let renderProgress = 0;
+
+    const getDuration = () => {
+      if (video.duration && isFinite(video.duration) && video.duration > 0) {
+        return video.duration;
+      }
+      try {
+        if (video.seekable && video.seekable.length > 0) {
+          const end = video.seekable.end(video.seekable.length - 1);
+          if (isFinite(end) && end > 0) return end;
+        }
+      } catch (e) {}
+      return 0;
+    };
 
     const onTick = () => {
-      if (!video || !video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
-      const diff = targetTime - renderTime;
+      const duration = getDuration();
+      if (!video || duration <= 0) return;
+
+      const diff = targetProgress - renderProgress;
       if (Math.abs(diff) > 0.0001) {
-        renderTime += diff * 0.25;
-        const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-        if (Math.abs(video.currentTime - clamped) >= 0.01) {
+        renderProgress += diff * 0.25;
+        const targetSeconds = Math.max(0, Math.min(renderProgress * duration, duration - 0.01));
+        if (Math.abs(video.currentTime - targetSeconds) >= 0.01) {
           try {
             if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-              (video as any).fastSeek(clamped);
+              (video as any).fastSeek(targetSeconds);
             } else {
-              video.currentTime = clamped;
+              video.currentTime = targetSeconds;
             }
           } catch (e) {
             // ignore
@@ -918,12 +932,24 @@ export function ScrollScrubVideoSection({
       }
     };
 
-    const setupScrub = () => {
-      if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
-      if (trigger) trigger.kill();
+    // 1. Synchronously create the ScrollTrigger pinning so it ALWAYS pins in exact DOM order
+    const trigger = ScrollTrigger.create({
+      trigger: container,
+      start: 'top top',
+      end: '+=250%',
+      pin: true,
+      scrub: 0.6,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      onUpdate: (self) => {
+        targetProgress = self.progress;
+      },
+    });
 
-      const duration = video.duration;
+    gsap.ticker.add(onTick);
 
+    // 2. Multi-event media decoder prime and refresh
+    const primeDecoder = () => {
       try {
         const p = video.play();
         if (p !== undefined) {
@@ -935,44 +961,28 @@ export function ScrollScrubVideoSection({
           });
         }
       } catch (e) {}
-
-      trigger = ScrollTrigger.create({
-        trigger: container,
-        start: 'top top',
-        end: '+=250%',
-        pin: true,
-        scrub: 0.8,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => {
-          targetTime = self.progress * duration;
-        },
-      });
-
-      gsap.ticker.add(onTick);
       ScrollTrigger.refresh();
     };
 
-    const onReady = () => {
-      setupScrub();
-    };
+    video.addEventListener('loadedmetadata', primeDecoder);
+    video.addEventListener('loadeddata', primeDecoder);
+    video.addEventListener('canplay', primeDecoder);
+    video.addEventListener('durationchange', primeDecoder);
 
-    video.addEventListener('loadedmetadata', onReady);
-    video.addEventListener('loadeddata', onReady);
-    video.addEventListener('canplay', onReady);
-    video.addEventListener('durationchange', onReady);
-
-    if (video.readyState >= 1 && video.duration > 0) {
-      setupScrub();
+    if (video.readyState >= 1) {
+      primeDecoder();
     }
 
+    // Refresh triggers to ensure Lenis and layout know about this pin
+    ScrollTrigger.refresh();
+
     return () => {
-      video.removeEventListener('loadedmetadata', onReady);
-      video.removeEventListener('loadeddata', onReady);
-      video.removeEventListener('canplay', onReady);
-      video.removeEventListener('durationchange', onReady);
+      video.removeEventListener('loadedmetadata', primeDecoder);
+      video.removeEventListener('loadeddata', primeDecoder);
+      video.removeEventListener('canplay', primeDecoder);
+      video.removeEventListener('durationchange', primeDecoder);
       gsap.ticker.remove(onTick);
-      if (trigger) trigger.kill();
+      trigger.kill();
     };
   }, [videoUrl]);
 
