@@ -920,11 +920,7 @@ export function ScrollScrubVideoSection({
         const targetSeconds = Math.max(0, Math.min(renderProgress * duration, duration - 0.01));
         if (Math.abs(video.currentTime - targetSeconds) >= 0.01) {
           try {
-            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-              (video as any).fastSeek(targetSeconds);
-            } else {
-              video.currentTime = targetSeconds;
-            }
+            video.currentTime = targetSeconds;
           } catch (e) {
             // ignore
           }
@@ -1064,7 +1060,7 @@ export function FinishSection({
 }) {
   const sectionRef = useRef<HTMLElement>(null);
 
-  const videoUrl =
+  const rawVideo =
     settings?.finishVideoUrl?.trim() ||
     (settings?.finishImageUrl &&
     (settings.finishImageUrl.includes('.mp4') ||
@@ -1072,6 +1068,12 @@ export function FinishSection({
       settings.finishImageUrl.includes('.mov'))
       ? settings.finishImageUrl
       : '');
+
+  // If the uploaded file is a raw ProRes .mov (which Chrome and mobile cannot decode), route to the converted 1080p web MP4
+  const videoUrl =
+    rawVideo && !rawVideo.includes('.mov')
+      ? rawVideo
+      : '/videos/inktheory_tri-shirt_v2.mp4';
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
