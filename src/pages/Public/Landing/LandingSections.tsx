@@ -882,12 +882,11 @@ export function ScrollScrubVideoSection({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoReady, setVideoReady] = useState(false);
 
   useLayoutEffect(() => {
     const video = videoRef.current;
     const container = containerRef.current;
-    if (!video || !container) return;
+    if (!video || !container || !videoUrl) return;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
@@ -897,41 +896,27 @@ export function ScrollScrubVideoSection({
 
     let trigger: ScrollTrigger | null = null;
     let targetTime = 0;
-    let isSeeking = false;
+    let renderTime = 0;
 
-    const performSeek = () => {
-      if (!video || !video.duration || video.duration <= 0) return;
-      const nextTime = Math.max(0, Math.min(targetTime, video.duration - 0.01));
-      if (Math.abs(video.currentTime - nextTime) < 0.01) return;
-
-      isSeeking = true;
-      try {
-        if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-          (video as any).fastSeek(nextTime);
-        } else {
-          video.currentTime = nextTime;
+    const onTick = () => {
+      if (!video || !video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
+      const diff = targetTime - renderTime;
+      if (Math.abs(diff) > 0.0001) {
+        renderTime += diff * 0.25;
+        const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
+        if (Math.abs(video.currentTime - clamped) >= 0.01) {
+          try {
+            if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+              (video as any).fastSeek(clamped);
+            } else {
+              video.currentTime = clamped;
+            }
+          } catch (e) {
+            // ignore
+          }
         }
-      } catch {
-        video.currentTime = nextTime;
       }
     };
-
-    const onSeeked = () => {
-      isSeeking = false;
-      setVideoReady(true);
-      // If scroll position changed while the previous frame was seeking, immediately seek to latest
-      if (video && video.duration && Math.abs(video.currentTime - targetTime) >= 0.015) {
-        performSeek();
-      }
-    };
-
-    const onLoadedData = () => {
-      setVideoReady(true);
-    };
-
-    video.addEventListener('seeked', onSeeked);
-    video.addEventListener('loadeddata', onLoadedData);
-    video.addEventListener('canplay', onLoadedData);
 
     const setupScrub = () => {
       if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
@@ -939,63 +924,54 @@ export function ScrollScrubVideoSection({
 
       const duration = video.duration;
 
-      // Warm up iOS / WebKit video decoder
       try {
         const p = video.play();
         if (p !== undefined) {
           p.then(() => {
             video.pause();
             if (video.currentTime === 0) video.currentTime = 0.001;
-            setVideoReady(true);
           }).catch(() => {
             if (video.currentTime === 0) video.currentTime = 0.001;
-            setVideoReady(true);
           });
         }
-      } catch {
-        setVideoReady(true);
-      }
+      } catch (e) {}
 
       trigger = ScrollTrigger.create({
         trigger: container,
         start: 'top top',
         end: '+=250%',
         pin: true,
-        scrub: 0.5,
+        scrub: 0.8,
         anticipatePin: 1,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
-          if (duration > 0) {
-            targetTime = self.progress * duration;
-            if (!isSeeking) {
-              performSeek();
-            }
-          }
+          targetTime = self.progress * duration;
         },
       });
+
+      gsap.ticker.add(onTick);
+      ScrollTrigger.refresh();
     };
 
-    if (video.readyState >= 1) {
+    const onReady = () => {
       setupScrub();
-    } else {
-      const handleMetadata = () => {
-        setupScrub();
-        ScrollTrigger.refresh();
-      };
-      video.addEventListener('loadedmetadata', handleMetadata);
-      return () => {
-        video.removeEventListener('loadedmetadata', handleMetadata);
-        video.removeEventListener('seeked', onSeeked);
-        video.removeEventListener('loadeddata', onLoadedData);
-        video.removeEventListener('canplay', onLoadedData);
-        if (trigger) trigger.kill();
-      };
+    };
+
+    video.addEventListener('loadedmetadata', onReady);
+    video.addEventListener('loadeddata', onReady);
+    video.addEventListener('canplay', onReady);
+    video.addEventListener('durationchange', onReady);
+
+    if (video.readyState >= 1 && video.duration > 0) {
+      setupScrub();
     }
 
     return () => {
-      video.removeEventListener('seeked', onSeeked);
-      video.removeEventListener('loadeddata', onLoadedData);
-      video.removeEventListener('canplay', onLoadedData);
+      video.removeEventListener('loadedmetadata', onReady);
+      video.removeEventListener('loadeddata', onReady);
+      video.removeEventListener('canplay', onReady);
+      video.removeEventListener('durationchange', onReady);
+      gsap.ticker.remove(onTick);
       if (trigger) trigger.kill();
     };
   }, [videoUrl]);
@@ -1007,9 +983,7 @@ export function ScrollScrubVideoSection({
         <img
           src={posterUrl}
           alt="Preview"
-          className={`absolute inset-0 h-full w-full object-cover pointer-events-none transition-opacity duration-700 z-0 ${
-            videoReady ? 'opacity-0' : 'opacity-100'
-          }`}
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none z-0"
         />
       )}
 
