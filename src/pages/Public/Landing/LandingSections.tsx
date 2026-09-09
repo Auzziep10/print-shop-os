@@ -882,49 +882,12 @@ export function ScrollScrubVideoSection({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [blobUrl, setBlobUrl] = useState<string>(videoUrl);
   const [videoReady, setVideoReady] = useState(false);
-  const lastSeekTime = useRef(0);
 
-  // 1. Pre-buffer remote video to a local Blob URL in device memory to eliminate HTTP Range request lag during scroll scrubbing
-  useEffect(() => {
-    let isMounted = true;
-    let createdUrl = '';
-
-    if (videoUrl && videoUrl.startsWith('http')) {
-      fetch(videoUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error('Fetch failed');
-          return res.blob();
-        })
-        .then((blob) => {
-          if (isMounted && blob.size > 0) {
-            createdUrl = URL.createObjectURL(blob);
-            setBlobUrl(createdUrl);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setBlobUrl(videoUrl);
-        });
-    } else {
-      setBlobUrl(videoUrl);
-    }
-
-    return () => {
-      isMounted = false;
-      if (createdUrl && createdUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(createdUrl);
-      }
-    };
-  }, [videoUrl]);
-
-  // 2. Hardware Canvas Drawing & GSAP ScrollTrigger
   useLayoutEffect(() => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!video || !container || !canvas) return;
+    if (!video || !container) return;
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
@@ -932,88 +895,43 @@ export function ScrollScrubVideoSection({
     video.muted = true;
     video.playsInline = true;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
+    let trigger: ScrollTrigger | null = null;
+    let targetTime = 0;
+    let isSeeking = false;
 
-    // Render current video frame to canvas with object-cover fit
-    const drawCoverFrame = () => {
-      if (!ctx || !video || video.readyState < 2) return;
-      const w = canvas.width;
-      const h = canvas.height;
-      if (w === 0 || h === 0) return;
+    const performSeek = () => {
+      if (!video || !video.duration || video.duration <= 0) return;
+      const nextTime = Math.max(0, Math.min(targetTime, video.duration - 0.01));
+      if (Math.abs(video.currentTime - nextTime) < 0.01) return;
 
-      const vw = video.videoWidth || w;
-      const vh = video.videoHeight || h;
-      const videoRatio = vw / vh;
-      const canvasRatio = w / h;
-
-      let drawW = w;
-      let drawH = h;
-      let offX = 0;
-      let offY = 0;
-
-      if (canvasRatio > videoRatio) {
-        drawH = w / videoRatio;
-        offY = (h - drawH) / 2;
-      } else {
-        drawW = h * videoRatio;
-        offX = (w - drawW) / 2;
+      isSeeking = true;
+      try {
+        if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
+          (video as any).fastSeek(nextTime);
+        } else {
+          video.currentTime = nextTime;
+        }
+      } catch {
+        video.currentTime = nextTime;
       }
+    };
 
-      ctx.drawImage(video, offX, offY, drawW, drawH);
+    const onSeeked = () => {
+      isSeeking = false;
+      setVideoReady(true);
+      // If scroll position changed while the previous frame was seeking, immediately seek to latest
+      if (video && video.duration && Math.abs(video.currentTime - targetTime) >= 0.015) {
+        performSeek();
+      }
+    };
+
+    const onLoadedData = () => {
       setVideoReady(true);
     };
 
-    const updateCanvasSize = () => {
-      const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      drawCoverFrame();
-    };
-
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-
-    const onSeekOrUpdate = () => {
-      drawCoverFrame();
-    };
-    video.addEventListener('seeked', onSeekOrUpdate);
-    video.addEventListener('timeupdate', onSeekOrUpdate);
-    video.addEventListener('loadedmetadata', updateCanvasSize);
-
-    let trigger: ScrollTrigger | null = null;
-    let targetTime = 0;
-    let renderTime = 0;
-
-    const onTick = () => {
-      if (!video || !video.duration || video.duration <= 0) return;
-      const diff = targetTime - renderTime;
-      const absDiff = Math.abs(diff);
-
-      if (absDiff < 0.005) {
-        renderTime = targetTime;
-      } else {
-        renderTime += diff * 0.22;
-      }
-
-      const clamped = Math.max(0, Math.min(renderTime, video.duration - 0.01));
-
-      // Continuous non-blocking seek throttled to 60 FPS delta
-      if (Math.abs(clamped - lastSeekTime.current) >= 0.01 || renderTime === targetTime) {
-        lastSeekTime.current = clamped;
-        try {
-          if ('fastSeek' in video && typeof (video as any).fastSeek === 'function') {
-            (video as any).fastSeek(clamped);
-          } else {
-            video.currentTime = clamped;
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      drawCoverFrame();
-    };
+    video.addEventListener('seeked', onSeeked);
+    video.addEventListener('loadeddata', onLoadedData);
+    video.addEventListener('canplay', onLoadedData);
 
     const setupScrub = () => {
       if (!video.duration || Number.isNaN(video.duration) || video.duration <= 0) return;
@@ -1021,21 +939,21 @@ export function ScrollScrubVideoSection({
 
       const duration = video.duration;
 
-      // Warm up video decoder on mobile / WebKit
+      // Warm up iOS / WebKit video decoder
       try {
         const p = video.play();
         if (p !== undefined) {
           p.then(() => {
             video.pause();
             if (video.currentTime === 0) video.currentTime = 0.001;
-            drawCoverFrame();
+            setVideoReady(true);
           }).catch(() => {
             if (video.currentTime === 0) video.currentTime = 0.001;
-            drawCoverFrame();
+            setVideoReady(true);
           });
         }
-      } catch (e) {
-        // ignore
+      } catch {
+        setVideoReady(true);
       }
 
       trigger = ScrollTrigger.create({
@@ -1043,17 +961,18 @@ export function ScrollScrubVideoSection({
         start: 'top top',
         end: '+=250%',
         pin: true,
-        scrub: 0.8,
+        scrub: 0.5,
         anticipatePin: 1,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
           if (duration > 0) {
             targetTime = self.progress * duration;
+            if (!isSeeking) {
+              performSeek();
+            }
           }
         },
       });
-
-      gsap.ticker.add(onTick);
     };
 
     if (video.readyState >= 1) {
@@ -1064,47 +983,45 @@ export function ScrollScrubVideoSection({
         ScrollTrigger.refresh();
       };
       video.addEventListener('loadedmetadata', handleMetadata);
+      return () => {
+        video.removeEventListener('loadedmetadata', handleMetadata);
+        video.removeEventListener('seeked', onSeeked);
+        video.removeEventListener('loadeddata', onLoadedData);
+        video.removeEventListener('canplay', onLoadedData);
+        if (trigger) trigger.kill();
+      };
     }
 
     return () => {
-      window.removeEventListener('resize', updateCanvasSize);
-      video.removeEventListener('seeked', onSeekOrUpdate);
-      video.removeEventListener('timeupdate', onSeekOrUpdate);
-      video.removeEventListener('loadedmetadata', updateCanvasSize);
-      gsap.ticker.remove(onTick);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('loadeddata', onLoadedData);
+      video.removeEventListener('canplay', onLoadedData);
       if (trigger) trigger.kill();
     };
-  }, [blobUrl]);
+  }, [videoUrl]);
 
   return (
     <section id={id} ref={containerRef} className="relative h-[100svh] w-full overflow-hidden bg-zinc-950 text-white">
-      {/* Fallback poster image until video canvas is ready */}
+      {/* Background poster preview photo so the section is NEVER black */}
       {posterUrl && (
         <img
           src={posterUrl}
           alt="Preview"
-          className={`absolute inset-0 h-full w-full object-cover pointer-events-none transition-opacity duration-500 z-0 ${
+          className={`absolute inset-0 h-full w-full object-cover pointer-events-none transition-opacity duration-700 z-0 ${
             videoReady ? 'opacity-0' : 'opacity-100'
           }`}
         />
       )}
 
-      {/* Hardware-accelerated canvas for butter-smooth frame scrubbing */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
-      />
-
-      {/* Hidden underlying video engine */}
+      {/* Visible hardware video element - NO poster attribute to prevent Safari poster locks */}
       <video
         ref={videoRef}
-        src={blobUrl}
+        src={videoUrl}
         muted
-        autoPlay
         playsInline
         {...({ 'webkit-playsinline': 'true' } as any)}
         preload="auto"
-        className="hidden"
+        className="absolute inset-0 z-10 h-full w-full object-cover pointer-events-none"
       />
 
       {/* Dark wash overlay for readable typography */}
