@@ -102,7 +102,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
 
 export function ImmersiveLandingPage() {
   const navigate = useNavigate();
-  const { user, userData, signInWithGoogle, signOut } = useAuth();
+  const { user, userData, signOut } = useAuth();
   const [settings, setSettings] = useState<StorefrontSettingsShape>(() => {
     try {
       const cached = localStorage.getItem('inktheory_storefront_settings');
@@ -239,12 +239,8 @@ export function ImmersiveLandingPage() {
         userData={userData}
         canCustomize={isAdmin}
         currentTime={currentTime}
-        onLogin={async () => {
-          try {
-            await signInWithGoogle();
-          } catch (e) {
-            console.error(e);
-          }
+        onLogin={() => {
+          navigate('/login');
         }}
         onSignOut={signOut}
         onCustomize={() => {

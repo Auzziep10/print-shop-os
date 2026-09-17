@@ -1,18 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Phone } from 'lucide-react';
 import { trackVisitorEvent, clearVisitorSession } from '../../lib/visitorTracking';
 
 export function Login() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, user, userData, loading: authLoading } = useAuth();
+  const { 
+    signInWithGoogle, 
+    signInWithEmail, 
+    signUpWithEmail, 
+    signInWithPhone, 
+    signUpWithPhone, 
+    sendPasswordReset, 
+    user, 
+    userData, 
+    loading: authLoading 
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [authMode, setAuthMode] = useState<'signIn' | 'signUp' | 'forgotPassword'>('signIn');
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const blobRef = useRef<HTMLDivElement>(null);
 
@@ -64,14 +77,84 @@ export function Login() {
       });
   };
 
-  const handleEmailAuthSubmit = (e: React.FormEvent) => {
+  const handlePhoneChange = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 10);
+    if (digits.length <= 3) {
+      setPhone(digits);
+    } else if (digits.length <= 6) {
+      setPhone(`(${digits.slice(0, 3)}) ${digits.slice(3)}`);
+    } else {
+      setPhone(`(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`);
+    }
+  };
+
+  const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    if (loginMethod === 'phone') {
+      const cleaned = phone.replace(/\D/g, '');
+      if (!cleaned || cleaned.length < 10) {
+        setError('Please enter a valid 10-digit phone number.');
+        return;
+      }
+
+      if (authMode === 'forgotPassword') {
+        setMessage('For security, phone account access can be reset by contacting our studio team at (888) 896-8607.');
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        setError('Password/PIN must be at least 6 characters long.');
+        return;
+      }
+
+      setIsLoading(true);
+
+      if (authMode === 'signUp') {
+        signUpWithPhone(cleaned, password, name.trim())
+          .then(() => {
+            trackVisitorEvent('Signed Up Phone Account', {
+              step: 6,
+              stepName: 'Phone Account Created',
+              convertedAccount: true,
+              metadata: { userPhone: cleaned },
+            });
+            clearVisitorSession();
+          })
+          .catch((err) => {
+            console.error(err);
+            if (err.code === 'auth/email-already-in-use') {
+              setError('An account with this phone number already exists. Please switch to Sign In.');
+            } else {
+              setError(err.message || 'Failed to register with phone number. Please try again.');
+            }
+            setIsLoading(false);
+          });
+      } else {
+        signInWithPhone(cleaned, password)
+          .then(() => {
+            clearVisitorSession();
+          })
+          .catch((err) => {
+            console.error(err);
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+              setError('Invalid phone number or password/PIN. If this is your first time, click "Sign Up" below to create your password.');
+            } else {
+              setError(err.message || 'Failed to sign in with phone. Please try again.');
+            }
+            setIsLoading(false);
+          });
+      }
+      return;
+    }
+
+    // Email Flow
     if (!email) {
       setError('Email is required.');
       return;
     }
-    setError(null);
-    setMessage(null);
     setIsLoading(true);
 
     if (authMode === 'forgotPassword') {
@@ -172,9 +255,9 @@ export function Login() {
           </h1>
           <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-6 leading-relaxed max-w-sm mx-auto font-medium">
             {authMode === 'signIn' 
-              ? 'Authenticate to securely access your bespoke production workspace.' 
+              ? 'Authenticate with your email or phone number to access your portal.' 
               : authMode === 'signUp' 
-                ? 'Create a credential to access your bespoke production workspace.' 
+                ? 'Create an account with your email or phone number to access your portal.' 
                 : 'Enter your email address to receive a password reset link.'}
           </p>
 
@@ -190,52 +273,150 @@ export function Login() {
             </div>
           )}
 
-          <form onSubmit={handleEmailAuthSubmit} className="space-y-4 text-left w-full">
-            <div>
-              <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400 mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
-                placeholder="you@example.com"
-                disabled={isLoading}
-              />
+          {authMode !== 'forgotPassword' && (
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-6 w-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('email');
+                  setError(null);
+                  setMessage(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  loginMethod === 'email'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Mail size={14} />
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginMethod('phone');
+                  setError(null);
+                  setMessage(null);
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  loginMethod === 'phone'
+                    ? 'bg-amber-500 text-black shadow-md'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Phone size={14} />
+                Phone Number
+              </button>
             </div>
+          )}
 
-            {authMode !== 'forgotPassword' && (
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400">
-                    Password
+          <form onSubmit={handleAuthSubmit} className="space-y-4 text-left w-full">
+            {loginMethod === 'phone' ? (
+              <>
+                {authMode === 'signUp' && (
+                  <div>
+                    <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400 mb-1.5">
+                      Company or Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                      placeholder="Acme Co. or Your Name"
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400 mb-1.5">
+                    Phone Number
                   </label>
-                  {authMode === 'signIn' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode('forgotPassword');
-                        setError(null);
-                        setMessage(null);
-                      }}
-                      className="text-xs text-amber-500/80 hover:text-amber-400 transition-colors font-medium"
-                    >
-                      Forgot Password?
-                    </button>
-                  )}
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                    placeholder="(505) 555-0123"
+                    disabled={isLoading}
+                  />
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
-                  placeholder="••••••••"
-                  disabled={isLoading}
-                />
-              </div>
+
+                {authMode !== 'forgotPassword' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400">
+                        Password or 4-6 Digit PIN
+                      </label>
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                      placeholder="••••••••"
+                      disabled={isLoading}
+                    />
+                    <p className="text-[11px] text-neutral-400 mt-1.5">
+                      {authMode === 'signUp' 
+                        ? 'Set a PIN or password to access your client portal anytime.'
+                        : 'Enter the password or PIN associated with your customer phone number.'}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400 mb-1.5">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                    placeholder="you@example.com"
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {authMode !== 'forgotPassword' && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400">
+                        Password
+                      </label>
+                      {authMode === 'signIn' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('forgotPassword');
+                            setError(null);
+                            setMessage(null);
+                          }}
+                          className="text-xs text-amber-500/80 hover:text-amber-400 transition-colors font-medium"
+                        >
+                          Forgot Password?
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                      placeholder="••••••••"
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             <button
@@ -246,9 +427,9 @@ export function Login() {
               {isLoading ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : authMode === 'signIn' ? (
-                'Sign In'
+                loginMethod === 'phone' ? 'Sign In with Phone' : 'Sign In'
               ) : authMode === 'signUp' ? (
-                'Create Account'
+                loginMethod === 'phone' ? 'Create Phone Account' : 'Create Account'
               ) : (
                 'Send Reset Link'
               )}

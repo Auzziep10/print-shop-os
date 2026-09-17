@@ -96,10 +96,25 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<any>;
   signInWithEmail: (email: string, password: string) => Promise<any>;
   signUpWithEmail: (email: string, password: string) => Promise<any>;
+  signInWithPhone: (phone: string, password: string) => Promise<any>;
+  signUpWithPhone: (phone: string, password: string, name?: string) => Promise<any>;
   sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   permissions: PermissionsData | null;
   hasPermission: (permission: PermissionKey) => boolean;
+}
+
+export function formatPhoneAuthEmail(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return `${digits}@customer.inktheory.studio`;
+}
+
+export function normalizePhoneNumber(phone: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return digits;
+  return digits;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -164,7 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        if (!currentUser.email) {
+        if (!currentUser.email && !currentUser.phoneNumber) {
           setUser(null);
           setUserData(null);
           setLoading(false);
@@ -172,7 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const userEmail = currentUser.email.toLowerCase().trim();
+          const userEmail = currentUser.email 
+            ? currentUser.email.toLowerCase().trim() 
+            : formatPhoneAuthEmail(currentUser.phoneNumber || '');
+          const isPhoneAccount = userEmail.endsWith('@customer.inktheory.studio');
+          const rawPhoneDigits = isPhoneAccount ? userEmail.replace('@customer.inktheory.studio', '') : '';
+
           let userDocRef = doc(db, 'users', currentUser.uid);
           let userDocSnap = await getDoc(userDocRef);
 
@@ -207,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!userDocSnap.exists()) {
             // Auto-grant Admin to the very first user
             const allUsersSnapshot = await getDocs(collection(db, 'users'));
-            if (allUsersSnapshot.empty) {
+            if (allUsersSnapshot.empty && !isPhoneAccount) {
               const newUserData: UserData = {
                 id: currentUser.uid,
                 email: userEmail,
@@ -222,17 +242,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUserData(newUserData);
             } else {
               // Check if customer company record exists in 'customers' collection
-              const custQuery = query(collection(db, 'customers'), where('email', '==', userEmail));
-              const custSnap = await getDocs(custQuery);
+              let custQuery = query(collection(db, 'customers'), where('email', '==', userEmail));
+              let custSnap = await getDocs(custQuery);
               
               let customerId = `cust-${Date.now()}`;
-              let companyName = currentUser.displayName || userEmail.split('@')[0];
+              let companyName = currentUser.displayName || (isPhoneAccount ? `Client ${rawPhoneDigits}` : userEmail.split('@')[0]);
 
               if (!custSnap.empty) {
                 const custDoc = custSnap.docs[0];
                 customerId = custDoc.id;
                 const custData = custDoc.data();
                 companyName = custData.company || custData.name || companyName;
+              } else if (isPhoneAccount && rawPhoneDigits) {
+                // If phone account, check if an existing customer has this phone number
+                const allCustSnap = await getDocs(collection(db, 'customers'));
+                const matchedCustDoc = allCustSnap.docs.find(d => {
+                  const pDigits = (d.data().phone || '').replace(/\D/g, '');
+                  if (!pDigits) return false;
+                  return pDigits === rawPhoneDigits ||
+                         (rawPhoneDigits.length >= 10 && pDigits.endsWith(rawPhoneDigits.slice(-10))) ||
+                         (pDigits.length >= 10 && rawPhoneDigits.endsWith(pDigits.slice(-10)));
+                });
+                if (matchedCustDoc) {
+                  customerId = matchedCustDoc.id;
+                  const custData = matchedCustDoc.data();
+                  companyName = custData.company || custData.name || companyName;
+                } else {
+                  // Create new Customer (Company) record for phone customer
+                  await setDoc(doc(db, 'customers', customerId), {
+                    id: customerId,
+                    company: companyName,
+                    name: companyName,
+                    contactName: currentUser.displayName || `Client ${rawPhoneDigits}`,
+                    email: userEmail,
+                    phone: rawPhoneDigits,
+                    type: 'Web Lead',
+                    hasUnreadCreation: true,
+                    createdAt: new Date().toISOString()
+                  }, { merge: true });
+                }
               } else {
                 // Create new Customer (Company) record
                 await setDoc(doc(db, 'customers', customerId), {
@@ -252,12 +300,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const newUserData: UserData = {
                 id: currentUser.uid,
                 email: userEmail,
-                name: currentUser.displayName || userEmail.split('@')[0],
+                name: currentUser.displayName || (isPhoneAccount ? `Client (${rawPhoneDigits})` : userEmail.split('@')[0]),
                 role: 'Client',
                 customerId: customerId,
                 companyName: companyName,
                 createdAt: new Date().toISOString(),
-                uid: currentUser.uid
+                uid: currentUser.uid,
+                phone: isPhoneAccount ? rawPhoneDigits : '-'
               };
               await setDoc(doc(db, 'users', currentUser.uid), newUserData);
 
@@ -270,12 +319,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // Update uid and name if empty
             if (!data.uid || !data.name) {
+              const fallbackName = isPhoneAccount ? `Client (${rawPhoneDigits})` : data.email.split('@')[0] || '';
               await updateDoc(userDocRef, { 
                 uid: currentUser.uid, 
-                name: currentUser.displayName || data.name || data.email.split('@')[0] || '' 
+                name: currentUser.displayName || data.name || fallbackName
               });
               data.uid = currentUser.uid;
-              data.name = currentUser.displayName || data.name || data.email.split('@')[0] || '';
+              data.name = currentUser.displayName || data.name || fallbackName;
             }
 
             setUser(currentUser);
@@ -309,6 +359,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = (email: string, password: string) => {
     return createUserWithEmailAndPassword(auth, email, password);
+  };
+
+  const signInWithPhone = (phone: string, password: string) => {
+    const phoneEmail = formatPhoneAuthEmail(phone);
+    return signInWithEmailAndPassword(auth, phoneEmail, password);
+  };
+
+  const signUpWithPhone = async (phone: string, password: string, name?: string) => {
+    const phoneEmail = formatPhoneAuthEmail(phone);
+    const userCredential = await createUserWithEmailAndPassword(auth, phoneEmail, password);
+    const cleanedDigits = phone.replace(/\D/g, '');
+
+    // Check if customer with this phone number already exists in Firestore
+    const allCustSnap = await getDocs(collection(db, 'customers'));
+    let matchedCustomerId = `cust-${Date.now()}`;
+    let matchedCompanyName = name || `Client ${cleanedDigits}`;
+
+    const matchedCustDoc = allCustSnap.docs.find(d => {
+      const pDigits = (d.data().phone || '').replace(/\D/g, '');
+      if (!pDigits) return false;
+      return pDigits === cleanedDigits ||
+             (cleanedDigits.length >= 10 && pDigits.endsWith(cleanedDigits.slice(-10))) ||
+             (pDigits.length >= 10 && cleanedDigits.endsWith(pDigits.slice(-10)));
+    });
+
+    if (matchedCustDoc) {
+      matchedCustomerId = matchedCustDoc.id;
+      const cData = matchedCustDoc.data();
+      matchedCompanyName = cData.company || cData.name || matchedCompanyName;
+    } else {
+      await setDoc(doc(db, 'customers', matchedCustomerId), {
+        id: matchedCustomerId,
+        company: matchedCompanyName,
+        name: matchedCompanyName,
+        contactName: name || `Client ${cleanedDigits}`,
+        email: phoneEmail,
+        phone: phone,
+        type: 'Web Lead',
+        hasUnreadCreation: true,
+        createdAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+
+    const newUserData: UserData = {
+      id: userCredential.user.uid,
+      email: phoneEmail,
+      name: name || `Client (${cleanedDigits})`,
+      role: 'Client',
+      customerId: matchedCustomerId,
+      companyName: matchedCompanyName,
+      createdAt: new Date().toISOString(),
+      uid: userCredential.user.uid,
+      phone: phone
+    };
+    await setDoc(doc(db, 'users', userCredential.user.uid), newUserData);
+
+    return userCredential;
   };
 
   const sendPasswordReset = (email: string) => {
@@ -345,6 +452,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
+    signInWithPhone,
+    signUpWithPhone,
     sendPasswordReset,
     signOut,
     permissions,

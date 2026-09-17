@@ -47,13 +47,19 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
 
     try {
       let customerUid = '';
-      if (formData.email.trim() && password.trim()) {
+      const authEmail = formData.email.trim() 
+        ? formData.email.trim().toLowerCase() 
+        : formData.phone.trim() 
+          ? `${formData.phone.replace(/\D/g, '')}@customer.inktheory.studio` 
+          : '';
+
+      if (authEmail && password.trim()) {
         const tempApp = initializeApp(firebaseConfig, `temp-auth-create-${Date.now()}`);
         const tempAuth = getAuth(tempApp);
         try {
           const userCredential = await createUserWithEmailAndPassword(
             tempAuth,
-            formData.email.trim().toLowerCase(),
+            authEmail,
             password.trim()
           );
           customerUid = userCredential.user.uid;
@@ -72,13 +78,13 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         updatedAt: new Date().toISOString(),
       });
 
-      // Auto-create a customer user account if an email is provided
-      if (formData.email.trim()) {
-        const userRef = doc(collection(db, 'users'));
+      // Auto-create a customer user account if email or phone is provided
+      if (authEmail) {
+        const userRef = customerUid ? doc(db, 'users', customerUid) : doc(collection(db, 'users'));
         await setDoc(userRef, {
           id: userRef.id,
           uid: customerUid || '',
-          email: formData.email.trim().toLowerCase(),
+          email: authEmail,
           name: formData.contactName.trim() || formData.company.trim() || 'Client',
           role: 'Client',
           roleDescription: 'Client',
@@ -87,7 +93,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
           viewAll: true,
           phone: formData.phone.trim() || '-',
           companyName: formData.company.trim() || formData.contactName.trim() || '-'
-        });
+        }, { merge: true });
       }
 
       // Trigger Welcome Notifications
