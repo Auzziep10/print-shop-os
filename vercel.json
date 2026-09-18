@@ -8,6 +8,10 @@
   ],
   "rewrites": [
     {
+      "source": "/artistxcollab",
+      "destination": "/artistxcollab/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
