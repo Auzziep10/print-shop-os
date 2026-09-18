@@ -223,15 +223,25 @@ export function CustomerDetail() {
   const [colorVariations, setColorVariations] = useState<ColorVariation[]>([]);
 
   const handleAddColorVariation = (colorName = '') => {
-    setColorVariations(prev => [
-      ...prev,
-      {
-        id: `col-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-        color: colorName,
-        frontImage: '',
-        backImage: ''
+    setColorVariations(prev => {
+      const next = [
+        ...prev,
+        {
+          id: `col-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          color: colorName,
+          frontImage: '',
+          backImage: ''
+        }
+      ];
+      if (colorName) {
+        setCustomSuggestedItem(curr => ({
+          ...curr,
+          colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+        }));
+        setSelectedColors(curr => ({ ...curr, [colorName]: true }));
       }
-    ]);
+      return next;
+    });
   };
 
   const handleAddQuickColors = (colorsArr: string[]) => {
@@ -248,16 +258,55 @@ export function CustomerDetail() {
           });
         }
       });
-      return [...prev, ...newVars];
+      const next = [...prev, ...newVars];
+      setCustomSuggestedItem(curr => ({
+        ...curr,
+        colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+      }));
+      setSelectedColors(curr => {
+        const nextSel = { ...curr };
+        colorsArr.forEach(c => { nextSel[c] = true; });
+        return nextSel;
+      });
+      return next;
     });
   };
 
   const handleRemoveColorVariation = (varId: string) => {
-    setColorVariations(prev => prev.filter(c => c.id !== varId));
+    const removedVar = colorVariations.find(c => c.id === varId);
+    if (removedVar) {
+      const cNorm = removedVar.color.toLowerCase().trim();
+      setSelectedColors(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(k => {
+          if (k.toLowerCase().trim() === cNorm) {
+            next[k] = false;
+          }
+        });
+        return next;
+      });
+    }
+    setColorVariations(prev => {
+      const next = prev.filter(c => c.id !== varId);
+      setCustomSuggestedItem(curr => ({
+        ...curr,
+        colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+      }));
+      return next;
+    });
   };
 
   const handleUpdateColorVariation = (varId: string, updates: Partial<ColorVariation>) => {
-    setColorVariations(prev => prev.map(c => c.id === varId ? { ...c, ...updates } : c));
+    setColorVariations(prev => {
+      const next = prev.map(c => c.id === varId ? { ...c, ...updates } : c);
+      if (updates.color !== undefined) {
+        setCustomSuggestedItem(curr => ({
+          ...curr,
+          colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+        }));
+      }
+      return next;
+    });
   };
 
   const handleUploadColorMockup = async (varId: string, side: 'front' | 'back', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,11 +360,13 @@ export function CustomerDetail() {
     const itemImages = item.images || {};
     const itemBackImages = item.backImages || {};
 
-    const allColorNames = Array.from(new Set([
-      ...rawColors,
-      ...Object.keys(itemImages),
-      ...Object.keys(itemBackImages)
-    ])).filter(Boolean);
+    // Only fallback to image keys if rawColors is empty, otherwise deleted colors will resurrect!
+    const allColorNames = rawColors.length > 0 
+      ? rawColors 
+      : Array.from(new Set([
+          ...Object.keys(itemImages),
+          ...Object.keys(itemBackImages)
+        ])).filter(Boolean);
 
     if (allColorNames.length === 0 && item.image) {
       allColorNames.push('Custom Color');
@@ -327,6 +378,12 @@ export function CustomerDetail() {
       frontImage: itemImages[c] || (i === 0 && typeof item.image === 'string' ? item.image : ''),
       backImage: itemBackImages[c] || ''
     }));
+
+    const initialColors: Record<string, boolean> = {};
+    allColorNames.forEach((c: string) => {
+      initialColors[c] = true;
+    });
+    setSelectedColors(initialColors);
 
     setColorVariations(initialVariations);
     setIsAddingSuggestedModalOpen(true);
@@ -525,21 +582,47 @@ export function CustomerDetail() {
       let backImagesMap: Record<string, string> = {};
       let mainImage = customSuggestedItem.image || '';
 
-      if (selectedSanMarProduct) {
+      // If color variations are present, they are the primary source of truth for color options & mockups!
+      if (colorVariations.length > 0) {
+        colorVariations.forEach(cv => {
+          const cName = cv.color.trim();
+          if (!cName) return;
+          finalColors.push(cName);
+
+          let defaultFront = '';
+          let defaultBack = '';
+          if (selectedSanMarProduct) {
+            const imgSet = selectedSanMarProduct.images?.[cName] || selectedSanMarProduct.images?.[cv.color];
+            defaultFront = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
+            defaultBack = imgSet && typeof imgSet !== 'string' ? imgSet.back : '';
+          }
+
+          const frontUrl = cv.frontImage || defaultFront;
+          const backUrl = cv.backImage || defaultBack;
+
+          if (frontUrl) imagesMap[cName] = frontUrl;
+          if (backUrl) backImagesMap[cName] = backUrl;
+        });
+
+        if (!mainImage) {
+          const firstFront = colorVariations.find(cv => !!cv.frontImage)?.frontImage;
+          if (firstFront) {
+            mainImage = firstFront;
+          } else if (finalColors.length > 0 && imagesMap[finalColors[0]]) {
+            mainImage = imagesMap[finalColors[0]];
+          }
+        }
+      } else if (selectedSanMarProduct) {
         const chosenColors = selectedSanMarProduct.colors.filter((c: string) => !!selectedColors[c]);
         if (chosenColors.length > 0) {
           finalColors = chosenColors;
           chosenColors.forEach((color: string) => {
-            const customVar = colorVariations.find(cv => cv.color.toLowerCase().trim() === color.toLowerCase().trim());
             const imgSet = selectedSanMarProduct.images[color];
             const defaultFront = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
             const defaultBack = imgSet && typeof imgSet !== 'string' ? imgSet.back : '';
 
-            const frontUrl = customVar?.frontImage || defaultFront;
-            const backUrl = customVar?.backImage || defaultBack;
-
-            if (frontUrl) imagesMap[color] = frontUrl;
-            if (backUrl) backImagesMap[color] = backUrl;
+            if (defaultFront) imagesMap[color] = defaultFront;
+            if (defaultBack) backImagesMap[color] = defaultBack;
           });
           const defaultColor = (selectedInitialColor && chosenColors.includes(selectedInitialColor))
             ? selectedInitialColor
@@ -548,31 +631,16 @@ export function CustomerDetail() {
             mainImage = imagesMap[defaultColor];
           }
         }
-      } else {
-        colorVariations.forEach(cv => {
-          const cName = cv.color.trim();
-          if (!cName) return;
-          finalColors.push(cName);
-          if (cv.frontImage) imagesMap[cName] = cv.frontImage;
-          if (cv.backImage) backImagesMap[cName] = cv.backImage;
-        });
+      } else if (customSuggestedItem.colors) {
+        finalColors = customSuggestedItem.colors.split(',').map(s => s.trim()).filter(Boolean);
+      }
 
-        if (finalColors.length === 0 && customSuggestedItem.colors) {
-          finalColors = customSuggestedItem.colors.split(',').map(s => s.trim()).filter(Boolean);
-        }
-        
-        if (finalColors.length === 0) {
-          finalColors = ['Custom Color'];
-        }
+      if (finalColors.length === 0) {
+        finalColors = ['Custom Color'];
+      }
 
-        if (!mainImage) {
-          const firstFront = colorVariations.find(cv => !!cv.frontImage)?.frontImage;
-          if (firstFront) {
-            mainImage = firstFront;
-          } else {
-            mainImage = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-          }
-        }
+      if (!mainImage) {
+        mainImage = 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
       }
 
       itemObj = {
@@ -586,6 +654,9 @@ export function CustomerDetail() {
         backImages: backImagesMap,
         price: parseFloat(customSuggestedItem.price) || 0,
         gender: customSuggestedItem.gender || 'Unisex',
+        hasFixedColors: true,
+        isSuggested: !isSample,
+        isSample: isSample,
         ...(isSample ? { visible: customSuggestedItem.visible ?? true } : {})
       };
     }
@@ -3556,11 +3627,12 @@ export function CustomerDetail() {
                             const itemImages = item.images || {};
                             const itemBackImages = item.backImages || {};
 
-                            const allColorNames = Array.from(new Set([
-                              ...rawColors,
-                              ...Object.keys(itemImages),
-                              ...Object.keys(itemBackImages)
-                            ])).filter(Boolean);
+                            const allColorNames = rawColors.length > 0 
+                              ? rawColors 
+                              : Array.from(new Set([
+                                  ...Object.keys(itemImages),
+                                  ...Object.keys(itemBackImages)
+                                ])).filter(Boolean);
 
                             if (allColorNames.length === 0 && item.image) {
                               allColorNames.push('Custom Color');
@@ -3572,6 +3644,12 @@ export function CustomerDetail() {
                               frontImage: itemImages[c] || (i === 0 && typeof item.image === 'string' ? item.image : ''),
                               backImage: itemBackImages[c] || ''
                             }));
+
+                            const initialColors: Record<string, boolean> = {};
+                            allColorNames.forEach((c: string) => {
+                              initialColors[c] = true;
+                            });
+                            setSelectedColors(initialColors);
 
                             setColorVariations(initialVariations);
                             setSelectedSanMarProduct(null);
@@ -3659,11 +3737,30 @@ export function CustomerDetail() {
                         type="button" 
                         onClick={() => {
                           const allActive = Object.values(selectedColors).every(Boolean);
+                          const nextVal = !allActive;
                           const nextColors: Record<string, boolean> = {};
                           selectedSanMarProduct.colors.forEach((c: string) => {
-                            nextColors[c] = !allActive;
+                            nextColors[c] = nextVal;
                           });
                           setSelectedColors(nextColors);
+                          if (!nextVal) {
+                            setColorVariations([]);
+                            setCustomSuggestedItem(curr => ({ ...curr, colors: '' }));
+                          } else {
+                            const allVars: ColorVariation[] = (selectedSanMarProduct.colors || []).map((c: string, i: number) => {
+                              const imgSet = selectedSanMarProduct.images?.[c];
+                              const frontUrl = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front || '') : '';
+                              const backUrl = imgSet && typeof imgSet !== 'string' ? imgSet.back || '' : '';
+                              return {
+                                id: `col-${Date.now()}-${i}`,
+                                color: c,
+                                frontImage: frontUrl,
+                                backImage: backUrl
+                              };
+                            });
+                            setColorVariations(allVars);
+                            setCustomSuggestedItem(curr => ({ ...curr, colors: selectedSanMarProduct.colors.join(', ') }));
+                          }
                         }}
                         className="text-[10px] font-bold text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer"
                       >
@@ -3688,7 +3785,40 @@ export function CustomerDetail() {
                               className="hidden" 
                               checked={isChecked} 
                               onChange={() => {
-                                setSelectedColors(prev => ({ ...prev, [color]: !prev[color] }));
+                                const willBeChecked = !selectedColors[color];
+                                setSelectedColors(prev => ({ ...prev, [color]: willBeChecked }));
+                                if (!willBeChecked) {
+                                  setColorVariations(prev => {
+                                    const next = prev.filter(cv => cv.color.toLowerCase().trim() !== color.toLowerCase().trim());
+                                    setCustomSuggestedItem(curr => ({
+                                      ...curr,
+                                      colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+                                    }));
+                                    return next;
+                                  });
+                                } else {
+                                  setColorVariations(prev => {
+                                    const exists = prev.some(cv => cv.color.toLowerCase().trim() === color.toLowerCase().trim());
+                                    if (exists) return prev;
+                                    const imgSet = selectedSanMarProduct?.images?.[color];
+                                    const frontUrl = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front || '') : '';
+                                    const backUrl = imgSet && typeof imgSet !== 'string' ? imgSet.back || '' : '';
+                                    const next = [
+                                      ...prev,
+                                      {
+                                        id: `col-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                                        color,
+                                        frontImage: frontUrl,
+                                        backImage: backUrl
+                                      }
+                                    ];
+                                    setCustomSuggestedItem(curr => ({
+                                      ...curr,
+                                      colors: next.map(cv => cv.color).filter(Boolean).join(', ')
+                                    }));
+                                    return next;
+                                  });
+                                }
                               }} 
                             />
                             <span 
@@ -3831,6 +3961,8 @@ export function CustomerDetail() {
                         onClick={() => {
                           if (window.confirm("Remove all color variations?")) {
                             setColorVariations([]);
+                            setSelectedColors({});
+                            setCustomSuggestedItem(curr => ({ ...curr, colors: '' }));
                           }
                         }}
                         className="text-[11px] font-bold text-red-500 hover:text-red-700 ml-auto cursor-pointer"

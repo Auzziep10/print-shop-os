@@ -313,8 +313,11 @@ export function GarmentCustomizerModal({
       const activeId = activeGarment.id || activeGarment.itemNum || activeGarment.style;
       if (lastGarmentIdRef.current !== activeId) {
         lastGarmentIdRef.current = activeId;
+        const isFixed = activeGarment?.hasFixedColors || (garment as any)?.hasFixedColors || activeGarment?.isSuggested || (garment as any)?.isSuggested;
         const allowedList = (garment as any)?.allowedColors || fetchedAllowedColors;
-        const availableCols = getFilteredProductColors(activeGarment, allowedList);
+        const availableCols = (isFixed && activeGarment.colors?.length > 0)
+          ? activeGarment.colors
+          : getFilteredProductColors(activeGarment, allowedList);
         const initCol = activeGarment.selectedColor && availableCols.includes(activeGarment.selectedColor)
           ? activeGarment.selectedColor
           : (availableCols[0] || 'Custom Color');
@@ -862,6 +865,14 @@ export function GarmentCustomizerModal({
   }, [activeTab, activeGarment, garment, fetchedLogoPlacements, fetchedCatalogSettings]);
 
   const displayColors = useMemo(() => {
+    // If the garment has fixed colors (such as a suggested item, sample item, or explicit custom color list),
+    // strictly use its defined colors so catalog colors do not bleed in.
+    const explicitColors = activeGarment?.colors || (garment as any)?.colors;
+    const isFixed = activeGarment?.hasFixedColors || (garment as any)?.hasFixedColors || activeGarment?.isSuggested || (garment as any)?.isSuggested;
+    if (isFixed && Array.isArray(explicitColors) && explicitColors.length > 0) {
+      return explicitColors;
+    }
+
     const propAllowed = (garment as any)?.allowedColors;
     const allowed = (propAllowed && Object.keys(propAllowed).length > 0) ? propAllowed : fetchedAllowedColors;
     return getFilteredProductColors(activeGarment, allowed, fetchedCustomColors);

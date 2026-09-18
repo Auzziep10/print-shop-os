@@ -584,6 +584,8 @@ export function PortalRequestQuote() {
     const qtyMap: Record<string, number> = {};
     parsedSizes.forEach(s => qtyMap[s] = 0);
 
+    const isSuggestedItem = item.id?.startsWith?.('sugg-') || item.id?.startsWith?.('samp-') || activeLibraryTab === 'suggested' || activeLibraryTab === 'samples' || !!item.isSuggested || !!item.hasFixedColors;
+
     const newProduct = {
       id: Date.now() + Math.random(),
       garmentName: style,
@@ -596,7 +598,10 @@ export function PortalRequestQuote() {
       colors: colors,
       sizes: qtyMap,
       customized: false,
-      images: item.images || null
+      images: item.images || null,
+      backImages: item.backImages || null,
+      isSuggested: isSuggestedItem,
+      hasFixedColors: isSuggestedItem ? true : item.hasFixedColors
     };
     
     setProducts(prev => {
@@ -1665,6 +1670,8 @@ export function PortalRequestQuote() {
             backImages: customizingProduct.backImages || null,
             colors: customizingProduct.colors || ['Custom Color'],
             selectedColor: customizingProduct.color,
+            hasFixedColors: customizingProduct.hasFixedColors,
+            isSuggested: customizingProduct.isSuggested,
             originalFrontImage: customizingProduct.originalFrontImage || null,
             originalBackImage: customizingProduct.originalBackImage || null,
             originalSleeveImage: customizingProduct.originalSleeveImage || null,

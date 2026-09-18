@@ -1705,11 +1705,15 @@ export function PortalCreateOrder() {
       }
     }
 
+    const isSuggestedItem = item.id?.startsWith?.('sugg-') || item.id?.startsWith?.('samp-') || activeLibraryTab === 'suggested' || activeLibraryTab === 'samples' || !!item.isSuggested || !!item.hasFixedColors;
+
     const newItem = {
       ...item,
       instanceId: Math.random().toString(36).substring(7),
       selectedColor: defaultColor,
-      quantities: qtyMap
+      quantities: qtyMap,
+      isSuggested: isSuggestedItem,
+      hasFixedColors: isSuggestedItem ? true : item.hasFixedColors
     };
     setOrderItems(prev => [...prev, newItem]);
     setCustomizingItem(newItem); // Open the customizer modal right away
@@ -3228,6 +3232,8 @@ export function PortalCreateOrder() {
             backImages: customizingItem.backImages || null,
             colors: customizingItem.colors || ['Custom Color'],
             selectedColor: customizingItem.selectedColor,
+            hasFixedColors: customizingItem.hasFixedColors,
+            isSuggested: customizingItem.isSuggested,
             originalFrontImage: customizingItem.originalFrontImage || null,
             originalBackImage: customizingItem.originalBackImage || null,
             originalSleeveImage: customizingItem.originalSleeveImage || null,

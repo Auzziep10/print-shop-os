@@ -11,12 +11,18 @@ export interface WeightAndFabric {
 export const DEFAULT_SLOT_ORDER = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'];
 
 export const getFilteredProductColors = (
-  product: { style?: string; colors?: string[]; itemNum?: string } | null | undefined,
+  product: { style?: string; colors?: string[]; itemNum?: string; hasFixedColors?: boolean; isSuggested?: boolean } | null | undefined,
   allowedColorsMap?: Record<string, string[]> | null,
   customColorsMap?: Record<string, string[]> | null
 ): string[] => {
   if (!product) return [];
   const baseColors = product.colors || [];
+
+  // If this product has explicitly fixed/custom colors (like a customer suggested or sample item),
+  // return its colors directly without expanding or bleeding in all catalog colors!
+  if (product.hasFixedColors || product.isSuggested) {
+    return baseColors.length > 0 ? baseColors : ['Custom Color'];
+  }
 
   // Try itemNum first (SKU style code e.g. "BC3001CVC", "3001CVC"), then style
   const styleCandidates = [product.itemNum, product.style]
