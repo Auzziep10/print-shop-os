@@ -1459,7 +1459,7 @@ export function GarmentCustomizerModal({
         const containerWidth = resizeStartPos.current.containerWidth || 500;
         const scaleFactor = 1.1;
         const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / (containerWidth * 0.0036));
-        const valScale = Math.max(10, Math.min(100, Math.round(newScale)));
+        const valScale = Math.max(10, Math.min(150, Math.round(newScale)));
         
         if (activeTab === 'front') {
           setScaleFront(valScale);
@@ -2105,8 +2105,9 @@ export function GarmentCustomizerModal({
 
       const scaleFactor = 3;
       const panelWidth = 600 * scaleFactor;
+      const panelHeight = Math.round(panelWidth / 0.8);
       const canvasWidth = panelWidth * activeSides.length;
-      const canvasHeight = 600 * scaleFactor;
+      const canvasHeight = panelHeight;
 
       const canvas = document.createElement('canvas');
       canvas.width = canvasWidth;
@@ -2134,44 +2135,44 @@ export function GarmentCustomizerModal({
           : garmentSrc;
         const garmentImg = await loadImg(proxiedGarmentSrc);
 
-        const W = 500 * scaleFactor;
-        const H = 500 * scaleFactor;
+        const frameAspect = panelWidth / panelHeight;
         const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
         
-        let w_draw = W;
-        let h_draw = H;
-        let x_draw = 0;
-        let y_draw = 0;
+        let w_draw: number;
+        let h_draw: number;
+        let x_draw: number;
+        let y_draw: number;
 
-        if (r > 1) {
-          w_draw = W;
-          h_draw = W / r;
-          y_draw = (H - h_draw) / 2;
+        if (r > frameAspect) {
+          w_draw = panelWidth;
+          h_draw = panelWidth / r;
+          x_draw = 0;
+          y_draw = (panelHeight - h_draw) / 2;
         } else {
-          h_draw = H;
-          w_draw = H * r;
-          x_draw = (W - w_draw) / 2;
+          h_draw = panelHeight;
+          w_draw = panelHeight * r;
+          x_draw = (panelWidth - w_draw) / 2;
+          y_draw = 0;
         }
 
         ctx.save();
         if (sideName === 'Right Sleeve') {
-          ctx.translate(canvasOffsetX + (50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
+          ctx.translate(canvasOffsetX + panelWidth / 2, panelHeight / 2);
           ctx.scale(-1, 1);
           ctx.drawImage(garmentImg, -w_draw / 2, -h_draw / 2, w_draw, h_draw);
         } else {
-          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
+          ctx.drawImage(garmentImg, canvasOffsetX + x_draw, y_draw, w_draw, h_draw);
         }
         ctx.restore();
 
         if (logoAsset) {
           const logoImg = await loadImg(logoAsset.url);
-          const maxLogoSize = 180 * scaleFactor;
-          const logoWidth = maxLogoSize * (scaleVal / 100);
+          const logoWidth = panelWidth * ((scaleVal * 0.36) / 100);
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
 
-          const logoCenterX = canvasOffsetX + (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100));
-          const logoCenterY = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100));
+          const logoCenterX = canvasOffsetX + panelWidth * (offX / 100);
+          const logoCenterY = panelHeight * (offY / 100);
 
           ctx.save();
           ctx.translate(logoCenterX, logoCenterY);
@@ -2203,8 +2204,8 @@ export function GarmentCustomizerModal({
       // Helper function to generate and upload a single side mockup
       const generateAndUploadSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, rotationVal: number, sideName: string) => {
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 600 * scaleFactor;
-        tempCanvas.height = 600 * scaleFactor;
+        tempCanvas.width = panelWidth;
+        tempCanvas.height = panelHeight;
         const tempCtx = tempCanvas.getContext('2d');
         if (!tempCtx) return null;
 
@@ -2223,44 +2224,44 @@ export function GarmentCustomizerModal({
           return null;
         }
 
-        const W = 500 * scaleFactor;
-        const H = 500 * scaleFactor;
+        const frameAspect = panelWidth / panelHeight;
         const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
         
-        let w_draw = W;
-        let h_draw = H;
-        let x_draw = 0;
-        let y_draw = 0;
+        let w_draw: number;
+        let h_draw: number;
+        let x_draw: number;
+        let y_draw: number;
 
-        if (r > 1) {
-          w_draw = W;
-          h_draw = W / r;
-          y_draw = (H - h_draw) / 2;
+        if (r > frameAspect) {
+          w_draw = panelWidth;
+          h_draw = panelWidth / r;
+          x_draw = 0;
+          y_draw = (panelHeight - h_draw) / 2;
         } else {
-          h_draw = H;
-          w_draw = H * r;
-          x_draw = (W - w_draw) / 2;
+          h_draw = panelHeight;
+          w_draw = panelHeight * r;
+          x_draw = (panelWidth - w_draw) / 2;
+          y_draw = 0;
         }
 
         tempCtx.save();
         if (sideName === 'Right Sleeve') {
-          tempCtx.translate((50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
+          tempCtx.translate(panelWidth / 2, panelHeight / 2);
           tempCtx.scale(-1, 1);
           tempCtx.drawImage(garmentImg, -w_draw / 2, -h_draw / 2, w_draw, h_draw);
         } else {
-          tempCtx.drawImage(garmentImg, (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
+          tempCtx.drawImage(garmentImg, x_draw, y_draw, w_draw, h_draw);
         }
         tempCtx.restore();
 
         if (logoAsset) {
           const logoImg = await loadImg(logoAsset.url);
-          const maxLogoSize = 180 * scaleFactor;
-          const logoWidth = maxLogoSize * (scaleVal / 100);
+          const logoWidth = panelWidth * ((scaleVal * 0.36) / 100);
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
 
-          const logoCenterX = (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100));
-          const logoCenterY = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100));
+          const logoCenterX = panelWidth * (offX / 100);
+          const logoCenterY = panelHeight * (offY / 100);
 
           tempCtx.save();
           tempCtx.translate(logoCenterX, logoCenterY);
