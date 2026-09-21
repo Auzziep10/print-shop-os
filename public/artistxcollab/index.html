@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Artist×Collab — Ink Theory</title>
-<meta name="description" content="Artist×Collab by Ink Theory — Concept. Create. Produce. Sell. One platform for artist merch, start to finish.">
+<meta name="description" content="More than Merch. A label of your own. Artist×Collab by Ink Theory — Concept. Create. Produce. Sell.">
 <meta name="robots" content="noindex">
 <meta property="og:title" content="Artist×Collab — Ink Theory">
-<meta property="og:description" content="Built with Artists. Made for Fans.">
+<meta property="og:description" content="More than Merch. A label of your own.">
 <meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1.webp">
 <meta name="theme-color" content="#0a0908">
 <link rel="icon" href="/inktheory-favicon.png">
@@ -68,8 +68,8 @@
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size:160px 160px;}
   /* hides the title that is baked into each photo; the fixed HUD sits in the same band */
-  .mask{position:absolute;left:0;top:0;width:100%;aspect-ratio:10/6;pointer-events:none;
-    background:linear-gradient(180deg, #0a0908 0%, #0a0908 58%, rgba(10,9,8,.8) 74%, rgba(10,9,8,0) 100%);}
+  .mask{position:absolute;left:0;top:0;width:100%;aspect-ratio:10/7;pointer-events:none;
+    background:linear-gradient(180deg, #0a0908 0%, #0a0908 60%, rgba(10,9,8,.85) 74%, rgba(10,9,8,0) 100%);}
 
   .cue{position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:5;
     display:flex;justify-content:center;align-items:center;gap:10px;font-size:10px;letter-spacing:.24em;
@@ -79,9 +79,14 @@
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
   .hud{position:absolute;z-index:50;left:5.6vw;top:calc(14vw + env(safe-area-inset-top,0px));}
-  .wordmark{font-family:var(--serif);font-weight:400;font-size:12vw;line-height:1;color:var(--tan);letter-spacing:-.01em;
+  .wordmark{position:relative;height:1em;font-family:var(--serif);font-weight:400;font-size:10.6vw;line-height:1;letter-spacing:-.01em;
     text-shadow:0 2px 24px rgba(0,0,0,.5);}
-  .wordmark i{font-style:italic;font-weight:400;}
+  .wm{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
+  .wm-hero{color:var(--paper);font-size:.9em;top:.06em;}
+  .wm-main{color:var(--tan);opacity:0;transform:translateY(8px);}
+  .wm-main i{font-style:italic;font-weight:400;}
+  .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
+  .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
   .sub{position:relative;margin-top:1.6vw;height:6vw;font-family:var(--ui);font-size:4.9vw;line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;}
@@ -132,7 +137,7 @@
     .slide-inner::before{content:"";position:absolute;left:50%;right:0;top:0;height:42vh;z-index:1;pointer-events:none;
       background:linear-gradient(180deg, rgba(10,9,8,.97) 0%, rgba(10,9,8,.9) 50%, rgba(10,9,8,0) 100%);}
     .hud{left:calc(50% + 40px);top:64px;}
-    .wordmark{font-size:clamp(52px,5.2vw,72px);}
+    .wordmark{font-size:clamp(48px,4.8vw,66px);}
     .sub{margin-top:8px;height:28px;font-size:19px;}
     .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 40px;max-width:640px;}
     .kicker{display:block;margin-bottom:18px;}
@@ -174,9 +179,12 @@
   <div class="viewport" id="viewport">
 
     <div class="hud is-hero" id="hud">
-      <div class="wordmark">Artist<i>x</i>Collab</div>
+      <div class="wordmark">
+        <span class="wm wm-hero">More than Merch.</span>
+        <span class="wm wm-main">Artist<i>x</i>Collab</span>
+      </div>
       <div class="sub">
-        <div class="tagline">Built with Artists. <em>Made for Fans.</em></div>
+        <div class="tagline"><em>A label of your own.</em></div>
         <nav class="steps" id="steps" aria-label="Chapters">
           <a href="#concept" data-target="concept">Concept.</a>
           <a href="#create" data-target="create">Create.</a>
@@ -191,21 +199,20 @@
       <div class="slide-inner">
         <img class="backdrop" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
         <div class="frame"><div class="card">
-          <img class="back" src="/artistxcollab/img/1.webp" alt="Artist×Collab — a DJ on stage wearing the You Can't Erase Me tee">
+          <img class="back" src="/artistxcollab/img/1.webp" alt="More than Merch — a DJ on stage wearing the You Can't Erase Me tee">
           <img class="front" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
           <div class="mask"></div>
         </div></div>
         <div class="wash"></div><div class="wash-grain"></div>
         <div class="copy">
-          <div class="kicker">Built with artists. Made for fans.</div>
+          <div class="kicker">A label of your own.</div>
           <div class="stack">
-            <span class="l1">Premium Collections</span>
-            <span class="l2">Artist Inspired</span>
-            <span class="l3">Engineered to Sell</span>
+            <span class="l1">Premium</span>
+            <span class="l2">Private Label</span>
+            <span class="l3">Apparel</span>
           </div>
           <ul class="bullets">
-            <li>Tech Founded</li><li>Premium Materials</li><li>Organic + Non-Toxic</li>
-            <li>State of the Art Design</li><li>End-to-End Platform</li>
+            <li>Organic + Non-Toxic</li><li>Made for Fans Who Want More</li>
           </ul>
         </div>
         <div class="cue"><span class="line"></span>Scroll</div>
