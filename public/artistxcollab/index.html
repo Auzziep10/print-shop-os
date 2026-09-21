@@ -72,8 +72,8 @@
   .card .front{transform:translateY(calc(var(--p) * -18px)) scale(calc(1.015 + var(--p) * .06));transform-origin:50% 40%;
     -webkit-mask-image:radial-gradient(ellipse 62% 56% at 50% 52%, #000 30%, transparent 72%);
     mask-image:radial-gradient(ellipse 62% 56% at 50% 52%, #000 30%, transparent 72%);}
-  .wash{position:absolute;inset:0;background:#bcb9b1;opacity:calc(min(var(--p) * 1.6, 1) * .66);pointer-events:none;}
-  .wash-grain{position:absolute;inset:0;opacity:calc(min(var(--p) * 1.6, 1) * .28);mix-blend-mode:multiply;pointer-events:none;
+  .wash{position:absolute;inset:0;background:#c9c9c5;opacity:calc(min(var(--p) * 1.6, 1) * .74);pointer-events:none;}
+  .wash-grain{position:absolute;inset:0;opacity:calc(min(var(--p) * 1.6, 1) * .38);mix-blend-mode:multiply;pointer-events:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size:160px 160px;}
   .mask{display:none;}
@@ -96,7 +96,7 @@
   .wordmark{position:relative;height:1.1em;font-family:var(--serif);font-weight:400;font-size:calc(8.1 * var(--u));line-height:1;letter-spacing:-.01em;
     white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
   .wm{position:absolute;left:0;bottom:0;transition:opacity .6s ease, transform .6s ease;}
-  .wm-hero{color:var(--paper);}
+  .wm-hero{color:var(--paper);font-size:1.08em;}
   .wm-hero .dt{font-style:italic;}
   .wm-main{color:var(--tan);font-size:1.11em;opacity:0;transform:translateY(8px);}
   .wm-main i{font-style:italic;}
@@ -123,7 +123,8 @@
   .copy .next{pointer-events:auto;}
   .kicker{display:none;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);--s:.22;}
   .stack{display:flex;flex-direction:column;align-items:flex-start;gap:.6vw;}
-  .stack span{display:inline-block;background:#0a0908;color:var(--paper);padding:1.9vw 5vw 1.9vw 5vw;
+  .stack span{display:inline-block;box-sizing:border-box;width:var(--bw,auto);min-width:max-content;
+    background:#0a0908;color:var(--paper);padding:1.9vw 5vw 1.9vw 5vw;
     text-transform:uppercase;line-height:1.1;white-space:nowrap;}
   .l1{font-weight:300;font-size:clamp(12px,3.9vw,18px);letter-spacing:.3em;color:rgba(243,237,225,.82);--s:.28;}
   .l2{font-weight:400;font-size:clamp(14px,4.5vw,21px);letter-spacing:.2em;--s:.37;}
@@ -133,7 +134,7 @@
   .lines p{margin:0;line-height:1.55;}
   .line-a{font-weight:400;font-size:clamp(11px,3vw,16px);letter-spacing:.2em;--s:.56;}
   .line-b{font-weight:700;font-size:clamp(11px,3.1vw,16px);letter-spacing:.16em;--s:.64;}
-  .next{align-self:center;margin-top:9vw;width:clamp(44px,8vw,64px);aspect-ratio:1;border-radius:50%;
+  .next{align-self:center;margin-top:9vw;width:clamp(36px,7.6vw,56px);aspect-ratio:1;border-radius:50%;
     background:rgba(243,237,225,.55);color:#0c0b0a;display:grid;place-items:center;text-decoration:none;--s:.74;
     transition:background .3s ease;}
   .next:hover{background:rgba(243,237,225,.8);}
@@ -167,7 +168,7 @@
     .steps{font-size:clamp(12px,1vw,20px);gap:.55em;}
     .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
     .kicker{display:block;margin-bottom:18px;}
-    .stack span{padding:.55vw 1.2vw .55vw 1.2vw;}
+    .stack span{padding:.55vw 1.2vw .55vw 1.2vw;width:calc(var(--bw, 0vw) * .29);}
     .l1{font-size:clamp(13px,1.25vw,26px);}
     .l2{font-size:clamp(18px,1.7vw,34px);}
     .l3{font-size:clamp(19px,1.8vw,36px);}
@@ -187,7 +188,7 @@
     .wide .wash-wide{display:block;position:absolute;top:0;bottom:0;left:50%;right:0;overflow:hidden;pointer-events:none;
       --pw:min(var(--p) * 1.5, 1);
       transform:translateX(calc((1 - var(--pw)) * 100%));}
-    .wide .wash-wide::before{content:"";position:absolute;inset:0;background:#c4c1ba;opacity:.72;}
+    .wide .wash-wide::before{content:"";position:absolute;inset:0;background:#c9c9c5;opacity:.78;}
     .wide .wash-wide .wash-grain{display:block;opacity:.3;}
     .wide .lines{color:#0c0b0a;}
     .wide .next{background:rgba(10,9,8,.12);color:#0c0b0a;}
@@ -258,9 +259,9 @@
         <div class="copy">
           <div class="kicker">A label of your own.</div>
           <div class="stack">
-            <span class="l1">Premium</span>
-            <span class="l2">Private Label</span>
-            <span class="l3">Apparel</span>
+            <span class="l1" style="--bw:90vw">Premium</span>
+            <span class="l2" style="--bw:78vw">Private Label</span>
+            <span class="l3" style="--bw:98vw">Apparel</span>
           </div>
           <div class="lines">
             <p class="line-a">Runway quality organic + non-toxic collections.</p>
@@ -285,9 +286,9 @@
         <div class="copy">
           <div class="kicker">01 — Concept</div>
           <div class="stack">
-            <span class="l1">Every Artist</span>
-            <span class="l2">Has a Language.</span>
-            <span class="l3">We Make It Wearable.</span>
+            <span class="l1" style="--bw:68vw">Every Artist</span>
+            <span class="l2" style="--bw:93vw">Has a Language.</span>
+            <span class="l3" style="--bw:87vw">We Make It Wearable.</span>
           </div>
           <div class="lines">
             <p class="line-a">We translate the artists identity into a cohesive collection.</p>
@@ -312,9 +313,9 @@
         <div class="copy">
           <div class="kicker">02 — Create</div>
           <div class="stack">
-            <span class="l1">From Storyboard</span>
-            <span class="l2">To Production Ready</span>
-            <span class="l3">Design</span>
+            <span class="l1" style="--bw:91vw">From Storyboard</span>
+            <span class="l2" style="--bw:85vw">To Production Ready</span>
+            <span class="l3" style="--bw:80vw">Design</span>
           </div>
           <div class="lines">
             <p class="line-a">Our design studio refines every element.</p>
@@ -339,9 +340,9 @@
         <div class="copy">
           <div class="kicker">03 — Produce</div>
           <div class="stack">
-            <span class="l1">State of the Art</span>
-            <span class="l2">Meets Cleaner</span>
-            <span class="l3">Production</span>
+            <span class="l1" style="--bw:86vw">State of the Art</span>
+            <span class="l2" style="--bw:72vw">Meets Cleaner</span>
+            <span class="l3" style="--bw:94vw">Production</span>
           </div>
           <div class="lines">
             <p class="line-a">Organic, non-toxic American cotton. Mineral infused.</p>
@@ -366,9 +367,9 @@
         <div class="copy">
           <div class="kicker">04 — Sell</div>
           <div class="stack">
-            <span class="l1">Built to Connect</span>
-            <span class="l2">Designed</span>
-            <span class="l3">To Sell</span>
+            <span class="l1" style="--bw:88vw">Built to Connect</span>
+            <span class="l2" style="--bw:76vw">Designed</span>
+            <span class="l3" style="--bw:92vw">To Sell</span>
           </div>
           <div class="lines">
             <p class="line-a">E-commerce ready, tour prepped, drop strategy + product storytelling.</p>
