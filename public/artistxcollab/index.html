@@ -77,7 +77,9 @@
     background-size:160px 160px;}
   /* hides the title that is baked into each photo; the fixed HUD sits in the same band */
   .mask{position:absolute;left:0;top:0;width:100%;aspect-ratio:10/7;pointer-events:none;
-    background:linear-gradient(180deg, #0a0908 0%, #0a0908 60%, rgba(10,9,8,.85) 74%, rgba(10,9,8,0) 100%);}
+    -webkit-backdrop-filter:blur(28px) saturate(.7);backdrop-filter:blur(28px) saturate(.7);
+    background:linear-gradient(180deg, rgba(10,9,8,.82) 0%, rgba(10,9,8,.74) 50%, rgba(10,9,8,.4) 78%, rgba(10,9,8,0) 100%);
+    -webkit-mask-image:linear-gradient(180deg, #000 60%, transparent 100%);mask-image:linear-gradient(180deg, #000 60%, transparent 100%);}
 
   .cue{position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:5;
     display:flex;justify-content:center;align-items:center;gap:10px;font-size:10px;letter-spacing:.24em;
@@ -153,7 +155,7 @@
     .wash,.wash-grain{display:none;}
     .cue{display:none;}
     .slide-inner::before{content:"";position:absolute;left:0;width:62%;top:0;height:40vh;z-index:1;pointer-events:none;
-      background:linear-gradient(180deg, rgba(10,9,8,.97) 0%, rgba(10,9,8,.9) 50%, rgba(10,9,8,0) 100%);}
+      background:linear-gradient(180deg, rgba(10,9,8,.7) 0%, rgba(10,9,8,.5) 50%, rgba(10,9,8,0) 100%);}
     .hud{left:4.2vw;top:5.4vw;}
     .wordmark{font-size:clamp(48px,5.4vw,112px);}
     .wm-hero .dt{font-style:italic;}
@@ -177,7 +179,8 @@
     .wide .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;
       transform:translateY(calc(var(--p) * -10px)) scale(calc(1 + var(--p) * .05));transform-origin:50% 45%;}
     .wide .mask-wide{display:block;position:absolute;left:0;top:0;width:58%;height:34%;pointer-events:none;
-      background:linear-gradient(180deg, #0a0908 0%, #0a0908 62%, rgba(10,9,8,0) 100%);
+      -webkit-backdrop-filter:blur(28px);backdrop-filter:blur(28px);
+      background:linear-gradient(180deg, rgba(10,9,8,.85) 0%, rgba(10,9,8,.75) 55%, rgba(10,9,8,0) 100%);
       -webkit-mask-image:linear-gradient(90deg, #000 72%, transparent 100%);mask-image:linear-gradient(90deg, #000 72%, transparent 100%);}
     .wide .wash-wide{display:block;position:absolute;top:0;bottom:0;left:50%;right:0;overflow:hidden;pointer-events:none;
       --pw:min(var(--p) * 1.5, 1);
