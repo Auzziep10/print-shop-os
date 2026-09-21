@@ -98,7 +98,7 @@
     white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
   .wm{position:absolute;left:0;bottom:0;transition:opacity .6s ease, transform .6s ease;}
   .wm-hero{color:var(--paper);}
-  .wm-hero .dt{font-style:normal;}
+  .wm-hero .dt{font-style:italic;}
   .wm-main{color:var(--tan);font-size:1.11em;opacity:0;transform:translateY(8px);}
   .wm-main i{font-style:italic;}
   .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
@@ -120,28 +120,33 @@
   .hud:not(.is-hero) .steps{opacity:1;transform:none;pointer-events:auto;}
 
   /* ---------- copy (mobile: over the photo, comp-style bars) ---------- */
-  .copy{position:absolute;left:0;right:0;top:42%;z-index:4;display:flex;flex-direction:column;align-items:flex-start;padding-right:20px;}
+  .copy{position:absolute;left:0;right:0;top:43%;z-index:4;display:flex;flex-direction:column;align-items:stretch;}
   .kicker{display:none;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);--s:.22;}
-  .stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
-  .stack span{display:inline-block;background:#0a0908;color:var(--paper);padding:9px 20px 9px 22px;
+  .stack{display:flex;flex-direction:column;align-items:flex-start;gap:.6vw;}
+  .stack span{display:inline-block;background:#0a0908;color:var(--paper);padding:1.9vw 5vw 1.9vw 5vw;
     text-transform:uppercase;line-height:1.1;white-space:nowrap;}
-  .l1{font-weight:300;font-size:clamp(15px,4.6vw,20px);letter-spacing:.32em;color:rgba(243,237,225,.82);--s:.28;}
-  .l2{font-weight:400;font-size:clamp(18px,5.4vw,24px);letter-spacing:.18em;--s:.37;}
-  .l3{font-weight:700;font-size:clamp(19px,5.7vw,25px);letter-spacing:.12em;--s:.46;}
-  .bullets{margin-top:14px;padding-left:22px;display:flex;flex-direction:column;gap:7px;}
-  .bullets li{display:flex;align-items:center;gap:8px;font-family:var(--sans-text);font-weight:700;font-size:clamp(12px,3.6vw,15px);
-    letter-spacing:.14em;text-transform:uppercase;color:#0c0b0a;--w:.22;}
-  .bullets li::before{content:"·";font-weight:700;}
-  .bullets li:nth-child(1){--s:.52}.bullets li:nth-child(2){--s:.56}.bullets li:nth-child(3){--s:.6}
-  .bullets li:nth-child(4){--s:.64}.bullets li:nth-child(5){--s:.68}.bullets li:nth-child(6){--s:.72}
+  .l1{font-weight:300;font-size:clamp(12px,3.9vw,18px);letter-spacing:.3em;color:rgba(243,237,225,.82);--s:.28;}
+  .l2{font-weight:400;font-size:clamp(14px,4.5vw,21px);letter-spacing:.2em;--s:.37;}
+  .l3{font-weight:700;font-size:clamp(15px,4.8vw,22px);letter-spacing:.12em;--s:.46;}
+  .lines{margin-top:9vw;padding:0 9vw;display:flex;flex-direction:column;gap:4.5vw;text-align:center;
+    font-family:var(--sans-text);text-transform:uppercase;color:#0c0b0a;}
+  .lines p{margin:0;line-height:1.55;}
+  .line-a{font-weight:400;font-size:clamp(11px,3vw,16px);letter-spacing:.2em;--s:.56;}
+  .line-b{font-weight:700;font-size:clamp(11px,3.1vw,16px);letter-spacing:.16em;--s:.64;}
+  .next{align-self:center;margin-top:7vw;width:clamp(44px,8vw,64px);aspect-ratio:1;border-radius:50%;
+    background:rgba(243,237,225,.55);color:#0c0b0a;display:grid;place-items:center;text-decoration:none;--s:.74;
+    transition:background .3s ease;}
+  .next:hover{background:rgba(243,237,225,.8);}
+  .next svg{width:44%;height:44%;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
 
-  .kicker,.stack span,.bullets li{
+  .kicker,.stack span,.lines p,.next{
     --w:.3;
     --t:clamp(0, (var(--p) - var(--s)) / var(--w), 1);
     --te:calc(var(--t) * var(--t) * (3 - 2 * var(--t)));
     will-change:transform,opacity,clip-path;}
   .stack span{clip-path:inset(0 calc((1 - var(--te)) * 100%) 0 0);transform:translateX(calc((1 - var(--te)) * -26px));}
-  .kicker,.bullets li{opacity:var(--te);transform:translateY(calc((1 - var(--te)) * 14px)) translateX(calc((1 - var(--te)) * -8px));}
+  .kicker,.lines p{opacity:var(--te);transform:translateY(calc((1 - var(--te)) * 14px));}
+  .next{opacity:var(--te);transform:translateY(calc((1 - var(--te)) * 10px));}
 
   /* ---------- desktop: portrait card + live copy ---------- */
   @media (min-width:900px){
@@ -168,9 +173,12 @@
     .l1{font-size:clamp(13px,1.25vw,26px);}
     .l2{font-size:clamp(18px,1.7vw,34px);}
     .l3{font-size:clamp(19px,1.8vw,36px);}
-    .bullets{margin-top:1.2vw;padding-left:1.2vw;gap:.35vw;}
-    .bullets li{font-weight:400;font-size:clamp(12px,1.05vw,22px);letter-spacing:.16em;color:var(--paper-dim);}
-    .bullets li::before{content:none;}
+    .stack{gap:.2vw;}
+    .lines{margin-top:1.6vw;padding:0 0 0 1.2vw;gap:1vw;text-align:left;max-width:36em;color:var(--paper-dim);}
+    .line-a{font-size:clamp(11px,.95vw,20px);}
+    .line-b{font-size:clamp(11px,1vw,20px);}
+    .next{align-self:flex-start;margin:1.8vw 0 0 1.2vw;width:clamp(40px,3.2vw,60px);background:rgba(243,237,225,.16);color:var(--paper);}
+    .next:hover{background:rgba(243,237,225,.3);}
 
     /* full-bleed landscape slides */
     .wide .backdrop,.wide .slide-inner::before,.wide .kicker{display:none;}
@@ -187,7 +195,9 @@
       transform:translateX(calc((1 - var(--pw)) * 100%));}
     .wide .wash-wide::before{content:"";position:absolute;inset:0;background:#c4c1ba;opacity:.72;}
     .wide .wash-wide .wash-grain{display:block;opacity:.3;}
-    .wide .bullets li{color:#0c0b0a;}
+    .wide .lines{color:#0c0b0a;}
+    .wide .next{background:rgba(10,9,8,.12);color:#0c0b0a;}
+    .wide .next:hover{background:rgba(10,9,8,.22);}
     .wide .copy{padding-left:1.2vw;}
   }
 
@@ -207,7 +217,7 @@
     .slide-inner,.card,.card .back,.card .front,.backdrop{transform:none !important;}
     .card .front{display:none;}
     #hero .slide-inner{animation:none;}
-    .stack span,.kicker,.bullets li{transform:none;}
+    .stack span,.kicker,.lines p,.next{transform:none;}
     .cue .line{animation:none;}
   }
 </style>
@@ -258,9 +268,11 @@
             <span class="l2">Private Label</span>
             <span class="l3">Apparel</span>
           </div>
-          <ul class="bullets">
-            <li>Organic + Non-Toxic</li><li>Made for Fans Who Want More</li>
-          </ul>
+          <div class="lines">
+            <p class="line-a">Runway quality organic + non-toxic collections.</p>
+            <p class="line-b">Made for fans that want more.</p>
+          </div>
+          <a class="next" href="#concept" aria-label="Next: Concept"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
         <div class="cue"><span class="line"></span>Scroll</div>
         <div class="shade"></div>
@@ -282,10 +294,11 @@
             <span class="l2">Transforms Into A</span>
             <span class="l3">Focused Collection</span>
           </div>
-          <ul class="bullets">
-            <li>Hero Product Strategy</li><li>Storyboard Creative</li><li>Brand + Tour Context</li>
-            <li>Organic Textile Library</li><li>Multi-Genre Ideation</li>
-          </ul>
+          <div class="lines">
+            <p class="line-a">Hero product strategy, storyboard creative + brand and tour context.</p>
+            <p class="line-b">Multi-genre ideation from an organic textile library.</p>
+          </div>
+          <a class="next" href="#create" aria-label="Next: Create"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
         <div class="shade"></div>
       </div>
@@ -307,10 +320,11 @@
             <span class="l2">Into</span>
             <span class="l3">Cohesive Design</span>
           </div>
-          <ul class="bullets">
-            <li>Dedicated Design Studio</li><li>Pantone Matched</li><li>Scale Refined</li>
-            <li>Production Engineered</li><li>Decoration Optimized</li><li>Production Ready</li>
-          </ul>
+          <div class="lines">
+            <p class="line-a">A dedicated design studio. Pantone matched, scale refined, production engineered.</p>
+            <p class="line-b">Decoration optimized. Production ready.</p>
+          </div>
+          <a class="next" href="#produce" aria-label="Next: Produce"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
         <div class="shade"></div>
       </div>
@@ -332,10 +346,11 @@
             <span class="l2">Meets Cleaner</span>
             <span class="l3">Production</span>
           </div>
-          <ul class="bullets">
-            <li>Organic</li><li>Non-Toxic</li><li>American Cotton</li>
-            <li>Mineral Infused</li><li>GOTS Certified</li>
-          </ul>
+          <div class="lines">
+            <p class="line-a">Organic, non-toxic American cotton. Mineral infused.</p>
+            <p class="line-b">GOTS certified production.</p>
+          </div>
+          <a class="next" href="#sell" aria-label="Next: Sell"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
         <div class="shade"></div>
       </div>
@@ -357,10 +372,11 @@
             <span class="l2">Designed</span>
             <span class="l3">To Sell</span>
           </div>
-          <ul class="bullets">
-            <li>E-Commerce Ready</li><li>Tour Prepped</li><li>Drop Strategy</li>
-            <li>Product Storytelling</li><li>Inventory + Fulfillment</li><li>Fan Experience</li>
-          </ul>
+          <div class="lines">
+            <p class="line-a">E-commerce ready, tour prepped, drop strategy + product storytelling.</p>
+            <p class="line-b">Inventory, fulfillment + fan experience, handled.</p>
+          </div>
+          <a class="next" href="#cta" aria-label="Next: Start a collab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
         <div class="shade"></div>
       </div>
@@ -369,7 +385,7 @@
   </div>
 </div>
 
-<section class="cta">
+<section class="cta" id="cta">
   <h2>Let's build the next drop.</h2>
   <p>Concept. Create. Produce. Sell. — one platform, start to finish.</p>
   <a class="btn" href="#story">Start a Collab</a>
@@ -453,6 +469,20 @@
   window.addEventListener('resize', function(){ measure(); moveUnderline(stepsEl.querySelector('a.active')); });
   measure();
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ moveUnderline(stepsEl.querySelector('a.active')); }); }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.next'), function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      var slide = btn.closest('.slide');
+      var i = slides.indexOf(slide);
+      var vh = viewport.offsetHeight || window.innerHeight;
+      var storyTop = story.getBoundingClientRect().top + window.scrollY;
+      var top = i < slides.length - 1
+        ? storyTop + ((i + 1) * L + 1.0) * vh
+        : document.getElementById('cta').getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({top: top, behavior: reduced ? 'auto' : 'smooth'});
+    });
+  });
 
   links.forEach(function(l){
     l.addEventListener('click', function(ev){
