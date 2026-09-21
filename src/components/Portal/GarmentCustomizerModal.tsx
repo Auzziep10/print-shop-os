@@ -299,11 +299,7 @@ export function GarmentCustomizerModal({
   // Sync activeGarment when prop garment changes
   useEffect(() => {
     if (garment) {
-      const activeId = activeGarment?.id || activeGarment?.itemNum || activeGarment?.style;
-      const propId = garment.id || garment.itemNum || garment.style;
-      if (activeId !== propId) {
-        setActiveGarment(garment);
-      }
+      setActiveGarment(garment);
     }
   }, [garment]);
 
@@ -311,20 +307,22 @@ export function GarmentCustomizerModal({
   useEffect(() => {
     if (activeGarment) {
       const activeId = activeGarment.id || activeGarment.itemNum || activeGarment.style;
-      if (lastGarmentIdRef.current !== activeId) {
-        lastGarmentIdRef.current = activeId;
-        const isFixed = activeGarment?.hasFixedColors || (garment as any)?.hasFixedColors || activeGarment?.isSuggested || (garment as any)?.isSuggested;
-        const allowedList = (garment as any)?.allowedColors || fetchedAllowedColors;
-        const availableCols = (isFixed && activeGarment.colors?.length > 0)
-          ? activeGarment.colors
-          : getFilteredProductColors(activeGarment, allowedList);
-        const initCol = activeGarment.selectedColor && availableCols.includes(activeGarment.selectedColor)
-          ? activeGarment.selectedColor
+      const isFixed = activeGarment?.hasFixedColors || (garment as any)?.hasFixedColors || activeGarment?.isSuggested || (garment as any)?.isSuggested;
+      const allowedList = (garment as any)?.allowedColors || activeGarment?.allowedColors || fetchedAllowedColors;
+      const availableCols = (isFixed && activeGarment.colors?.length > 0)
+        ? activeGarment.colors
+        : getFilteredProductColors(activeGarment, allowedList, fetchedCustomColors);
+      const initCol = (activeGarment.selectedColor && availableCols.includes(activeGarment.selectedColor))
+        ? activeGarment.selectedColor
+        : (activeGarment.color && availableCols.includes(activeGarment.color))
+          ? activeGarment.color
           : (availableCols[0] || 'Custom Color');
+      if (lastGarmentIdRef.current !== activeId || !availableCols.includes(selectedColor)) {
+        lastGarmentIdRef.current = activeId;
         setSelectedColor(initCol);
       }
     }
-  }, [activeGarment, fetchedAllowedColors, garment]);
+  }, [activeGarment, fetchedAllowedColors, fetchedCustomColors, garment]);
 
 
 
@@ -873,7 +871,7 @@ export function GarmentCustomizerModal({
       return explicitColors;
     }
 
-    const propAllowed = (garment as any)?.allowedColors;
+    const propAllowed = (garment as any)?.allowedColors || activeGarment?.allowedColors;
     const allowed = (propAllowed && Object.keys(propAllowed).length > 0) ? propAllowed : fetchedAllowedColors;
     return getFilteredProductColors(activeGarment, allowed, fetchedCustomColors);
   }, [activeGarment, garment, fetchedAllowedColors, fetchedCustomColors]);
@@ -951,20 +949,20 @@ export function GarmentCustomizerModal({
       }
 
       if (!resolvedFront) {
-        const garmentImages = activeGarment?.images || {};
+        const garmentImages = activeGarment?.images || (garment as any)?.images || {};
         const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
         const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
 
         resolvedFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
         resolvedBack = garmentColorVal?.back || null;
 
-        const garmentBackImages = activeGarment?.backImages || {};
+        const garmentBackImages = activeGarment?.backImages || (garment as any)?.backImages || {};
         const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
         if (garmentBackImgKey) {
           resolvedBack = garmentBackImages[garmentBackImgKey];
         }
 
-        if (catalogProduct) {
+        if (!resolvedFront && catalogProduct) {
           const catalogImages = catalogProduct.images || {};
           const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
           const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;

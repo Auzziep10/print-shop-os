@@ -1918,6 +1918,10 @@ export function OrderDetail() {
       itemNum: itemNum,
       color: activeColor,
       colors: item.colors || [activeColor],
+      hasFixedColors: Boolean(item.hasFixedColors),
+      isSuggested: Boolean(item.isSuggested),
+      images: item.images || null,
+      backImages: item.backImages || null,
       sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
       price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice > 0 ? numericPrice.toFixed(2) : '0.00'),
       blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
@@ -7470,26 +7474,143 @@ export function OrderDetail() {
                           </label>
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
+                              let customerData = liveCustomer;
+                              if (!customerData && order?.customerId) {
+                                try {
+                                  const snap = await getDoc(doc(db, 'customers', order.customerId));
+                                  if (snap.exists()) {
+                                    customerData = snap.data();
+                                    setLiveCustomer(customerData);
+                                  }
+                                } catch (err) {
+                                  console.error("Failed to fetch customer data in mockup creator click", err);
+                                }
+                              }
+
                               const catalogItem = sanmarCatalog.find((i: any) => i.style === editItemObj.itemNum || i.style === editItemObj.style);
-                              const frontImg = editItemObj.originalFrontImage || editItemObj.image || catalogItem?.image || (catalogItem?.images ? (Object.values(catalogItem.images)[0] as any)?.front : '') || '';
+
+                              const searchStyle = (editItemObj.style || '').trim().toLowerCase();
+                              const searchItemNum = (editItemObj.itemNum || '').trim().toLowerCase();
+
+                              const customerItems = [
+                                ...(customerData?.suggestedItems || []),
+                                ...(customerData?.sampleItems || [])
+                              ];
+
+                              const customerItemMatch = customerItems.find((item: any) => {
+                                const itemStyle = (item.style || '').trim().toLowerCase();
+                                const itemNum = (item.itemNum || '').trim().toLowerCase();
+                                return (
+                                  (editItemObj.id && (item.id === editItemObj.id || item.id === editItemObj.garmentId)) ||
+                                  (searchItemNum && itemNum && searchItemNum === itemNum) ||
+                                  (searchStyle && itemStyle && searchStyle === itemStyle) ||
+                                  (searchItemNum && itemStyle && (itemStyle.includes(searchItemNum) || searchItemNum.includes(itemStyle))) ||
+                                  (searchStyle && itemNum && (itemNum.includes(searchStyle) || searchStyle.includes(itemNum))) ||
+                                  (searchStyle && itemStyle && (itemStyle.includes(searchStyle) || searchStyle.includes(itemStyle)))
+                                );
+                              });
+
+                              // Check storefrontCatalogSettings for allowedColors & colorMockups
+                              const catalogStyles = [editItemObj.itemNum, editItemObj.style, catalogItem?.style].filter(Boolean) as string[];
+                              let storefrontAllowedColors: string[] | null = null;
+                              let storefrontColorMockups: Record<string, any> | null = null;
+
+                              if (storefrontCatalogSettings?.allowedColors) {
+                                for (const st of catalogStyles) {
+                                  const clean = st.toLowerCase().trim().replace(/[\s-]/g, '');
+                                  const cleanNoPrefix = clean.replace(/^(bc|nl|dt)/i, '');
+                                  const foundKey = Object.keys(storefrontCatalogSettings.allowedColors).find(k => {
+                                    const kClean = k.toLowerCase().trim().replace(/[\s-]/g, '');
+                                    return kClean === clean || kClean === cleanNoPrefix || kClean.replace(/^(bc|nl|dt)/i, '') === cleanNoPrefix;
+                                  });
+                                  if (foundKey && Array.isArray(storefrontCatalogSettings.allowedColors[foundKey])) {
+                                    storefrontAllowedColors = storefrontCatalogSettings.allowedColors[foundKey];
+                                    break;
+                                  }
+                                }
+                              }
+
+                              if (storefrontCatalogSettings?.colorMockups) {
+                                for (const st of catalogStyles) {
+                                  const clean = st.toLowerCase().trim().replace(/[\s-]/g, '');
+                                  const cleanNoPrefix = clean.replace(/^(bc|nl|dt)/i, '');
+                                  const foundKey = Object.keys(storefrontCatalogSettings.colorMockups).find(k => {
+                                    const kClean = k.toLowerCase().trim().replace(/[\s-]/g, '');
+                                    return kClean === clean || kClean === cleanNoPrefix || kClean.replace(/^(bc|nl|dt)/i, '') === cleanNoPrefix;
+                                  });
+                                  if (foundKey && storefrontCatalogSettings.colorMockups[foundKey]) {
+                                    storefrontColorMockups = storefrontCatalogSettings.colorMockups[foundKey];
+                                    break;
+                                  }
+                                }
+                              }
+
+                              let effectiveColors: string[] = [];
+                              let isFixedColors = false;
+
+                              if (customerItemMatch && Array.isArray(customerItemMatch.colors) && customerItemMatch.colors.length > 0) {
+                                effectiveColors = customerItemMatch.colors;
+                                isFixedColors = true;
+                              } else if (editItemObj.hasFixedColors && Array.isArray(editItemObj.colors) && editItemObj.colors.length > 0) {
+                                effectiveColors = editItemObj.colors;
+                                isFixedColors = true;
+                              } else if (storefrontAllowedColors && storefrontAllowedColors.length > 0) {
+                                effectiveColors = storefrontAllowedColors;
+                              } else if (catalogItem?.colors && catalogItem.colors.length > 0) {
+                                effectiveColors = catalogItem.colors;
+                              } else if (editItemObj.colors && editItemObj.colors.length > 0) {
+                                effectiveColors = editItemObj.colors;
+                              } else if (editItemObj.color) {
+                                effectiveColors = [editItemObj.color];
+                              } else {
+                                effectiveColors = ['Custom Color'];
+                              }
+
+                              // Combined images with customer custom mockups having highest priority
+                              const combinedImages: Record<string, any> = {
+                                ...(catalogItem?.images || {}),
+                                ...(storefrontColorMockups || {}),
+                                ...(editItemObj.images || {}),
+                                ...(customerItemMatch?.images || {})
+                              };
+
+                              const combinedBackImages: Record<string, any> = {
+                                ...(catalogItem?.backImages || {}),
+                                ...(editItemObj.backImages || {}),
+                                ...(customerItemMatch?.backImages || {})
+                              };
+
+                              const selectedColor = editItemObj.color || (effectiveColors.length > 0 ? effectiveColors[0] : 'Custom Color');
+                              const custFrontForColor = combinedImages[selectedColor];
+                              const custFrontUrl = typeof custFrontForColor === 'string' ? custFrontForColor : (custFrontForColor?.front || custFrontForColor?.swatch);
+                              const frontImg = custFrontUrl || editItemObj.originalFrontImage || editItemObj.image || catalogItem?.image || (catalogItem?.images ? (Object.values(catalogItem.images)[0] as any)?.front : '') || '';
+
+                              const custBackForColor = combinedBackImages[selectedColor];
+                              const custBackUrl = typeof custBackForColor === 'string' ? custBackForColor : custBackForColor?.back;
+                              const backImg = custBackUrl || editItemObj.originalBackImage || catalogItem?.backImage || null;
+
                               setCustomizingItem({
                                 id: editItemObj.id,
-                                style: editItemObj.style || 'Custom Garment',
-                                garmentName: editItemObj.style || 'Custom Garment',
-                                itemNum: editItemObj.itemNum || '',
+                                style: editItemObj.style || customerItemMatch?.style || 'Custom Garment',
+                                garmentName: editItemObj.style || customerItemMatch?.style || 'Custom Garment',
+                                itemNum: editItemObj.itemNum || customerItemMatch?.itemNum || '',
                                 image: editItemObj.image || frontImg,
                                 originalFrontImage: frontImg,
-                                originalBackImage: editItemObj.originalBackImage || catalogItem?.backImage || null,
+                                originalBackImage: backImg,
                                 originalSleeveImage: editItemObj.originalSleeveImage || null,
                                 customizedFrontImage: editItemObj.customizedFrontImage || null,
                                 customizedBackImage: editItemObj.customizedBackImage || null,
                                 customizedSleeveImage: editItemObj.customizedSleeveImage || null,
-                                images: catalogItem?.images || editItemObj.images || null,
-                                backImages: catalogItem?.backImages || editItemObj.backImages || null,
-                                colors: catalogItem?.colors || editItemObj.colors || (editItemObj.color ? [editItemObj.color] : ['Custom Color']),
-                                color: editItemObj.color || 'Custom Color',
-                                selectedColor: editItemObj.color || 'Custom Color',
+                                images: combinedImages,
+                                backImages: combinedBackImages,
+                                colors: effectiveColors,
+                                color: selectedColor,
+                                selectedColor: selectedColor,
+                                hasFixedColors: isFixedColors,
+                                isSuggested: Boolean(customerItemMatch || editItemObj.isSuggested),
+                                colorMockups: storefrontCatalogSettings?.colorMockups || null,
+                                allowedColors: storefrontCatalogSettings?.allowedColors || null,
                                 logoPlacement: editItemObj.logoPlacement,
                                 customized: editItemObj.customized || false,
                                 logoUrl: editItemObj.logoUrl || null,
@@ -8888,6 +9009,10 @@ export function OrderDetail() {
                                    itemNum: itemNum,
                                    color: colors[0] || '',
                                    colors: colors,
+                                   hasFixedColors: true,
+                                   isSuggested: Boolean(item.isSuggested),
+                                   images: item.images || null,
+                                   backImages: item.backImages || null,
                                    sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0) ? prev.sizes : initialSizes,
                                    price: prev?.price && parseFloat(prev.price) > 0 ? prev.price : (numericPrice ? numericPrice : formattedPrice),
                                    blankCost: numericPrice > 0 ? numericPrice : (prev?.blankCost || 0),
@@ -8974,6 +9099,10 @@ export function OrderDetail() {
             backImages: customizingItem.backImages || null,
             colors: customizingItem.colors || ['Custom Color'],
             selectedColor: customizingItem.color || 'Custom Color',
+            hasFixedColors: customizingItem.hasFixedColors,
+            isSuggested: customizingItem.isSuggested,
+            colorMockups: customizingItem.colorMockups || storefrontCatalogSettings?.colorMockups || null,
+            allowedColors: customizingItem.allowedColors || storefrontCatalogSettings?.allowedColors || null,
             originalFrontImage: customizingItem.originalFrontImage || null,
             originalBackImage: customizingItem.originalBackImage || null,
             originalSleeveImage: customizingItem.originalSleeveImage || null,
@@ -9015,6 +9144,8 @@ export function OrderDetail() {
               color: customizedData.selectedColor,
               image: customizedData.image,
               customized: true,
+              hasFixedColors: customizingItem.hasFixedColors ?? prev?.hasFixedColors,
+              isSuggested: customizingItem.isSuggested ?? prev?.isSuggested,
               logoPlacement: customizedData.logoPlacement,
               originalFrontImage: customizedData.originalFrontImage,
               originalBackImage: customizedData.originalBackImage,
@@ -9030,9 +9161,9 @@ export function OrderDetail() {
               logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
               logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
               logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
-              colors: customizedData.colors || prev.colors,
-              images: customizedData.images || null,
-              backImages: customizedData.backImages || null,
+              colors: (customizingItem.hasFixedColors && customizingItem.colors?.length) ? customizingItem.colors : (customizedData.colors || prev?.colors),
+              images: (customizingItem.hasFixedColors && customizingItem.images) ? customizingItem.images : (customizedData.images || prev?.images || null),
+              backImages: (customizingItem.hasFixedColors && customizingItem.backImages) ? customizingItem.backImages : (customizedData.backImages || prev?.backImages || null),
               customScaleFront: customizedData.customScaleFront,
               customOffsetXFront: customizedData.customOffsetXFront,
               customOffsetYFront: customizedData.customOffsetYFront,
