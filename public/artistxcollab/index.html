@@ -67,7 +67,7 @@
     transform:translateY(calc(var(--p) * -30px));}
   .frame{position:absolute;inset:0;}
   .card{position:absolute;inset:0;overflow:hidden;}
-  .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center bottom;will-change:transform;}
+  .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;will-change:transform;}
   .card .back{transform:translateY(calc(var(--p) * 12px)) scale(calc(1 + var(--p) * .06));transform-origin:50% 40%;}
   .card .front{transform:translateY(calc(var(--p) * -18px)) scale(calc(1.015 + var(--p) * .06));transform-origin:50% 40%;
     -webkit-mask-image:radial-gradient(ellipse 62% 56% at 50% 52%, #000 30%, transparent 72%);
@@ -458,13 +458,13 @@
   }
 
   var lastTick = 0;
-  // photos are 920x2000, object-fit: cover, anchored bottom-center; the header tracks that box
+  // photos are 920x2000, object-fit: cover at "center 30%"; the header tracks that box
   function layoutHud(){
     var W = viewport.clientWidth, H = viewport.clientHeight;
     var s = Math.max(W / 920, H / 2000), rw = 920 * s, rh = 2000 * s;
     viewport.style.setProperty('--u', (rw / 100) + 'px');
     viewport.style.setProperty('--ox', ((W - rw) / 2) + 'px');
-    viewport.style.setProperty('--oy', (H - rh) + 'px');
+    viewport.style.setProperty('--oy', ((H - rh) * 0.30) + 'px');
   }
   layoutHud();
 
