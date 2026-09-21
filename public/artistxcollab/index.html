@@ -37,6 +37,7 @@
     --sans-text:'Inter Text', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
   *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
   body{background:var(--ink);color:var(--paper);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
   img{max-width:100%;display:block;}
   h2,p,ul{margin:0;}
@@ -89,7 +90,7 @@
   @keyframes bob{0%,100%{transform:translateY(-8%);}50%{transform:translateY(12%);}}
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
-  .hud{position:absolute;z-index:50;left:6.3vw;top:calc(18.6vw + env(safe-area-inset-top,0px));
+  .hud{position:absolute;z-index:50;left:6.3vw;top:calc(17.7vw + env(safe-area-inset-top,0px));
     transition:opacity .6s ease, transform .6s ease;}
   /* slides exported with the header already in the photo: photo shows as-is, HTML header steps aside */
   @media (max-width:899px){
@@ -109,7 +110,7 @@
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;font-style:italic;}
   .tagline em{font-style:italic;font-weight:400;}
-  .steps{display:flex;flex-direction:column;gap:.25em;padding-left:1.7em;top:.6em;
+  .steps{display:flex;flex-direction:column;gap:.13em;padding-left:1.7em;top:.6em;
     font-family:var(--sans-text);font-size:clamp(10px,2.5vw,15px);line-height:1.25;letter-spacing:.16em;text-transform:uppercase;
     opacity:0;transform:translateY(6px);pointer-events:none;}
   .steps .rail{position:absolute;left:.16em;top:0;bottom:0;width:1px;background:rgba(243,237,225,.35);}
