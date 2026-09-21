@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Artist×Collab — Ink Theory</title>
+<title>More than Merch — Ink Theory</title>
 <meta name="description" content="More than Merch. A label of your own. Artist×Collab by Ink Theory — Concept. Create. Produce. Sell.">
 <meta name="robots" content="noindex">
-<meta property="og:title" content="Artist×Collab — Ink Theory">
-<meta property="og:description" content="More than Merch. A label of your own.">
+<meta property="og:title" content="More than Merch — Ink Theory">
+<meta property="og:description" content="A label of your own.">
 <meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1.webp">
 <meta name="theme-color" content="#0a0908">
 <link rel="icon" href="/inktheory-favicon.png">
@@ -79,15 +79,9 @@
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
   .hud{position:absolute;z-index:50;left:5.6vw;top:calc(14vw + env(safe-area-inset-top,0px));}
-  .wordmark{position:relative;height:1em;font-family:var(--serif);font-weight:400;font-size:10.6vw;line-height:1;letter-spacing:-.01em;
-    text-shadow:0 2px 24px rgba(0,0,0,.5);}
-  .wm{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
-  .wm-hero{color:var(--paper);font-size:.9em;top:.06em;}
-  .wm-main{color:var(--tan);opacity:0;transform:translateY(8px);}
-  .wm-main i{font-style:italic;font-weight:400;}
-  .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
-  .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
-  .sub{position:relative;margin-top:1.6vw;height:6vw;font-family:var(--ui);font-size:4.9vw;line-height:1.2;}
+  .wordmark{font-family:var(--serif);font-weight:400;font-size:9.6vw;line-height:1;letter-spacing:-.01em;color:var(--paper);
+    white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
+  .sub{position:relative;margin-top:1.8vw;height:6vw;font-family:var(--ui);font-size:4.9vw;line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;}
   .tagline em{font-style:italic;font-weight:400;}
@@ -137,7 +131,7 @@
     .slide-inner::before{content:"";position:absolute;left:50%;right:0;top:0;height:42vh;z-index:1;pointer-events:none;
       background:linear-gradient(180deg, rgba(10,9,8,.97) 0%, rgba(10,9,8,.9) 50%, rgba(10,9,8,0) 100%);}
     .hud{left:calc(50% + 40px);top:64px;}
-    .wordmark{font-size:clamp(48px,4.8vw,66px);}
+    .wordmark{font-size:clamp(44px,4.4vw,60px);}
     .sub{margin-top:8px;height:28px;font-size:19px;}
     .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 40px;max-width:640px;}
     .kicker{display:block;margin-bottom:18px;}
@@ -179,10 +173,7 @@
   <div class="viewport" id="viewport">
 
     <div class="hud is-hero" id="hud">
-      <div class="wordmark">
-        <span class="wm wm-hero">More than Merch.</span>
-        <span class="wm wm-main">Artist<i>x</i>Collab</span>
-      </div>
+      <div class="wordmark">More than Merch.</div>
       <div class="sub">
         <div class="tagline"><em>A label of your own.</em></div>
         <nav class="steps" id="steps" aria-label="Chapters">
