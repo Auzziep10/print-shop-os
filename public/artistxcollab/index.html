@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <meta property="og:title" content="More than Merch — Ink Theory">
 <meta property="og:description" content="A label of your own.">
-<meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1.webp">
+<meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1-wide.webp">
 <meta name="theme-color" content="#0a0908">
 <link rel="icon" href="/inktheory-favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,6 +81,8 @@
   .hud{position:absolute;z-index:50;left:5.6vw;top:calc(14vw + env(safe-area-inset-top,0px));}
   .wordmark{font-family:var(--serif);font-weight:400;font-size:9.6vw;line-height:1;letter-spacing:-.01em;color:var(--paper);
     white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
+  .wordmark .dt{font-style:normal;}
+  .mask-wide,.wash-wide{display:none;}
   .sub{position:relative;margin-top:1.8vw;height:6vw;font-family:var(--ui);font-size:4.9vw;line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;}
@@ -121,27 +123,46 @@
   @media (min-width:900px){
     .backdrop{display:block;}
     .frame{display:grid;grid-template-columns:1fr 1fr;perspective:1600px;}
-    .card{position:relative;inset:auto;width:fit-content;height:calc(100svh - 96px);margin:48px auto;
+    .card{position:relative;inset:auto;width:fit-content;height:calc(100svh - 14.5vw - 72px);margin:calc(14.5vw + 24px) auto 48px;
       box-shadow:0 40px 90px rgba(0,0,0,.65);
       transform:translateY(calc((1 - var(--p)) * 36px)) rotateY(calc((1 - var(--p)) * 7deg));transform-origin:50% 50%;}
     .card img{position:relative;width:auto;height:100%;object-fit:contain;transform:none;}
     .card .front{display:none;}
     .wash,.wash-grain{display:none;}
     .cue{display:none;}
-    .slide-inner::before{content:"";position:absolute;left:50%;right:0;top:0;height:42vh;z-index:1;pointer-events:none;
+    .slide-inner::before{content:"";position:absolute;left:0;width:62%;top:0;height:40vh;z-index:1;pointer-events:none;
       background:linear-gradient(180deg, rgba(10,9,8,.97) 0%, rgba(10,9,8,.9) 50%, rgba(10,9,8,0) 100%);}
-    .hud{left:calc(50% + 40px);top:64px;}
-    .wordmark{font-size:clamp(44px,4.4vw,60px);}
-    .sub{margin-top:8px;height:28px;font-size:19px;}
-    .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 40px;max-width:640px;}
+    .hud{left:4.2vw;top:5.4vw;}
+    .wordmark{font-size:clamp(48px,5.4vw,112px);}
+    .wordmark .dt{font-style:italic;}
+    .wordmark .dot{display:none;}
+    .sub{margin-top:.9vw;height:2.2vw;font-size:clamp(15px,1.7vw,34px);}
+    .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
     .kicker{display:block;margin-bottom:18px;}
-    .stack span{padding:10px 22px 10px 24px;}
-    .l1{font-size:15px;}
-    .l2{font-size:clamp(22px,2.3vw,32px);}
-    .l3{font-size:clamp(24px,2.5vw,34px);}
-    .bullets{margin-top:26px;padding-left:2px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;max-width:520px;}
-    .bullets li{font-weight:500;font-size:13px;letter-spacing:.12em;color:var(--paper-dim);padding-block:12px;border-top:1px solid var(--line);}
-    .bullets li::before{content:"";width:5px;height:5px;background:var(--gold);flex:none;}
+    .stack span{padding:.55vw 1.2vw .55vw 1.2vw;}
+    .l1{font-size:clamp(13px,1.25vw,26px);}
+    .l2{font-size:clamp(18px,1.7vw,34px);}
+    .l3{font-size:clamp(19px,1.8vw,36px);}
+    .bullets{margin-top:1.2vw;padding-left:1.2vw;gap:.35vw;}
+    .bullets li{font-weight:400;font-size:clamp(12px,1.05vw,22px);letter-spacing:.16em;color:var(--paper-dim);}
+    .bullets li::before{content:none;}
+
+    /* full-bleed landscape slides */
+    .wide .backdrop,.wide .slide-inner::before,.wide .kicker{display:none;}
+    .wide .frame{display:block;perspective:none;}
+    .wide .card{position:absolute;inset:0;width:auto;height:auto;margin:0;box-shadow:none;transform:none;}
+    .wide .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;
+      transform:translateY(calc(var(--p) * -10px)) scale(calc(1 + var(--p) * .05));transform-origin:50% 45%;}
+    .wide .mask-wide{display:block;position:absolute;left:0;top:0;width:58%;height:34%;pointer-events:none;
+      background:linear-gradient(180deg, #0a0908 0%, #0a0908 62%, rgba(10,9,8,0) 100%);
+      -webkit-mask-image:linear-gradient(90deg, #000 72%, transparent 100%);mask-image:linear-gradient(90deg, #000 72%, transparent 100%);}
+    .wide .wash-wide{display:block;position:absolute;top:0;bottom:0;left:50%;right:0;overflow:hidden;pointer-events:none;
+      --pw:min(var(--p) * 1.5, 1);
+      transform:translateX(calc((1 - var(--pw)) * 100%));}
+    .wide .wash-wide::before{content:"";position:absolute;inset:0;background:#c4c1ba;opacity:.72;}
+    .wide .wash-wide .wash-grain{display:block;opacity:.3;}
+    .wide .bullets li{color:#0c0b0a;}
+    .wide .copy{padding-left:1.2vw;}
   }
 
   /* ---------- cta / footer ---------- */
@@ -173,7 +194,7 @@
   <div class="viewport" id="viewport">
 
     <div class="hud is-hero" id="hud">
-      <div class="wordmark">More than Merch.</div>
+      <div class="wordmark">More <i class="dt">than</i> Merch<span class="dot">.</span></div>
       <div class="sub">
         <div class="tagline"><em>A label of your own.</em></div>
         <nav class="steps" id="steps" aria-label="Chapters">
@@ -186,15 +207,20 @@
       </div>
     </div>
 
-    <section class="slide live" id="hero" style="z-index:1">
+    <section class="slide live wide" id="hero" style="z-index:1">
       <div class="slide-inner">
         <img class="backdrop" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
         <div class="frame"><div class="card">
-          <img class="back" src="/artistxcollab/img/1.webp" alt="More than Merch — a DJ on stage wearing the You Can't Erase Me tee">
+          <picture>
+            <source media="(min-width:900px)" srcset="/artistxcollab/img/1-wide.webp">
+            <img class="back" src="/artistxcollab/img/1.webp" alt="More than Merch — a DJ on stage wearing the You Can't Erase Me tee">
+          </picture>
           <img class="front" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
           <div class="mask"></div>
+          <div class="mask-wide"></div>
         </div></div>
         <div class="wash"></div><div class="wash-grain"></div>
+        <div class="wash-wide"><div class="wash-grain"></div></div>
         <div class="copy">
           <div class="kicker">A label of your own.</div>
           <div class="stack">
