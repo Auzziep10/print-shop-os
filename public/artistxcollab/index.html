@@ -90,13 +90,14 @@
   @keyframes bob{0%,100%{transform:translateY(-8%);}50%{transform:translateY(12%);}}
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
-  .hud{position:absolute;z-index:50;left:6.3vw;top:calc(17.7vw + env(safe-area-inset-top,0px));
+  .viewport{--u:1vw;--ox:0px;--oy:0px;}
+  .hud{position:absolute;z-index:50;left:calc(var(--ox) + 6.3 * var(--u));top:calc(var(--oy) + 17.7 * var(--u));
     transition:opacity .6s ease, transform .6s ease;}
   /* slides exported with the header already in the photo: photo shows as-is, HTML header steps aside */
   @media (max-width:899px){
     .hud[data-baked="1"]{opacity:0;transform:translateY(-6px);pointer-events:none;}
   }
-  .wordmark{position:relative;height:1.1em;font-family:var(--serif);font-weight:400;font-size:8.1vw;line-height:1;letter-spacing:-.01em;
+  .wordmark{position:relative;height:1.1em;font-family:var(--serif);font-weight:400;font-size:calc(8.1 * var(--u));line-height:1;letter-spacing:-.01em;
     white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
   .wm{position:absolute;left:0;bottom:0;transition:opacity .6s ease, transform .6s ease;}
   .wm-hero{color:var(--paper);}
@@ -106,12 +107,12 @@
   .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
   .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
   .mask-wide,.wash-wide{display:none;}
-  .sub{position:relative;margin-top:1.4vw;height:6vw;font-family:var(--ui);font-size:4.2vw;line-height:1.2;}
+  .sub{position:relative;margin-top:calc(1.4 * var(--u));height:calc(6 * var(--u));font-family:var(--ui);font-size:calc(4.2 * var(--u));line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;font-style:italic;}
   .tagline em{font-style:italic;font-weight:400;}
   .steps{display:flex;flex-direction:column;gap:.13em;padding-left:1.7em;top:1em;
-    font-family:var(--sans-text);font-size:clamp(10px,2.5vw,15px);line-height:1.25;letter-spacing:.16em;text-transform:uppercase;
+    font-family:var(--sans-text);font-size:calc(2.5 * var(--u));line-height:1.25;letter-spacing:.16em;text-transform:uppercase;
     opacity:0;transform:translateY(6px);pointer-events:none;}
   .steps .rail{position:absolute;left:.16em;top:0;bottom:0;width:1px;background:rgba(243,237,225,.35);}
   .steps a{color:rgba(243,237,225,.5);font-weight:300;text-decoration:none;transition:color .5s ease;}
@@ -457,6 +458,16 @@
   }
 
   var lastTick = 0;
+  // photos are 920x2000, object-fit: cover, anchored bottom-center; the header tracks that box
+  function layoutHud(){
+    var W = viewport.clientWidth, H = viewport.clientHeight;
+    var s = Math.max(W / 920, H / 2000), rw = 920 * s, rh = 2000 * s;
+    viewport.style.setProperty('--u', (rw / 100) + 'px');
+    viewport.style.setProperty('--ox', ((W - rw) / 2) + 'px');
+    viewport.style.setProperty('--oy', (H - rh) + 'px');
+  }
+  layoutHud();
+
   function measure(){
     var top = story.getBoundingClientRect().top;
     target = Math.max(0, -top);
@@ -473,7 +484,7 @@
   }
 
   window.addEventListener('scroll', measure, {passive:true});
-  window.addEventListener('resize', function(){ measure(); moveUnderline(stepsEl.querySelector('a.active')); });
+  window.addEventListener('resize', function(){ layoutHud(); measure(); moveUnderline(stepsEl.querySelector('a.active')); });
   measure();
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ moveUnderline(stepsEl.querySelector('a.active')); }); }
 
