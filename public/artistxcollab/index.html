@@ -79,9 +79,15 @@
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
   .hud{position:absolute;z-index:50;left:5.6vw;top:calc(14vw + env(safe-area-inset-top,0px));}
-  .wordmark{font-family:var(--serif);font-weight:400;font-size:9.6vw;line-height:1;letter-spacing:-.01em;color:var(--paper);
+  .wordmark{position:relative;height:1.1em;font-family:var(--serif);font-weight:400;font-size:9.6vw;line-height:1;letter-spacing:-.01em;
     white-space:nowrap;text-shadow:0 2px 24px rgba(0,0,0,.5);}
-  .wordmark .dt{font-style:normal;}
+  .wm{position:absolute;left:0;bottom:0;transition:opacity .6s ease, transform .6s ease;}
+  .wm-hero{color:var(--paper);}
+  .wm-hero .dt{font-style:normal;}
+  .wm-main{color:var(--tan);font-size:1.11em;opacity:0;transform:translateY(8px);}
+  .wm-main i{font-style:italic;}
+  .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
+  .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
   .mask-wide,.wash-wide{display:none;}
   .sub{position:relative;margin-top:1.8vw;height:6vw;font-family:var(--ui);font-size:4.9vw;line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
@@ -134,8 +140,8 @@
       background:linear-gradient(180deg, rgba(10,9,8,.97) 0%, rgba(10,9,8,.9) 50%, rgba(10,9,8,0) 100%);}
     .hud{left:4.2vw;top:5.4vw;}
     .wordmark{font-size:clamp(48px,5.4vw,112px);}
-    .wordmark .dt{font-style:italic;}
-    .wordmark .dot{display:none;}
+    .wm-hero .dt{font-style:italic;}
+    .wm-hero .dot{display:none;}
     .sub{margin-top:.9vw;height:2.2vw;font-size:clamp(15px,1.7vw,34px);}
     .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
     .kicker{display:block;margin-bottom:18px;}
@@ -194,7 +200,10 @@
   <div class="viewport" id="viewport">
 
     <div class="hud is-hero" id="hud">
-      <div class="wordmark">More <i class="dt">than</i> Merch<span class="dot">.</span></div>
+      <div class="wordmark">
+        <span class="wm wm-hero">More <i class="dt">than</i> Merch<span class="dot">.</span></span>
+        <span class="wm wm-main">Artist<i>x</i>Collab</span>
+      </div>
       <div class="sub">
         <div class="tagline"><em>A label of your own.</em></div>
         <nav class="steps" id="steps" aria-label="Chapters">
