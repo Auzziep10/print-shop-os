@@ -87,6 +87,9 @@
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
   .viewport{--u:1vw;--ox:0px;--oy:0px;}
+  .brand{position:absolute;z-index:50;left:50%;bottom:calc(6.5vh + env(safe-area-inset-bottom,0px));
+    width:30vw;max-width:220px;height:auto;transform:translateX(-50%);pointer-events:none;
+    filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));}
   .hud{position:absolute;z-index:50;left:calc(var(--ox) + 6.3 * var(--u));top:calc(var(--oy) + 17.7 * var(--u));
     transition:opacity .6s ease, transform .6s ease;}
   /* slides exported with the header already in the photo: photo shows as-is, HTML header steps aside */
@@ -161,6 +164,7 @@
     .wash,.wash-grain{display:none;}
     .cue{display:none;}
     .hud{left:4.2vw;top:5.4vw;}
+    .brand{left:auto;right:2.4vw;bottom:2.6vw;transform:none;width:6.6vw;max-width:none;}
     .wordmark{font-size:clamp(48px,5.4vw,112px);}
     .wm-hero .dt{font-style:italic;}
     .wm-hero .dot{display:none;}
@@ -241,6 +245,8 @@
         </nav>
       </div>
     </div>
+
+    <img class="brand" src="/artistxcollab/img/inktheory-logo.png" alt="Ink Theory">
 
     <section class="slide live wide" id="hero" style="z-index:1">
       <div class="slide-inner">
