@@ -18,6 +18,7 @@
   @font-face{font-family:'Inter Display';font-weight:300;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_24pt-Light.woff2) format('woff2');}
   @font-face{font-family:'Inter Display';font-weight:400;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_24pt-Regular.woff2) format('woff2');}
   @font-face{font-family:'Inter Display';font-weight:700;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_24pt-Bold.woff2) format('woff2');}
+  @font-face{font-family:'Inter Text';font-weight:300;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_18pt-Light.woff2) format('woff2');}
   @font-face{font-family:'Inter Text';font-weight:400;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_18pt-Regular.woff2) format('woff2');}
   @font-face{font-family:'Inter Text';font-weight:700;font-style:normal;font-display:swap;src:url(/artistxcollab/fonts/Inter_18pt-Bold.woff2) format('woff2');}
 
@@ -65,7 +66,7 @@
     transform:translateY(calc(var(--p) * -30px));}
   .frame{position:absolute;inset:0;}
   .card{position:absolute;inset:0;overflow:hidden;}
-  .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;will-change:transform;}
+  .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center bottom;will-change:transform;}
   .card .back{transform:translateY(calc(var(--p) * 12px)) scale(calc(1 + var(--p) * .06));transform-origin:50% 40%;}
   .card .front{transform:translateY(calc(var(--p) * -18px)) scale(calc(1.015 + var(--p) * .06));transform-origin:50% 40%;
     -webkit-mask-image:radial-gradient(ellipse 62% 56% at 50% 52%, #000 30%, transparent 72%);
@@ -100,11 +101,14 @@
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
   .tagline{color:var(--paper);font-weight:400;font-style:italic;}
   .tagline em{font-style:italic;font-weight:400;}
-  .steps{display:flex;gap:.75em;opacity:0;transform:translateY(6px);pointer-events:none;}
-  .steps a{color:rgba(243,237,225,.4);text-decoration:none;transition:color .5s ease;padding-bottom:.18em;}
-  .steps a.active{color:var(--paper);}
-  .steps .ul{position:absolute;bottom:-.02em;height:1px;background:var(--paper);
-    transition:left .55s cubic-bezier(.65,0,.35,1), width .55s cubic-bezier(.65,0,.35,1);}
+  .steps{display:flex;flex-direction:column;gap:.5em;padding-left:2.9em;top:.35em;
+    font-family:var(--sans-text);font-size:clamp(11px,3vw,17px);line-height:1.25;letter-spacing:.16em;text-transform:uppercase;
+    opacity:0;transform:translateY(6px);pointer-events:none;}
+  .steps .rail{position:absolute;left:.55em;top:0;bottom:0;width:1px;background:rgba(243,237,225,.35);}
+  .steps a{color:rgba(243,237,225,.5);font-weight:300;text-decoration:none;transition:color .5s ease;}
+  .steps a.active{color:var(--paper);font-weight:700;}
+  .steps .ul{position:absolute;left:.25em;width:.65em;height:1.2em;border-radius:.4em;background:var(--paper);
+    transition:top .5s cubic-bezier(.65,0,.35,1);}
   .hud:not(.is-hero) .tagline{opacity:0;transform:translateY(-6px);pointer-events:none;}
   .hud:not(.is-hero) .steps{opacity:1;transform:none;pointer-events:auto;}
 
@@ -150,6 +154,7 @@
     .wm-hero .dt{font-style:italic;}
     .wm-hero .dot{display:none;}
     .sub{margin-top:.9vw;height:2.2vw;font-size:clamp(15px,1.7vw,34px);}
+    .steps{font-size:clamp(12px,1vw,20px);gap:.55em;}
     .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
     .kicker{display:block;margin-bottom:18px;}
     .stack span{padding:.55vw 1.2vw .55vw 1.2vw;}
@@ -214,10 +219,11 @@
       <div class="sub">
         <div class="tagline"><em>A label of your own.</em></div>
         <nav class="steps" id="steps" aria-label="Chapters">
-          <a href="#concept" data-target="concept">Concept.</a>
-          <a href="#create" data-target="create">Create.</a>
-          <a href="#produce" data-target="produce">Produce.</a>
-          <a href="#sell" data-target="sell">Sell.</a>
+          <span class="rail"></span>
+          <a href="#concept" data-target="concept">Concept</a>
+          <a href="#create" data-target="create">Create</a>
+          <a href="#produce" data-target="produce">Produce</a>
+          <a href="#sell" data-target="sell">Sell</a>
           <span class="ul" id="stepsUl"></span>
         </nav>
       </div>
@@ -385,9 +391,8 @@
   function smoothstep(t){ return t * t * (3 - 2 * t); }
 
   function moveUnderline(link){
-    if(!link){ ul.style.width = '0px'; return; }
-    ul.style.left = link.offsetLeft + 'px';
-    ul.style.width = link.offsetWidth + 'px';
+    if(!link) return;
+    ul.style.top = (link.offsetTop + (link.offsetHeight - ul.offsetHeight) / 2) + 'px';
   }
   function setActive(id){
     if(id === active) return;
