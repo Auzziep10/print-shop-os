@@ -12,6 +12,14 @@
       "destination": "/artistxcollab/index.html"
     },
     {
+      "source": "/artistxcollab/b",
+      "destination": "/artistxcollab/b/index.html"
+    },
+    {
+      "source": "/artistxcollab/b/",
+      "destination": "/artistxcollab/b/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
