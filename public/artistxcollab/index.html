@@ -9,7 +9,11 @@
 <meta property="og:title" content="More than Merch — Ink Theory">
 <meta property="og:description" content="A label of your own.">
 <meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1-wide.webp">
-<meta name="theme-color" content="#0a0908">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ink Theory">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -107,6 +111,11 @@
   .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
   .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
   .hud.is-off{opacity:0;pointer-events:none;}
+  .fs{position:absolute;z-index:60;top:calc(env(safe-area-inset-top,0px) + 14px);right:16px;
+    font-family:var(--sans-text);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--paper);
+    background:rgba(10,9,8,.28);border:1px solid rgba(243,237,225,.5);border-radius:999px;padding:9px 14px;
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;transition:opacity .5s ease;}
+  .fs.is-off{opacity:0;pointer-events:none;}
   .brand{transition:opacity .5s ease;}
   .brand.is-off{opacity:0;}
   .mask-wide,.wash-wide{display:none;}
@@ -258,6 +267,7 @@
     </div>
 
     <img class="brand" src="/artistxcollab/img/inktheory-logo.png" alt="Ink Theory">
+    <button class="fs" id="fsBtn" type="button" hidden>Full screen</button>
 
     <section class="slide live wide intro" id="intro" data-len="1.5" style="z-index:1">
       <div class="slide-inner">
@@ -440,6 +450,21 @@
   story.style.height = (starts[starts.length - 1] + lens[lens.length - 1] + 1) * 100 + 'dvh';
   var brand = document.querySelector('.brand');
 
+  var fsBtn = document.getElementById('fsBtn');
+  var root = document.documentElement;
+  var fsEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+  var fsRequest = root.requestFullscreen || root.webkitRequestFullscreen;
+  function inFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  if(fsEnabled && fsRequest){
+    fsBtn.hidden = false;
+    fsBtn.addEventListener('click', function(){
+      try{ var r = fsRequest.call(root, {navigationUI:'hide'}); if(r && r.catch) r.catch(function(){}); }catch(e){}
+    });
+    ['fullscreenchange','webkitfullscreenchange'].forEach(function(ev){
+      document.addEventListener(ev, function(){ fsBtn.hidden = inFullscreen(); });
+    });
+  }
+
   var target = 0, smooth = 0, running = false, active = null, first = true;
 
   function clamp01(v){ return v < 0 ? 0 : (v > 1 ? 1 : v); }
@@ -481,6 +506,7 @@
     hud.classList.toggle('is-off', currentEl.classList.contains('intro') || isFinal);
     brand.classList.toggle('is-off', currentEl.classList.contains('intro'));
     brand.classList.toggle('is-final', isFinal);
+    fsBtn.classList.toggle('is-off', !currentEl.classList.contains('intro'));
     setActive(current === 'intro' ? 'hero' : current);
   }
 
