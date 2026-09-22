@@ -49,7 +49,7 @@
     background-size:120px 120px;}
 
   /* ---------- one pinned viewport, slides stacked in depth ---------- */
-  .story{position:relative;height:1200vh;height:1200svh;}
+  .story{position:relative;height:1470vh;height:1470svh;}
   .viewport{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ink);}
   .slide{position:absolute;inset:0;--p:0;--n:1;--e:0;visibility:hidden;}
   .slide.live{visibility:visible;}
@@ -58,7 +58,7 @@
     transform:translateY(calc((1 - var(--n)) * 6vh)) scale(calc((.84 + var(--n) * .16) * (1 - var(--e) * .07)));
     transform-origin:50% 48%;will-change:transform,opacity;
     box-shadow:0 30px 120px rgba(0,0,0,.7);}
-  #hero .slide-inner{animation:intro 1.8s cubic-bezier(.2,.7,.2,1) backwards;}
+  #intro .slide-inner{animation:intro 1.8s cubic-bezier(.2,.7,.2,1) backwards;}
   @keyframes intro{from{transform:scale(1.08);opacity:0;}to{transform:scale(1);opacity:1;}}
   .shade{position:absolute;inset:0;background:#000;opacity:calc(var(--e) * .8);pointer-events:none;z-index:6;}
 
@@ -78,12 +78,10 @@
     background-size:160px 160px;}
   .mask{display:none;}
 
-  .cue{position:absolute;left:50%;top:56%;z-index:3;width:clamp(44px,8vw,64px);aspect-ratio:1;border-radius:50%;
-    border:1px solid rgba(243,237,225,.7);color:var(--paper);display:grid;place-items:center;text-decoration:none;
-    transform:translate(-50%,-50%);opacity:calc(1 - var(--p) * 4);pointer-events:auto;}
-  .cue svg{width:44%;height:44%;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;
-    animation:bob 2.4s ease-in-out infinite;}
   @keyframes bob{0%,100%{transform:translateY(-8%);}50%{transform:translateY(12%);}}
+  .slide.intro .wash,.slide.intro .wash-grain,.slide.final .wash,.slide.final .wash-grain{display:none;}
+  .slide.intro .card img,.slide.final .card img{transform:none;}
+  .slide.intro .card img{filter:blur(14px) brightness(.55);transform:scale(1.06);}
 
   /* ---------- fixed HUD: wordmark + step line, never moves ---------- */
   .viewport{--u:1vw;--ox:0px;--oy:0px;}
@@ -105,6 +103,9 @@
   .wm-main i{font-style:italic;}
   .hud:not(.is-hero) .wm-hero{opacity:0;transform:translateY(-8px);}
   .hud:not(.is-hero) .wm-main{opacity:1;transform:none;}
+  .hud.is-off{opacity:0;pointer-events:none;}
+  .brand{transition:opacity .5s ease;}
+  .brand.is-off{opacity:0;}
   .mask-wide,.wash-wide{display:none;}
   .sub{position:relative;margin-top:calc(1.4 * var(--u));height:calc(6 * var(--u));font-family:var(--ui);font-size:calc(4.2 * var(--u));line-height:1.2;}
   .tagline,.steps{position:absolute;left:0;top:0;white-space:nowrap;transition:opacity .6s ease, transform .6s ease;}
@@ -122,35 +123,39 @@
   .hud:not(.is-hero) .steps{opacity:1;transform:none;pointer-events:auto;}
 
   /* ---------- copy (mobile: over the photo, comp-style bars) ---------- */
-  .copy{position:absolute;left:0;right:0;top:43%;z-index:4;display:flex;flex-direction:column;align-items:stretch;pointer-events:none;}
-  .copy .next{pointer-events:auto;}
+  .copy{position:absolute;inset:0;z-index:4;pointer-events:none;}
   .kicker{display:none;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-dim);--s:.22;}
-  .stack{display:flex;flex-direction:column;align-items:flex-start;gap:.6vw;}
+  .stack{position:absolute;left:0;top:33.5%;display:flex;flex-direction:column;align-items:flex-start;gap:.6vw;}
   .stack span{display:inline-block;box-sizing:border-box;width:min(var(--bw,0vw),92vw);min-width:max-content;
     background:#0a0908;color:var(--paper);padding:1.9vw 5vw 1.9vw 5vw;
     text-transform:uppercase;line-height:1.1;white-space:nowrap;}
   .l1{font-weight:300;font-size:clamp(12px,3.9vw,18px);letter-spacing:.3em;color:rgba(243,237,225,.82);--s:.28;}
   .l2{font-weight:400;font-size:clamp(14px,4.5vw,21px);letter-spacing:.2em;--s:.37;}
   .l3{font-weight:700;font-size:clamp(15px,4.8vw,22px);letter-spacing:.12em;--s:.46;}
-  .lines{margin-top:12vw;padding:0 9vw;display:flex;flex-direction:column;gap:6vw;text-align:center;
+  .lines{position:absolute;left:0;right:0;top:60%;transform:translateY(-50%);padding:0 8vw;display:flex;flex-direction:column;gap:3.2vh;text-align:center;
     font-family:var(--sans-text);text-transform:uppercase;color:#0c0b0a;}
   .lines p{margin:0;line-height:1.55;}
   .line-a{font-weight:400;font-size:clamp(11px,3vw,16px);letter-spacing:.2em;--s:.56;}
   .line-b{font-weight:700;font-size:clamp(11px,3.1vw,16px);letter-spacing:.16em;--s:.64;}
-  .next{align-self:center;margin-top:9vw;width:clamp(36px,7.6vw,56px);aspect-ratio:1;border-radius:50%;
-    background:rgba(243,237,225,.55);color:#0c0b0a;display:grid;place-items:center;text-decoration:none;--s:.74;
+  /* one arrow, same spot on every slide (photo state and text state) */
+  .next{position:absolute;z-index:5;left:50%;top:79.2%;width:clamp(36px,7.6vw,56px);aspect-ratio:1;border-radius:50%;
+    transform:translate(-50%,-50%);background:rgba(243,237,225,.55);color:#0c0b0a;display:grid;place-items:center;text-decoration:none;
     transition:background .3s ease;}
   .next:hover{background:rgba(243,237,225,.8);}
-  .next svg{width:44%;height:44%;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+  .next svg{width:44%;height:44%;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+    animation:bob 2.4s ease-in-out infinite;}
+  .slide.intro .next{background:transparent;border:1px solid rgba(243,237,225,.75);color:var(--paper);}
+  .get-started{position:absolute;z-index:5;left:calc(var(--ox) + 29.3 * var(--u));top:calc(var(--oy) + 127.2 * var(--u));
+    width:calc(41.3 * var(--u));height:calc(12 * var(--u));}
+  .intro-logo{position:absolute;z-index:5;left:50%;top:50%;width:31.5%;height:auto;transform:translate(-50%,-50%);pointer-events:none;}
 
-  .kicker,.stack span,.lines p,.next{
+  .kicker,.stack span,.lines p{
     --w:.3;
     --t:clamp(0, (var(--p) - var(--s)) / var(--w), 1);
     --te:calc(var(--t) * var(--t) * (3 - 2 * var(--t)));
     will-change:transform,opacity,clip-path;}
   .stack span{clip-path:inset(0 calc((1 - var(--te)) * 100%) 0 0);transform:translateX(calc((1 - var(--te)) * -26px));}
   .kicker,.lines p{opacity:var(--te);transform:translateY(calc((1 - var(--te)) * 14px));}
-  .next{opacity:var(--te);transform:translateY(calc((1 - var(--te)) * 10px));}
 
   /* ---------- desktop: portrait card + live copy ---------- */
   @media (min-width:900px){
@@ -170,21 +175,31 @@
     .wm-hero .dot{display:none;}
     .sub{margin-top:.9vw;height:2.2vw;font-size:clamp(15px,1.7vw,34px);}
     .steps{font-size:clamp(12px,1vw,20px);gap:.55em;}
-    .copy{top:0;bottom:0;left:50%;right:0;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
+    .copy{inset:auto;top:0;bottom:0;left:50%;right:0;display:flex;flex-direction:column;justify-content:center;padding:150px 72px 64px 24px;max-width:720px;}
+    .stack,.lines{position:static;transform:none;}
+    .lines{margin-top:1.6vw;}
     .kicker{display:block;margin-bottom:18px;}
     .stack span{padding:.55vw 1.2vw .55vw 1.2vw;width:calc(var(--bw, 0vw) * .29);}
     .l1{font-size:clamp(13px,1.25vw,26px);}
     .l2{font-size:clamp(18px,1.7vw,34px);}
     .l3{font-size:clamp(19px,1.8vw,36px);}
     .stack{gap:.2vw;}
-    .lines{margin-top:1.6vw;padding:0 0 0 1.2vw;gap:1vw;text-align:left;max-width:36em;color:var(--paper-dim);}
+    .lines{padding:0 0 0 1.2vw;gap:1vw;text-align:left;max-width:36em;color:var(--paper-dim);}
     .line-a{font-size:clamp(11px,.95vw,20px);}
     .line-b{font-size:clamp(11px,1vw,20px);}
-    .next{align-self:flex-start;margin:1.8vw 0 0 1.2vw;width:clamp(40px,3.2vw,60px);background:rgba(243,237,225,.16);color:var(--paper);}
+    .next{left:auto;right:3vw;top:auto;bottom:3vw;transform:none;width:clamp(40px,3.2vw,60px);background:rgba(243,237,225,.16);color:var(--paper);}
     .next:hover{background:rgba(243,237,225,.3);}
+    .slide.final .frame{display:block;}
+    .slide.final .card{position:absolute;inset:0;width:auto;height:auto;margin:0;box-shadow:none;transform:none;}
+    .slide.final .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+    .slide.final .backdrop{filter:blur(44px) brightness(.35);}
+    .get-started{left:calc(50% - 9.52svh);top:58.5svh;width:19svh;height:5.5svh;}
+    .slide.intro .next{left:50%;right:auto;top:79.2%;bottom:auto;transform:translate(-50%,-50%);}
+    .intro-logo{width:14vw;}
 
     /* full-bleed landscape slides */
     .wide .backdrop,.wide .kicker{display:none;}
+    .slide.intro .card img{filter:blur(16px) brightness(.5);}
     .wide .frame{display:block;perspective:none;}
     .wide .card{position:absolute;inset:0;width:auto;height:auto;margin:0;box-shadow:none;transform:none;}
     .wide .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;
@@ -197,27 +212,19 @@
     .wide .lines{color:#0c0b0a;}
     .wide .next{background:rgba(10,9,8,.12);color:#0c0b0a;}
     .wide .next:hover{background:rgba(10,9,8,.22);}
+    .slide.intro .next{background:transparent;color:var(--paper);}
     .wide .copy{padding-left:1.2vw;}
   }
 
   /* ---------- cta / footer ---------- */
-  .cta{position:relative;z-index:2;min-height:100vh;min-height:100svh;padding:120px 24px;text-align:center;background:var(--ink);
-    display:flex;flex-direction:column;justify-content:center;align-items:center;}
-  .cta h2{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(28px,6vw,52px);color:var(--tan);text-wrap:balance;}
-  .cta p{margin-top:14px;color:var(--paper-dim);font-size:15px;}
-  .cta a.btn{display:inline-flex;align-items:center;gap:10px;margin-top:34px;padding:16px 30px;
-    border:1px solid var(--paper);text-decoration:none;font-size:12px;letter-spacing:.2em;text-transform:uppercase;
-    transition:background .3s,color .3s;}
-  .cta a.btn:hover{background:var(--paper);color:var(--ink);}
-  footer{background:var(--ink);padding:36px 24px 48px;text-align:center;color:var(--paper-faint);
-    font-size:11px;letter-spacing:.16em;text-transform:uppercase;}
 
   @media (prefers-reduced-motion:reduce){
     .slide-inner,.card,.card .back,.card .front,.backdrop{transform:none !important;}
     .card .front{display:none;}
     #hero .slide-inner{animation:none;}
     .stack span,.kicker,.lines p,.next{transform:none;}
-    .cue svg{animation:none;}
+    .next svg{animation:none;}
+    .slide.intro .card img{transform:none;}
   }
 </style>
 </head>
@@ -248,7 +255,21 @@
 
     <img class="brand" src="/artistxcollab/img/inktheory-logo.png" alt="Ink Theory">
 
-    <section class="slide live wide" id="hero" style="z-index:1">
+    <section class="slide live wide intro" id="intro" data-len="1.5" style="z-index:1">
+      <div class="slide-inner">
+        <div class="frame"><div class="card">
+          <picture>
+            <source media="(min-width:900px)" srcset="/artistxcollab/img/1-wide.webp">
+            <img class="back" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
+          </picture>
+        </div></div>
+        <img class="intro-logo" src="/artistxcollab/img/inktheory-logo.png" alt="Ink Theory">
+        <a class="next" href="#hero" aria-label="Start"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <div class="shade"></div>
+      </div>
+    </section>
+
+    <section class="slide wide" id="hero" style="z-index:2">
       <div class="slide-inner">
         <img class="backdrop" src="/artistxcollab/img/1.webp" alt="" aria-hidden="true">
         <div class="frame"><div class="card">
@@ -273,9 +294,8 @@
             <p class="line-a">Runway quality organic + non-toxic collections.</p>
             <p class="line-b">Made for fans that want more.</p>
           </div>
-          <a class="next" href="#concept" aria-label="Next: Concept"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
-        <a class="cue" href="#hero" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <a class="next" href="#concept" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         <div class="shade"></div>
       </div>
     </section>
@@ -300,9 +320,8 @@
             <p class="line-a">We translate the artists identity into a cohesive collection.</p>
             <p class="line-b">Runway ready detail that's commercially viable.</p>
           </div>
-          <a class="next" href="#create" aria-label="Next: Create"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
-        <a class="cue" href="#concept" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <a class="next" href="#create" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         <div class="shade"></div>
       </div>
     </section>
@@ -327,9 +346,8 @@
             <p class="line-a">Our design studio refines every element.</p>
             <p class="line-b">Each pixel has a purpose.</p>
           </div>
-          <a class="next" href="#produce" aria-label="Next: Produce"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
-        <a class="cue" href="#create" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <a class="next" href="#produce" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         <div class="shade"></div>
       </div>
     </section>
@@ -338,25 +356,23 @@
       <div class="slide-inner">
         <img class="backdrop" src="/artistxcollab/img/7.webp" alt="" aria-hidden="true">
         <div class="frame"><div class="card">
-          <img class="back" src="/artistxcollab/img/7.webp" alt="Produce — overhead view of a screen-print carousel loaded with tees">
+          <img class="back" src="/artistxcollab/img/7.webp" alt="Produce — a tee being finished on an industrial sewing machine">
           <img class="front" src="/artistxcollab/img/7.webp" alt="" aria-hidden="true">
-          <div class="mask"></div>
         </div></div>
         <div class="wash"></div><div class="wash-grain"></div>
         <div class="copy">
           <div class="kicker">03 — Produce</div>
           <div class="stack">
-            <span class="l1" style="--bw:84vw">State of the Art</span>
-            <span class="l2" style="--bw:70vw">Meets Cleaner</span>
-            <span class="l3" style="--bw:90vw">Production</span>
+            <span class="l1" style="--bw:83vw">Premium Craft</span>
+            <span class="l2" style="--bw:62vw">Meets Cleaner</span>
+            <span class="l3" style="--bw:59vw">Production</span>
           </div>
           <div class="lines">
-            <p class="line-a">Organic, non-toxic American cotton. Mineral infused.</p>
-            <p class="line-b">GOTS certified production.</p>
+            <p class="line-a">State-of-the-art facilities unite organic materials, non-toxic decoration + precision manufacturing.</p>
+            <p class="line-b">Sustainability at scale.</p>
           </div>
-          <a class="next" href="#sell" aria-label="Next: Sell"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
-        <a class="cue" href="#produce" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <a class="next" href="#sell" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         <div class="shade"></div>
       </div>
     </section>
@@ -373,30 +389,33 @@
         <div class="copy">
           <div class="kicker">04 — Sell</div>
           <div class="stack">
-            <span class="l1" style="--bw:86vw">Built to Connect</span>
-            <span class="l2" style="--bw:74vw">Designed</span>
-            <span class="l3" style="--bw:90vw">To Sell</span>
+            <span class="l1" style="--bw:83vw">Built to Connect</span>
+            <span class="l2" style="--bw:46vw">Designed</span>
+            <span class="l3" style="--bw:71vw">To Sell</span>
           </div>
           <div class="lines">
-            <p class="line-a">E-commerce ready, tour prepped, drop strategy + product storytelling.</p>
-            <p class="line-b">Inventory, fulfillment + fan experience, handled.</p>
+            <p class="line-a">Each collection - prepared for exclusive drops, e-comm, touring &amp; fan experiences.</p>
+            <p class="line-b">Seamless fulfillment.</p>
           </div>
-          <a class="next" href="#cta" aria-label="Next: Start a collab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
         </div>
-        <a class="cue" href="#sell" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <a class="next" href="#final" aria-label="Continue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+        <div class="shade"></div>
+      </div>
+    </section>
+
+    <section class="slide final" id="final" data-len="1.2" style="z-index:7">
+      <div class="slide-inner">
+        <img class="backdrop" src="/artistxcollab/img/final.webp" alt="" aria-hidden="true">
+        <div class="frame"><div class="card">
+          <img class="back" src="/artistxcollab/img/final.webp" alt="Ink Theory — a runway show; Get Started; trusted by Balenciaga, Givenchy, Celine, Bon &amp; Blanc, Louis Vuitton and Khaite">
+        </div></div>
+        <a class="get-started" href="https://www.inktheory.studio/" aria-label="Get started"></a>
         <div class="shade"></div>
       </div>
     </section>
 
   </div>
 </div>
-
-<section class="cta" id="cta">
-  <h2>Let's build the next drop.</h2>
-  <p>Concept. Create. Produce. Sell. — one platform, start to finish.</p>
-  <a class="btn" href="#story">Start a Collab</a>
-</section>
-<footer>Ink Theory Studio — Artist × Collab</footer>
 
 <script>
 (function(){
@@ -409,10 +428,13 @@
   var ul = document.getElementById('stepsUl');
   var links = Array.prototype.slice.call(stepsEl.querySelectorAll('a'));
 
-  var L = 2.4;          // viewports of scroll per slide
+  var L = 2.4;          // viewports of scroll per slide (default)
   var REVEAL = 0.9;     // copy reveals over the first 0.9 viewport
-  var EXIT = L - 1;     // the next slide comes forward during the last viewport
   var EASE = reduced ? 1 : 0.1;
+  var lens = slides.map(function(s){ return parseFloat(s.dataset.len) || L; });
+  var starts = lens.map(function(_, i){ return lens.slice(0, i).reduce(function(a, b){ return a + b; }, 0); });
+  story.style.height = (starts[starts.length - 1] + lens[lens.length - 1] + 1) * 100 + 'svh';
+  var brand = document.querySelector('.brand');
 
   var target = 0, smooth = 0, running = false, active = null, first = true;
 
@@ -439,20 +461,22 @@
   function apply(scroll){
     var vh = viewport.offsetHeight || window.innerHeight;
     var u0 = scroll / vh;
-    var current = 'hero', currentEl = slides[0];
+    var current = slides[0].id, currentEl = slides[0];
     slides.forEach(function(s, i){
-      var u = u0 - i * L;
+      var u = u0 - starts[i];
       var n = i === 0 ? 1 : clamp01(u + 1);
       var p = clamp01(u / REVEAL);
-      var e = i === slides.length - 1 ? 0 : clamp01(u - EXIT);
+      var e = i === slides.length - 1 ? 0 : clamp01(u - (lens[i] - 1));
       s.style.setProperty('--p', p.toFixed(4));
       s.style.setProperty('--n', smoothstep(n).toFixed(4));
       s.style.setProperty('--e', smoothstep(e).toFixed(4));
       s.classList.toggle('live', n > 0 && e < 1);
       if(n >= 0.5){ current = s.id; currentEl = s; }
     });
-    hud.dataset.baked = currentEl.classList.contains('baked') ? '1' : '0';
-    setActive(current);
+    var bare = currentEl.classList.contains('intro') || currentEl.classList.contains('final');
+    hud.classList.toggle('is-off', bare);
+    brand.classList.toggle('is-off', bare);
+    setActive(current === 'intro' ? 'hero' : current);
   }
 
   var lastTick = 0;
@@ -486,16 +510,7 @@
   measure();
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ moveUnderline(stepsEl.querySelector('a.active')); }); }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.cue'), function(btn){
-    btn.addEventListener('click', function(ev){
-      ev.preventDefault();
-      var i = slides.indexOf(btn.closest('.slide'));
-      var vh = viewport.offsetHeight || window.innerHeight;
-      var top = story.getBoundingClientRect().top + window.scrollY + (i * L + 1.0) * vh;
-      window.scrollTo({top: top, behavior: reduced ? 'auto' : 'smooth'});
-    });
-  });
-
+  // arrow: photo state -> this slide's text state; text state -> next slide's photo state
   Array.prototype.forEach.call(document.querySelectorAll('.next'), function(btn){
     btn.addEventListener('click', function(ev){
       ev.preventDefault();
@@ -503,10 +518,11 @@
       var i = slides.indexOf(slide);
       var vh = viewport.offsetHeight || window.innerHeight;
       var storyTop = story.getBoundingClientRect().top + window.scrollY;
-      var top = i < slides.length - 1
-        ? storyTop + ((i + 1) * L + 1.0) * vh
-        : document.getElementById('cta').getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({top: top, behavior: reduced ? 'auto' : 'smooth'});
+      var u = (window.scrollY - storyTop) / vh - starts[i];
+      var hasText = !!slide.querySelector('.copy');
+      var targetU = (hasText && u < REVEAL - 0.05) ? starts[i] + REVEAL + 0.1 : starts[i] + lens[i];
+      if(i === slides.length - 1) return;
+      window.scrollTo({top: storyTop + targetU * vh, behavior: reduced ? 'auto' : 'smooth'});
     });
   });
 
@@ -516,7 +532,7 @@
       var i = slides.findIndex(function(s){ return s.id === l.dataset.target; });
       if(i < 0) return;
       var vh = viewport.offsetHeight || window.innerHeight;
-      var top = story.getBoundingClientRect().top + window.scrollY + (i * L + 1.0) * vh;
+      var top = story.getBoundingClientRect().top + window.scrollY + (starts[i] + 1.0) * vh;
       window.scrollTo({top: top, behavior: reduced ? 'auto' : 'smooth'});
     });
   });
