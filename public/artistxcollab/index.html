@@ -37,7 +37,7 @@
     --sans-text:'Inter Text', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  html,body{margin:0;padding:0;background:var(--ink);}
   body{background:var(--ink);color:var(--paper);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
   img{max-width:100%;display:block;}
   h2,p,ul{margin:0;}
@@ -49,8 +49,8 @@
     background-size:120px 120px;}
 
   /* ---------- one pinned viewport, slides stacked in depth ---------- */
-  .story{position:relative;height:1470vh;height:1470svh;}
-  .viewport{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ink);}
+  .story{position:relative;height:1470vh;height:1470dvh;}
+  .viewport{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden;background:var(--ink);}
   .slide{position:absolute;inset:0;--p:0;--n:1;--e:0;visibility:hidden;}
   .slide.live{visibility:visible;}
   .slide-inner{position:absolute;inset:0;overflow:hidden;background:var(--ink);
@@ -164,7 +164,7 @@
   @media (min-width:900px){
     .backdrop{display:block;}
     .frame{display:grid;grid-template-columns:1fr 1fr;perspective:1600px;}
-    .card{position:relative;inset:auto;width:fit-content;height:calc(100svh - 14.5vw - 72px);margin:calc(14.5vw + 24px) auto 48px;
+    .card{position:relative;inset:auto;width:fit-content;height:calc(100dvh - 14.5vw - 72px);margin:calc(14.5vw + 24px) auto 48px;
       box-shadow:0 40px 90px rgba(0,0,0,.65);
       transform:translateY(calc((1 - var(--p)) * 36px)) rotateY(calc((1 - var(--p)) * 7deg));transform-origin:50% 50%;}
     .card img{position:relative;width:auto;height:100%;object-fit:contain;transform:none;}
@@ -196,8 +196,8 @@
     .slide.final .card{position:absolute;inset:0;width:auto;height:auto;margin:0;box-shadow:none;transform:none;}
     .slide.final .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
     .slide.final .backdrop{filter:blur(44px) brightness(.35);}
-    .get-started{left:calc(50% - 9.52svh);top:58.5svh;width:19svh;height:5.5svh;}
-    .brand.is-final{left:calc(50% - 18.77svh);top:7svh;width:14.3svh;right:auto;bottom:auto;}
+    .get-started{left:calc(50% - 9.52dvh);top:58.5dvh;width:19dvh;height:5.5dvh;}
+    .brand.is-final{left:calc(50% - 18.77dvh);top:7dvh;width:14.3dvh;right:auto;bottom:auto;}
     .slide.intro .next{left:50%;right:auto;top:79.2%;bottom:auto;transform:translate(-50%,-50%);}
     .intro-logo{width:14vw;}
 
@@ -437,7 +437,7 @@
   var EASE = reduced ? 1 : 0.1;
   var lens = slides.map(function(s){ return parseFloat(s.dataset.len) || L; });
   var starts = lens.map(function(_, i){ return lens.slice(0, i).reduce(function(a, b){ return a + b; }, 0); });
-  story.style.height = (starts[starts.length - 1] + lens[lens.length - 1] + 1) * 100 + 'svh';
+  story.style.height = (starts[starts.length - 1] + lens[lens.length - 1] + 1) * 100 + 'dvh';
   var brand = document.querySelector('.brand');
 
   var target = 0, smooth = 0, running = false, active = null, first = true;
