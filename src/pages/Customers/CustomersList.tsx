@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Building2, User, Trash2, UserPlus, QrCode } from 'lucide-react';
+import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
@@ -127,10 +127,14 @@ export function CustomersList() {
           </p>
         </div>
         
-        <div className="flex items-center gap-4 mt-4 sm:mt-0">
-          <PillButton variant="outline" className="gap-2">
-            <FileDown size={16} />
-            Export Context
+        <div className="flex items-center gap-3 mt-4 sm:mt-0">
+          <PillButton 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => navigate('/settings?tab=merge-customers')}
+          >
+            <GitMerge size={16} />
+            Merge Accounts
           </PillButton>
           <PillButton variant="filled" className="gap-2" onClick={() => setIsModalOpen(true)}>
             <Plus size={16} />

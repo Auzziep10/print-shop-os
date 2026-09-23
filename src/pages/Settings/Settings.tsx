@@ -16,6 +16,7 @@ import { QuoTab } from './QuoTab';
 import { MetaAdsTab } from './MetaAdsTab';
 import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 import { StudioQrTab } from './StudioQrTab';
+import { MergeCustomersTab } from './MergeCustomersTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,6 +63,16 @@ export function Settings() {
               }`}
             >
               User Management
+            </button>
+            <button
+              onClick={() => setActiveTab('merge-customers')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'merge-customers' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Merge Customer Accounts
             </button>
             <button
               onClick={() => setActiveTab('permissions')}
@@ -199,6 +210,7 @@ export function Settings() {
         {/* Content */}
         <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm min-w-0">
           {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'merge-customers' && <MergeCustomersTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'pricing' && <DtfPricingSettingsTab />}

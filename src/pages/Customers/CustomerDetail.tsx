@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -1526,6 +1526,14 @@ export function CustomerDetail() {
           >
             <QrCode size={16} />
             Share Portal QR
+          </PillButton>
+          <PillButton 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => navigate(`/settings?tab=merge-customers&primaryId=${id}`)}
+          >
+            <GitMerge size={16} />
+            Merge Account
           </PillButton>
           <PillButton 
             variant="outline" 
