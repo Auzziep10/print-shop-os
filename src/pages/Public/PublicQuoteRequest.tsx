@@ -1510,28 +1510,49 @@ export function PublicQuoteRequest() {
         }
       }
 
-      // 2. Provision Customer document in Firestore
-      const companyName = customBlankCompany.trim() || customBlankContactName.trim();
-      const customerPayload = {
-        id: uid,
-        company: companyName,
-        name: companyName,
-        contactName: customBlankContactName.trim(),
-        email: cleanEmail,
-        phone: customBlankPhone.trim() || '-',
-        type: 'Web Lead (Custom Blank Request)',
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'customers', uid), JSON.parse(JSON.stringify(customerPayload)), { merge: true });
+      // 2. Resolve target customer ID to prevent duplicate accounts
+      let targetCustomerId = uid;
+      const existingUserDoc = await getDoc(doc(db, 'users', uid));
+      if (existingUserDoc.exists() && existingUserDoc.data().customerId) {
+        targetCustomerId = existingUserDoc.data().customerId;
+      } else {
+        const custQuery = query(collection(db, 'customers'), where('email', '==', cleanEmail));
+        const custSnap = await getDocs(custQuery);
+        if (!custSnap.empty) {
+          targetCustomerId = custSnap.docs[0].id;
+        }
+      }
 
-      // 3. Provision User Profile document in Firestore
+      // Provision or update Customer document in Firestore
+      const companyName = customBlankCompany.trim() || customBlankContactName.trim();
+      const existingCustDoc = await getDoc(doc(db, 'customers', targetCustomerId));
+      const isNewCust = !existingCustDoc.exists();
+
+      const customerPayload = {
+        id: targetCustomerId,
+        company: existingCustDoc.data()?.company || companyName,
+        name: existingCustDoc.data()?.name || companyName,
+        contactName: customBlankContactName.trim() || existingCustDoc.data()?.contactName || '',
+        email: cleanEmail,
+        phone: customBlankPhone.trim() || existingCustDoc.data()?.phone || '-',
+        type: existingCustDoc.data()?.type || 'Web Lead (Custom Blank Request)',
+        hasUnreadCreation: isNewCust || existingCustDoc.data()?.hasUnreadCreation || false,
+        updatedAt: new Date().toISOString(),
+        ...(isNewCust ? { createdAt: new Date().toISOString() } : {})
+      };
+      await setDoc(doc(db, 'customers', targetCustomerId), JSON.parse(JSON.stringify(customerPayload)), { merge: true });
+
+      // 3. Provision or update User Profile document in Firestore
+      const isNewUser = !existingUserDoc.exists();
       const userPayload = {
+        id: uid,
         uid: uid,
         email: cleanEmail,
-        name: customBlankContactName.trim(),
-        role: 'customer',
-        customerId: uid,
-        createdAt: new Date().toISOString()
+        name: customBlankContactName.trim() || existingUserDoc.data()?.name || '',
+        role: existingUserDoc.data()?.role || 'Client',
+        customerId: targetCustomerId,
+        companyName: existingCustDoc.data()?.company || companyName,
+        ...(isNewUser ? { createdAt: new Date().toISOString() } : { updatedAt: new Date().toISOString() })
       };
       await setDoc(doc(db, 'users', uid), JSON.parse(JSON.stringify(userPayload)), { merge: true });
 
@@ -2812,10 +2833,6 @@ export function PublicQuoteRequest() {
       let firebaseUid = user?.uid;
       let customerId = userData?.customerId;
 
-      if (!customerId) {
-        customerId = `cust-${Date.now()}`;
-      }
-
       const companyName = customerInfo.companyName || customerInfo.contactName || 'New Company';
       const cleanEmail = customerInfo.emailAddress.toLowerCase().trim();
 
@@ -2855,24 +2872,58 @@ export function PublicQuoteRequest() {
         }
       }
 
-      // 2. NOW authenticated — Provision Customer (Company) & User Profile
+      // 2. NOW authenticated — Resolve existing Customer profile to PREVENT duplicate accounts
       setSubmittingStepIndex(2);
-      setSubmittingStep('Generating customer portal workspace for your company...');
+      setSubmittingStep('Connecting to customer portal workspace...');
+
+      if (!customerId && firebaseUid) {
+        const existingUserDoc = await getDoc(doc(db, 'users', firebaseUid));
+        if (existingUserDoc.exists() && existingUserDoc.data().customerId) {
+          customerId = existingUserDoc.data().customerId;
+        }
+      }
+
+      if (!customerId) {
+        const custQuery = query(collection(db, 'customers'), where('email', '==', cleanEmail));
+        const custSnap = await getDocs(custQuery);
+        if (!custSnap.empty) {
+          customerId = custSnap.docs[0].id;
+        }
+      }
+
+      if (!customerId && customerInfo.phone) {
+        const cleanPhoneDigits = customerInfo.phone.replace(/\D/g, '');
+        if (cleanPhoneDigits.length >= 10) {
+          const allCustSnap = await getDocs(collection(db, 'customers'));
+          const matchedCustDoc = allCustSnap.docs.find(d => {
+            const pDigits = (d.data().phone || '').replace(/\D/g, '');
+            return pDigits && (pDigits === cleanPhoneDigits || pDigits.endsWith(cleanPhoneDigits.slice(-10)) || cleanPhoneDigits.endsWith(pDigits.slice(-10)));
+          });
+          if (matchedCustDoc) {
+            customerId = matchedCustDoc.id;
+          }
+        }
+      }
+
+      if (!customerId) {
+        customerId = `cust-${Date.now()}`;
+      }
 
       const existingCustSnap = await getDoc(doc(db, 'customers', customerId));
       const isNewCust = !existingCustSnap.exists();
 
       const customerPayload = JSON.parse(JSON.stringify({
         id: customerId,
-        company: companyName,
-        name: companyName,
-        contactName: customerInfo.contactName || '',
+        company: existingCustSnap.data()?.company || companyName,
+        name: existingCustSnap.data()?.name || companyName,
+        contactName: customerInfo.contactName || existingCustSnap.data()?.contactName || '',
         email: cleanEmail,
-        phone: customerInfo.phone || '-',
-        website: customerInfo.website || '',
-        type: 'Web Lead',
+        phone: (customerInfo.phone && customerInfo.phone !== '-') ? customerInfo.phone : (existingCustSnap.data()?.phone || '-'),
+        website: customerInfo.website || existingCustSnap.data()?.website || '',
+        type: existingCustSnap.data()?.type || 'Web Lead',
         hasUnreadCreation: isNewCust || existingCustSnap.data()?.hasUnreadCreation || false,
-        createdAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ...(isNewCust ? { createdAt: new Date().toISOString() } : {})
       }));
 
       await setDoc(doc(db, 'customers', customerId), customerPayload, { merge: true });
@@ -2884,17 +2935,19 @@ export function PublicQuoteRequest() {
       const isStaffUser = userData?.role ? STAFF_ROLES.includes(userData.role) : false;
 
       if (firebaseUid && !isStaffUser) {
+        const existingUserSnap = await getDoc(doc(db, 'users', firebaseUid));
+        const isNewUser = !existingUserSnap.exists();
         const userPayload = JSON.parse(JSON.stringify({
           id: firebaseUid,
           uid: firebaseUid,
           email: cleanEmail,
-          name: customerInfo.contactName || '',
-          role: 'Client',
+          name: customerInfo.contactName || existingUserSnap.data()?.name || '',
+          role: existingUserSnap.data()?.role || 'Client',
           customerId: customerId,
-          phone: customerInfo.phone || '-',
-          companyName: companyName,
-          website: customerInfo.website || '',
-          createdAt: new Date().toISOString()
+          phone: (customerInfo.phone && customerInfo.phone !== '-') ? customerInfo.phone : (existingUserSnap.data()?.phone || '-'),
+          companyName: existingCustSnap.data()?.company || companyName,
+          website: customerInfo.website || existingUserSnap.data()?.website || '',
+          ...(isNewUser ? { createdAt: new Date().toISOString() } : { updatedAt: new Date().toISOString() })
         }));
 
         await setDoc(doc(db, 'users', firebaseUid), userPayload, { merge: true });
