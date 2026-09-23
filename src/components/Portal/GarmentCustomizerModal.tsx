@@ -1396,7 +1396,7 @@ export function GarmentCustomizerModal({
     setActiveElementResize({ id, type });
 
     let currentScale = 30;
-    const containerWidth = previewRef.current?.getBoundingClientRect().width || 320;
+    const containerWidth = previewRef.current?.getBoundingClientRect().width || 500;
     if (type === 'logo') {
       currentScale = tagLogos.find(l => l.id === id)?.scale || 30;
     } else if (type === 'text') {
@@ -1493,7 +1493,7 @@ export function GarmentCustomizerModal({
 
       if (activeElementResize) {
         const deltaX = pos.x - resizeStartPos.current.x;
-        const containerWidth = resizeStartPos.current.containerWidth || 320;
+        const containerWidth = resizeStartPos.current.containerWidth || 500;
         const valScale = Math.max(10, Math.min(150, Math.round(resizeStartPos.current.scale + (deltaX / containerWidth) * 100)));
 
         const { id, type } = activeElementResize;
@@ -2676,190 +2676,193 @@ export function GarmentCustomizerModal({
                 </>
               )}
 
-              {activeTab === 'tag' && (
-                <div 
-                  style={{
-                    backgroundImage: `
-                      linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
-                      linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
-                      linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
-                      linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)
-                    `,
-                    backgroundSize: '16px 16px',
-                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                    backgroundColor: '#f0f0f0'
-                  }}
-                  className="relative w-80 h-80 border-2 border-dashed border-neutral-300 rounded-[1.5rem] shadow-inner flex items-center justify-center overflow-hidden z-10 select-none"
-                >
-                  
-                  {/* Placed Logos */}
-                  {tagLogos.map((logo) => {
-                    const isSelected = selectedTagElementId === logo.id;
-                    return (
-                      <div
-                        key={logo.id}
-                        onMouseDown={(e) => handleElementMouseDown(e, logo.id, 'logo')}
-                        style={{
-                          width: `${logo.scale}%`,
-                          left: `${logo.x}%`,
-                          top: `${logo.y}%`,
-                          transform: `translate(-50%, -50%) rotate(${logo.rotation}deg)`,
-                          zIndex: isSelected ? 30 : 20
-                        }}
-                        className={`absolute flex items-center justify-center p-1 bg-transparent cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/5' : 'border border-dashed border-transparent hover:border-neutral-300'}`}
-                      >
-                        <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain pointer-events-none" />
-                        {isSelected && (
-                          <div
-                            onMouseDown={(e) => handleElementResizeMouseDown(e, logo.id, 'logo')}
-                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Placed Texts */}
-                  {tagTexts.map((textItem) => {
-                    const isSelected = selectedTagElementId === textItem.id;
-                    return (
-                      <div
-                        key={textItem.id}
-                        onMouseDown={(e) => handleElementMouseDown(e, textItem.id, 'text')}
-                        style={{
-                          left: `${textItem.x}%`,
-                          top: `${textItem.y}%`,
-                          transform: `translate(-50%, -50%) rotate(${textItem.rotation}deg)`,
-                          zIndex: isSelected ? 30 : 20,
-                          fontFamily: textItem.font,
-                          color: textItem.color,
-                          fontSize: `${textItem.scale * 0.75}px`,
-                          fontWeight: textItem.bold ? 'bold' : 'normal',
-                          fontStyle: textItem.italic ? 'italic' : 'normal',
-                          whiteSpace: 'pre'
-                        }}
-                        className={`absolute text-center px-2 py-1 leading-normal cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-transparent hover:border-neutral-200'}`}
-                      >
-                        {textItem.text}
-                        {isSelected && (
-                          <div
-                            onMouseDown={(e) => handleElementResizeMouseDown(e, textItem.id, 'text')}
-                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Size Placeholder Element */}
-                  {(() => {
-                    const isSelected = selectedTagElementId === 'size-tag-placeholder';
-                    return (
-                      <div
-                        onMouseDown={(e) => handleElementMouseDown(e, 'size-tag-placeholder', 'size')}
-                        style={{
-                          left: `${tagSize.x}%`,
-                          top: `${tagSize.y}%`,
-                          transform: `translate(-50%, -50%) rotate(${tagSize.rotation}deg)`,
-                          zIndex: isSelected ? 30 : 20,
-                          fontFamily: tagSize.font,
-                          color: tagSize.color,
-                          fontSize: `${tagSize.scale * 0.75}px`,
-                          fontWeight: tagSize.bold ? 'bold' : 'normal',
-                          fontStyle: tagSize.italic ? 'italic' : 'normal'
-                        }}
-                        className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
-                      >
-                        <span className="relative select-none flex items-center justify-center">
-                          {getSizeString('M', tagSize.spelledOut)}
-                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Size Tag</span>
-                        </span>
-                        {isSelected && (
-                          <div
-                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'size-tag-placeholder', 'size')}
-                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                          />
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Care Symbols Element */}
-                  {tagCareSymbols.visible && (() => {
-                    const isSelected = selectedTagElementId === 'care-symbols-placeholder';
-                    const activeSyms = [];
-                    const symbolSize = Math.max(12, tagCareSymbols.scale * 0.75);
-
-                    if (tagCareSymbols.showWash) activeSyms.push(<div key="wash" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><WashingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showBleach) activeSyms.push(<div key="bleach" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><BleachingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showDry) activeSyms.push(<div key="dry" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showIron) activeSyms.push(<div key="iron" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><IroningSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showDryClean) activeSyms.push(<div key="dryclean" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryCleanSymbol color={tagCareSymbols.color} /></div>);
-
-                    return (
-                      <div
-                        onMouseDown={(e) => handleElementMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
-                        style={{
-                          left: `${tagCareSymbols.x}%`,
-                          top: `${tagCareSymbols.y}%`,
-                          transform: `translate(-50%, -50%) rotate(${tagCareSymbols.rotation}deg)`,
-                          zIndex: isSelected ? 30 : 20,
-                          color: tagCareSymbols.color,
-                          width: 'fit-content'
-                        }}
-                        className={`absolute flex items-center justify-center p-1.5 cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-neutral-300 hover:border-neutral-400 bg-white/5'}`}
-                      >
-                        <div className="flex items-center gap-1.5 justify-center">
-                          {activeSyms.length > 0 ? activeSyms : (
-                            <span className="text-[9px] text-neutral-400 select-none px-2">No active symbols</span>
+              {activeTab === 'tag' && (() => {
+                const tagScaleFactor = (boardSize?.w || 500) / 600;
+                return (
+                  <div 
+                    style={{
+                      backgroundImage: `
+                        linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
+                        linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
+                        linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
+                        linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)
+                      `,
+                      backgroundSize: '16px 16px',
+                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                      backgroundColor: '#f0f0f0'
+                    }}
+                    className="relative w-full h-full rounded-[1.5rem] md:rounded-[2rem] border-2 border-dashed border-neutral-300/80 shadow-inner flex items-center justify-center overflow-hidden z-10 select-none"
+                  >
+                    
+                    {/* Placed Logos */}
+                    {tagLogos.map((logo) => {
+                      const isSelected = selectedTagElementId === logo.id;
+                      return (
+                        <div
+                          key={logo.id}
+                          onMouseDown={(e) => handleElementMouseDown(e, logo.id, 'logo')}
+                          style={{
+                            width: `${logo.scale}%`,
+                            left: `${logo.x}%`,
+                            top: `${logo.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${logo.rotation}deg)`,
+                            zIndex: isSelected ? 30 : 20
+                          }}
+                          className={`absolute flex items-center justify-center p-1 bg-transparent cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/5' : 'border border-dashed border-transparent hover:border-neutral-300'}`}
+                        >
+                          <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain pointer-events-none" />
+                          {isSelected && (
+                            <div
+                              onMouseDown={(e) => handleElementResizeMouseDown(e, logo.id, 'logo')}
+                              className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                            />
                           )}
                         </div>
-                        {isSelected && (
-                          <div
-                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
-                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                          />
-                        )}
-                      </div>
-                    );
-                  })()}
+                      );
+                    })}
 
-                  {/* Fabric Blend Element */}
-                  {tagBlend.visible && (() => {
-                    const isSelected = selectedTagElementId === 'blend-tag-placeholder';
-                    const blendText = getGarmentBlend(activeGarment, selectedColor);
-                    return (
-                      <div
-                        onMouseDown={(e) => handleElementMouseDown(e, 'blend-tag-placeholder', 'blend')}
-                        style={{
-                          left: `${tagBlend.x}%`,
-                          top: `${tagBlend.y}%`,
-                          transform: `translate(-50%, -50%) rotate(${tagBlend.rotation}deg)`,
-                          zIndex: isSelected ? 30 : 20,
-                          fontFamily: tagBlend.font,
-                          color: tagBlend.color,
-                          fontSize: `${tagBlend.scale * 0.4}px`,
-                          fontWeight: tagBlend.bold ? 'bold' : 'normal',
-                          fontStyle: tagBlend.italic ? 'italic' : 'normal',
-                          maxWidth: '85%'
-                        }}
-                        className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 whitespace-nowrap text-center ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-emerald-400/40 hover:border-emerald-400/80 bg-emerald-50/10'}`}
-                      >
-                        <span className="relative select-none flex items-center justify-center">
-                          {blendText}
-                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-emerald-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Fabric Blend</span>
-                        </span>
-                        {isSelected && (
-                          <div
-                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'blend-tag-placeholder', 'blend')}
-                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                          />
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                    {/* Placed Texts */}
+                    {tagTexts.map((textItem) => {
+                      const isSelected = selectedTagElementId === textItem.id;
+                      return (
+                        <div
+                          key={textItem.id}
+                          onMouseDown={(e) => handleElementMouseDown(e, textItem.id, 'text')}
+                          style={{
+                            left: `${textItem.x}%`,
+                            top: `${textItem.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${textItem.rotation}deg)`,
+                            zIndex: isSelected ? 30 : 20,
+                            fontFamily: textItem.font,
+                            color: textItem.color,
+                            fontSize: `${Math.max(9, textItem.scale * 1.40625 * tagScaleFactor)}px`,
+                            fontWeight: textItem.bold ? 'bold' : 'normal',
+                            fontStyle: textItem.italic ? 'italic' : 'normal',
+                            whiteSpace: 'pre'
+                          }}
+                          className={`absolute text-center px-2 py-1 leading-normal cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-transparent hover:border-neutral-200'}`}
+                        >
+                          {textItem.text}
+                          {isSelected && (
+                            <div
+                              onMouseDown={(e) => handleElementResizeMouseDown(e, textItem.id, 'text')}
+                              className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Size Placeholder Element */}
+                    {(() => {
+                      const isSelected = selectedTagElementId === 'size-tag-placeholder';
+                      return (
+                        <div
+                          onMouseDown={(e) => handleElementMouseDown(e, 'size-tag-placeholder', 'size')}
+                          style={{
+                            left: `${tagSize.x}%`,
+                            top: `${tagSize.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${tagSize.rotation}deg)`,
+                            zIndex: isSelected ? 30 : 20,
+                            fontFamily: tagSize.font,
+                            color: tagSize.color,
+                            fontSize: `${Math.max(12, tagSize.scale * 1.40625 * tagScaleFactor)}px`,
+                            fontWeight: tagSize.bold ? 'bold' : 'normal',
+                            fontStyle: tagSize.italic ? 'italic' : 'normal'
+                          }}
+                          className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
+                        >
+                          <span className="relative select-none flex items-center justify-center">
+                            {getSizeString('M', tagSize.spelledOut)}
+                            <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Size Tag</span>
+                          </span>
+                          {isSelected && (
+                            <div
+                              onMouseDown={(e) => handleElementResizeMouseDown(e, 'size-tag-placeholder', 'size')}
+                              className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Care Symbols Element */}
+                    {tagCareSymbols.visible && (() => {
+                      const isSelected = selectedTagElementId === 'care-symbols-placeholder';
+                      const activeSyms = [];
+                      const symbolSize = Math.max(14, tagCareSymbols.scale * 1.40625 * tagScaleFactor);
+
+                      if (tagCareSymbols.showWash) activeSyms.push(<div key="wash" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><WashingSymbol color={tagCareSymbols.color} /></div>);
+                      if (tagCareSymbols.showBleach) activeSyms.push(<div key="bleach" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><BleachingSymbol color={tagCareSymbols.color} /></div>);
+                      if (tagCareSymbols.showDry) activeSyms.push(<div key="dry" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryingSymbol color={tagCareSymbols.color} /></div>);
+                      if (tagCareSymbols.showIron) activeSyms.push(<div key="iron" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><IroningSymbol color={tagCareSymbols.color} /></div>);
+                      if (tagCareSymbols.showDryClean) activeSyms.push(<div key="dryclean" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryCleanSymbol color={tagCareSymbols.color} /></div>);
+
+                      return (
+                        <div
+                          onMouseDown={(e) => handleElementMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
+                          style={{
+                            left: `${tagCareSymbols.x}%`,
+                            top: `${tagCareSymbols.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${tagCareSymbols.rotation}deg)`,
+                            zIndex: isSelected ? 30 : 20,
+                            color: tagCareSymbols.color,
+                            width: 'fit-content'
+                          }}
+                          className={`absolute flex items-center justify-center p-1.5 cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-neutral-300 hover:border-neutral-400 bg-white/5'}`}
+                        >
+                          <div className="flex items-center gap-1.5 justify-center">
+                            {activeSyms.length > 0 ? activeSyms : (
+                              <span className="text-[9px] text-neutral-400 select-none px-2">No active symbols</span>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <div
+                              onMouseDown={(e) => handleElementResizeMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
+                              className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Fabric Blend Element */}
+                    {tagBlend.visible && (() => {
+                      const isSelected = selectedTagElementId === 'blend-tag-placeholder';
+                      const blendText = getGarmentBlend(activeGarment, selectedColor);
+                      return (
+                        <div
+                          onMouseDown={(e) => handleElementMouseDown(e, 'blend-tag-placeholder', 'blend')}
+                          style={{
+                            left: `${tagBlend.x}%`,
+                            top: `${tagBlend.y}%`,
+                            transform: `translate(-50%, -50%) rotate(${tagBlend.rotation}deg)`,
+                            zIndex: isSelected ? 30 : 20,
+                            fontFamily: tagBlend.font,
+                            color: tagBlend.color,
+                            fontSize: `${Math.max(8, tagBlend.scale * 1.40625 * 0.5333 * tagScaleFactor)}px`,
+                            fontWeight: tagBlend.bold ? 'bold' : 'normal',
+                            fontStyle: tagBlend.italic ? 'italic' : 'normal',
+                            maxWidth: '85%'
+                          }}
+                          className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 whitespace-nowrap text-center ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-emerald-400/40 hover:border-emerald-400/80 bg-emerald-50/10'}`}
+                        >
+                          <span className="relative select-none flex items-center justify-center">
+                            {blendText}
+                            <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-emerald-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Fabric Blend</span>
+                          </span>
+                          {isSelected && (
+                            <div
+                              onMouseDown={(e) => handleElementResizeMouseDown(e, 'blend-tag-placeholder', 'blend')}
+                              className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
             </div>
             </div>
           </div>
