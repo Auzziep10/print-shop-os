@@ -44,20 +44,22 @@
   }
 
   var cur = 0, W = stage.clientWidth;
+  // slides sit edge to edge and track the finger 1:1; the turn/scale/dim is a light garnish on top
   function place(el, pos, dx){
     var t = pos + (dx ? -dx/W : 0);
     var abs = Math.min(Math.abs(t), 1.5);
-    var x = t * 62, ry = -t * 34, sc = 1 - abs*0.16, op = Math.max(0, 1 - abs*0.9);
+    var x = t * 100, ry = -t * 12, sc = 1 - abs*0.06, op = Math.max(0.4, 1 - abs*0.45);
     el.style.transform = 'translateX('+x+'%) rotateY('+ry+'deg) scale('+sc+')';
     el.style.opacity = op;
     el.style.zIndex = pos === 0 ? 3 : 2;
   }
-  function render(dx, animate){
+  function render(dx, animate, dur){
     W = stage.clientWidth;
     els.forEach(function(el, i){
       var pos = i - cur;
       el.classList.toggle('anim', !!animate);
-      if(pos > 1 || pos < -1){ el.style.opacity = 0; el.style.transform = 'translateX('+(pos>0?120:-120)+'%) scale(.7)'; el.style.zIndex = 1; return; }
+      el.style.transitionDuration = animate && dur ? dur + 'ms' : '';
+      if(pos > 1 || pos < -1){ el.style.opacity = 0; el.style.transform = 'translateX('+(pos>0?120:-120)+'%) scale(.9)'; el.style.zIndex = 1; return; }
       place(el, pos, dx||0);
     });
     els.forEach(function(el, i){ el.classList.toggle('active', i === cur); });
@@ -71,36 +73,46 @@
     document.getElementById('gStory').textContent = g.story || '';
     document.getElementById('specs').innerHTML = (g.specs || []).map(function(s){ return '<dt>'+s[0]+'</dt><dd>'+s[1]+'</dd>'; }).join('');
   }
-  function go(n){ cur = Math.max(0, Math.min(garments.length-1, n)); render(0, !reduced); }
+  function go(n, dur){ cur = Math.max(0, Math.min(garments.length-1, n)); render(0, !reduced, dur); }
 
   fitPins(); render(0, false);
   window.addEventListener('resize', function(){ fitPins(); render(0, false); });
 
   // ---- drag: horizontal = carousel, vertical up = details
-  var drag = null;
+  var drag = null, raf = 0;
   stage.addEventListener('pointerdown', function(e){
     if(e.target.closest('.pin')) return;
     if(sheetOpen){ closeSheet(); return; }
-    drag = {x:e.clientX, y:e.clientY, t:performance.now(), axis:null, id:e.pointerId};
+    drag = {x:e.clientX, y:e.clientY, lastX:e.clientX, lastT:performance.now(), v:0, axis:null, id:e.pointerId, dx:0};
     capture(stage, e.pointerId);
   });
   stage.addEventListener('pointermove', function(e){
     if(!drag || e.pointerId !== drag.id) return;
-    var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if(!drag.axis){ if(Math.abs(dx) > 8 || Math.abs(dy) > 8) drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; else return; }
-    if(drag.axis === 'x'){
-      var bounded = (cur === 0 && dx > 0) || (cur === garments.length-1 && dx < 0) ? dx*0.3 : dx;
-      render(bounded, false); drag.dx = bounded;
-    }
+    var dx = e.clientX - drag.x, dy = e.clientY - drag.y, now = performance.now();
+    if(!drag.axis){ if(Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; else return; }
+    if(drag.axis !== 'x') return;
+    var dt = now - drag.lastT;
+    if(dt > 0){ var inst = (e.clientX - drag.lastX) / dt; drag.v = drag.v * 0.6 + inst * 0.4; }
+    drag.lastX = e.clientX; drag.lastT = now;
+    var atEdge = (cur === 0 && dx > 0) || (cur === garments.length-1 && dx < 0);
+    drag.dx = atEdge ? dx * 0.35 : dx;
+    if(!raf) raf = requestAnimationFrame(function(){ raf = 0; if(drag) render(drag.dx, false); });
   });
   function endDrag(e){
     if(!drag || e.pointerId !== drag.id) return;
-    var dx = e.clientX - drag.x, dy = e.clientY - drag.y, dt = performance.now() - drag.t;
-    var axis = drag.axis; drag = null;
-    if(axis === 'x'){
-      var v = Math.abs(dx)/Math.max(dt,1);
-      if(Math.abs(dx) > W*0.18 || v > 0.55){ go(cur + (dx < 0 ? 1 : -1)); } else { render(0, !reduced); }
-    } else if(axis === 'y'){
+    var d = drag; drag = null;
+    if(raf){ cancelAnimationFrame(raf); raf = 0; }
+    var dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if(d.axis === 'x'){
+      var v = d.v;                                   // px per ms, signed, from the last few moves
+      var flick = Math.abs(v) > 0.35;
+      var dir = flick ? (v < 0 ? 1 : -1) : (dx < 0 ? 1 : -1);
+      var advance = flick || Math.abs(dx) > W * 0.22;
+      // finish the remaining travel at roughly the finger's speed, clamped so it never crawls or snaps
+      var remaining = advance ? W - Math.abs(d.dx) : Math.abs(d.dx);
+      var dur = Math.max(220, Math.min(480, remaining / Math.max(Math.abs(v), 0.9)));
+      if(advance) go(cur + dir, dur); else render(0, !reduced, dur);
+    } else if(d.axis === 'y'){
       if(dy < -60) openSheet();
     }
   }

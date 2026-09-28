@@ -38,7 +38,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 .stage{position:absolute;inset:0;perspective:1400px;touch-action:none;}
 .g{position:absolute;inset:0;transform-origin:50% 55%;will-change:transform,opacity;backface-visibility:hidden;}
-.g.anim{transition:transform .62s cubic-bezier(.22,.8,.22,1), opacity .5s ease;}
+.g.anim{transition:transform .42s cubic-bezier(.2,.85,.25,1), opacity .42s ease;}
 .g img.hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none;user-select:none;-webkit-user-drag:none;}
 .g .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(10,9,8,.55) 100%);pointer-events:none;}
 .g .pins{position:absolute;pointer-events:none;}
