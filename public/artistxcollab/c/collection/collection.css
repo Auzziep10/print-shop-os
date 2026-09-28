@@ -42,15 +42,16 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .g img.hero{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none;user-select:none;-webkit-user-drag:none;}
 .g .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(10,9,8,.55) 100%);pointer-events:none;}
 .g .pins{position:absolute;pointer-events:none;}
-.pin{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;pointer-events:auto;
-  background:rgba(255,255,255,.26);border:1.5px solid rgba(255,255,255,.92);
-  box-shadow:0 0 0 0 rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.45), inset 0 0 10px rgba(255,255,255,.35);
-  animation:pulse 2.6s ease-out infinite;cursor:pointer;touch-action:none;}
-.pin::after{content:"";position:absolute;inset:9px;border-radius:50%;background:rgba(255,255,255,.95);}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.55), 0 0 18px rgba(255,255,255,.45), inset 0 0 10px rgba(255,255,255,.35);}
-  70%{box-shadow:0 0 0 16px rgba(255,255,255,0), 0 0 18px rgba(255,255,255,.45), inset 0 0 10px rgba(255,255,255,.35);}
-  100%{box-shadow:0 0 0 0 rgba(255,255,255,0), 0 0 18px rgba(255,255,255,.45), inset 0 0 10px rgba(255,255,255,.35);}}
-.pin.held{transform:scale(1.25);background:rgba(255,255,255,.5);}
+.pin{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;pointer-events:auto;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 0 0 0 rgba(255,255,255,.28), 0 0 8px rgba(255,255,255,.18);
+  animation:pulse 3.6s ease-out infinite;cursor:pointer;touch-action:none;transition:background .3s, transform .3s;}
+.pin::before{content:"";position:absolute;inset:-14px;border-radius:50%;}
+.pin::after{content:"";position:absolute;inset:6px;border-radius:50%;background:rgba(255,255,255,.85);}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.28), 0 0 8px rgba(255,255,255,.18);}
+  70%{box-shadow:0 0 0 10px rgba(255,255,255,0), 0 0 8px rgba(255,255,255,.18);}
+  100%{box-shadow:0 0 0 0 rgba(255,255,255,0), 0 0 8px rgba(255,255,255,.18);}}
+.pin.held{transform:scale(1.4);background:rgba(255,255,255,.35);}
 .g:not(.active) .pin{opacity:0;pointer-events:none;}
 
 .arrow{position:absolute;z-index:30;top:50%;width:44px;height:44px;margin-top:-22px;border-radius:50%;display:none;place-items:center;
@@ -92,7 +93,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .specs dt{color:var(--paper-faint);white-space:nowrap;}
 .specs dd{color:var(--paper);}
 .sheet .pins-note{margin-top:22px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-faint);display:flex;align-items:center;gap:10px;}
-.sheet .pins-note i{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(255,255,255,.9);background:rgba(255,255,255,.3);flex:none;}
+.sheet .pins-note i{width:12px;height:12px;border-radius:50%;border:1px solid rgba(255,255,255,.7);background:rgba(255,255,255,.1);flex:none;position:relative;}
+.sheet .pins-note i::after{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(255,255,255,.85);}
 
 .closeup{position:absolute;inset:0;z-index:70;opacity:0;pointer-events:none;transform:scale(.72);transform-origin:50% 50%;
   transition:opacity .28s ease, transform .42s cubic-bezier(.2,.8,.2,1);background:#000;}
@@ -116,7 +118,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .arrow{display:grid;}
   .sheet{left:50%;right:auto;width:560px;transform:translate(-50%,102%);}
   .sheet.on{transform:translate(-50%,0);}
-  .pin{width:34px;height:34px;margin:-17px 0 0 -17px;}
+  .pin{width:20px;height:20px;margin:-10px 0 0 -10px;}
 }
 @media (max-width:899px){ .g .bg{display:none;} }
 @media (prefers-reduced-motion:reduce){
