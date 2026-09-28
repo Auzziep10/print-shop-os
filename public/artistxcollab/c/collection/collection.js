@@ -92,8 +92,7 @@
     if(!drag.axis){ if(Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; else return; }
     if(drag.axis !== 'x') return;
     var dt = now - drag.lastT;
-    if(dt > 0){ var inst = (e.clientX - drag.lastX) / dt; drag.v = drag.v * 0.6 + inst * 0.4; }
-    drag.lastX = e.clientX; drag.lastT = now;
+    if(dt >= 8){ var inst = (e.clientX - drag.lastX) / dt; drag.v = drag.v * 0.6 + inst * 0.4; drag.lastX = e.clientX; drag.lastT = now; }
     var atEdge = (cur === 0 && dx > 0) || (cur === garments.length-1 && dx < 0);
     drag.dx = atEdge ? dx * 0.35 : dx;
     if(!raf) raf = requestAnimationFrame(function(){ raf = 0; if(drag) render(drag.dx, false); });
@@ -104,7 +103,7 @@
     if(raf){ cancelAnimationFrame(raf); raf = 0; }
     var dx = e.clientX - d.x, dy = e.clientY - d.y;
     if(d.axis === 'x'){
-      var v = d.v;                                   // px per ms, signed, from the last few moves
+      var v = (performance.now() - d.lastT) > 80 ? 0 : d.v;   // px per ms; a pause before lifting cancels momentum
       var flick = Math.abs(v) > 0.35;
       var dir = flick ? (v < 0 ? 1 : -1) : (dx < 0 ? 1 : -1);
       var advance = flick || Math.abs(dx) > W * 0.22;
