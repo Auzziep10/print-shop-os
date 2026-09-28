@@ -87,6 +87,10 @@
   .slide.intro .card img,.slide.final .card img{transform:none;}
   .slide.intro .card img{filter:blur(14px) brightness(.55);transform:scale(1.06);}
   .slide.final .card img{object-position:center bottom;}
+  /* variant c: intro frame is a finished render (logo + mark baked in), closing frame has no corner logo */
+  .v-c .slide.intro .card img{filter:none;transform:none;}
+  .v-c .intro-logo{display:none;}
+  .v-c .brand.is-final{opacity:0;}
   .brand.is-final{left:calc(var(--ox) + 9.2 * var(--u));bottom:auto;top:max(calc(var(--oyb) + 15.2 * var(--u)), calc(6vh + env(safe-area-inset-top,0px)));
     width:calc(31 * var(--u));max-width:none;transform:none;filter:none;}
 
@@ -213,6 +217,7 @@
     /* full-bleed landscape slides */
     .wide .backdrop,.wide .kicker{display:none;}
     .slide.intro .card img{filter:blur(16px) brightness(.5);}
+    .v-c .slide.intro .card img{filter:none;object-fit:contain;}
     .wide .frame{display:block;perspective:none;}
     .wide .card{position:absolute;inset:0;width:auto;height:auto;margin:0;box-shadow:none;transform:none;}
     .wide .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;
@@ -241,7 +246,7 @@
   }
 </style>
 </head>
-<body>
+<body class="v-b">
 
 <div class="grain" aria-hidden="true"></div>
 

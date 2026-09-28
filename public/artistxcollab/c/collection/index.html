@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your Collection — Ink Theory</title>
+<meta name="description" content="More than Merch. A label of your own. Artist×Collab by Ink Theory — Concept. Create. Produce. Sell.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="More than Merch — Ink Theory">
+<meta property="og:description" content="A label of your own.">
+<meta property="og:image" content="https://www.inktheory.studio/artistxcollab/img/1-wide.webp">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ink Theory">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Gelasio:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/artistxcollab/c/collection/collection.css">
+<style></style>
+</head>
+<body class="v-c">
+
+<div class="grain" aria-hidden="true"></div>
+<div class="app" id="app">
+  <header class="top">
+    <a class="back" href="/artistxcollab/c/" aria-label="Back to Artist×Collab"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <div class="title"><img class="logo" src="/artistxcollab/img/inktheory-logo.png" alt="Ink Theory"><div class="sub" id="collTitle">Your Collection</div></div>
+    <div class="count" id="count"></div>
+  </header>
+
+  <div class="stage" id="stage"></div>
+
+  <button class="arrow prev" id="prevBtn" aria-label="Previous garment"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="arrow next" id="nextBtn" aria-label="Next garment"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+
+  <div class="foot" id="foot">
+    <div class="name-strip"><div class="n" id="stripName"></div><div class="a" id="stripArtist"></div></div>
+    <button class="hint" id="hint" type="button"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>Swipe up for details</button>
+    <div class="dots" id="dots"></div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <section class="sheet" id="sheet" aria-label="Garment details">
+    <div class="grab"></div>
+    <div class="sheet-scroll">
+      <div class="eyebrow">Garment makeup</div>
+      <h2 id="gName"></h2>
+      <p class="artist" id="gArtist"></p>
+      <p class="story" id="gStory"></p>
+      <dl class="specs" id="specs"></dl>
+      <p class="pins-note"><i></i>Press and hold a pin on the garment for a closeup</p>
+    </div>
+  </section>
+
+  <div class="closeup" id="closeup" aria-hidden="true">
+    <img id="closeupImg" alt="">
+    <div class="lbl" id="closeupLbl"></div>
+    <button class="x" id="closeupX" aria-label="Close closeup"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="release">Release to return</div>
+  </div>
+</div>
+
+<script src="/artistxcollab/c/collection/collection-data.js"></script>
+<script src="/artistxcollab/c/collection/collection.js"></script>
+
+</body>
+</html>

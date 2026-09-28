@@ -20,6 +20,22 @@
       "destination": "/artistxcollab/b/index.html"
     },
     {
+      "source": "/artistxcollab/c",
+      "destination": "/artistxcollab/c/index.html"
+    },
+    {
+      "source": "/artistxcollab/c/",
+      "destination": "/artistxcollab/c/index.html"
+    },
+    {
+      "source": "/artistxcollab/c/collection",
+      "destination": "/artistxcollab/c/collection/index.html"
+    },
+    {
+      "source": "/artistxcollab/c/collection/",
+      "destination": "/artistxcollab/c/collection/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
