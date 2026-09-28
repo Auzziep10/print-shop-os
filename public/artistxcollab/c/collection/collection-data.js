@@ -4,8 +4,9 @@ window.AXC_COLLECTION = {
   title: "Your Collection",
   // the room stays put; garments are transparent cutouts on the same 806x1760 canvas, hook at ~34% down
   background: "/artistxcollab/img/garments/room.webp",
-  backgroundSize: [806, 1760],
+  backgroundSize: [852, 1847],
   hookY: 0.34,
+  garmentShiftY: 0.10,   // hang the rail just under the sign in this room
   garments: [
     {
       id: "sb-saints-after-dark",

@@ -22,10 +22,9 @@
       '<img class="bg" src="'+data.background+'" alt="" aria-hidden="true">' +
       '<img class="room" src="'+data.background+'" alt="" aria-hidden="true"><div class="vignette"></div>');
   }
-  var hookY = (data.hookY || 0.34) * 100;
   var els = garments.map(function(g, i){
     var el = document.createElement('div'); el.className = 'g'; el.dataset.i = i;
-    el.innerHTML = '<div class="swing" style="transform-origin:50% '+hookY+'%">' +
+    el.innerHTML = '<div class="swing">' +
       '<img class="hero" src="'+g.image+'" alt="'+(g.name||'')+'" draggable="false">' +
       '<div class="pins"></div></div>';
     var pins = el.querySelector('.pins');
@@ -53,15 +52,18 @@
       var iw = (g.imageSize && g.imageSize[0]) || 920, ih = (g.imageSize && g.imageSize[1]) || 2000;
       var s = desktop() ? Math.min(W/iw, H/ih) : Math.max(W/iw, H/ih);
       var rw = iw*s, rh = ih*s, pins = els[i].querySelector('.pins'), hero = els[i].querySelector('.hero');
-      pins.style.left = ((W-rw)/2)+'px'; pins.style.top = ((H-rh)/2)+'px'; pins.style.width = rw+'px'; pins.style.height = rh+'px';
-      hero.style.left = ((W-rw)/2)+'px'; hero.style.top = ((H-rh)/2)+'px'; hero.style.width = rw+'px'; hero.style.height = rh+'px';
+      var shift = (g.shiftY != null ? g.shiftY : (data.garmentShiftY || 0)) * rh;
+      var left = (W-rw)/2, top = (H-rh)/2 + shift;
+      pins.style.left = left+'px'; pins.style.top = top+'px'; pins.style.width = rw+'px'; pins.style.height = rh+'px';
+      hero.style.left = left+'px'; hero.style.top = top+'px'; hero.style.width = rw+'px'; hero.style.height = rh+'px';
+      els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+(top + (data.hookY || 0.34)*rh)+'px';
     });
   }
 
   var cur = 0, W = stage.clientWidth;
   // garments hang on a rail: they track the finger 1:1 and swing from the hook as they move
   function place(el, pos, dx){
-    var t = pos + (dx ? -dx/W : 0);
+    var t = pos + (dx ? dx/W : 0);
     el.style.transform = 'translateX('+(t * 100)+'%)';
     el.style.opacity = 1;
     el.style.zIndex = pos === 0 ? 3 : 2;
