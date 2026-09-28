@@ -2,12 +2,16 @@
 // Firestore collection once that is wired up; shape stays the same.
 window.AXC_COLLECTION = {
   title: "Your Collection",
+  // the room stays put; garments are transparent cutouts on the same 806x1760 canvas, hook at ~34% down
+  background: "/artistxcollab/img/garments/room.webp",
+  backgroundSize: [806, 1760],
+  hookY: 0.34,
   garments: [
     {
       id: "sb-saints-after-dark",
       name: "Saints After Dark Tee",
       artist: "SantosBravos",
-      image: "/artistxcollab/img/garments/sb-tee.webp",
+      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
       imageSize: [806, 1760],
       story: "Built from light, drawn to trouble. A heavyweight enzyme-washed tee with a puff-ink manifesto at the chest and a hand-thrown splatter across the hem.",
       specs: [
@@ -28,7 +32,7 @@ window.AXC_COLLECTION = {
       id: "sample-2",
       name: "Sample Garment 02",
       artist: "Sample — replace in admin",
-      image: "/artistxcollab/img/garments/sb-tee.webp",
+      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
       imageSize: [806, 1760],
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
@@ -38,7 +42,7 @@ window.AXC_COLLECTION = {
       id: "sample-3",
       name: "Sample Garment 03",
       artist: "Sample — replace in admin",
-      image: "/artistxcollab/img/garments/sb-tee.webp",
+      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
       imageSize: [806, 1760],
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],

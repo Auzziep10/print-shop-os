@@ -15,11 +15,19 @@
 
   var desktop = function(){ return window.matchMedia('(min-width:900px)').matches; };
   function capture(el, id){ try{ el.setPointerCapture(id); }catch(e){} }
+
+  // fixed room behind the rail
+  if(data.background){
+    stage.insertAdjacentHTML('beforeend',
+      '<img class="bg" src="'+data.background+'" alt="" aria-hidden="true">' +
+      '<img class="room" src="'+data.background+'" alt="" aria-hidden="true"><div class="vignette"></div>');
+  }
+  var hookY = (data.hookY || 0.34) * 100;
   var els = garments.map(function(g, i){
     var el = document.createElement('div'); el.className = 'g'; el.dataset.i = i;
-    el.innerHTML = '<img class="bg" src="'+g.image+'" alt="" aria-hidden="true">' +
+    el.innerHTML = '<div class="swing" style="transform-origin:50% '+hookY+'%">' +
       '<img class="hero" src="'+g.image+'" alt="'+(g.name||'')+'" draggable="false">' +
-      '<div class="vignette"></div><div class="pins"></div>';
+      '<div class="pins"></div></div>';
     var pins = el.querySelector('.pins');
     (g.hotspots || []).forEach(function(h, k){
       var p = document.createElement('button'); p.className = 'pin'; p.type = 'button';
@@ -35,23 +43,32 @@
   // rendered box of the hero image (cover on phones, contain on desktop) so pins track the garment
   function fitPins(){
     var W = stage.clientWidth, H = stage.clientHeight;
+    var room = stage.querySelector('.room');
+    if(room && data.backgroundSize){
+      var bw = data.backgroundSize[0], bh = data.backgroundSize[1];
+      var bs = desktop() ? Math.min(W/bw, H/bh) : Math.max(W/bw, H/bh);
+      room.style.width = (bw*bs)+'px'; room.style.height = (bh*bs)+'px'; room.style.left = ((W-bw*bs)/2)+'px'; room.style.top = ((H-bh*bs)/2)+'px';
+    }
     garments.forEach(function(g, i){
       var iw = (g.imageSize && g.imageSize[0]) || 920, ih = (g.imageSize && g.imageSize[1]) || 2000;
       var s = desktop() ? Math.min(W/iw, H/ih) : Math.max(W/iw, H/ih);
-      var rw = iw*s, rh = ih*s, pins = els[i].querySelector('.pins');
+      var rw = iw*s, rh = ih*s, pins = els[i].querySelector('.pins'), hero = els[i].querySelector('.hero');
       pins.style.left = ((W-rw)/2)+'px'; pins.style.top = ((H-rh)/2)+'px'; pins.style.width = rw+'px'; pins.style.height = rh+'px';
+      hero.style.left = ((W-rw)/2)+'px'; hero.style.top = ((H-rh)/2)+'px'; hero.style.width = rw+'px'; hero.style.height = rh+'px';
     });
   }
 
   var cur = 0, W = stage.clientWidth;
-  // slides sit edge to edge and track the finger 1:1; the turn/scale/dim is a light garnish on top
+  // garments hang on a rail: they track the finger 1:1 and swing from the hook as they move
   function place(el, pos, dx){
     var t = pos + (dx ? -dx/W : 0);
-    var abs = Math.min(Math.abs(t), 1.5);
-    var x = t * 100, ry = -t * 12, sc = 1 - abs*0.06, op = Math.max(0.4, 1 - abs*0.45);
-    el.style.transform = 'translateX('+x+'%) rotateY('+ry+'deg) scale('+sc+')';
-    el.style.opacity = op;
+    el.style.transform = 'translateX('+(t * 100)+'%)';
+    el.style.opacity = 1;
     el.style.zIndex = pos === 0 ? 3 : 2;
+  }
+  var swingEls = els.map(function(el){ return el.querySelector('.swing'); });
+  function sway(deg, settle){
+    swingEls.forEach(function(s){ s.classList.toggle('settle', !!settle); s.style.transform = 'rotate('+deg+'deg)'; });
   }
   function render(dx, animate, dur){
     W = stage.clientWidth;
@@ -59,7 +76,7 @@
       var pos = i - cur;
       el.classList.toggle('anim', !!animate);
       el.style.transitionDuration = animate && dur ? dur + 'ms' : '';
-      if(pos > 1 || pos < -1){ el.style.opacity = 0; el.style.transform = 'translateX('+(pos>0?120:-120)+'%) scale(.9)'; el.style.zIndex = 1; return; }
+      if(pos > 1 || pos < -1){ el.style.opacity = 0; el.style.transform = 'translateX('+(pos>0?120:-120)+'%)'; el.style.zIndex = 1; return; }
       place(el, pos, dx||0);
     });
     els.forEach(function(el, i){ el.classList.toggle('active', i === cur); });
@@ -95,7 +112,7 @@
     if(dt >= 8){ var inst = (e.clientX - drag.lastX) / dt; drag.v = drag.v * 0.6 + inst * 0.4; drag.lastX = e.clientX; drag.lastT = now; }
     var atEdge = (cur === 0 && dx > 0) || (cur === garments.length-1 && dx < 0);
     drag.dx = atEdge ? dx * 0.35 : dx;
-    if(!raf) raf = requestAnimationFrame(function(){ raf = 0; if(drag) render(drag.dx, false); });
+    if(!raf) raf = requestAnimationFrame(function(){ raf = 0; if(drag){ render(drag.dx, false); sway(Math.max(-6, Math.min(6, -drag.v * 5)), false); } });
   });
   function endDrag(e){
     if(!drag || e.pointerId !== drag.id) return;
@@ -111,6 +128,8 @@
       var remaining = advance ? W - Math.abs(d.dx) : Math.abs(d.dx);
       var dur = Math.max(220, Math.min(480, remaining / Math.max(Math.abs(v), 0.9)));
       if(advance) go(cur + dir, dur); else render(0, !reduced, dur);
+      sway(reduced ? 0 : Math.max(-4, Math.min(4, -v * 4)), false);
+      requestAnimationFrame(function(){ sway(0, !reduced); });
     } else if(d.axis === 'y'){
       if(dy < -60) openSheet();
     }
