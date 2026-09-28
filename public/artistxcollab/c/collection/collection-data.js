@@ -6,7 +6,7 @@ window.AXC_COLLECTION = {
   background: "/artistxcollab/img/garments/room.webp",
   backgroundSize: [852, 1847],
   hookY: 0.34,
-  garmentShiftY: 0.10,   // hang the rail just under the sign in this room
+  garmentShiftY: 0.005,   // hang the rail just under the sign (sign bottom sits at ~32% of the room)
   garments: [
     {
       id: "sb-saints-after-dark",
