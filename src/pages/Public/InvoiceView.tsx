@@ -82,8 +82,21 @@ export function InvoiceView() {
       return;
     }
 
-    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
-    const hasCity = order.shippingAddress?.city;
+    const effectiveAddress = (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.city))
+      ? order.shippingAddress
+      : (customer?.shippingStreet || customer?.shippingCity ? {
+          name: customer.contactName || customer.name || '',
+          company: customer.company || customer.name || '',
+          street1: customer.shippingStreet || '',
+          street2: '',
+          city: customer.shippingCity || '',
+          state: customer.shippingState || '',
+          zip: customer.shippingZip || '',
+          country: 'US'
+        } : null);
+
+    const hasZip = effectiveAddress?.zip || effectiveAddress?.postalCode;
+    const hasCity = effectiveAddress?.city;
     if (!hasZip || !hasCity) return;
 
     const fetchInvoiceShipping = async () => {
@@ -114,7 +127,7 @@ export function InvoiceView() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to_address: order.shippingAddress,
+            to_address: effectiveAddress,
             items: order.items || [],
             totalQty: totalItems || 1,
             customBoxCount: order.estimatedBoxCount || order.boxCountOverride || order.invoiceSettings?.estimatedBoxCount,
@@ -136,7 +149,7 @@ export function InvoiceView() {
     };
 
     fetchInvoiceShipping();
-  }, [order]);
+  }, [order, customer]);
 
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
@@ -555,6 +568,18 @@ export function InvoiceView() {
         <StripePaymentModal
           order={{
             ...order,
+            shippingAddress: (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.city))
+              ? order.shippingAddress
+              : (customer?.shippingStreet || customer?.shippingCity ? {
+                  name: customer.contactName || customer.name || '',
+                  company: customer.company || customer.name || '',
+                  street1: customer.shippingStreet || '',
+                  street2: '',
+                  city: customer.shippingCity || '',
+                  state: customer.shippingState || '',
+                  zip: customer.shippingZip || '',
+                  country: 'US'
+                } : order.shippingAddress),
             totalFormatted: formattedGrandTotal,
             calculatedTotal: grandTotal,
             calculatedTax: taxAmount

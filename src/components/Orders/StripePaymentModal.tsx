@@ -331,6 +331,22 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   const isLocalDeliveryAllowed = customerData ? (customerData.allowLocalDelivery !== false) : (order.allowLocalDelivery !== false);
 
+  const effectiveShippingAddress = (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city))
+    ? order.shippingAddress
+    : (customerData?.shippingStreet || customerData?.shippingCity ? {
+        name: customerData.contactName || customerData.name || '',
+        company: customerData.company || customerData.name || '',
+        street1: customerData.shippingStreet || '',
+        street2: '',
+        city: customerData.shippingCity || '',
+        state: customerData.shippingState || '',
+        zip: customerData.shippingZip || '',
+        country: 'US'
+      } : null);
+
+  const hasShippingAddress = !!(effectiveShippingAddress && 
+    (effectiveShippingAddress.street1 || effectiveShippingAddress.street || effectiveShippingAddress.city));
+
   useEffect(() => {
     if (isLocalDeliveryAllowed === false && selectedDeliveryOption === 'Local Delivery') {
       setSelectedDeliveryOption('Shipping');
@@ -339,8 +355,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
   useEffect(() => {
-    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
-    const hasCity = order.shippingAddress?.city;
+    const hasZip = effectiveShippingAddress?.zip || effectiveShippingAddress?.postalCode;
+    const hasCity = effectiveShippingAddress?.city;
     if (selectedDeliveryOption !== 'Shipping' || !hasZip || !hasCity) {
       setLocalShippingOptions([]);
       return;
@@ -384,7 +400,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            to_address: order.shippingAddress,
+            to_address: effectiveShippingAddress,
             items: order.items || [],
             totalQty: totalItems,
             customBoxCount: order.estimatedBoxCount || order.boxCountOverride || order.invoiceSettings?.estimatedBoxCount,
@@ -418,7 +434,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     fetchRates();
-  }, [order.id, order.shippingOptions, selectedDeliveryOption, order.shippingAddress, order.items]);
+  }, [order.id, order.shippingOptions, selectedDeliveryOption, effectiveShippingAddress, order.items]);
 
   // Handle selectedShippingOption initialization
   useEffect(() => {
@@ -452,7 +468,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     setIsApproving(true);
     try {
       const orderRef = doc(db, 'orders', order.id);
-      await updateDoc(orderRef, {
+      const updateData: any = {
         statusIndex: 3, // Move to pending payment
         deliveryOption: selectedDeliveryOption,
         shippingCost: currentShippingAmount,
@@ -464,7 +480,11 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           user: 'Customer',
           timestamp: new Date().toISOString()
         })
-      });
+      };
+      if (effectiveShippingAddress && (!order.shippingAddress || !order.shippingAddress.street1)) {
+        updateData.shippingAddress = effectiveShippingAddress;
+      }
+      await updateDoc(orderRef, updateData);
       setStatusIndex(3);
     } catch (err) {
       console.error("Failed to approve quote:", err);
@@ -519,9 +539,6 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     ? 0
     : (selectedShippingOption ? selectedShippingOption.rate : shippingAmount);
 
-  const hasShippingAddress = !!(order.shippingAddress && 
-    (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
-
   useEffect(() => {
     const calculateStripeTax = async () => {
       if (isCustomerTaxExempt) {
@@ -536,7 +553,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            shippingAddress: order.shippingAddress,
+            shippingAddress: effectiveShippingAddress,
             items: (() => {
               // Tax on the discounted subtotal: scale item amounts by the discount ratio
               const dAmt = discountAmountFor(appliedDiscount, itemsSubtotal);
@@ -566,7 +583,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt, appliedDiscount]);
+  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt, appliedDiscount, effectiveShippingAddress]);
 
   const finalTaxAmount = isCustomerTaxExempt ? 0 : (calculatedTax !== null ? calculatedTax : taxAmount);
   const discountAmount = discountAmountFor(appliedDiscount, itemsSubtotal);
@@ -579,6 +596,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   const orderWithTotal = {
     ...order,
+    shippingAddress: effectiveShippingAddress || order.shippingAddress,
     deliveryOption: selectedDeliveryOption,
     totalFormatted: formattedTotal,
     calculatedTax: finalTaxAmount,
@@ -705,34 +723,48 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Deliver To</p>
                     <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
-                      {order.shippingAddress?.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
-                      {order.shippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
-                      <span className="block">{order.shippingAddress?.street1 || order.shippingAddress?.street}</span>
-                      {order.shippingAddress?.street2 && <span className="block">{order.shippingAddress.street2}</span>}
+                      {effectiveShippingAddress?.name && <span className="block text-neutral-800 font-bold">{effectiveShippingAddress.name}</span>}
+                      {effectiveShippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{effectiveShippingAddress.company}</span>}
+                      <span className="block">{effectiveShippingAddress?.street1 || effectiveShippingAddress?.street}</span>
+                      {effectiveShippingAddress?.street2 && <span className="block">{effectiveShippingAddress.street2}</span>}
                       <span className="block">
-                        {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip}
+                        {effectiveShippingAddress?.city}, {effectiveShippingAddress?.state} {effectiveShippingAddress?.zip}
                       </span>
                     </div>
                   </div>
                 </>
-              ) : hasShippingAddress ? (
-                <>
-                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
-                    <MapPin size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
-                    <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
-                      {order.shippingAddress?.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
-                      {order.shippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
-                      <span className="block">{order.shippingAddress?.street1 || order.shippingAddress?.street}</span>
-                      {order.shippingAddress?.street2 && <span className="block">{order.shippingAddress.street2}</span>}
-                      <span className="block">
-                        {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip}
-                      </span>
+              ) : selectedDeliveryOption === 'Shipping' ? (
+                hasShippingAddress ? (
+                  <>
+                    <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                      <MapPin size={16} />
                     </div>
-                  </div>
-                </>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
+                      <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
+                        {effectiveShippingAddress?.name && <span className="block text-neutral-800 font-bold">{effectiveShippingAddress.name}</span>}
+                        {effectiveShippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{effectiveShippingAddress.company}</span>}
+                        <span className="block">{effectiveShippingAddress?.street1 || effectiveShippingAddress?.street}</span>
+                        {effectiveShippingAddress?.street2 && <span className="block">{effectiveShippingAddress.street2}</span>}
+                        <span className="block">
+                          {effectiveShippingAddress?.city}, {effectiveShippingAddress?.state} {effectiveShippingAddress?.zip}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                      <MapPin size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Shipping Address Missing</p>
+                      <p className="text-xs text-neutral-500 leading-relaxed mt-1">
+                        No shipping address on file. Please add an address to your order or contact us to calculate shipping rates.
+                      </p>
+                    </div>
+                  </>
+                )
               ) : (
                 <>
                   <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
