@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" id="themeColor" content="#0a0908">
 <title>More than Merch — Ink Theory</title>
 <meta name="description" content="More than Merch. A label of your own. Artist×Collab by Ink Theory — Concept. Create. Produce. Sell.">
 <meta name="robots" content="noindex">
@@ -511,9 +512,48 @@
     hud.classList.toggle('is-off', currentEl.classList.contains('intro') || isFinal);
     brand.classList.toggle('is-off', currentEl.classList.contains('intro'));
     brand.classList.toggle('is-final', isFinal);
+    tintChrome(currentEl);
     fsBtn.classList.toggle('is-off', !currentEl.classList.contains('intro'));
     setActive(current === 'intro' ? 'hero' : current);
   }
+
+  // Safari paints its status-bar strip and address-pill area with the page colour; nothing can be drawn
+  // there, so keep that colour matched to the top edge of whatever frame is on screen (photo, wash, exit).
+  var themeMeta = document.getElementById('themeColor');
+  var edgeCache = {};
+  function edgeColor(slide){
+    var img = slide.querySelector('.card img.back, .card img');
+    if(!img) return null;
+    var key = img.currentSrc || img.src;
+    if(edgeCache[key] !== undefined) return edgeCache[key];
+    if(!img.complete || !img.naturalWidth) return null;
+    try{
+      var c = document.createElement('canvas'); c.width = 16; c.height = 16;
+      var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, 16, 16);
+      var d = ctx.getImageData(0, 0, 16, 2).data, r = 0, g = 0, b = 0, n = 0;
+      for(var i = 0; i < d.length; i += 4){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
+      edgeCache[key] = [r/n, g/n, b/n];
+    }catch(e){ edgeCache[key] = null; }
+    return edgeCache[key];
+  }
+  var lastTint = '';
+  function tintChrome(slide){
+    var c = edgeColor(slide); if(!c) return;
+    var p = parseFloat(slide.style.getPropertyValue('--p')) || 0;
+    var e = parseFloat(slide.style.getPropertyValue('--e')) || 0;
+    var hasWash = !slide.classList.contains('intro') && !slide.classList.contains('final') && !window.matchMedia('(min-width:900px)').matches;
+    var w = hasWash ? Math.min(p * 1.6, 1) * 0.74 : 0;                 // same as the .wash layer
+    var r = c[0]*(1-w) + 201*w, g = c[1]*(1-w) + 201*w, b = c[2]*(1-w) + 197*w;
+    r *= 1 - e*0.8; g *= 1 - e*0.8; b *= 1 - e*0.8;                     // same as the exit shade
+    var hex = '#' + [r, g, b].map(function(v){ return ('0' + Math.round(Math.max(0, Math.min(255, v))).toString(16)).slice(-2); }).join('');
+    if(hex === lastTint) return;
+    lastTint = hex;
+    themeMeta.setAttribute('content', hex);
+    document.documentElement.style.backgroundColor = hex;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.card img'), function(img){
+    img.addEventListener('load', function(){ tintChrome(slides.find(function(s){ return s.classList.contains('live'); }) || slides[0]); });
+  });
 
   var lastTick = 0;
   // photos are 920x2000, object-fit: cover at "center 30%"; the header tracks that box
