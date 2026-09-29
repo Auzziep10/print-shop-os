@@ -1144,6 +1144,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                         <span>Standard carton: 15×12×8</span>
                         <span>{shippingForm.weightOz ? `${(shippingForm.weightOz / 16).toFixed(1)} lbs (${shippingForm.weightOz} oz)` : ''}</span>
                   </div>
+                   </div>
 
                   {/* Available Carrier Rates Selection */}
                   <div className="border-t border-brand-border pt-4">
