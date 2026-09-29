@@ -106,6 +106,8 @@ export default async function handler(req: Request) {
       customBoxCount, 
       parcel: customParcel, 
       isTest = false,
+      forLabelPurchase = false,
+      handlingMarkup = 10.00,
       thirdPartyAccount,
       thirdPartyZip
     } = body;
@@ -216,24 +218,35 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'No shipping rates found for this destination.' }), { status: 400 });
     }
 
+    // Markup logic: customer is always priced $10 more than the carrier rate
+    const markup = forLabelPurchase ? 0 : (typeof handlingMarkup === 'number' ? handlingMarkup : 10.00);
+
     // Sort rates cheapest first; multi-box orders pay the per-box rate × boxes
-    const sortedRates = shipmentData.rates.map((r: any) => ({
-      id: r.id,
-      shipmentId: shipmentData.id,
-      carrier: r.carrier,
-      service: r.service,
-      rate: Math.round(parseFloat(r.rate) * boxCount * 100) / 100,
-      perBoxRate: parseFloat(r.rate),
-      boxes: boxCount,
-      deliveryDays: r.delivery_days,
-      deliveryDate: r.delivery_date
-    })).sort((a: any, b: any) => a.rate - b.rate);
+    const sortedRates = shipmentData.rates.map((r: any) => {
+      const carrierPostageCost = Math.round(parseFloat(r.rate) * boxCount * 100) / 100;
+      const customerPricedRate = Math.round((carrierPostageCost + markup) * 100) / 100;
+
+      return {
+        id: r.id,
+        shipmentId: shipmentData.id,
+        carrier: r.carrier,
+        service: r.service,
+        rate: customerPricedRate,
+        carrierRate: carrierPostageCost,
+        handlingFee: markup,
+        perBoxRate: parseFloat(r.rate),
+        boxes: boxCount,
+        deliveryDays: r.delivery_days,
+        deliveryDate: r.delivery_date
+      };
+    }).sort((a: any, b: any) => a.rate - b.rate);
 
     return new Response(JSON.stringify({
       rates: sortedRates,
       shipmentId: shipmentData.id,
       parcel: parcelDims,
-      boxes: boxCount
+      boxes: boxCount,
+      handlingFeeApplied: markup
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

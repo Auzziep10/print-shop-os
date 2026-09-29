@@ -1138,7 +1138,7 @@ export function OrderDetail() {
           to_address: editForm.shippingAddress,
           items: order.items || [],
           totalQty: totalItems,
-          isTest: true
+          isTest: false
         })
       });
       

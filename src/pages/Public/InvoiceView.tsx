@@ -132,7 +132,7 @@ export function InvoiceView() {
             totalQty: totalItems || 1,
             customBoxCount: order.estimatedBoxCount || order.boxCountOverride || order.invoiceSettings?.estimatedBoxCount,
             ...(shipFrom?.street1 ? { from_address: shipFrom } : {}),
-            isTest: true
+            isTest: false
           })
         });
 

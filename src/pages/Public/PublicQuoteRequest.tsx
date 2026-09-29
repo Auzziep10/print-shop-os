@@ -937,7 +937,7 @@ export function PublicQuoteRequest() {
             })),
             totalQty: cartTotalUnits,
             ...(shipFromProfile?.street1 ? { from_address: shipFromProfile } : {}),
-            isTest: true
+            isTest: false
           })
         });
         const data = await res.json();

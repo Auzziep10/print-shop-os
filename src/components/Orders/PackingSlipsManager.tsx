@@ -202,6 +202,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           },
           from_address: shopSettings,
           isTest: form.isTest,
+          forLabelPurchase: true,
           thirdPartyAccount: form.thirdPartyAccount,
           thirdPartyZip: form.thirdPartyZip
         })
@@ -1075,6 +1076,19 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                             {formatCarrier(customerChoice.carrier)} — {formatShippingService(customerChoice.service)}
                             {customerChoice.rate ? ` ($${Number(customerChoice.rate).toFixed(2)} paid)` : ''}
                           </p>
+                          {selectedRate && customerChoice.rate && (
+                            <p className="text-[10px] font-semibold mt-0.5">
+                              {Number(customerChoice.rate) >= Number(selectedRate.rate) ? (
+                                <span className="text-emerald-700">
+                                  +${(Number(customerChoice.rate) - Number(selectedRate.rate)).toFixed(2)} handling fee profit retained
+                                </span>
+                              ) : (
+                                <span className="text-amber-800">
+                                  ⚠️ Label cost exceeds customer paid by ${(Number(selectedRate.rate) - Number(customerChoice.rate)).toFixed(2)}
+                                </span>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full border border-amber-300 shrink-0">
