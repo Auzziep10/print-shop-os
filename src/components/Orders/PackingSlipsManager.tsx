@@ -246,11 +246,12 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
 
     const boxItemsCount = (box.items || []).reduce((acc: number, item: any) => acc + (item.qty || 0), 0);
     const estimatedWeightOz = boxItemsCount > 0 ? Math.max(16, boxItemsCount * 7) : 16;
+    const defaultDims = boxItemsCount <= 15 ? { length: 12, width: 9, height: 4 } : { length: 15, width: 12, height: 8 };
     
     const newForm = {
-      length: 12,
-      width: 12,
-      height: 12,
+      length: defaultDims.length,
+      width: defaultDims.width,
+      height: defaultDims.height,
       weightOz: estimatedWeightOz,
       isTest: false,
       thirdPartyAccount: defaultProfile.thirdPartyAccount || order.thirdPartyBilling?.account || '',
@@ -1125,6 +1126,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                           <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-brand-secondary pointer-events-none">oz</span>
                         </div>
                      </div>
+                     <div className="flex justify-between items-center text-[10px] text-brand-secondary mt-1 px-1">
+                        <span>Standard carton: 15×12×8</span>
+                        <span>{shippingForm.weightOz ? `${(shippingForm.weightOz / 16).toFixed(1)} lbs (${shippingForm.weightOz} oz)` : ''}</span>
                   </div>
 
                   {/* Available Carrier Rates Selection */}
