@@ -176,7 +176,7 @@ export function OrderSummaryView() {
              <button onClick={() => window.close()} className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
                  Close Tab
              </button>
-             <img src="/logo.png" alt="WOVN" className="h-6 object-contain opacity-40 mt-2" />
+             <img src="/inktheory-logo-black.png" alt="INKTHEORY" className="h-5 object-contain opacity-40 mt-2" />
           </div>
         </div>
       </div>
