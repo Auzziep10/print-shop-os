@@ -26,7 +26,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size:120px 120px;}
 
-.app{position:fixed;inset:0;height:100dvh;overflow:hidden;background:var(--ink);}
+.app{position:fixed;inset:0;height:100dvh;overflow:visible;background:var(--ink);}
 
 .top{position:absolute;z-index:40;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 14px;
   display:flex;align-items:center;justify-content:space-between;
@@ -45,6 +45,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;}
 
 .stage{position:absolute;inset:0;perspective:1400px;touch-action:pan-y;}
+/* mirrored strips of the room beyond the top and bottom edges: Safari shows them under the status bar and behind the address pill */
+.room-bleed{position:absolute;pointer-events:none;object-fit:cover;transform:scaleY(-1);}
+.room-bleed.top{object-position:center top;}
+.room-bleed.bot{object-position:center bottom;}
+@media (min-width:900px){ .room-bleed{display:none;} .app{overflow:hidden;} }
 .room{position:absolute;pointer-events:none;user-select:none;}
 .stage > .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(10,9,8,.5) 100%);pointer-events:none;}
 .g{position:absolute;inset:0;will-change:transform,opacity;backface-visibility:hidden;}

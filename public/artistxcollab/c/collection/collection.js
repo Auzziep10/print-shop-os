@@ -30,7 +30,9 @@
   if(data.background){
     stage.insertAdjacentHTML('beforeend',
       '<img class="bg" src="'+data.background+'" alt="" aria-hidden="true">' +
-      '<img class="room" src="'+data.background+'" alt="" aria-hidden="true"><div class="vignette"></div>');
+      '<img class="room" src="'+data.background+'" alt="" aria-hidden="true">' +
+      '<img class="room-bleed top" src="'+data.background+'" alt="" aria-hidden="true"><img class="room-bleed bot" src="'+data.background+'" alt="" aria-hidden="true">' +
+      '<div class="vignette"></div>');
   }
   // phones: fit the room to the viewport HEIGHT so the whole composition (ceiling to floor) is always in frame;
   // the wide plate fills whatever width is left over. desktop: contain the original plate.
@@ -67,6 +69,12 @@
       fit = roomFit(W, H);
       if(room.getAttribute('src') !== fit.src) room.setAttribute('src', fit.src);
       room.style.width = fit.w+'px'; room.style.height = fit.h+'px'; room.style.left = ((W-fit.w)/2)+'px'; room.style.top = ((H-fit.h)/2)+'px';
+      var B = 120, rt = (H-fit.h)/2;
+      Array.prototype.forEach.call(stage.querySelectorAll('.room-bleed'), function(bl){
+        if(bl.getAttribute('src') !== fit.src) bl.setAttribute('src', fit.src);
+        bl.style.width = fit.w+'px'; bl.style.height = B+'px'; bl.style.left = ((W-fit.w)/2)+'px';
+        bl.style.top = (bl.classList.contains('top') ? rt - B : rt + fit.h) + 'px';
+      });
     }
     garments.forEach(function(g, i){
       var iw = (g.imageSize && g.imageSize[0]) || 920, ih = (g.imageSize && g.imageSize[1]) || 2000;
