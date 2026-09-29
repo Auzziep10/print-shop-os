@@ -34,6 +34,40 @@
   }
 
   var base = window.AXC_COLLECTION || {};
+
+  // The room is mounted before any data arrives so the page never sits empty while Firestore answers.
+  function roomFit(W, H){
+    var d = desktop();
+    var useWide = !d && base.backgroundWide && base.backgroundWideSize;
+    var bw = useWide ? base.backgroundWideSize[0] : base.backgroundSize[0];
+    var bh = useWide ? base.backgroundWideSize[1] : base.backgroundSize[1];
+    var s = d ? Math.min(W/bw, H/bh) : Math.max(W/bw, H/bh);
+    return { src: useWide ? base.backgroundWide : base.background, w: bw*s, h: bh*s };
+  }
+  function fitRoom(){
+    var stage = $('stage'), W = stage.clientWidth, H = stage.clientHeight;
+    var room = stage.querySelector('.room'); if(!room || !base.backgroundSize) return null;
+    var fit = roomFit(W, H);
+    if(room.getAttribute('src') !== fit.src) room.setAttribute('src', fit.src);
+    room.style.width = fit.w+'px'; room.style.height = fit.h+'px'; room.style.left = ((W-fit.w)/2)+'px'; room.style.top = ((H-fit.h)/2)+'px';
+    var B = 120, rt = (H-fit.h)/2;
+    Array.prototype.forEach.call(stage.querySelectorAll('.room-bleed'), function(bl){
+      if(bl.getAttribute('src') !== fit.src) bl.setAttribute('src', fit.src);
+      bl.style.width = fit.w+'px'; bl.style.height = B+'px'; bl.style.left = ((W-fit.w)/2)+'px';
+      bl.style.top = (bl.classList.contains('top') ? rt - B : rt + fit.h) + 'px';
+    });
+    return fit;
+  }
+  if(base.background){
+    $('stage').insertAdjacentHTML('beforeend',
+      '<img class="bg" src="'+base.background+'" alt="" aria-hidden="true">' +
+      '<img class="room" src="'+base.background+'" alt="" aria-hidden="true">' +
+      '<img class="room-bleed top" src="'+base.background+'" alt="" aria-hidden="true"><img class="room-bleed bot" src="'+base.background+'" alt="" aria-hidden="true">' +
+      '<div class="vignette"></div>');
+    fitRoom();
+    window.addEventListener('resize', fitRoom);
+  }
+
   loadLive().then(function(live){
     var list = (live && live.length) ? live : (base.garments || []);
     var garments = list.map(normalize).filter(Boolean);
@@ -61,31 +95,14 @@
       });
     }
 
-    // fixed room behind the rail (+ mirrored strips beyond the top/bottom edges for Safari's bars)
-    if(data.background){
-      stage.insertAdjacentHTML('beforeend',
-        '<img class="bg" src="'+data.background+'" alt="" aria-hidden="true">' +
-        '<img class="room" src="'+data.background+'" alt="" aria-hidden="true">' +
-        '<img class="room-bleed top" src="'+data.background+'" alt="" aria-hidden="true"><img class="room-bleed bot" src="'+data.background+'" alt="" aria-hidden="true">' +
-        '<div class="vignette"></div>');
-    }
     if(!garments.length){
       stage.insertAdjacentHTML('beforeend', '<div class="empty">No garments yet.<br>Add them in Settings → Artist×Collab.</div>');
       foot.hidden = true; side.hidden = true; return;
     }
 
-    function roomFit(W, H){
-      var d = desktop();
-      var useWide = !d && data.backgroundWide && data.backgroundWideSize;
-      var bw = useWide ? data.backgroundWideSize[0] : data.backgroundSize[0];
-      var bh = useWide ? data.backgroundWideSize[1] : data.backgroundSize[1];
-      var s = d ? Math.min(W/bw, H/bh) : Math.max(W/bw, H/bh);
-      return { src: useWide ? data.backgroundWide : data.background, w: bw*s, h: bh*s };
-    }
-
     // garments hang on a rail: cord from the ceiling, a swing pivot at the hook, front/back on a flip card
     var els = garments.map(function(g, i){
-      var el = document.createElement('div'); el.className = 'g'; el.dataset.i = i;
+      var el = document.createElement('div'); el.className = 'g mount'; el.dataset.i = i;
       el.innerHTML = '<div class="cord"></div><div class="swing"><div class="flip">' +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
         (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +
@@ -98,18 +115,7 @@
 
     function fitAll(){
       var W = stage.clientWidth, H = stage.clientHeight;
-      var room = stage.querySelector('.room'), fit = null;
-      if(room && data.backgroundSize){
-        fit = roomFit(W, H);
-        if(room.getAttribute('src') !== fit.src) room.setAttribute('src', fit.src);
-        room.style.width = fit.w+'px'; room.style.height = fit.h+'px'; room.style.left = ((W-fit.w)/2)+'px'; room.style.top = ((H-fit.h)/2)+'px';
-        var B = 120, rt = (H-fit.h)/2;
-        Array.prototype.forEach.call(stage.querySelectorAll('.room-bleed'), function(bl){
-          if(bl.getAttribute('src') !== fit.src) bl.setAttribute('src', fit.src);
-          bl.style.width = fit.w+'px'; bl.style.height = B+'px'; bl.style.left = ((W-fit.w)/2)+'px';
-          bl.style.top = (bl.classList.contains('top') ? rt - B : rt + fit.h) + 'px';
-        });
-      }
+      var fit = fitRoom();
       garments.forEach(function(g, i){
         var iw = g.front.width, ih = g.front.height;
         var s = desktop() ? Math.min(W/iw, H/ih) : (fit ? fit.h/ih : Math.max(W/iw, H/ih));
