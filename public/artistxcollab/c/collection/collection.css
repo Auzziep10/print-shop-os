@@ -13,7 +13,8 @@
   --sans-text:'Inter Text','Inter','Helvetica Neue',Arial,sans-serif;
 }
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;background:var(--ink);height:100%;overflow:hidden;overscroll-behavior:none;}
+/* wall grey, so Safari's status-bar and address-bar strips blend into the room instead of framing it in black */
+html,body{margin:0;padding:0;background:#afa8a2;height:100%;overflow:hidden;overscroll-behavior:none;}
 body{color:var(--paper);font-family:var(--sans-text);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
 img{display:block;}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
@@ -35,6 +36,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .title .logo{width:96px;height:auto;margin:0 auto 6px;filter:drop-shadow(0 1px 8px rgba(0,0,0,.4));}
 .title .sub{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--paper-dim);}
 .count{font-size:11px;letter-spacing:.2em;color:var(--paper-dim);font-variant-numeric:tabular-nums;min-width:40px;text-align:right;}
+.fs{position:absolute;z-index:60;top:calc(env(safe-area-inset-top,0px) + 68px);right:16px;
+  font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--paper);
+  background:rgba(10,9,8,.28);border:1px solid rgba(243,237,225,.5);border-radius:999px;padding:9px 14px;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;}
 
 .stage{position:absolute;inset:0;perspective:1400px;touch-action:none;}
 .room{position:absolute;pointer-events:none;user-select:none;}

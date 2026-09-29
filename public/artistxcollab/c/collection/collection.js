@@ -16,6 +16,16 @@
   var desktop = function(){ return window.matchMedia('(min-width:900px)').matches; };
   function capture(el, id){ try{ el.setPointerCapture(id); }catch(e){} }
 
+  var fsBtn = document.getElementById('fsBtn'), root = document.documentElement;
+  var fsRequest = root.requestFullscreen || root.webkitRequestFullscreen;
+  if((document.fullscreenEnabled || document.webkitFullscreenEnabled) && fsRequest){
+    fsBtn.hidden = false;
+    fsBtn.addEventListener('click', function(){ try{ var r = fsRequest.call(root, {navigationUI:'hide'}); if(r && r.catch) r.catch(function(){}); }catch(e){} });
+    ['fullscreenchange','webkitfullscreenchange'].forEach(function(ev){
+      document.addEventListener(ev, function(){ fsBtn.hidden = !!(document.fullscreenElement || document.webkitFullscreenElement); });
+    });
+  }
+
   // fixed room behind the rail
   if(data.background){
     stage.insertAdjacentHTML('beforeend',
