@@ -1,8 +1,8 @@
-// Sample data for the collection viewer. Replaced by the admin-managed
-// Firestore collection once that is wired up; shape stays the same.
+// Sample data for the collection viewer — used only until garments exist in
+// Settings → Artist×Collab (Firestore `axc_garments`). Same shape as the live data.
 window.AXC_COLLECTION = {
   title: "Your Collection",
-  // the room stays put; garments are transparent cutouts on the same 806x1760 canvas, hook at ~34% down
+  // the room stays put; garments are transparent cutouts on the same canvas, hook at ~34% down
   background: "/artistxcollab/img/garments/room.webp",
   backgroundSize: [852, 1847],
   backgroundWide: "/artistxcollab/img/garments/room-wide.webp",   // same room with the wall extended sideways for short/wide phone viewports
@@ -14,8 +14,8 @@ window.AXC_COLLECTION = {
       id: "sb-saints-after-dark",
       name: "Saints After Dark Tee",
       artist: "SantosBravos",
-      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
-      imageSize: [806, 1760],
+      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
+      back: null,
       story: "Built from light, drawn to trouble. A heavyweight enzyme-washed tee with a puff-ink manifesto at the chest and a hand-thrown splatter across the hem.",
       specs: [
         ["Fabric", "6.5 oz organic ring-spun cotton"],
@@ -26,30 +26,42 @@ window.AXC_COLLECTION = {
         ["Made in", "Los Angeles, CA"],
         ["Care", "Cold wash inside out, hang dry"]
       ],
-      hotspots: [
-        { x: 0.500, y: 0.432, label: "Chest manifesto — puff ink", image: "/artistxcollab/img/garments/sb-tee-chest.webp" },
-        { x: 0.470, y: 0.590, label: "Hand splatter (sample closeup)", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }
+      closeups: [
+        { label: "Art 1", image: "/artistxcollab/img/garments/sb-tee-chest.webp" },
+        { label: "Art 2", image: "/artistxcollab/img/garments/sb-tee-chest.webp" },
+        { label: "Fabric", image: "/artistxcollab/img/garments/sb-tee-chest.webp" },
+        { label: "Neck", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }
       ]
     },
     {
       id: "sample-2",
       name: "Sample Garment 02",
       artist: "Sample — replace in admin",
-      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
-      imageSize: [806, 1760],
+      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
+      back: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },   // placeholder back so the Turn control can be tried
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
-      hotspots: [{ x: 0.5, y: 0.432, label: "Sample closeup", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }]
+      closeups: [{ label: "Art 1", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }]
     },
     {
       id: "sample-3",
       name: "Sample Garment 03",
       artist: "Sample — replace in admin",
-      image: "/artistxcollab/img/garments/sb-tee-cut.webp",
-      imageSize: [806, 1760],
+      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
+      back: null,
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
-      hotspots: []
+      closeups: []
     }
   ]
+};
+
+// Firebase project the live garments are read from (public web config; reads are rule-limited).
+window.AXC_FIREBASE = {
+  apiKey: "AIzaSyAGiJrWnwbdY4PrI-YHMf7DWOS9wFlsY3c",
+  authDomain: "print-shop-os-f8092.firebaseapp.com",
+  projectId: "print-shop-os-f8092",
+  storageBucket: "print-shop-os-f8092.firebasestorage.app",
+  messagingSenderId: "637868552650",
+  appId: "1:637868552650:web:473f9f71ad41703ec7df33"
 };

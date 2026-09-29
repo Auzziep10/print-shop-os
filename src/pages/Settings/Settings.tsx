@@ -17,6 +17,7 @@ import { MetaAdsTab } from './MetaAdsTab';
 import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 import { StudioQrTab } from './StudioQrTab';
 import { MergeCustomersTab } from './MergeCustomersTab';
+import { ArtistCollabTab } from './ArtistCollabTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -145,6 +146,16 @@ export function Settings() {
               Brand Shop
             </button>
             <button
+              onClick={() => setActiveTab('artist-collab')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'artist-collab'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Artist×Collab
+            </button>
+            <button
               onClick={() => setActiveTab('studio-qr')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'studio-qr' || activeTab === 'qr-code'
@@ -218,6 +229,7 @@ export function Settings() {
           {activeTab === 'meta-ads' && <MetaAdsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'brand-shop' && <ShopManagerTab />}
+          {activeTab === 'artist-collab' && <ArtistCollabTab />}
           {(activeTab === 'studio-qr' || activeTab === 'qr-code') && <StudioQrTab />}
           {activeTab === 'discounts' && <DiscountCodesTab />}
           {activeTab === 'thank-you-card' && <ThankYouCardTab />}
