@@ -259,7 +259,7 @@ export function InvoiceView() {
           </div>
           
           <div className="flex flex-col items-center justify-end pb-2">
-            <img src="/wovn-production-logo.png" alt="WOVN Logo" className="w-20 object-contain opacity-90" />
+            <img src="/inktheory-logo-black.png" alt="INKTHEORY Logo" className="w-20 object-contain opacity-90" />
           </div>
         </div>
 

@@ -58,6 +58,184 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
      address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' }
   });
 
+  // Dynamic live courier rates state
+  const [availableRates, setAvailableRates] = useState<any[]>([]);
+  const [selectedRate, setSelectedRate] = useState<any | null>(null);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [ratesError, setRatesError] = useState('');
+
+  const formatShippingService = (s: string) => {
+    if (!s) return 'Standard Shipping';
+    return s
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/Second Day Air/i, '2nd Day Air')
+      .replace(/Next Day Air/i, 'Next Day Air')
+      .replace(/Ground Advantage/i, 'Ground Advantage');
+  };
+
+  const formatCarrier = (c: string) => {
+    if (!c) return 'Carrier';
+    if (/ups/i.test(c)) return 'UPS';
+    if (/fedex/i.test(c)) return 'FedEx';
+    if (/usps/i.test(c)) return 'USPS';
+    return c;
+  };
+
+  const getCustomerSelectedShipping = (currOrder: any) => {
+    if (currOrder.selectedShippingOption) {
+      return {
+        carrier: currOrder.selectedShippingOption.carrier,
+        service: currOrder.selectedShippingOption.service,
+        rate: currOrder.selectedShippingOption.rate
+      };
+    }
+
+    const shipItem = currOrder.items?.find((item: any) => {
+      const styleLower = (item.style || '').toLowerCase();
+      return styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+    });
+
+    if (shipItem) {
+      const style = shipItem.style || '';
+      let carrier = 'UPS';
+      if (/fedex/i.test(style)) carrier = 'FedEx';
+      else if (/usps/i.test(style)) carrier = 'USPS';
+      else if (/ups/i.test(style)) carrier = 'UPS';
+
+      const service = style
+        .replace(/shipping/gi, '')
+        .replace(/ups\s*dap/gi, '')
+        .replace(/ups/gi, '')
+        .replace(/fedex/gi, '')
+        .replace(/usps/gi, '')
+        .trim();
+
+      const price = typeof shipItem.price === 'number'
+        ? shipItem.price
+        : parseFloat(String(shipItem.price || shipItem.total || '0').replace(/[^0-9.]/g, '')) || 0;
+
+      return {
+        carrier,
+        service: service || 'Selected Service',
+        rate: price,
+        rawTitle: style
+      };
+    }
+
+    if (currOrder.activities && Array.isArray(currOrder.activities)) {
+      for (const act of currOrder.activities) {
+        if (typeof act.message === 'string' && act.message.includes('Selected delivery method:')) {
+          const match = act.message.match(/Selected delivery method:\s*([^(]+)(?:\(([^)]+)\))?/i);
+          if (match && match[2]) {
+            const parts = match[2].split('-');
+            return {
+              carrier: parts[0]?.trim() || '',
+              service: parts[1]?.trim() || '',
+              rate: currOrder.shippingCost || currOrder.shipping || 0,
+              rawTitle: match[2]
+            };
+          }
+        }
+      }
+    }
+
+    if (currOrder.shippingCost || currOrder.shipping) {
+      return {
+        carrier: 'Standard',
+        service: 'Shipping',
+        rate: currOrder.shippingCost || currOrder.shipping || 0
+      };
+    }
+
+    return null;
+  };
+
+  const isRateMatching = (rate: any, preferredCarrier?: string, preferredService?: string) => {
+    if (!rate) return false;
+    const rateCarrier = (rate.carrier || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const prefCarrier = (preferredCarrier || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (prefCarrier) {
+      const carrierMatch =
+        rateCarrier.includes(prefCarrier) ||
+        prefCarrier.includes(rateCarrier) ||
+        (prefCarrier.includes('ups') && rateCarrier.includes('ups')) ||
+        (prefCarrier.includes('fedex') && rateCarrier.includes('fedex')) ||
+        (prefCarrier.includes('usps') && rateCarrier.includes('usps'));
+      if (!carrierMatch) return false;
+    }
+
+    if (preferredService) {
+      let rateServ = (rate.service || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let prefServ = (preferredService || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      rateServ = rateServ.replace('2nd', 'second').replace('1st', 'first');
+      prefServ = prefServ.replace('2nd', 'second').replace('1st', 'first');
+
+      if (rateServ.includes(prefServ) || prefServ.includes(rateServ)) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  };
+
+  const fetchRatesForForm = async (form: typeof shippingForm) => {
+    if (!form.address.street1 || !form.address.city || !form.address.state || !form.address.zip) {
+      return;
+    }
+    setIsFetchingRates(true);
+    setRatesError('');
+    try {
+      const res = await fetch('/api/easypost/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_address: form.address,
+          parcel: {
+            length: Number(form.length) || 12,
+            width: Number(form.width) || 12,
+            height: Number(form.height) || 12,
+            weight: Number(form.weightOz) || 16
+          },
+          from_address: shopSettings,
+          isTest: form.isTest,
+          thirdPartyAccount: form.thirdPartyAccount,
+          thirdPartyZip: form.thirdPartyZip
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to fetch shipping rates');
+      }
+
+      const rates = data.rates || [];
+      setAvailableRates(rates);
+
+      // Check if any rate matches the customer's selection
+      const customerChoice = getCustomerSelectedShipping(order);
+      let match = null;
+      if (customerChoice) {
+        match = rates.find((r: any) => isRateMatching(r, customerChoice.carrier, customerChoice.service));
+      }
+
+      if (match) {
+        setSelectedRate(match);
+      } else if (rates.length > 0) {
+        setSelectedRate(rates[0]);
+      } else {
+        setSelectedRate(null);
+      }
+    } catch (err: any) {
+      console.error("Rates fetch error:", err);
+      setRatesError(err.message || 'Could not retrieve rates.');
+    } finally {
+      setIsFetchingRates(false);
+    }
+  };
+
   const handleOpenShippingLabel = (box: any) => {
     const defaultProfile = order.lastShippingProfile || {};
     const defaultAddress = defaultProfile.address || {};
@@ -65,9 +243,16 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     // Explicit global order shipping structure overrides naive customer details
     const orderAddress = order.shippingAddress || {};
     const customer = order.customerDetails || {};
+
+    const boxItemsCount = (box.items || []).reduce((acc: number, item: any) => acc + (item.qty || 0), 0);
+    const estimatedWeightOz = boxItemsCount > 0 ? Math.max(16, boxItemsCount * 7) : 16;
     
-    setShippingForm(prev => ({
-      ...prev,
+    const newForm = {
+      length: 12,
+      width: 12,
+      height: 12,
+      weightOz: estimatedWeightOz,
+      isTest: false,
       thirdPartyAccount: defaultProfile.thirdPartyAccount || order.thirdPartyBilling?.account || '',
       thirdPartyZip: defaultProfile.thirdPartyZip || order.thirdPartyBilling?.zip || '',
       address: {
@@ -80,8 +265,17 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         zip: defaultAddress.zip || orderAddress.zip || customer.zip || '',
         country: defaultAddress.country || orderAddress.country || customer.country || 'US'
       }
-    }));
+    };
+    
+    setShippingForm(newForm);
     setShippingLabelBox(box);
+    setAvailableRates([]);
+    setSelectedRate(null);
+    setShippingError('');
+    setRatesError('');
+
+    // Fetch initial rates for this package
+    fetchRatesForForm(newForm);
   };
 
   const handleBuyShippingLabel = async () => {
@@ -91,7 +285,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       const boxObj = order.boxes?.find((b: any) => b.id === shippingLabelBox.id);
       if (!boxObj) throw new Error("Box not found");
 
+      const customerChoice = getCustomerSelectedShipping(order);
+
       const payload = {
+        shipmentId: selectedRate?.shipmentId,
+        rateId: selectedRate?.id,
+        selectedRateId: selectedRate?.id,
+        preferredCarrier: selectedRate?.carrier || customerChoice?.carrier,
+        preferredService: selectedRate?.service || customerChoice?.service,
         to_address: {
           name: shippingForm.address.name,
           company: shippingForm.address.company,
@@ -103,15 +304,15 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           country: shippingForm.address.country
         },
         parcel: {
-          length: shippingForm.length,
-          width: shippingForm.width,
-          height: shippingForm.height,
-          weight: shippingForm.weightOz
+          length: Number(shippingForm.length) || 12,
+          width: Number(shippingForm.width) || 12,
+          height: Number(shippingForm.height) || 12,
+          weight: Number(shippingForm.weightOz) || 16
         },
         isTest: shippingForm.isTest,
         thirdPartyAccount: shippingForm.thirdPartyAccount,
         thirdPartyZip: shippingForm.thirdPartyZip,
-        from_address: shopSettings // Passed cleanly, if null it uses backend defaults
+        from_address: shopSettings // Passed cleanly, backend enforces INKTHEORY default
       };
 
       const res = await fetch('/api/easypost/buy', {
@@ -128,7 +329,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       // Update box tracking and label in Firebase
       const updatedBoxes = order.boxes.map((b: any) => {
         if (b.id === shippingLabelBox.id) {
-          return { ...b, trackingNumber: data.trackingNumber, trackingCarrier: data.carrier, labelUrl: data.labelUrl };
+          return { 
+            ...b, 
+            trackingNumber: data.trackingNumber, 
+            trackingCarrier: data.carrier, 
+            trackingService: data.service,
+            labelUrl: data.labelUrl,
+            shippingCost: data.cost
+          };
         }
         return b;
       });
@@ -136,7 +344,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       const newActivity = {
         id: `act-${Date.now()}`,
         type: 'system',
-        message: `Purchased ${data.carrier} ${data.service} Label (Test Mode: ${shippingForm.isTest ? 'Yes':'No'}) for ${boxObj.name}: ${data.trackingNumber}`,
+        message: `Purchased ${data.carrier} ${data.service} Label (Test Mode: ${shippingForm.isTest ? 'Yes':'No'}) for ${boxObj.name}: ${data.trackingNumber} ($${data.cost})`,
         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
         timestamp: new Date().toISOString()
       };
@@ -800,7 +1008,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                               </div>
                            ) : (
                               <button onClick={(e) => { e.stopPropagation(); handleOpenShippingLabel(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
-                                <Package size={12} /> Buy UPS Label
+                                <Package size={12} /> Buy Shipping Label
                               </button>
                            )}
                            <button onClick={(e) => { e.stopPropagation(); onEditTracking(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors tooltip w-full h-[32px] rounded-full border ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'bg-brand-bg hover:bg-neutral-100 text-brand-primary border-brand-border'}`}>
@@ -826,82 +1034,231 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       )}
 
       {/* Buy Shipping Label Modal */}
-      {shippingLabelBox && (
-         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setShippingLabelBox(null)}>
-           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl flex flex-col border border-brand-border my-auto overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="bg-brand-bg border-b border-brand-border p-6 flex justify-between items-start">
-                 <div>
-                   <h3 className="font-serif text-2xl text-brand-primary leading-tight">Buy UPS Label</h3>
-                   <p className="text-xs font-bold uppercase tracking-widest text-brand-secondary mt-1">{shippingLabelBox.name}</p>
-                 </div>
-                 <button onClick={() => setShippingLabelBox(null)} className="p-1 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary"><X size={18} /></button>
-              </div>
-              <div className="p-6 flex flex-col gap-6 bg-white overflow-y-auto max-h-[70vh]">
-                 {shippingError && (
-                   <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-sm font-medium flex gap-2">
-                     <ShieldAlert size={18} className="shrink-0" />
-                     {shippingError}
-                   </div>
-                 )}
-                 <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Destination Address</label>
-                    <div className="flex flex-col gap-2">
-                       <div className="flex gap-2">
-                          <input type="text" autoComplete="name" value={shippingForm.address.name || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, name: e.target.value}}))} placeholder="Recipient Name" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                          <input type="text" autoComplete="organization" value={shippingForm.address.company || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, company: e.target.value}}))} placeholder="Company (Optional)" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                       </div>
-                       <input type="text" autoComplete="address-line1" value={shippingForm.address.street1 || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, street1: e.target.value}}))} placeholder="Street Address" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                       <div className="flex gap-2">
-                          <input type="text" autoComplete="address-level2" value={shippingForm.address.city || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, city: e.target.value}}))} placeholder="City" className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                          <input type="text" autoComplete="address-level1" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="State" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} />
-                          <input type="text" autoComplete="postal-code" value={shippingForm.address.zip || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, zip: e.target.value}}))} placeholder="Zip" className="w-[30%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                       </div>
-                    </div>
-                 </div>
-                 
-                 <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Package Dimensions (in)</label>
-                    <div className="flex gap-3">
-                       <input type="number" value={shippingForm.length} onChange={e => setShippingForm({...shippingForm, length: Number(e.target.value)})} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
-                       <span className="text-brand-secondary font-bold self-center">×</span>
-                       <input type="number" value={shippingForm.width} onChange={e => setShippingForm({...shippingForm, width: Number(e.target.value)})} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
-                       <span className="text-brand-secondary font-bold self-center">×</span>
-                       <input type="number" value={shippingForm.height} onChange={e => setShippingForm({...shippingForm, height: Number(e.target.value)})} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
-                    </div>
-                 </div>
-                 <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Package Weight (oz)</label>
-                    <input type="number" value={shippingForm.weightOz} onChange={e => setShippingForm({...shippingForm, weightOz: Number(e.target.value)})} placeholder="Ounces" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                 </div>
-                 
-                 <div className="border-t border-brand-border pt-6">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2 flex items-center gap-1.5"><CreditCard size={12}/> Third-Party Billing (Optional)</label>
-                    <input type="text" value={shippingForm.thirdPartyAccount} onChange={e => setShippingForm({...shippingForm, thirdPartyAccount: e.target.value})} placeholder="e.g. UPS Account Number" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none mb-3" />
-                    
-                    {shippingForm.thirdPartyAccount && (
-                       <input type="text" value={shippingForm.thirdPartyZip} onChange={e => setShippingForm({...shippingForm, thirdPartyZip: e.target.value})} placeholder="Billing Zip Code (Required for UPS)" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                    )}
-                 </div>
+      {shippingLabelBox && (() => {
+         const customerChoice = getCustomerSelectedShipping(order);
+         const boxItemsCount = (shippingLabelBox.items || []).reduce((acc: number, item: any) => acc + (item.qty || 0), 0);
 
-                 <p className="text-[10px] text-brand-secondary italic text-center px-4 -mt-2">The address & billing info used will automatically be cached as the default template for all subsequent boxes on this order.</p>
+         return (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setShippingLabelBox(null)}>
+            <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl flex flex-col border border-brand-border my-auto overflow-hidden" onClick={e => e.stopPropagation()}>
+               <div className="bg-brand-bg border-b border-brand-border p-6 flex justify-between items-start">
+                  <div>
+                    <h3 className="font-serif text-2xl text-brand-primary leading-tight">Buy Shipping Label</h3>
+                    <p className="text-xs font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                      {shippingLabelBox.name} • {boxItemsCount} Items Packed
+                    </p>
+                  </div>
+                  <button onClick={() => setShippingLabelBox(null)} className="p-1 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary">
+                    <X size={18} />
+                  </button>
+               </div>
 
-                 <div className="bg-brand-bg/50 border border-brand-border p-4 rounded-xl items-center flex gap-3 cursor-pointer" onClick={() => setShippingForm({...shippingForm, isTest: !shippingForm.isTest})}>
-                    <input type="checkbox" checked={shippingForm.isTest} readOnly className="w-4 h-4 rounded text-brand-primary" />
-                    <div>
-                       <p className="text-sm font-bold text-brand-primary">Test Mode</p>
-                       <p className="text-[10px] text-brand-secondary">Generates a VOID label to test formatting securely without charges.</p>
+               <div className="p-6 flex flex-col gap-5 bg-white overflow-y-auto max-h-[72vh]">
+                  {shippingError && (
+                    <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-sm font-medium flex gap-2">
+                      <ShieldAlert size={18} className="shrink-0" />
+                      {shippingError}
                     </div>
-                 </div>
-              </div>
-              <div className="p-5 border-t border-brand-border flex gap-3 bg-brand-bg items-center">
-                 <button onClick={() => setShippingLabelBox(null)} className="px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-brand-secondary hover:bg-neutral-200 transition-colors">Cancel</button>
-                 <PillButton variant="filled" onClick={handleBuyShippingLabel} disabled={isBuyingLabel} className="flex-1 justify-center py-2.5 bg-black hover:bg-neutral-800">
-                    {isBuyingLabel ? <><Loader2 size={16} className="animate-spin mr-2" /> Purchasing...</> : "Purchase Label"}
-                 </PillButton>
-              </div>
-           </div>
-         </div>
-      )}
+                  )}
+
+                  {/* Customer Requested Shipping Speed */}
+                  {customerChoice && (
+                    <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-900 flex items-center justify-center shrink-0 border border-amber-300">
+                          <Truck size={18} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Customer Selected Speed</p>
+                          <p className="text-sm font-bold text-neutral-900">
+                            {formatCarrier(customerChoice.carrier)} — {formatShippingService(customerChoice.service)}
+                            {customerChoice.rate ? ` ($${Number(customerChoice.rate).toFixed(2)} paid)` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full border border-amber-300 shrink-0">
+                        Order Match
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Destination Address */}
+                  <div>
+                     <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Destination Address</label>
+                     <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                           <input type="text" autoComplete="name" value={shippingForm.address.name || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, name: e.target.value}}))} placeholder="Recipient Name" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                           <input type="text" autoComplete="organization" value={shippingForm.address.company || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, company: e.target.value}}))} placeholder="Company (Optional)" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        </div>
+                        <input type="text" autoComplete="address-line1" value={shippingForm.address.street1 || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, street1: e.target.value}}))} placeholder="Street Address" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        <div className="flex gap-2">
+                           <input type="text" autoComplete="address-level2" value={shippingForm.address.city || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, city: e.target.value}}))} placeholder="City" className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                           <input type="text" autoComplete="address-level1" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="State" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} />
+                           <input type="text" autoComplete="postal-code" value={shippingForm.address.zip || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, zip: e.target.value}}))} placeholder="Zip" className="w-[30%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        </div>
+                     </div>
+                  </div>
+                  
+                  {/* Package Dimensions & Weight */}
+                  <div>
+                     <div className="flex items-center justify-between mb-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Package Dimensions (in) & Weight</label>
+                        <button
+                          type="button"
+                          onClick={() => fetchRatesForForm(shippingForm)}
+                          disabled={isFetchingRates}
+                          className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                        >
+                          {isFetchingRates ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                          Recalculate Rates
+                        </button>
+                     </div>
+                     <div className="flex gap-3 items-center">
+                        <input type="number" value={shippingForm.length} onChange={e => setShippingForm({...shippingForm, length: Number(e.target.value)})} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <span className="text-brand-secondary font-bold self-center">×</span>
+                        <input type="number" value={shippingForm.width} onChange={e => setShippingForm({...shippingForm, width: Number(e.target.value)})} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <span className="text-brand-secondary font-bold self-center">×</span>
+                        <input type="number" value={shippingForm.height} onChange={e => setShippingForm({...shippingForm, height: Number(e.target.value)})} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <div className="w-[1px] h-8 bg-brand-border mx-1 shrink-0" />
+                        <div className="w-full relative">
+                          <input type="number" value={shippingForm.weightOz} onChange={e => setShippingForm({...shippingForm, weightOz: Number(e.target.value)})} placeholder="Ounces" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm pr-8 focus:border-brand-primary outline-none" />
+                          <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-brand-secondary pointer-events-none">oz</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Available Carrier Rates Selection */}
+                  <div className="border-t border-brand-border pt-4">
+                     <div className="flex items-center justify-between mb-2">
+                       <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">
+                         Available Courier Services
+                       </label>
+                       {availableRates.length > 0 && (
+                         <span className="text-[10px] font-medium text-brand-secondary">
+                           {availableRates.length} option{availableRates.length > 1 ? 's' : ''} returned
+                         </span>
+                       )}
+                     </div>
+
+                     {isFetchingRates && (
+                       <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-center">
+                         <Loader2 size={20} className="animate-spin text-neutral-700" />
+                         <p className="text-xs font-semibold text-neutral-600">Fetching live rates from UPS, FedEx, USPS...</p>
+                       </div>
+                     )}
+
+                     {!isFetchingRates && ratesError && (
+                       <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-xs flex items-center justify-between">
+                         <span>{ratesError}</span>
+                         <button type="button" onClick={() => fetchRatesForForm(shippingForm)} className="font-bold underline ml-2">Retry</button>
+                       </div>
+                     )}
+
+                     {!isFetchingRates && availableRates.length > 0 && (
+                       <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                         {availableRates.map((rate: any) => {
+                           const isSelected = selectedRate?.id === rate.id;
+                           const isCustomerMatch = customerChoice && isRateMatching(rate, customerChoice.carrier, customerChoice.service);
+                           const carrierName = formatCarrier(rate.carrier);
+                           const serviceName = formatShippingService(rate.service);
+
+                           return (
+                             <div 
+                               key={rate.id}
+                               onClick={() => setSelectedRate(rate)}
+                               className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                                 isSelected 
+                                   ? 'border-black bg-neutral-900 text-white shadow-sm ring-1 ring-black' 
+                                   : 'border-brand-border bg-brand-bg/30 hover:border-neutral-400 hover:bg-brand-bg text-brand-primary'
+                               }`}
+                             >
+                               <div className="flex items-center gap-3 min-w-0">
+                                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                   isSelected ? 'border-white bg-white text-black' : 'border-neutral-400 bg-white'
+                                 }`}>
+                                   {isSelected && <div className="w-2 h-2 rounded-full bg-black" />}
+                                 </div>
+                                 <div className="min-w-0">
+                                   <div className="flex items-center gap-2 flex-wrap">
+                                     <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-neutral-900'}`}>
+                                       {carrierName} {serviceName}
+                                     </span>
+                                     {isCustomerMatch && (
+                                       <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                                         isSelected ? 'bg-amber-400 text-black' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                       }`}>
+                                         ★ Customer Choice
+                                       </span>
+                                     )}
+                                   </div>
+                                   <p className={`text-[10px] truncate ${isSelected ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                                     {rate.deliveryDays ? `Estimated delivery in ${rate.deliveryDays} business day${rate.deliveryDays > 1 ? 's' : ''}` : 'Standard carrier transit'}
+                                   </p>
+                                 </div>
+                               </div>
+                               <div className="text-right shrink-0 ml-3">
+                                 <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-neutral-900'}`}>
+                                    ${Number(rate.rate).toFixed(2)}
+                                 </span>
+                               </div>
+                             </div>
+                           );
+                         })}
+                       </div>
+                     )}
+
+                     {!isFetchingRates && availableRates.length === 0 && !ratesError && (
+                       <button
+                         type="button"
+                         onClick={() => fetchRatesForForm(shippingForm)}
+                         className="w-full py-3.5 border border-dashed border-neutral-300 hover:border-neutral-500 rounded-xl text-xs font-bold text-neutral-600 bg-neutral-50/50 hover:bg-neutral-100 transition-colors flex items-center justify-center gap-2"
+                       >
+                         <Sparkles size={14} className="text-amber-500" />
+                         Click to Calculate Live Shipping Rates
+                       </button>
+                     )}
+                  </div>
+                  
+                  {/* Third-Party Billing */}
+                  <div className="border-t border-brand-border pt-4">
+                     <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2 flex items-center gap-1.5"><CreditCard size={12}/> Third-Party Billing (Optional)</label>
+                     <input type="text" value={shippingForm.thirdPartyAccount} onChange={e => setShippingForm({...shippingForm, thirdPartyAccount: e.target.value})} placeholder="e.g. UPS Account Number" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none mb-3" />
+                     
+                     {shippingForm.thirdPartyAccount && (
+                        <input type="text" value={shippingForm.thirdPartyZip} onChange={e => setShippingForm({...shippingForm, thirdPartyZip: e.target.value})} placeholder="Billing Zip Code (Required for UPS)" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                     )}
+                  </div>
+
+                  <div className="bg-brand-bg/50 border border-brand-border p-3.5 rounded-xl items-center flex gap-3 cursor-pointer" onClick={() => setShippingForm({...shippingForm, isTest: !shippingForm.isTest})}>
+                     <input type="checkbox" checked={shippingForm.isTest} readOnly className="w-4 h-4 rounded text-brand-primary" />
+                     <div>
+                        <p className="text-xs font-bold text-brand-primary">Test Mode</p>
+                        <p className="text-[10px] text-brand-secondary">Generates a VOID label to test formatting securely without charges.</p>
+                     </div>
+                  </div>
+               </div>
+
+               <div className="p-5 border-t border-brand-border flex gap-3 bg-brand-bg items-center">
+                  <button onClick={() => setShippingLabelBox(null)} className="px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-brand-secondary hover:bg-neutral-200 transition-colors">Cancel</button>
+                  <PillButton 
+                    variant="filled" 
+                    onClick={handleBuyShippingLabel} 
+                    disabled={isBuyingLabel || isFetchingRates || (!selectedRate && availableRates.length > 0)} 
+                    className="flex-1 justify-center py-2.5 bg-black hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                     {isBuyingLabel ? (
+                       <><Loader2 size={16} className="animate-spin mr-2" /> Purchasing...</>
+                     ) : selectedRate ? (
+                       `Purchase ${formatCarrier(selectedRate.carrier)} Label ($${Number(selectedRate.rate).toFixed(2)})`
+                     ) : (
+                       "Purchase Label"
+                     )}
+                  </PillButton>
+               </div>
+            </div>
+          </div>
+         );
+      })()}
 
       {isBoxLabelCustomizerOpen && (
         <BoxLabelCustomizerModal

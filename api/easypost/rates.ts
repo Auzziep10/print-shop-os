@@ -98,11 +98,21 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { to_address, from_address: fromAddressOverride, items = [], totalQty = 1, customBoxCount, isTest = true } = body;
+    const { 
+      to_address, 
+      from_address: fromAddressOverride, 
+      items = [], 
+      totalQty = 1, 
+      customBoxCount, 
+      parcel: customParcel, 
+      isTest = false,
+      thirdPartyAccount,
+      thirdPartyZip
+    } = body;
 
     let apiKey = (isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY)?.trim() || '';
     if (!apiKey) {
-      apiKey = (process.env.EASYPOST_TEST_KEY || process.env.EASYPOST_PROD_KEY)?.trim() || '';
+      apiKey = (process.env.EASYPOST_PROD_KEY || process.env.EASYPOST_TEST_KEY)?.trim() || '';
     }
     
     if (!apiKey) {
@@ -113,29 +123,49 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Incomplete destination address for shipping rate calculation.' }), { status: 400 });
     }
 
-    // Default origin address (WOVN HQ)
+    // Default origin address (INKTHEORY HQ)
     const default_from_address = {
-      company: 'WOVN',
-      street1: '100 E 1st St',
-      city: 'Los Angeles',
-      state: 'CA',
-      zip: '90012',
+      company: 'INKTHEORY',
+      street1: '4600 Sundt Rd. NE',
+      city: 'Rio Rancho',
+      state: 'NM',
+      zip: '87124',
       country: 'US',
       phone: '555-555-5555'
     };
 
-    const from_address = fromAddressOverride ? {
-      company: fromAddressOverride.companyName || default_from_address.company,
-      street1: fromAddressOverride.street1 || default_from_address.street1,
-      city: fromAddressOverride.city || default_from_address.city,
-      state: fromAddressOverride.state || default_from_address.state,
-      zip: fromAddressOverride.zip || default_from_address.zip,
-      country: fromAddressOverride.country || default_from_address.country,
-      phone: fromAddressOverride.phone || default_from_address.phone
-    } : default_from_address;
+    let senderCompany = fromAddressOverride?.companyName || fromAddressOverride?.company || default_from_address.company;
+    if (!senderCompany || senderCompany.trim().toUpperCase() === 'WOVN') {
+      senderCompany = 'INKTHEORY';
+    }
 
-    const parcel = estimateParcelFromItems(items, totalQty);
-    const { boxes: _boxCount, ...parcelDims } = parcel as any;
+    const from_address = {
+      company: senderCompany,
+      street1: fromAddressOverride?.street1 || default_from_address.street1,
+      city: fromAddressOverride?.city || default_from_address.city,
+      state: fromAddressOverride?.state || default_from_address.state,
+      zip: fromAddressOverride?.zip || default_from_address.zip,
+      country: fromAddressOverride?.country || default_from_address.country,
+      phone: fromAddressOverride?.phone || default_from_address.phone
+    };
+
+    let parcelDims: any;
+    let boxCount = 1;
+
+    if (customParcel && customParcel.length && customParcel.width && customParcel.height && customParcel.weight) {
+      parcelDims = {
+        length: Number(customParcel.length),
+        width: Number(customParcel.width),
+        height: Number(customParcel.height),
+        weight: Number(customParcel.weight)
+      };
+      boxCount = 1;
+    } else {
+      const estimated = estimateParcelFromItems(items, totalQty);
+      const { boxes: _boxCount, ...dims } = estimated as any;
+      parcelDims = dims;
+      boxCount = (customBoxCount && parseInt(String(customBoxCount)) > 0) ? parseInt(String(customBoxCount)) : ((estimated as any).boxes || 1);
+    }
 
     const shipmentPayload: any = {
       to_address: {
@@ -156,6 +186,15 @@ export default async function handler(req: Request) {
         label_size: '4x6'
       }
     };
+
+    if (thirdPartyAccount) {
+      shipmentPayload.options.payment = {
+        type: 'THIRD_PARTY',
+        account: thirdPartyAccount,
+        country: 'US',
+        postal_code: thirdPartyZip || ''
+      };
+    }
 
     // Create the shipment to get rates from EasyPost
     const shipmentRes = await fetch('https://api.easypost.com/v2/shipments', {
@@ -178,9 +217,9 @@ export default async function handler(req: Request) {
     }
 
     // Sort rates cheapest first; multi-box orders pay the per-box rate × boxes
-    const boxCount = (customBoxCount && parseInt(String(customBoxCount)) > 0) ? parseInt(String(customBoxCount)) : ((parcel as any).boxes || 1);
     const sortedRates = shipmentData.rates.map((r: any) => ({
       id: r.id,
+      shipmentId: shipmentData.id,
       carrier: r.carrier,
       service: r.service,
       rate: Math.round(parseFloat(r.rate) * boxCount * 100) / 100,
@@ -192,7 +231,8 @@ export default async function handler(req: Request) {
 
     return new Response(JSON.stringify({
       rates: sortedRates,
-      parcel,
+      shipmentId: shipmentData.id,
+      parcel: parcelDims,
       boxes: boxCount
     }), {
       status: 200,
