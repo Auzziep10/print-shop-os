@@ -41,6 +41,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .stage > .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(10,9,8,.5) 100%);pointer-events:none;}
 .g{position:absolute;inset:0;will-change:transform,opacity;backface-visibility:hidden;}
 .g.anim{transition:transform .42s cubic-bezier(.2,.85,.25,1), opacity .42s ease;}
+.cord{position:absolute;top:0;width:2px;transform:translateX(-50%);pointer-events:none;
+  background:linear-gradient(180deg, #14120f 0%, #1c1916 70%, #0f0e0c 100%);box-shadow:0 0 2px rgba(0,0,0,.45);}
 .swing{position:absolute;inset:0;will-change:transform;}
 .swing.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
 .g img.hero{position:absolute;pointer-events:none;user-select:none;-webkit-user-drag:none;

@@ -34,7 +34,7 @@
   }
   var els = garments.map(function(g, i){
     var el = document.createElement('div'); el.className = 'g'; el.dataset.i = i;
-    el.innerHTML = '<div class="swing">' +
+    el.innerHTML = '<div class="cord"></div><div class="swing">' +
       '<img class="hero" src="'+g.image+'" alt="'+(g.name||'')+'" draggable="false">' +
       '<div class="pins"></div></div>';
     var pins = el.querySelector('.pins');
@@ -67,7 +67,10 @@
       var left = (W-rw)/2, top = (H-rh)/2 + shift;
       pins.style.left = left+'px'; pins.style.top = top+'px'; pins.style.width = rw+'px'; pins.style.height = rh+'px';
       hero.style.left = left+'px'; hero.style.top = top+'px'; hero.style.width = rw+'px'; hero.style.height = rh+'px';
-      els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+(top + (data.hookY || 0.34)*rh)+'px';
+      var hookTop = top + (data.hookY || 0.34)*rh;
+      els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+hookTop+'px';
+      var cord = els[i].querySelector('.cord');
+      cord.style.left = (left + rw/2)+'px'; cord.style.height = (hookTop + 3)+'px';
     });
   }
 
