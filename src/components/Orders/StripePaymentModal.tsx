@@ -6,6 +6,7 @@ import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateDiscountCode, discountAmountFor, type AppliedDiscount } from '../../lib/discountUtils';
+import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
@@ -331,21 +332,121 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   const isLocalDeliveryAllowed = customerData ? (customerData.allowLocalDelivery !== false) : (order.allowLocalDelivery !== false);
 
-  const effectiveShippingAddress = (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city))
-    ? order.shippingAddress
-    : (customerData?.shippingStreet || customerData?.shippingCity ? {
-        name: customerData.contactName || customerData.name || '',
-        company: customerData.company || customerData.name || '',
-        street1: customerData.shippingStreet || '',
-        street2: '',
-        city: customerData.shippingCity || '',
-        state: customerData.shippingState || '',
-        zip: customerData.shippingZip || '',
-        country: 'US'
-      } : null);
+  const [customShippingAddress, setCustomShippingAddress] = useState<any>(null);
+  const [isEditingAddress, setIsEditingAddress] = useState<boolean>(false);
+  const [saveToProfile, setSaveToProfile] = useState<boolean>(false);
+  const [addressForm, setAddressForm] = useState({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US'
+  });
+
+  const effectiveShippingAddress = customShippingAddress
+    ? customShippingAddress
+    : (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city))
+      ? order.shippingAddress
+      : (customerData?.shippingStreet || customerData?.shippingCity ? {
+          name: customerData.contactName || customerData.name || '',
+          company: customerData.company || customerData.name || '',
+          street1: customerData.shippingStreet || '',
+          street2: '',
+          city: customerData.shippingCity || '',
+          state: customerData.shippingState || '',
+          zip: customerData.shippingZip || '',
+          country: 'US'
+        } : null);
 
   const hasShippingAddress = !!(effectiveShippingAddress && 
     (effectiveShippingAddress.street1 || effectiveShippingAddress.street || effectiveShippingAddress.city));
+
+  const handleStartEditAddress = () => {
+    setAddressForm({
+      name: effectiveShippingAddress?.name || '',
+      company: effectiveShippingAddress?.company || '',
+      street1: effectiveShippingAddress?.street1 || effectiveShippingAddress?.street || '',
+      street2: effectiveShippingAddress?.street2 || '',
+      city: effectiveShippingAddress?.city || '',
+      state: effectiveShippingAddress?.state || '',
+      zip: effectiveShippingAddress?.zip || effectiveShippingAddress?.postalCode || '',
+      country: effectiveShippingAddress?.country || 'US'
+    });
+    setSaveToProfile(false);
+    setIsEditingAddress(true);
+  };
+
+  const handleSaveCustomAddress = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const st1 = (addressForm.street1 || '').trim();
+    const cty = (addressForm.city || '').trim();
+    const zp = (addressForm.zip || '').trim();
+    if (!st1 || !cty || !zp) {
+      alert("Please provide at least a street address, city, and ZIP code.");
+      return;
+    }
+
+    const newAddr = {
+      name: (addressForm.name || '').trim(),
+      company: (addressForm.company || '').trim(),
+      street1: st1,
+      street2: (addressForm.street2 || '').trim(),
+      city: cty,
+      state: (addressForm.state || '').trim().toUpperCase(),
+      zip: zp,
+      country: addressForm.country || 'US'
+    };
+
+    setCustomShippingAddress(newAddr);
+    setIsEditingAddress(false);
+
+    try {
+      const orderRef = doc(db, 'orders', order.id);
+      await updateDoc(orderRef, { shippingAddress: newAddr });
+    } catch (err) {
+      console.warn("Could not save shipping address to order:", err);
+    }
+
+    if (saveToProfile && order.customerId) {
+      try {
+        await updateDoc(doc(db, 'customers', order.customerId), {
+          shippingStreet: newAddr.street1,
+          shippingCity: newAddr.city,
+          shippingState: newAddr.state,
+          shippingZip: newAddr.zip
+        });
+      } catch (err) {
+        console.error("Failed to update customer profile address:", err);
+      }
+    }
+  };
+
+  const handleResetAddress = async () => {
+    setCustomShippingAddress(null);
+    setIsEditingAddress(false);
+    const defaultProfileAddress = customerData?.shippingStreet || customerData?.shippingCity ? {
+      name: customerData.contactName || customerData.name || '',
+      company: customerData.company || customerData.name || '',
+      street1: customerData.shippingStreet || '',
+      street2: '',
+      city: customerData.shippingCity || '',
+      state: customerData.shippingState || '',
+      zip: customerData.shippingZip || '',
+      country: 'US'
+    } : null;
+
+    if (defaultProfileAddress) {
+      try {
+        const orderRef = doc(db, 'orders', order.id);
+        await updateDoc(orderRef, { shippingAddress: defaultProfileAddress });
+      } catch (err) {
+        console.warn("Could not reset shipping address on order:", err);
+      }
+    }
+  };
 
   useEffect(() => {
     if (isLocalDeliveryAllowed === false && selectedDeliveryOption === 'Local Delivery') {
@@ -353,7 +454,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     }
   }, [isLocalDeliveryAllowed, selectedDeliveryOption]);
 
-  // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
+  // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore (or if custom address was set)
   useEffect(() => {
     const hasZip = effectiveShippingAddress?.zip || effectiveShippingAddress?.postalCode;
     const hasCity = effectiveShippingAddress?.city;
@@ -362,7 +463,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       return;
     }
 
-    if (order.shippingOptions && order.shippingOptions.length > 0) {
+    if (!customShippingAddress && order.shippingOptions && order.shippingOptions.length > 0) {
       setLocalShippingOptions(order.shippingOptions);
       return;
     }
@@ -421,10 +522,17 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
         const rates = data.rates || [];
         setLocalShippingOptions(rates);
+        if (rates.length > 0) {
+          setSelectedShippingOption(rates[0]);
+        }
         
         // Save to Firestore so it is stored persistently
         const orderRef = doc(db, 'orders', order.id);
-        await updateDoc(orderRef, { shippingOptions: rates });
+        const updatePayload: any = { shippingOptions: rates };
+        if (effectiveShippingAddress) {
+          updatePayload.shippingAddress = effectiveShippingAddress;
+        }
+        await updateDoc(orderRef, updatePayload);
       } catch (err: any) {
         console.error("Failed to fetch dynamic shipping rates for checkout:", err);
         setRatesError("Failed to fetch shipping rates.");
@@ -434,7 +542,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     fetchRates();
-  }, [order.id, order.shippingOptions, selectedDeliveryOption, effectiveShippingAddress, order.items]);
+  }, [order.id, order.shippingOptions, selectedDeliveryOption, effectiveShippingAddress, order.items, customShippingAddress]);
 
   // Handle selectedShippingOption initialization
   useEffect(() => {
@@ -473,15 +581,16 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         deliveryOption: selectedDeliveryOption,
         shippingCost: currentShippingAmount,
         shipping: currentShippingAmount,
+        shippingOptions: localShippingOptions,
         activities: arrayUnion({
           id: `act-${Date.now()}`,
           type: 'system',
-          message: `Quote approved by customer. Selected delivery method: ${selectedDeliveryOption}.`,
+          message: `Quote approved by customer. Selected delivery method: ${selectedDeliveryOption}${selectedShippingOption ? ` (${selectedShippingOption.carrier} - ${selectedShippingOption.service})` : ''}.${customShippingAddress ? ` Shipping address updated to: ${effectiveShippingAddress.street1}, ${effectiveShippingAddress.city}, ${effectiveShippingAddress.state} ${effectiveShippingAddress.zip}.` : ''}`,
           user: 'Customer',
           timestamp: new Date().toISOString()
         })
       };
-      if (effectiveShippingAddress && (!order.shippingAddress || !order.shippingAddress.street1)) {
+      if (effectiveShippingAddress) {
         updateData.shippingAddress = effectiveShippingAddress;
       }
       await updateDoc(orderRef, updateData);
@@ -714,33 +823,190 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               ))}
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex gap-3 items-start animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '100ms' }}>
-              {selectedDeliveryOption === 'Local Delivery' ? (
-                <>
-                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
-                    <MapPin size={16} className="text-brand-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Deliver To</p>
-                    <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
-                      {effectiveShippingAddress?.name && <span className="block text-neutral-800 font-bold">{effectiveShippingAddress.name}</span>}
-                      {effectiveShippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{effectiveShippingAddress.company}</span>}
-                      <span className="block">{effectiveShippingAddress?.street1 || effectiveShippingAddress?.street}</span>
-                      {effectiveShippingAddress?.street2 && <span className="block">{effectiveShippingAddress.street2}</span>}
-                      <span className="block">
-                        {effectiveShippingAddress?.city}, {effectiveShippingAddress?.state} {effectiveShippingAddress?.zip}
+            <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-3 animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '100ms' }}>
+              {isEditingAddress ? (
+                <form onSubmit={handleSaveCustomAddress} className="flex flex-col gap-3 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-700">
+                        <MapPin size={13} />
+                      </div>
+                      <span className="text-xs font-bold text-neutral-900 uppercase tracking-wide">
+                        {selectedDeliveryOption === 'Local Delivery' ? 'Set Delivery Address' : 'Set Shipping Destination'}
                       </span>
                     </div>
+                    {hasShippingAddress && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="text-[11px] font-bold text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </div>
-                </>
-              ) : selectedDeliveryOption === 'Shipping' ? (
-                hasShippingAddress ? (
-                  <>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                        Recipient / Attention
+                      </label>
+                      <input
+                        type="text"
+                        value={addressForm.name}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g. John Doe"
+                        className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                        Company <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={addressForm.company}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, company: e.target.value }))}
+                        placeholder="e.g. Event Venue / Branch"
+                        className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                      Street Address *
+                    </label>
+                    <AddressAutocompleteInput
+                      value={addressForm.street1}
+                      onChange={(val) => setAddressForm(prev => ({ ...prev, street1: val }))}
+                      onAddressSelect={(parsed) => {
+                        setAddressForm(prev => ({
+                          ...prev,
+                          street1: parsed.street,
+                          city: parsed.city || prev.city,
+                          state: (parsed.state || prev.state).toUpperCase(),
+                          zip: parsed.zip || prev.zip
+                        }));
+                      }}
+                      placeholder="e.g. 123 Main St"
+                      className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                      Apt / Suite / Unit / Dock <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressForm.street2}
+                      onChange={(e) => setAddressForm(prev => ({ ...prev, street2: e.target.value }))}
+                      placeholder="e.g. Suite 200, Dock B"
+                      className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2">
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                        City *
+                      </label>
+                      <input
+                        type="text"
+                        value={addressForm.city}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, city: e.target.value }))}
+                        placeholder="City"
+                        required
+                        className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                      />
+                    </div>
+                    <div className="col-span-1 flex flex-col gap-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                        State *
+                      </label>
+                      <input
+                        type="text"
+                        value={addressForm.state}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                        placeholder="WA"
+                        maxLength={2}
+                        required
+                        className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 uppercase focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                      />
+                    </div>
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                        ZIP Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={addressForm.zip}
+                        onChange={(e) => setAddressForm(prev => ({ ...prev, zip: e.target.value }))}
+                        placeholder="ZIP"
+                        required
+                        className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {order.customerId && (
+                    <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveToProfile}
+                        onChange={(e) => setSaveToProfile(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-black rounded cursor-pointer"
+                      />
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                        Save as my default business address
+                      </span>
+                    </label>
+                  )}
+
+                  <div className="flex gap-2 pt-1.5">
+                    {hasShippingAddress && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="flex-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {customShippingAddress && (
+                      <button
+                        type="button"
+                        onClick={handleResetAddress}
+                        className="px-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-600 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                        title="Reset to default business address"
+                      >
+                        Use Default
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      className="flex-1 bg-black hover:bg-neutral-800 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm cursor-pointer"
+                    >
+                      Update & Calculate
+                    </button>
+                  </div>
+                </form>
+              ) : selectedDeliveryOption === 'Local Delivery' ? (
+                <div className="flex justify-between items-start w-full">
+                  <div className="flex gap-3 items-start flex-1 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
-                      <MapPin size={16} />
+                      <MapPin size={16} className="text-brand-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Deliver To</p>
+                        {customShippingAddress && (
+                          <span className="text-[9px] font-bold text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            Custom
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
                         {effectiveShippingAddress?.name && <span className="block text-neutral-800 font-bold">{effectiveShippingAddress.name}</span>}
                         {effectiveShippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{effectiveShippingAddress.company}</span>}
@@ -751,22 +1017,86 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                         </span>
                       </div>
                     </div>
-                  </>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleStartEditAddress}
+                    className="text-[11px] font-bold text-neutral-900 hover:text-brand-primary underline underline-offset-2 transition-colors cursor-pointer shrink-0 ml-2"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : selectedDeliveryOption === 'Shipping' ? (
+                hasShippingAddress ? (
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex gap-3 items-start flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                        <MapPin size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
+                          {customShippingAddress && (
+                            <span className="text-[9px] font-bold text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Custom Address
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
+                          {effectiveShippingAddress?.name && <span className="block text-neutral-800 font-bold">{effectiveShippingAddress.name}</span>}
+                          {effectiveShippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{effectiveShippingAddress.company}</span>}
+                          <span className="block">{effectiveShippingAddress?.street1 || effectiveShippingAddress?.street}</span>
+                          {effectiveShippingAddress?.street2 && <span className="block">{effectiveShippingAddress.street2}</span>}
+                          <span className="block">
+                            {effectiveShippingAddress?.city}, {effectiveShippingAddress?.state} {effectiveShippingAddress?.zip}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      {customShippingAddress && (
+                        <button
+                          type="button"
+                          onClick={handleResetAddress}
+                          className="text-[10px] font-bold text-neutral-400 hover:text-neutral-700 underline underline-offset-2 transition-colors cursor-pointer"
+                          title="Revert to business address"
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleStartEditAddress}
+                        className="text-[11px] font-bold text-neutral-900 hover:text-brand-primary underline underline-offset-2 transition-colors cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
-                      <MapPin size={16} />
+                  <div className="flex justify-between items-start w-full">
+                    <div className="flex gap-3 items-start flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                        <MapPin size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Shipping Address Missing</p>
+                        <p className="text-xs text-neutral-500 leading-relaxed mt-1">
+                          No shipping address on file. Please add an address to calculate shipping rates.
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Shipping Address Missing</p>
-                      <p className="text-xs text-neutral-500 leading-relaxed mt-1">
-                        No shipping address on file. Please add an address to your order or contact us to calculate shipping rates.
-                      </p>
-                    </div>
-                  </>
+                    <button
+                      type="button"
+                      onClick={handleStartEditAddress}
+                      className="bg-black hover:bg-neutral-800 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ml-2 shadow-xs"
+                    >
+                      Add Address
+                    </button>
+                  </div>
                 )
               ) : (
-                <>
+                <div className="flex gap-3 items-start w-full">
                   <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
                     <Building2 size={16} />
                   </div>
@@ -776,7 +1106,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                       Pickup from print shop office.
                     </p>
                   </div>
-                </>
+                </div>
               )}
             </div>
             {selectedDeliveryOption === 'Shipping' && isFetchingRates && (
