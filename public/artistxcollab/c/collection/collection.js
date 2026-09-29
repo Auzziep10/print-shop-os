@@ -157,7 +157,7 @@
       sway(reduced ? 0 : Math.max(-4, Math.min(4, -v * 4)), false);
       requestAnimationFrame(function(){ sway(0, !reduced); });
     } else if(d.axis === 'y'){
-      if(dy < -60) openSheet();
+      if(dy < -60 && !sheetOpen) openSheet();   // desktop / pointers the browser did not turn into a scroll
     }
   }
   stage.addEventListener('pointerup', endDrag);
@@ -169,10 +169,20 @@
     else if(e.key === 'ArrowUp') openSheet(); else if(e.key === 'ArrowDown' || e.key === 'Escape'){ closeSheet(); hideCloseup(true); }
   });
 
-  // ---- details sheet
-  var sheetOpen = false;
+  // ---- details sheet (opens off a short upward scroll, which also lets Safari collapse its bars)
+  var sheetOpen = false, baseY = window.scrollY;
   function openSheet(){ sheetOpen = true; sheet.classList.add('on'); scrim.classList.add('on'); foot.classList.add('hide'); }
-  function closeSheet(){ sheetOpen = false; sheet.classList.remove('on'); scrim.classList.remove('on'); foot.classList.remove('hide'); sheet.style.transform = ''; }
+  function closeSheet(){
+    sheetOpen = false; sheet.classList.remove('on'); scrim.classList.remove('on'); foot.classList.remove('hide'); sheet.style.transform = '';
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    if(window.scrollY > max - 160){ window.scrollTo(0, Math.max(0, max - 320)); }
+    baseY = window.scrollY;
+  }
+  window.addEventListener('scroll', function(){
+    if(sheetOpen) return;
+    if(window.scrollY - baseY > 40) openSheet();
+    else if(window.scrollY < baseY) baseY = window.scrollY;
+  }, {passive:true});
   document.getElementById('hint').addEventListener('click', openSheet);
   scrim.addEventListener('click', closeSheet);
   var sd = null;
