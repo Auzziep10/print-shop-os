@@ -22,6 +22,16 @@
       '<img class="bg" src="'+data.background+'" alt="" aria-hidden="true">' +
       '<img class="room" src="'+data.background+'" alt="" aria-hidden="true"><div class="vignette"></div>');
   }
+  // phones: fit the room to the viewport HEIGHT so the whole composition (ceiling to floor) is always in frame;
+  // the wide plate fills whatever width is left over. desktop: contain the original plate.
+  function roomFit(W, H){
+    var d = desktop();
+    var useWide = !d && data.backgroundWide && data.backgroundWideSize;
+    var bw = useWide ? data.backgroundWideSize[0] : data.backgroundSize[0];
+    var bh = useWide ? data.backgroundWideSize[1] : data.backgroundSize[1];
+    var s = d ? Math.min(W/bw, H/bh) : Math.max(W/bw, H/bh);
+    return { src: useWide ? data.backgroundWide : data.background, w: bw*s, h: bh*s, s: s, heightScale: H/bh };
+  }
   var els = garments.map(function(g, i){
     var el = document.createElement('div'); el.className = 'g'; el.dataset.i = i;
     el.innerHTML = '<div class="swing">' +
@@ -42,15 +52,16 @@
   // rendered box of the hero image (cover on phones, contain on desktop) so pins track the garment
   function fitPins(){
     var W = stage.clientWidth, H = stage.clientHeight;
-    var room = stage.querySelector('.room');
+    var room = stage.querySelector('.room'), fit = null;
     if(room && data.backgroundSize){
-      var bw = data.backgroundSize[0], bh = data.backgroundSize[1];
-      var bs = desktop() ? Math.min(W/bw, H/bh) : Math.max(W/bw, H/bh);
-      room.style.width = (bw*bs)+'px'; room.style.height = (bh*bs)+'px'; room.style.left = ((W-bw*bs)/2)+'px'; room.style.top = ((H-bh*bs)/2)+'px';
+      fit = roomFit(W, H);
+      if(room.getAttribute('src') !== fit.src) room.setAttribute('src', fit.src);
+      room.style.width = fit.w+'px'; room.style.height = fit.h+'px'; room.style.left = ((W-fit.w)/2)+'px'; room.style.top = ((H-fit.h)/2)+'px';
     }
     garments.forEach(function(g, i){
       var iw = (g.imageSize && g.imageSize[0]) || 920, ih = (g.imageSize && g.imageSize[1]) || 2000;
-      var s = desktop() ? Math.min(W/iw, H/ih) : Math.max(W/iw, H/ih);
+      // garments scale with the room's height so they keep their size relative to the sign and floor
+      var s = desktop() ? Math.min(W/iw, H/ih) : (fit ? fit.h/ih : Math.max(W/iw, H/ih));
       var rw = iw*s, rh = ih*s, pins = els[i].querySelector('.pins'), hero = els[i].querySelector('.hero');
       var shift = (g.shiftY != null ? g.shiftY : (data.garmentShiftY || 0)) * rh;
       var left = (W-rw)/2, top = (H-rh)/2 + shift;

@@ -5,6 +5,8 @@ window.AXC_COLLECTION = {
   // the room stays put; garments are transparent cutouts on the same 806x1760 canvas, hook at ~34% down
   background: "/artistxcollab/img/garments/room.webp",
   backgroundSize: [852, 1847],
+  backgroundWide: "/artistxcollab/img/garments/room-wide.webp",   // same room with the wall extended sideways for short/wide phone viewports
+  backgroundWideSize: [1400, 1847],
   hookY: 0.34,
   garmentShiftY: 0.005,   // hang the rail just under the sign (sign bottom sits at ~32% of the room)
   garments: [
