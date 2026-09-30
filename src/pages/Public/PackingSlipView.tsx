@@ -147,6 +147,7 @@ export function PackingSlipView() {
                              <p className="font-bold text-neutral-900 text-base print:text-sm sm:pr-4 leading-tight mb-2 sm:mb-0 print:mb-0">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
                              <div className="text-[10px] sm:text-xs print:text-[10px] font-semibold text-neutral-500 mt-1 sm:mt-1.5 print:mt-1 flex flex-wrap gap-x-2 gap-y-1 print:gap-x-1.5 mb-3 print:mb-1">
                                {fullItem.gender && fullItem.gender !== 'Unisex' && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">{fullItem.gender}</span>}
+                               {(fullItem.itemStyle || fullItem.garmentStyle) && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">{fullItem.itemStyle || fullItem.garmentStyle}</span>}
                                {fullItem.color && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">{fullItem.color}</span>}
                                {fullItem.itemNum && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">ID: {fullItem.itemNum}</span>}
                              </div>
@@ -251,6 +252,7 @@ export function PackingSlipView() {
                              <p className="font-bold text-neutral-900 text-base sm:pr-4 leading-tight mb-2 sm:mb-0">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
                              <div className="text-[10px] sm:text-xs font-semibold text-neutral-500 mt-1 sm:mt-1.5 flex flex-wrap gap-x-2 gap-y-1 mb-3">
                                {fullItem.gender && fullItem.gender !== 'Unisex' && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.gender}</span>}
+                               {(fullItem.itemStyle || fullItem.garmentStyle) && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.itemStyle || fullItem.garmentStyle}</span>}
                                {fullItem.color && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.color}</span>}
                                {fullItem.itemNum && <span className="bg-neutral-100 px-2 py-1 rounded-md">ID: {fullItem.itemNum}</span>}
                              </div>

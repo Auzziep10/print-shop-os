@@ -238,6 +238,15 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   };
 
   const handleOpenShippingLabel = (box: any) => {
+    // Check if the box or any items in this box have a custom shipping address
+    let customAddress: any = box.shippingAddress || null;
+    if (!customAddress && box.items?.length > 0) {
+      const lineItem = order.items?.find((it: any) => String(it.id) === String(box.items[0]?.id));
+      if (lineItem?.hasCustomShipping && lineItem?.shippingAddress?.street1) {
+        customAddress = lineItem.shippingAddress;
+      }
+    }
+
     const defaultProfile = order.lastShippingProfile || {};
     const defaultAddress = defaultProfile.address || {};
     
@@ -258,14 +267,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       thirdPartyAccount: defaultProfile.thirdPartyAccount || order.thirdPartyBilling?.account || '',
       thirdPartyZip: defaultProfile.thirdPartyZip || order.thirdPartyBilling?.zip || '',
       address: {
-        name: defaultAddress.name || orderAddress.name || customer.name || customer.company || order.companyName || '',
-        company: defaultAddress.company || orderAddress.company || customer.company || order.companyName || '',
-        street1: defaultAddress.street1 || orderAddress.street1 || customer.street1 || '',
-        street2: defaultAddress.street2 || orderAddress.street2 || customer.street2 || '',
-        city: defaultAddress.city || orderAddress.city || customer.city || '',
-        state: defaultAddress.state || orderAddress.state || customer.state || '',
-        zip: defaultAddress.zip || orderAddress.zip || customer.zip || '',
-        country: defaultAddress.country || orderAddress.country || customer.country || 'US'
+        name: customAddress?.name || defaultAddress.name || orderAddress.name || customer.name || customer.company || order.companyName || '',
+        company: customAddress?.company || defaultAddress.company || orderAddress.company || customer.company || order.companyName || '',
+        street1: customAddress?.street1 || defaultAddress.street1 || orderAddress.street1 || customer.street1 || '',
+        street2: customAddress?.street2 || defaultAddress.street2 || orderAddress.street2 || customer.street2 || '',
+        city: customAddress?.city || defaultAddress.city || orderAddress.city || customer.city || '',
+        state: customAddress?.state || defaultAddress.state || orderAddress.state || customer.state || '',
+        zip: customAddress?.zip || defaultAddress.zip || orderAddress.zip || customer.zip || '',
+        country: customAddress?.country || defaultAddress.country || orderAddress.country || customer.country || 'US'
       }
     };
     

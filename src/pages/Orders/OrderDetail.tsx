@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -2250,9 +2250,14 @@ export function OrderDetail() {
            gender: quickShipItem.gender || '',
            image: quickShipItem.image || '',
            itemNum: quickShipItem.itemNum || '',
+           itemStyle: quickShipItem.itemStyle || '',
            sizes: packedSizes,
            qty: totalQty
-        }]
+        }],
+        ...(quickShipItem.hasCustomShipping && quickShipItem.shippingAddress && (quickShipItem.shippingAddress.name || quickShipItem.shippingAddress.street1) ? {
+           shippingAddress: quickShipItem.shippingAddress,
+           hasCustomShipping: true
+        } : {})
      };
      
      const activity = {
@@ -4301,7 +4306,14 @@ export function OrderDetail() {
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                    {item.itemType === 'gang_sheet' 
                                      ? `${item.sheetWidth && item.sheetHeight ? `${item.sheetWidth}" x ${item.sheetHeight}"` : ''}` 
-                                     : `${item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''}${item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}`}
+                                     : (() => {
+                                         const parts = [
+                                           item.gender && item.gender !== 'Unisex' ? item.gender : null,
+                                           item.itemStyle || item.garmentStyle || null,
+                                           item.color || null
+                                         ].filter(Boolean);
+                                         return parts.join(' • ');
+                                       })()}
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
@@ -4324,6 +4336,15 @@ export function OrderDetail() {
                                           <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
                                           <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
                                         </button>
+                                      )}
+                                      {item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1) && (
+                                        <div 
+                                          className="flex items-center gap-1.5 text-[10px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full shadow-xs shrink-0 whitespace-nowrap cursor-help"
+                                          title={'Separate Destination:\nRecipient: ' + (item.shippingAddress.name || 'N/A') + (item.shippingAddress.company ? ' (' + item.shippingAddress.company + ')' : '') + '\nAddress: ' + (item.shippingAddress.street1 || '') + ' ' + (item.shippingAddress.street2 || '') + '\n' + (item.shippingAddress.city || '') + ', ' + (item.shippingAddress.state || '') + ' ' + (item.shippingAddress.zip || '') + (item.shippingAddress.notes ? '\nNotes: ' + item.shippingAddress.notes : '')}
+                                        >
+                                          <MapPin size={12} className="text-blue-600 shrink-0" />
+                                          <span>Ship to: <strong className="font-extrabold">{item.shippingAddress.name || 'Separate Recipient'}</strong> {item.shippingAddress.city ? '(' + item.shippingAddress.city + ', ' + item.shippingAddress.state + ')' : ''}</span>
+                                        </div>
                                       )}
                                       <button 
                                         onClick={(e) => {
@@ -7986,7 +8007,7 @@ export function OrderDetail() {
                         </div>
                       </div>
                     ) : (
-                      <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
+                      <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' : 'grid-cols-1 md:grid-cols-2'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
                         {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                           <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Gender</label>
@@ -8004,15 +8025,27 @@ export function OrderDetail() {
                           </div>
                         )}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Service / Item Name' : 'Garment Style'}</label>
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Service / Item Name' : 'Title'}</label>
                           <input 
                             type="text" 
-                            value={editItemObj.style || ''}
-                            onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                            placeholder={editItemObj.itemType === 'service' ? "e.g. Storage, Transportation" : "e.g. Pique Polo"}
+                            value={editItemObj.title !== undefined ? editItemObj.title : (editItemObj.style || '')}
+                            onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value, title: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-semibold"
+                            placeholder={editItemObj.itemType === 'service' ? "e.g. Storage, Transportation" : "e.g. Heavyweight Hoodie"}
                           />
                         </div>
+                        {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Style</label>
+                            <input 
+                              type="text" 
+                              value={editItemObj.itemStyle || editItemObj.garmentStyle || ''}
+                              onChange={(e) => setEditItemObj({...editItemObj, itemStyle: e.target.value, garmentStyle: e.target.value})}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                              placeholder="e.g. Drop Shoulder, Heavyweight"
+                            />
+                          </div>
+                        )}
                         {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                           <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Item #</label>
@@ -8343,7 +8376,275 @@ export function OrderDetail() {
                          </div>
                        </div>
                      </div>
-                   </>
+                   
+
+                      {/* Separate Shipping Destination for this Line Item */}
+                      {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <Truck size={15} className="text-brand-primary" />
+                              <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Item Shipping Destination</label>
+                            </div>
+                            <label className="flex items-center gap-2 cursor-pointer select-none bg-white border border-brand-border px-3 py-1.5 rounded-lg hover:border-brand-primary transition-colors shadow-xs">
+                              <input 
+                                type="checkbox"
+                                checked={Boolean(editItemObj.hasCustomShipping)}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setEditItemObj({
+                                    ...editItemObj,
+                                    hasCustomShipping: checked,
+                                    shippingAddress: checked 
+                                      ? (editItemObj.shippingAddress || {
+                                          name: '',
+                                          company: '',
+                                          street1: '',
+                                          street2: '',
+                                          city: '',
+                                          state: '',
+                                          zip: '',
+                                          country: 'US',
+                                          phone: '',
+                                          notes: ''
+                                        })
+                                      : null
+                                  });
+                                }}
+                                className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                              />
+                              <span className="text-xs font-bold text-brand-primary">Ship to a different person / location</span>
+                            </label>
+                          </div>
+
+                          {editItemObj.hasCustomShipping ? (
+                            <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-brand-border/40 pb-3">
+                                <div className="flex items-center gap-2">
+                                  <MapPin size={16} className="text-blue-600 shrink-0" />
+                                  <div>
+                                    <span className="text-xs font-bold text-brand-primary">Separate Destination for this Line Item</span>
+                                    <p className="text-[11px] text-gray-500">Route these garments directly to a different recipient than the main order.</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.name) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditItemObj({
+                                          ...editItemObj,
+                                          shippingAddress: {
+                                            name: order.shippingAddress.name || '',
+                                            company: order.shippingAddress.company || '',
+                                            street1: order.shippingAddress.street1 || '',
+                                            street2: order.shippingAddress.street2 || '',
+                                            city: order.shippingAddress.city || '',
+                                            state: order.shippingAddress.state || '',
+                                            zip: order.shippingAddress.zip || '',
+                                            country: order.shippingAddress.country || 'US',
+                                            phone: order.shippingAddress.phone || '',
+                                            notes: editItemObj.shippingAddress?.notes || ''
+                                          }
+                                        });
+                                      }}
+                                      className="text-[10px] font-bold uppercase tracking-wider text-brand-primary border border-brand-border hover:bg-brand-bg px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
+                                    >
+                                      Copy Order Address
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditItemObj({
+                                        ...editItemObj,
+                                        shippingAddress: {
+                                          name: '',
+                                          company: '',
+                                          street1: '',
+                                          street2: '',
+                                          city: '',
+                                          state: '',
+                                          zip: '',
+                                          country: 'US',
+                                          phone: '',
+                                          notes: ''
+                                        }
+                                      });
+                                    }}
+                                    className="text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1.5 rounded-lg transition-all cursor-pointer"
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                <div className="flex flex-col gap-1">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Recipient Name *</label>
+                                  <input 
+                                    type="text"
+                                    value={editItemObj.shippingAddress?.name || ''}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, name: e.target.value }
+                                    })}
+                                    placeholder="e.g. John Doe, Sarah Connor"
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-semibold"
+                                  />
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Company / Attention (Optional)</label>
+                                  <input 
+                                    type="text"
+                                    value={editItemObj.shippingAddress?.company || ''}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, company: e.target.value }
+                                    })}
+                                    placeholder="e.g. Acme Corp - Dept 4B"
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                  />
+                                </div>
+
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Street Address *</label>
+                                  <input 
+                                    type="text"
+                                    value={editItemObj.shippingAddress?.street1 || ''}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, street1: e.target.value }
+                                    })}
+                                    placeholder="e.g. 123 Industrial Way"
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                  />
+                                </div>
+
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Apt, Suite, Unit, Loading Dock (Optional)</label>
+                                  <input 
+                                    type="text"
+                                    value={editItemObj.shippingAddress?.street2 || ''}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, street2: e.target.value }
+                                    })}
+                                    placeholder="e.g. Suite 200 / Dock C"
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:col-span-2">
+                                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">City *</label>
+                                    <input 
+                                      type="text"
+                                      value={editItemObj.shippingAddress?.city || ''}
+                                      onChange={(e) => setEditItemObj({
+                                        ...editItemObj,
+                                        shippingAddress: { ...editItemObj.shippingAddress, city: e.target.value }
+                                      })}
+                                      placeholder="City"
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">State *</label>
+                                    <input 
+                                      type="text"
+                                      value={editItemObj.shippingAddress?.state || ''}
+                                      onChange={(e) => setEditItemObj({
+                                        ...editItemObj,
+                                        shippingAddress: { ...editItemObj.shippingAddress, state: e.target.value.toUpperCase() }
+                                      })}
+                                      placeholder="e.g. CA"
+                                      maxLength={2}
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all uppercase"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">ZIP *</label>
+                                    <input 
+                                      type="text"
+                                      value={editItemObj.shippingAddress?.zip || ''}
+                                      onChange={(e) => setEditItemObj({
+                                        ...editItemObj,
+                                        shippingAddress: { ...editItemObj.shippingAddress, zip: e.target.value }
+                                      })}
+                                      placeholder="ZIP"
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Phone (Optional)</label>
+                                    <input 
+                                      type="text"
+                                      value={editItemObj.shippingAddress?.phone || ''}
+                                      onChange={(e) => setEditItemObj({
+                                        ...editItemObj,
+                                        shippingAddress: { ...editItemObj.shippingAddress, phone: e.target.value }
+                                      })}
+                                      placeholder="Phone"
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Delivery / Packing Notes (Optional)</label>
+                                  <input 
+                                    type="text"
+                                    value={editItemObj.shippingAddress?.notes || ''}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, notes: e.target.value }
+                                    })}
+                                    placeholder="e.g. Leave at front desk, or separate box requested"
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-neutral-50/60 p-3.5 rounded-xl border border-brand-border/60 flex items-center justify-between text-xs text-brand-secondary">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                <span>Ships with main order destination {order.shippingAddress?.name ? '(' + order.shippingAddress.name + (order.shippingAddress.city ? ' • ' + order.shippingAddress.city + ', ' + order.shippingAddress.state : '') + ')' : ''}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditItemObj({
+                                    ...editItemObj,
+                                    hasCustomShipping: true,
+                                    shippingAddress: {
+                                      name: '',
+                                      company: '',
+                                      street1: '',
+                                      street2: '',
+                                      city: '',
+                                      state: '',
+                                      zip: '',
+                                      country: 'US',
+                                      phone: '',
+                                      notes: ''
+                                    }
+                                  });
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:underline cursor-pointer"
+                              >
+                                + Set Different Destination
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+</>
                  )}
 
                  {/* Bottom Row: Sizing */}
