@@ -4286,11 +4286,11 @@ export function OrderDetail() {
                                 )}
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
-                                <div className="flex items-center justify-center sm:justify-start gap-2 w-full">
+                                <div className="flex items-center justify-center sm:justify-start gap-2 w-full flex-wrap">
                                   <h4 className="font-bold text-gray-900 text-[15px]">
-                                    {item.style && item.style !== item.sheetSizeName 
+                                    {item.title || (item.style && item.style !== item.sheetSizeName 
                                       ? item.style 
-                                      : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || 'Garment'))}
+                                      : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || 'Garment')))}
                                   </h4>
                                   {item.itemType === 'gang_sheet' && (
                                     <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded shadow-sm">
@@ -4303,18 +4303,29 @@ export function OrderDetail() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                   {item.itemType === 'gang_sheet' 
-                                     ? `${item.sheetWidth && item.sheetHeight ? `${item.sheetWidth}" x ${item.sheetHeight}"` : ''}` 
-                                     : (() => {
-                                         const parts = [
-                                           item.gender && item.gender !== 'Unisex' ? item.gender : null,
-                                           item.itemStyle || item.garmentStyle || null,
-                                           item.color || null
-                                         ].filter(Boolean);
-                                         return parts.join(' • ');
-                                       })()}
-                                </p>
+                                <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2 mt-0.5">
+                                  <p className="text-xs font-semibold text-gray-500">
+                                     {item.itemType === 'gang_sheet' 
+                                       ? `${item.sheetWidth && item.sheetHeight ? `${item.sheetWidth}" x ${item.sheetHeight}"` : ''}` 
+                                       : (() => {
+                                           const parts = [
+                                             item.gender && item.gender !== 'Unisex' ? item.gender : null,
+                                             item.itemStyle || item.garmentStyle || null,
+                                             item.color || null
+                                           ].filter(Boolean);
+                                           return parts.join(' • ');
+                                         })()}
+                                  </p>
+                                  {item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1) && (
+                                    <div 
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full shadow-xs shrink-0 whitespace-nowrap cursor-help"
+                                      title={'Separate Destination:\nRecipient: ' + (item.shippingAddress.name || 'N/A') + (item.shippingAddress.company ? ' (' + item.shippingAddress.company + ')' : '') + '\nAddress: ' + (item.shippingAddress.street1 || '') + ' ' + (item.shippingAddress.street2 || '') + '\n' + (item.shippingAddress.city || '') + ', ' + (item.shippingAddress.state || '') + ' ' + (item.shippingAddress.zip || '') + (item.shippingAddress.notes ? '\nNotes: ' + item.shippingAddress.notes : '')}
+                                    >
+                                      <MapPin size={11} className="text-blue-600 shrink-0" />
+                                      <span>Ship to: <strong className="font-extrabold">{item.shippingAddress.name || 'Separate Recipient'}</strong> {item.shippingAddress.city ? `(${item.shippingAddress.city}${item.shippingAddress.state ? `, ${item.shippingAddress.state}` : ''})` : (item.shippingAddress.state ? `(${item.shippingAddress.state})` : '')}</span>
+                                    </div>
+                                  )}
+                                </div>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
                                 {(() => {
@@ -4336,15 +4347,6 @@ export function OrderDetail() {
                                           <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
                                           <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
                                         </button>
-                                      )}
-                                      {item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1) && (
-                                        <div 
-                                          className="flex items-center gap-1.5 text-[10px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full shadow-xs shrink-0 whitespace-nowrap cursor-help"
-                                          title={'Separate Destination:\nRecipient: ' + (item.shippingAddress.name || 'N/A') + (item.shippingAddress.company ? ' (' + item.shippingAddress.company + ')' : '') + '\nAddress: ' + (item.shippingAddress.street1 || '') + ' ' + (item.shippingAddress.street2 || '') + '\n' + (item.shippingAddress.city || '') + ', ' + (item.shippingAddress.state || '') + ' ' + (item.shippingAddress.zip || '') + (item.shippingAddress.notes ? '\nNotes: ' + item.shippingAddress.notes : '')}
-                                        >
-                                          <MapPin size={12} className="text-blue-600 shrink-0" />
-                                          <span>Ship to: <strong className="font-extrabold">{item.shippingAddress.name || 'Separate Recipient'}</strong> {item.shippingAddress.city ? '(' + item.shippingAddress.city + ', ' + item.shippingAddress.state + ')' : ''}</span>
-                                        </div>
                                       )}
                                       <button 
                                         onClick={(e) => {
