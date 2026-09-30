@@ -4432,6 +4432,29 @@ export function OrderDetail() {
                                        )}
 
                                        {(() => {
+                                          const customUrl = item.supplierUrl || item.sourceUrl || item.productUrl;
+                                          if (customUrl) {
+                                            let label = 'Supplier';
+                                            try {
+                                              const host = new URL(customUrl).hostname.replace(/^www\./, '');
+                                              if (host.includes('sanmar.com')) label = 'SanMar';
+                                              else if (host.includes('ssactivewear.com')) label = 'S&S';
+                                              else label = host;
+                                            } catch (_) {}
+                                            return (
+                                              <a 
+                                                href={customUrl} 
+                                                target="_blank" 
+                                                rel="noreferrer" 
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                                title={`Open ${customUrl}`}
+                                              >
+                                                <ExternalLink size={12} strokeWidth={3} />
+                                                <span>{label}</span>
+                                              </a>
+                                            );
+                                          }
                                           if (!item.itemNum) return null;
                                           const isInCatalog = sanmarCatalog.some((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase());
                                           const isSanMarPattern = /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(item.itemNum);
@@ -8203,7 +8226,77 @@ export function OrderDetail() {
   
                      {/* Backend Pricing */}
                      <div className="flex flex-col gap-3">
-                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Backend Pricing</label>
+                       <div className="flex items-center justify-between flex-wrap gap-2">
+                         <div className="flex items-center gap-2.5 flex-wrap">
+                           <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Backend Pricing</label>
+                           {(() => {
+                             const customUrl = editItemObj.supplierUrl || editItemObj.sourceUrl || editItemObj.productUrl;
+                             const itemNum = (editItemObj.itemNum || '').trim();
+                             const styleCode = (editItemObj.style || '').trim();
+                             const lookupCode = itemNum || styleCode;
+
+                             if (customUrl) {
+                               let label = 'Supplier Page';
+                               try {
+                                 const host = new URL(customUrl).hostname.replace(/^www\./, '');
+                                 if (host.includes('sanmar.com')) label = 'SanMar';
+                                 else if (host.includes('ssactivewear.com')) label = 'S&S Activewear';
+                                 else label = host;
+                               } catch (_) {}
+                               return (
+                                 <a 
+                                   href={customUrl}
+                                   target="_blank"
+                                   rel="noreferrer"
+                                   className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-2.5 py-1 rounded-full shadow-xs hover:shadow-md hover:-translate-y-[1px] shrink-0 cursor-pointer"
+                                   title={`Open ${customUrl}`}
+                                 >
+                                   <ExternalLink size={11} strokeWidth={2.5} />
+                                   <span>{label}</span>
+                                 </a>
+                               );
+                             }
+
+                             if (!lookupCode) return null;
+
+                             const isInCatalog = sanmarCatalog.some((p: any) => 
+                               (itemNum && p.style && p.style.toLowerCase() === itemNum.toLowerCase()) ||
+                               (styleCode && p.style && p.style.toLowerCase() === styleCode.toLowerCase())
+                             );
+                             const isSanMarPattern = /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(itemNum) ||
+                               /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(styleCode);
+                             const isSanMar = isInCatalog || isSanMarPattern;
+
+                             const sanmarUrl = `https://www.sanmar.com/search/?text=${encodeURIComponent(itemNum || lookupCode)}`;
+                             const ssUrl = `https://www.ssactivewear.com/ps/?q=${encodeURIComponent(itemNum || lookupCode)}`;
+
+                             return (
+                               <div className="flex items-center gap-1.5">
+                                 <a 
+                                   href={sanmarUrl} 
+                                   target="_blank" 
+                                   rel="noreferrer" 
+                                   className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest border transition-all px-2.5 py-1 rounded-full shadow-xs hover:shadow-md hover:-translate-y-[1px] shrink-0 cursor-pointer ${isSanMar ? 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600' : 'text-neutral-600 bg-neutral-100 border-neutral-200 hover:bg-neutral-800 hover:text-white hover:border-neutral-800'}`}
+                                   title={`Search ${itemNum || lookupCode} on SanMar`}
+                                 >
+                                   <ExternalLink size={11} strokeWidth={2.5} />
+                                   <span>SanMar</span>
+                                 </a>
+                                 <a 
+                                   href={ssUrl} 
+                                   target="_blank" 
+                                   rel="noreferrer" 
+                                   className={`flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest border transition-all px-2.5 py-1 rounded-full shadow-xs hover:shadow-md hover:-translate-y-[1px] shrink-0 cursor-pointer ${!isSanMar ? 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600' : 'text-neutral-600 bg-neutral-100 border-neutral-200 hover:bg-neutral-800 hover:text-white hover:border-neutral-800'}`}
+                                   title={`Search ${itemNum || lookupCode} on S&S Activewear`}
+                                 >
+                                   <ExternalLink size={11} strokeWidth={2.5} />
+                                   <span>S&S</span>
+                                 </a>
+                               </div>
+                             );
+                           })()}
+                         </div>
+                       </div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
                          <div className="flex flex-col gap-1.5">
                            <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Cost Price ($)</label>
@@ -8223,6 +8316,29 @@ export function OrderDetail() {
                              onChange={(e) => setEditItemObj({...editItemObj, wholesalePrice: e.target.value})}
                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
                              placeholder="0.00"
+                           />
+                         </div>
+                         <div className="flex flex-col gap-1.5 sm:col-span-2 pt-1 border-t border-brand-border/40">
+                           <div className="flex items-center justify-between">
+                             <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Supplier / Product Source Link (Optional)</label>
+                             {editItemObj.supplierUrl && (
+                               <a 
+                                 href={editItemObj.supplierUrl} 
+                                 target="_blank" 
+                                 rel="noreferrer"
+                                 className="text-[10px] text-brand-primary font-bold hover:underline flex items-center gap-1"
+                               >
+                                 <span>Test link</span>
+                                 <ExternalLink size={10} />
+                               </a>
+                             )}
+                           </div>
+                           <input 
+                             type="url"
+                             value={editItemObj.supplierUrl || ''}
+                             onChange={(e) => setEditItemObj({...editItemObj, supplierUrl: e.target.value})}
+                             className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                             placeholder="https://www.sanmar.com/... or custom supplier URL"
                            />
                          </div>
                        </div>
