@@ -4287,15 +4287,15 @@ export function OrderDetail() {
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
                                 <div className="flex items-center justify-center sm:justify-start gap-2 w-full flex-wrap">
-                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-baseline flex-wrap gap-1.5">
-                                    <span>
+                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-baseline flex-nowrap gap-1.5">
+                                    <span className="shrink-0">
                                       {item.title || (item.style && item.style !== item.sheetSizeName 
                                         ? item.style 
                                         : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || 'Garment')))}
                                     </span>
                                     {item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1) && (
                                       <span 
-                                        className="text-xs font-semibold text-gray-500"
+                                        className="text-xs font-semibold text-gray-500 whitespace-nowrap shrink-0"
                                         title={'Separate Destination:\nRecipient: ' + (item.shippingAddress.name || 'N/A') + (item.shippingAddress.company ? ' (' + item.shippingAddress.company + ')' : '') + '\nAddress: ' + (item.shippingAddress.street1 || '') + ' ' + (item.shippingAddress.street2 || '') + '\n' + (item.shippingAddress.city || '') + ', ' + (item.shippingAddress.state || '') + ' ' + (item.shippingAddress.zip || '') + (item.shippingAddress.notes ? '\nNotes: ' + item.shippingAddress.notes : '')}
                                       >
                                         - Ship to: {item.shippingAddress.name || 'Separate Recipient'} {item.shippingAddress.city ? `(${item.shippingAddress.city}${item.shippingAddress.state ? `, ${item.shippingAddress.state}` : ''})` : (item.shippingAddress.state ? `(${item.shippingAddress.state})` : '')}
