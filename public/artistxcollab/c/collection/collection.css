@@ -59,15 +59,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .cord{position:absolute;top:0;width:2px;transform:translateX(-50%);pointer-events:none;
   background:linear-gradient(180deg, #14120f 0%, #1c1916 70%, #0f0e0c 100%);box-shadow:0 0 2px rgba(0,0,0,.45);}
 .swing{position:absolute;inset:0;will-change:transform;}
-.hanger{position:absolute;pointer-events:none;overflow:visible;filter:drop-shadow(0 6px 6px rgba(0,0,0,.35));}
-.hanger{filter:drop-shadow(0 10px 10px rgba(0,0,0,.45));}
-.flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.4,.05,.2,1);}
-.flip.back{transform:rotateY(180deg);}
+.hanger{position:absolute;pointer-events:none;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 6px 6px rgba(0,0,0,.35));}
+.flip{position:absolute;inset:0;transform:perspective(1800px) rotateY(0deg);transition:transform .8s cubic-bezier(.4,.05,.2,1);}
+.flip.back{transform:perspective(1800px) rotateY(180deg);}
 .flip img.hero{transition:opacity 0s linear .4s;}          /* faces swap at the midpoint of the turn */
 .flip img.hero.b{transform:rotateY(180deg);opacity:0;}
 .flip.back img.hero.f{opacity:0;}
 .flip.back img.hero.b{opacity:1;}
-.g{perspective:1800px;}
 .swing.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}
 .g img.hero{position:absolute;pointer-events:none;user-select:none;-webkit-user-drag:none;
   filter:drop-shadow(0 18px 22px rgba(0,0,0,.28));}
