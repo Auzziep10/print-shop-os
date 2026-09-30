@@ -59,6 +59,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .cord{position:absolute;top:0;width:2px;transform:translateX(-50%);pointer-events:none;
   background:linear-gradient(180deg, #14120f 0%, #1c1916 70%, #0f0e0c 100%);box-shadow:0 0 2px rgba(0,0,0,.45);}
 .swing{position:absolute;inset:0;will-change:transform;}
+.hanger{position:absolute;pointer-events:none;overflow:visible;filter:drop-shadow(0 6px 6px rgba(0,0,0,.35));}
+.hanger path{fill:none;stroke:#17150f;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;}
 .flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.4,.05,.2,1);}
 .flip.back{transform:rotateY(180deg);}
 .flip img.hero{transition:opacity 0s linear .4s;}          /* faces swap at the midpoint of the turn */

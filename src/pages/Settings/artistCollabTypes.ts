@@ -29,8 +29,9 @@ export interface AxcGarment {
   artist: string;
   story: string;
   specs: AxcSpec[];
-  front: AxcImage | null;   // transparent cutout, hanger included, on the shared 920×2000 canvas
-  back: AxcImage | null;    // optional; enables the flip control
+  front: AxcImage | null;   // the garment only: tight transparent cutout, no hanger (the viewer sizes and hangs it)
+  back: AxcImage | null;    // optional, same crop as the front; enables the flip control
+  layout?: 'garment' | 'canvas';   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
   closeups: AxcCloseup[];
   active: boolean;
   sortOrder: number;
@@ -55,6 +56,7 @@ export function emptyGarment(sortOrder: number): Omit<AxcGarment, 'id'> {
     specs: DEFAULT_SPECS.map(s => ({ ...s })),
     front: null,
     back: null,
+    layout: 'garment',
     closeups: [],
     active: false,
     sortOrder,

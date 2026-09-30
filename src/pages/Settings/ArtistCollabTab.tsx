@@ -12,7 +12,17 @@ import {
   type AxcCloseup, type AxcGarment, type AxcImage, type AxcSpec,
 } from './artistCollabTypes';
 
-const ROOM_PREVIEW = '/artistxcollab/img/garments/room.webp';
+const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
+
+/** Empty-slot placeholder: a faint tee outline so the slot never looks like it already holds an image. */
+function GarmentSilhouette({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
+      <path d="M35 14 Q50 24 65 14 L86 24 L80 44 L70 40 L70 88 L30 88 L30 40 L20 44 L14 24 Z"
+            fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function readImageSize(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -98,9 +108,10 @@ function GarmentEditor({
       <div>
         <label className={tokens.typography.label}>{label}</label>
         <div className="mt-2 flex items-start gap-3">
-          <div className="relative h-52 w-24 shrink-0 overflow-hidden rounded-lg border border-brand-border bg-[#a9a49d]"
-               style={{ backgroundImage: `url(${ROOM_PREVIEW})`, backgroundSize: 'cover', backgroundPosition: 'center 30%' }}>
-            {img ? <img src={img.url} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: 'center 30%' }} /> : null}
+          <div className={`relative h-40 w-32 shrink-0 overflow-hidden rounded-lg border border-brand-border ${TILE}`}>
+            {img
+              ? <img src={img.url} alt="" className="absolute inset-0 h-full w-full object-contain p-2" />
+              : <div className="absolute inset-0 grid place-items-center text-brand-secondary/60"><div className="text-center"><GarmentSilhouette className="mx-auto h-14 w-14" /><div className="mt-1 text-[10px] uppercase tracking-wider">No image</div></div></div>}
             {busy === side && <div className="absolute inset-0 grid place-items-center bg-black/40 text-white"><Loader2 size={16} className="animate-spin" /></div>}
           </div>
           <div className="flex flex-col gap-2">
@@ -147,9 +158,9 @@ function GarmentEditor({
           <label className={tokens.typography.label}>Garment makeup</label>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {g.specs.map((s, i) => (
-              <div key={i} className="flex gap-2">
-                <input className={tokens.components.input + ' w-2/5 bg-white'} value={s.label} onChange={e => updateSpec(i, { label: e.target.value })} placeholder="Fabric" />
-                <input className={tokens.components.input + ' flex-1 bg-white'} value={s.value} onChange={e => updateSpec(i, { value: e.target.value })} placeholder="6.5 oz organic cotton" />
+              <div key={i} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-center gap-2">
+                <input className={tokens.components.input + ' min-w-0 bg-white'} value={s.label} onChange={e => updateSpec(i, { label: e.target.value })} placeholder="Fabric" />
+                <input className={tokens.components.input + ' min-w-0 bg-white'} value={s.value} onChange={e => updateSpec(i, { value: e.target.value })} placeholder="6.5 oz organic cotton" />
                 <button type="button" onClick={() => set('specs', g.specs.filter((_, j) => j !== i))} className="text-brand-secondary hover:text-red-600" title="Remove"><X size={14} /></button>
               </div>
             ))}
@@ -267,9 +278,7 @@ export function ArtistCollabTab() {
       </div>
 
       <div className="mb-5 rounded-lg border border-brand-border bg-brand-bg/60 px-4 py-3 text-xs text-brand-secondary">
-        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: PNG or WebP with a transparent background on a 920×2000 canvas,
-        hanger included, hook at the same height on every garment (about a third of the way down) so they hang level on the rail.
-        Closeups: portrait photos, 920×2000 recommended. The room itself stays fixed.
+        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: just the garment, cut out on a transparent background (PNG or WebP), cropped tight, no hanger and no room. Any size works; the viewer sizes each garment, hangs it from the rail and draws the hanger. Export the back with the same crop as the front so the flip lines up. Closeups: portrait photos, any size.
       </div>
 
       {editingId === 'new' && (
@@ -289,9 +298,8 @@ export function ArtistCollabTab() {
           {garments.map((g, idx) => (
             <div key={g.id}>
               <div className={`flex items-center gap-4 rounded-xl border bg-white p-3 ${g.active ? 'border-brand-border' : 'border-dashed border-brand-border opacity-70'}`}>
-                <div className="h-20 w-10 shrink-0 overflow-hidden rounded bg-[#a9a49d]"
-                     style={{ backgroundImage: `url(${ROOM_PREVIEW})`, backgroundSize: 'cover', backgroundPosition: 'center 30%' }}>
-                  {g.front && <img src={g.front.url} alt="" className="h-full w-full object-cover" style={{ objectPosition: 'center 30%' }} />}
+                <div className={`grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded ${TILE}`}>
+                  {g.front ? <img src={g.front.url} alt="" className="h-full w-full object-contain p-1" /> : <GarmentSilhouette className="h-8 w-8 text-brand-secondary/50" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-brand-primary">{g.name || 'Untitled garment'}</div>

@@ -12,6 +12,7 @@
     if(!front || !front.url) return null;
     return {
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
+      layout: g.layout === 'canvas' ? 'canvas' : 'garment',
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
       back: (g.back && g.back.url) ? { url: g.back.url, width: g.back.width || 920, height: g.back.height || 2000 } : null,
@@ -103,7 +104,10 @@
     // garments hang on a rail: cord from the ceiling, a swing pivot at the hook, front/back on a flip card
     var els = garments.map(function(g, i){
       var el = document.createElement('div'); el.className = 'g mount'; el.dataset.i = i;
-      el.innerHTML = '<div class="cord"></div><div class="swing"><div class="flip">' +
+      var hanger = g.layout === 'garment'
+        ? '<svg class="hanger" viewBox="0 0 200 92" aria-hidden="true"><path d="M100 36 c0 -8 -10 -10 -10 -19 c0 -6 4 -9 10 -9 c5 0 9 3 9 7"/><path d="M100 36 L10 80 q-5 3 -1 7 L191 87 q4 -4 -1 -7 Z"/></svg>'
+        : '';
+      el.innerHTML = '<div class="cord"></div><div class="swing">' + hanger + '<div class="flip">' +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
         (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +
         '</div></div>';
@@ -117,17 +121,28 @@
       var W = stage.clientWidth, H = stage.clientHeight;
       var fit = fitRoom();
       garments.forEach(function(g, i){
-        var iw = g.front.width, ih = g.front.height;
-        var s = desktop() ? Math.min(W/iw, H/ih) : (fit ? fit.h/ih : Math.max(W/iw, H/ih));
-        var rw = iw*s, rh = ih*s;
-        var shift = (data.garmentShiftY || 0) * rh;
-        var left = (W-rw)/2, top = (H-rh)/2 + shift, hookTop = top + (data.hookY || 0.34)*rh;
+        var iw = g.front.width, ih = g.front.height, left, top, rw, rh, hookTop;
+        var roomH = fit ? fit.h : H, roomTop = fit ? (H - fit.h)/2 : 0;
+        var hg = els[i].querySelector('.hanger');
+        if(g.layout === 'garment'){
+          // tight cutout: normalise to a shared width, hang it under a drawn hanger at the room's hook line
+          rw = (data.garmentWidth || 0.32) * roomH; rh = ih * (rw/iw);
+          hookTop = roomTop + (data.hookY || 0.34) * roomH;
+          var hw = rw * 0.64, hh = hw * (92/200);   // hanger spans the shoulders, arms stay inside the garment
+          left = (W - rw)/2; top = hookTop + hh * 0.42;
+          if(hg){ hg.style.left = ((W - hw)/2)+'px'; hg.style.top = hookTop+'px'; hg.style.width = hw+'px'; hg.style.height = hh+'px'; }
+        } else {
+          // legacy full-canvas plate with the hanger baked in
+          var s = desktop() ? Math.min(W/iw, H/ih) : (fit ? fit.h/ih : Math.max(W/iw, H/ih));
+          rw = iw*s; rh = ih*s;
+          left = (W-rw)/2; top = (H-rh)/2 + (data.garmentShiftY || 0) * rh; hookTop = top + 0.34*rh;
+        }
         Array.prototype.forEach.call(els[i].querySelectorAll('.hero'), function(img){
           img.style.left = left+'px'; img.style.top = top+'px'; img.style.width = rw+'px'; img.style.height = rh+'px';
         });
         var flip = els[i].querySelector('.flip'); flip.style.transformOrigin = (W/2)+'px 50%';
         els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+hookTop+'px';
-        var cord = els[i].querySelector('.cord'); cord.style.left = (left + rw/2)+'px'; cord.style.height = (hookTop + 3)+'px';
+        var cord = els[i].querySelector('.cord'); cord.style.left = (W/2)+'px'; cord.style.height = (hookTop + 3)+'px';
       });
     }
 

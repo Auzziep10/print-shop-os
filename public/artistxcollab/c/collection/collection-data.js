@@ -7,14 +7,14 @@ window.AXC_COLLECTION = {
   backgroundSize: [852, 1847],
   backgroundWide: "/artistxcollab/img/garments/room-wide.webp",   // same room with the wall extended sideways for short/wide phone viewports
   backgroundWideSize: [1400, 1847],
-  hookY: 0.34,
-  garmentShiftY: 0.005,   // hang the rail just under the sign (sign bottom sits at ~32% of the room)
+  hookY: 0.34,           // where the hanger hook hangs, as a fraction of the room height (just under the sign)
+  garmentWidth: 0.32,    // every garment is scaled to this width, as a fraction of the room height
   garments: [
     {
       id: "sb-saints-after-dark",
       name: "Saints After Dark Tee",
       artist: "SantosBravos",
-      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
+      front: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },
       back: null,
       story: "Built from light, drawn to trouble. A heavyweight enzyme-washed tee with a puff-ink manifesto at the chest and a hand-thrown splatter across the hem.",
       specs: [
@@ -37,8 +37,8 @@ window.AXC_COLLECTION = {
       id: "sample-2",
       name: "Sample Garment 02",
       artist: "Sample — replace in admin",
-      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
-      back: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },   // placeholder back so the Turn control can be tried
+      front: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },
+      back: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },   // placeholder back so the Turn control can be tried
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
       closeups: [{ label: "Art 1", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }]
@@ -47,7 +47,7 @@ window.AXC_COLLECTION = {
       id: "sample-3",
       name: "Sample Garment 03",
       artist: "Sample — replace in admin",
-      front: { url: "/artistxcollab/img/garments/sb-tee-cut.webp", width: 806, height: 1760 },
+      front: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },
       back: null,
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
