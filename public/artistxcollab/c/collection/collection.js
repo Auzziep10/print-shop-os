@@ -104,8 +104,13 @@
     // garments hang on a rail: cord from the ceiling, a swing pivot at the hook, front/back on a flip card
     var els = garments.map(function(g, i){
       var el = document.createElement('div'); el.className = 'g mount'; el.dataset.i = i;
+      // solid black shoulder hanger like the original renders: flat cap the cord drops onto, arched arms, open underneath
       var hanger = g.layout === 'garment'
-        ? '<svg class="hanger" viewBox="0 0 200 92" aria-hidden="true"><path d="M100 36 c0 -8 -10 -10 -10 -19 c0 -6 4 -9 10 -9 c5 0 9 3 9 7"/><path d="M100 36 L10 80 q-5 3 -1 7 L191 87 q4 -4 -1 -7 Z"/></svg>'
+        ? '<svg class="hanger" viewBox="0 0 200 84" aria-hidden="true">' +
+          '<defs><linearGradient id="hg'+i+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34302c"/><stop offset=".3" stop-color="#1a1815"/><stop offset="1" stop-color="#0a0908"/></linearGradient></defs>' +
+          '<rect x="94" y="0" width="12" height="8" rx="2" fill="#1a1815"/>' +
+          '<path fill="url(#hg'+i+')" d="M84 4 Q78 4 72 9 C50 22 26 46 8 66 Q2 74 9 80 L24 80 C44 60 74 40 100 32 C126 40 156 60 176 80 L191 80 Q198 74 192 66 C174 46 150 22 128 9 Q122 4 116 4 Z"/>' +
+          '</svg>'
         : '';
       el.innerHTML = '<div class="cord"></div><div class="swing">' + hanger + '<div class="flip">' +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
@@ -128,8 +133,8 @@
           // tight cutout: normalise to a shared width, hang it under a drawn hanger at the room's hook line
           rw = (data.garmentWidth || 0.32) * roomH; rh = ih * (rw/iw);
           hookTop = roomTop + (data.hookY || 0.34) * roomH;
-          var hw = rw * 0.64, hh = hw * (92/200);   // hanger spans the shoulders, arms stay inside the garment
-          left = (W - rw)/2; top = hookTop + hh * 0.42;
+          var hw = rw * 0.5, hh = hw * (84/200);   // hanger spans shoulder seam to shoulder seam, tips tuck behind the shoulders
+          left = (W - rw)/2; top = hookTop + hh * 0.5;   // collar sits across the arms, apex shows through the neck
           if(hg){ hg.style.left = ((W - hw)/2)+'px'; hg.style.top = hookTop+'px'; hg.style.width = hw+'px'; hg.style.height = hh+'px'; }
         } else {
           // legacy full-canvas plate with the hanger baked in
