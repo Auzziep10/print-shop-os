@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Tag } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -975,40 +975,99 @@ export function PortalCreateOrder() {
     }).filter(Boolean) as any[];
   }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, defaultColors, globalCustomMockups, colorMockups, customCatalogItems, catalogBasics]);
 
+  const isRemoteSyncRef = useRef(false);
+  const [isCartLoadedFromDb, setIsCartLoadedFromDb] = useState(false);
+
   useEffect(() => {
-    if (isInitialLoadDone) return;
-    let preselected: any[] = [];
-    if (location.state?.preselectedItems && Array.isArray(location.state.preselectedItems)) {
-      preselected = [...location.state.preselectedItems];
-      // Clear location state to avoid repeating on reload
-      window.history.replaceState({}, document.title);
+    if (isInitialLoadDone || isCartLoadedFromDb) return;
+    if (!customerId) {
+      setIsCartLoadedFromDb(true);
+      return;
     }
 
-    // Check localStorage cart items
-    if (customerId) {
+    let isSubscribed = true;
+    const loadInitialCart = async () => {
+      let preselected: any[] = [];
+      if (location.state?.preselectedItems && Array.isArray(location.state.preselectedItems)) {
+        preselected = [...location.state.preselectedItems];
+        // Clear location state to avoid repeating on reload
+        window.history.replaceState({}, document.title);
+      }
+
       const cartKey = `wovn_reorder_cart_${customerId}`;
       try {
-        const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        if (savedCart && savedCart.length > 0) {
-          preselected = [...preselected, ...savedCart];
+        const cartSnap = await getDoc(doc(db, 'active_carts', customerId));
+        if (cartSnap.exists()) {
+          const fsItems = cartSnap.data()?.items;
+          if (Array.isArray(fsItems) && fsItems.length > 0) {
+            const existingIds = new Set(preselected.map((p: any) => p.instanceId || p.id));
+            fsItems.forEach((it: any) => {
+              const itId = it.instanceId || it.id;
+              if (!existingIds.has(itId)) {
+                preselected.push(it);
+              }
+            });
+            try {
+              localStorage.setItem(cartKey, JSON.stringify(preselected));
+            } catch (e) {}
+          }
+        } else {
+          // If no active cart in Firestore, check localStorage
+          const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+          if (Array.isArray(savedCart) && savedCart.length > 0) {
+            const existingIds = new Set(preselected.map((p: any) => p.instanceId || p.id));
+            savedCart.forEach((it: any) => {
+              const itId = it.instanceId || it.id;
+              if (!existingIds.has(itId)) {
+                preselected.push(it);
+              }
+            });
+            // Push to Firestore so it syncs immediately
+            setDoc(doc(db, 'active_carts', customerId), {
+              customerId,
+              items: preselected,
+              itemCount: preselected.length,
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+          }
         }
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.warn("Error fetching active cart from Firestore:", err);
+        try {
+          const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+          if (Array.isArray(savedCart) && savedCart.length > 0) {
+            preselected = [...preselected, ...savedCart];
+          }
+        } catch (e) {}
       }
-    }
 
-    if (preselected.length > 0) {
-      setPendingPreselected(preselected);
-    }
-  }, [location.state, customerId, isInitialLoadDone]);
+      if (isSubscribed) {
+        if (preselected.length > 0) {
+          setPendingPreselected(preselected);
+        } else {
+          setPendingPreselected(null);
+        }
+        setIsCartLoadedFromDb(true);
+      }
+    };
+
+    loadInitialCart();
+    return () => { isSubscribed = false; };
+  }, [location.state, customerId, isInitialLoadDone, isCartLoadedFromDb]);
 
   useEffect(() => {
-    if (location.state?.openLibrary || location.state?.openCart) {
+    if (location.state?.openLibrary || location.state?.openCart || location.search.includes('openCart=true')) {
       setIsCartOpen(true);
       // Clear location state flag
       window.history.replaceState({ ...location.state, openLibrary: undefined, openCart: undefined }, document.title);
     }
-  }, [location.state]);
+  }, [location.state, location.search]);
+
+  useEffect(() => {
+    const handleOpenDrawer = () => setIsCartOpen(true);
+    window.addEventListener('wovn_open_cart_drawer', handleOpenDrawer);
+    return () => window.removeEventListener('wovn_open_cart_drawer', handleOpenDrawer);
+  }, []);
 
   const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
     // If it's already in builder format, don't re-map it
@@ -1083,12 +1142,12 @@ export function PortalCreateOrder() {
   }, [pendingPreselected, isLoadingDecks, customerDecks]);
 
   useEffect(() => {
-    if (!isLoadingDecks && pendingPreselected === null) {
+    if (!isLoadingDecks && isCartLoadedFromDb && pendingPreselected === null) {
       setIsInitialLoadDone(true);
     }
-  }, [isLoadingDecks, pendingPreselected]);
+  }, [isLoadingDecks, isCartLoadedFromDb, pendingPreselected]);
 
-  // Synchronize orderItems with localStorage cart once initial load is complete
+  // Synchronize orderItems with localStorage cart and Firestore active_carts once initial load is complete
   useEffect(() => {
     if (!isInitialLoadDone || !customerId) return;
     const cartKey = `wovn_reorder_cart_${customerId}`;
@@ -1098,7 +1157,66 @@ export function PortalCreateOrder() {
     } catch (e) {
       console.error("Failed to sync order items to local storage:", e);
     }
-  }, [orderItems, customerId, isInitialLoadDone]);
+
+    if (isRemoteSyncRef.current) {
+      isRemoteSyncRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const cleanItems = JSON.parse(JSON.stringify(orderItems));
+        if (cleanItems.length === 0) {
+          await deleteDoc(doc(db, 'active_carts', customerId)).catch(() => {});
+        } else {
+          await setDoc(doc(db, 'active_carts', customerId), {
+            customerId,
+            items: cleanItems,
+            itemCount: cleanItems.length,
+            updatedAt: new Date().toISOString(),
+            updatedBy: userData?.name || user?.displayName || user?.email || 'User'
+          }, { merge: true });
+        }
+      } catch (err) {
+        console.warn("Failed to sync active cart to Firestore:", err);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [orderItems, customerId, isInitialLoadDone, userData, user]);
+
+  // Real-time synchronization: listen for remote cart updates (e.g. from customer or admin)
+  useEffect(() => {
+    if (!isInitialLoadDone || !customerId) return;
+    const unsub = onSnapshot(doc(db, 'active_carts', customerId), (docSnap) => {
+      if (docSnap.metadata.hasPendingWrites) return;
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const remoteItems = Array.isArray(data?.items) ? data.items : [];
+        if (JSON.stringify(remoteItems) !== JSON.stringify(orderItems)) {
+          isRemoteSyncRef.current = true;
+          setOrderItems(remoteItems);
+          const cartKey = `wovn_reorder_cart_${customerId}`;
+          try {
+            localStorage.setItem(cartKey, JSON.stringify(remoteItems));
+          } catch (e) {}
+          window.dispatchEvent(new Event('wovn_cart_updated'));
+        }
+      } else if (orderItems.length > 0) {
+        isRemoteSyncRef.current = true;
+        setOrderItems([]);
+        const cartKey = `wovn_reorder_cart_${customerId}`;
+        try {
+          localStorage.removeItem(cartKey);
+        } catch (e) {}
+        window.dispatchEvent(new Event('wovn_cart_updated'));
+      }
+    }, (err) => {
+      console.warn("Active cart onSnapshot error:", err);
+    });
+
+    return () => unsub();
+  }, [isInitialLoadDone, customerId, orderItems]);
 
   const handleSaveCart = async () => {
     if (!customerId || orderItems.length === 0 || !savedCartName.trim()) return;
@@ -1665,7 +1783,12 @@ export function PortalCreateOrder() {
 
       if (customerId) {
         const cartKey = `wovn_reorder_cart_${customerId}`;
-        localStorage.removeItem(cartKey);
+        try {
+          localStorage.removeItem(cartKey);
+          await deleteDoc(doc(db, 'active_carts', customerId));
+        } catch (e) {
+          console.warn("Failed to delete active cart doc upon order submission:", e);
+        }
       }
       window.dispatchEvent(new Event('wovn_cart_updated'));
 

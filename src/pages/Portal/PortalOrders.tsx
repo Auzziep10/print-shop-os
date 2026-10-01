@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
@@ -103,6 +103,51 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     isAnimating: boolean;
   }
   const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
+  const [activeCartCount, setActiveCartCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (!currentCustomerId) {
+      setActiveCartCount(0);
+      return;
+    }
+    const cartKey = `wovn_reorder_cart_${currentCustomerId}`;
+    const unsub = onSnapshot(doc(db, 'active_carts', currentCustomerId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setActiveCartCount(items.length);
+      } else {
+        try {
+          const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+          setActiveCartCount(Array.isArray(localCart) ? localCart.length : 0);
+        } catch (e) {
+          setActiveCartCount(0);
+        }
+      }
+    }, () => {
+      try {
+        const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        setActiveCartCount(Array.isArray(localCart) ? localCart.length : 0);
+      } catch (e) {
+        setActiveCartCount(0);
+      }
+    });
+
+    const handleCartUpdated = () => {
+      try {
+        const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        setActiveCartCount(Array.isArray(localCart) ? localCart.length : 0);
+      } catch (e) {
+        setActiveCartCount(0);
+      }
+    };
+    window.addEventListener('wovn_cart_updated', handleCartUpdated);
+
+    return () => {
+      unsub();
+      window.removeEventListener('wovn_cart_updated', handleCartUpdated);
+    };
+  }, [currentCustomerId]);
 
   const handleReorderClick = (item: any, e: React.MouseEvent<HTMLButtonElement>) => {
     const cartKey = `wovn_reorder_cart_${currentCustomerId}`;
@@ -117,6 +162,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     if (!exists) {
       currentCart.push(item);
       localStorage.setItem(cartKey, JSON.stringify(currentCart));
+      if (currentCustomerId) {
+        setDoc(doc(db, 'active_carts', currentCustomerId), {
+          customerId: currentCustomerId,
+          items: currentCart,
+          itemCount: currentCart.length,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+      }
     }
     // Set added animation state
     setAddedItemIds(prev => ({ ...prev, [item.id]: true }));
@@ -665,7 +718,26 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const activeTour = localStorage.getItem('wovn_active_tour') || '';
   if (orders.length === 0 && activeTour !== 'tracking') {
     return (
-      <div className="max-w-[800px] mx-auto mt-24 flex flex-col items-center justify-center text-center gap-6">
+      <div className="max-w-[800px] mx-auto mt-20 flex flex-col items-center justify-center text-center gap-6">
+        {activeCartCount > 0 && (
+          <div className="w-full max-w-md bg-emerald-50 border border-emerald-200 rounded-2xl p-4.5 mb-2 shadow-sm flex items-center justify-between text-left">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                <ShoppingBag size={20} />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Working Cart In Progress</p>
+                <p className="text-sm font-medium text-emerald-950">{activeCartCount} {activeCartCount === 1 ? 'item' : 'items'} currently in cart</p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate(customerId ? `/portal/${customerId}/create?openCart=true` : '/portal/create?openCart=true', { state: { openCart: true } })}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-full transition-all shadow hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
+            >
+              Resume Order &rarr;
+            </button>
+          </div>
+        )}
         <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
           <PackageOpen strokeWidth={1.5} size={40} />
         </div>
@@ -675,10 +747,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
             You don't currently have any orders in the pipeline. Once a new order is placed or quoted, you'll be able to track its progress here.
           </p>
           <button
-            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
+            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create', { state: activeCartCount > 0 ? { openCart: true } : undefined })}
             className="bg-black text-white px-6 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] inline-flex items-center gap-2 cursor-pointer"
           >
-            Create Order +
+            {activeCartCount > 0 ? `View Working Cart (${activeCartCount}) +` : "Create Order +"}
           </button>
         </div>
       </div>
@@ -707,6 +779,25 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         data-tour="orders-list"
         className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}
       >
+      {activeCartCount > 0 && (
+        <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+          <div className="flex items-center gap-3.5">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+              <ShoppingBag size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Working Cart In Progress</p>
+              <p className="text-sm font-medium text-emerald-950">{activeCartCount} {activeCartCount === 1 ? 'item' : 'items'} currently in cart ready for quote / checkout</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(customerId ? `/portal/${customerId}/create?openCart=true` : '/portal/create?openCart=true', { state: { openCart: true } })}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-2.5 rounded-full transition-all shadow hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
+          >
+            Open Cart Drawer &rarr;
+          </button>
+        </div>
+      )}
       {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
         const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'In Production', 'Shipped', 'Received'];

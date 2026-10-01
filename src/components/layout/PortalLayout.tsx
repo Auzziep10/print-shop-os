@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db, storage } from '../../lib/firebase';
-import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
@@ -66,20 +66,62 @@ export function PortalLayout() {
       setCartCount(0);
       return;
     }
+    const cartKey = `wovn_reorder_cart_${customerId}`;
+    const cartDocRef = doc(db, 'active_carts', customerId);
+
+    const unsubscribe = onSnapshot(cartDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setCartCount(items.length);
+        try {
+          localStorage.setItem(cartKey, JSON.stringify(items));
+        } catch (e) {}
+        setIsJiggling(true);
+        setTimeout(() => setIsJiggling(false), 600);
+      } else {
+        try {
+          const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+          if (Array.isArray(localCart) && localCart.length > 0) {
+            setCartCount(localCart.length);
+            // Migrate local cart to Firestore so admin sees it right away
+            setDoc(cartDocRef, {
+              customerId,
+              items: localCart,
+              itemCount: localCart.length,
+              updatedAt: new Date().toISOString(),
+              source: 'migrated_local'
+            }, { merge: true }).catch(() => {});
+          } else {
+            setCartCount(0);
+          }
+        } catch (e) {
+          setCartCount(0);
+        }
+      }
+    }, (err) => {
+      console.warn("Active cart onSnapshot error in layout:", err);
+      try {
+        const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        setCartCount(Array.isArray(localCart) ? localCart.length : 0);
+      } catch (e) {
+        setCartCount(0);
+      }
+    });
+
     const updateCount = () => {
-      const cartKey = `wovn_reorder_cart_${customerId}`;
       try {
         const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        setCartCount(cart.length);
+        setCartCount(Array.isArray(cart) ? cart.length : 0);
         setIsJiggling(true);
         setTimeout(() => setIsJiggling(false), 600);
       } catch (e) {
         setCartCount(0);
       }
     };
-    updateCount();
     window.addEventListener('wovn_cart_updated', updateCount);
     return () => {
+      unsubscribe();
       window.removeEventListener('wovn_cart_updated', updateCount);
     };
   }, [customerId]);
@@ -545,8 +587,8 @@ export function PortalLayout() {
   };
 
   const handleCreateOrder = (openLibrary = false) => {
-    navigate(customerId ? `/portal/${customerId}/create` : '/portal', {
-      state: openLibrary ? { openLibrary: true } : undefined
+    navigate(customerId ? `/portal/${customerId}/create` : '/portal/create', {
+      state: openLibrary ? { openLibrary: true, openCart: true } : (cartCount > 0 ? { openCart: true } : undefined)
     });
   };
 

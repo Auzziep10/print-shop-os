@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
-import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { ShoppingCart, ArrowLeft, ArrowRight, Trash2, Loader2, Plus, FolderHeart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -74,16 +74,24 @@ export function PortalSavedCarts() {
     return () => unsub();
   }, [customerId]);
 
-  const handleLoadCart = (savedCart: any) => {
+  const handleLoadCart = async (savedCart: any) => {
     if (!customerId) return;
+    const items = savedCart.items || [];
     try {
       const cartKey = `wovn_reorder_cart_${customerId}`;
-      localStorage.setItem(cartKey, JSON.stringify(savedCart.items || []));
+      localStorage.setItem(cartKey, JSON.stringify(items));
       window.dispatchEvent(new Event('wovn_cart_updated'));
+
+      await setDoc(doc(db, 'active_carts', customerId), {
+        customerId,
+        items,
+        itemCount: items.length,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
     } catch (e) {
-      console.error("Failed to load saved cart into localStorage:", e);
+      console.error("Failed to load saved cart into active cart:", e);
     }
-    navigate(`/portal/${customerId}/create?openCart=true`);
+    navigate(`/portal/${customerId}/create?openCart=true`, { state: { openCart: true } });
   };
 
   const handleDeleteCart = async (savedCart: any) => {
