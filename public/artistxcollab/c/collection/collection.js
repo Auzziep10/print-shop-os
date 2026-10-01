@@ -107,7 +107,7 @@
       // solid black shoulder hanger like the original renders: flat cap the cord drops onto, arched arms, open underneath
       // the hanger is lifted from the original render (img/garments/hanger.png, 170x130 on the 806px reference canvas,
       // cap top 3px below its top edge, collar line 58px down); the viewer places it in those reference units
-      var hanger = g.layout === 'garment' ? '<img class="hanger" src="'+(data.hangerImage || 'img/garments/hanger.png')+'" alt="" draggable="false">' : '';
+      var hanger = g.layout === 'garment' ? '<img class="hanger" src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false">' : '';
       el.innerHTML = '<div class="cord"></div><div class="swing">' + hanger + '<div class="flip">' +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
         (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +

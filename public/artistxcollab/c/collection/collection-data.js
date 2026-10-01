@@ -7,6 +7,7 @@ window.AXC_COLLECTION = {
   backgroundSize: [852, 1847],
   backgroundWide: "/artistxcollab/img/garments/room-wide.webp",   // same room with the wall extended sideways for short/wide phone viewports
   backgroundWideSize: [1400, 1847],
+  hangerImage: "/artistxcollab/img/garments/hanger.png",   // the hanger lifted from the original render (170x130 on the 806px reference canvas)
   hookY: 0.34,           // where the hanger hook hangs, as a fraction of the room height (just under the sign)
   garmentWidth: 0.32,    // every garment is scaled to this width, as a fraction of the room height
   garments: [
