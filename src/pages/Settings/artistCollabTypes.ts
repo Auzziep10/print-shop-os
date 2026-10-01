@@ -29,6 +29,14 @@ export interface AxcNeck {
   color?: string;         // shade colour inside the opening, hex (default #000000)
   strength?: number;      // shade opacity 0..1 (default 0.26)
 }
+/** How the garment sits on the hanger: vertical shift (fraction of garment width), garment scale, hanger scale. */
+export interface AxcHang {
+  dy: number;
+  scale: number;
+  hangerScale: number;
+}
+export const DEFAULT_HANG: AxcHang = { dy: 0, scale: 1, hangerScale: 1 };
+
 export const DEFAULT_NECK: AxcNeck = { cx: 0.5, cy: 0.05, rx: 0.085, ry: 0.03, shape: 'oval', color: '#000000', strength: 0.26 };
 
 /** Outline of the neck opening as an SVG path in pixels, for a w×h box. Kept identical in the viewer (collection.js). */
@@ -68,7 +76,8 @@ export interface AxcGarment {
   front: AxcImage | null;   // the garment only: tight transparent cutout, no hanger (the viewer sizes and hangs it)
   back: AxcImage | null;    // optional, same crop as the front; enables the flip control
   layout?: 'garment' | 'canvas';
-  neck?: AxcNeck | null;           // optional collar hole; when set the hanger is drawn through it   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
+  neck?: AxcNeck | null;           // optional collar hole; when set the hanger is drawn through it
+  hang?: AxcHang | null;           // optional manual hanging adjustments   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
   closeups: AxcCloseup[];
   active: boolean;
   sortOrder: number;
@@ -95,6 +104,7 @@ export function emptyGarment(sortOrder: number): Omit<AxcGarment, 'id'> {
     back: null,
     layout: 'garment',
     neck: null,
+    hang: null,
     closeups: [],
     active: false,
     sortOrder,

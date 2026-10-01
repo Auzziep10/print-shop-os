@@ -8,8 +8,8 @@ import {
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import {
-  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_NECK, emptyGarment, neckPath,
-  type AxcCloseup, type AxcGarment, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
+  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_HANG, DEFAULT_NECK, emptyGarment, neckPath,
+  type AxcCloseup, type AxcGarment, type AxcHang, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
 } from './artistCollabTypes';
 
 const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
@@ -102,44 +102,74 @@ function RangeRow({ label, value, min, max, step, format, onInput }: {
   );
 }
 
+const pct = (v: number) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
+const times = (v: number) => `${Math.round(v * 100)}%`;
+
 /**
- * Same geometry as the live viewer: the garment is placed in "reference units" (u = width / 541), the hanger
- * sits 58u above the collar line, and the collar opening shows a second copy of the hanger. The artboard can
- * zoom on the opening, and dragging on it moves the opening's centre.
+ * Same geometry as the live viewer. baseU = (garment base width) / 541 is one "reference pixel"; the hanger is
+ * 170×130 of them (scaled by hangerScale), its cap sits 55 reference px above the collar line, and the garment
+ * is shifted by dy (fraction of its width) and scaled by `scale`. Drag the shirt to move it up/down, drag inside
+ * the opening to move the opening.
  */
-function NeckArtboard({ front, neck, zoom, onMove }: { front: AxcImage; neck: AxcNeck; zoom: number; onMove: (cx: number, cy: number) => void }) {
+function HangArtboard({ front, neck, hang, zoom, onNeck, onHang }: {
+  front: AxcImage; neck: AxcNeck | null; hang: AxcHang; zoom: number;
+  onNeck: (n: AxcNeck) => void; onHang: (h: AxcHang) => void;
+}) {
   const W = 620, H = 440;
-  const fitW = Math.min(W * 0.62, (H - 60) * front.width / front.height);   // garment width at 1x: whole garment in view
-  const gw = fitW * zoom, gh = gw * front.height / front.width, u = gw / 541;
-  // camera: at 1x centre the garment, when zoomed centre on the opening
-  const ncxG = neck.cx * gw, ncyG = neck.cy * gh;
-  const gLeft = zoom === 1 ? (W - gw) / 2 : W / 2 - ncxG;
-  const gTop = zoom === 1 ? 70 * u + 20 : H / 2 - ncyG;
-  const hLeft = gLeft + gw / 2 - 85 * u, hTop = gTop - 58 * u, hw = 170 * u, hh = 130 * u;
-  const nw = 2 * neck.rx * gw, nh = 2 * neck.ry * gh, nl = gLeft + ncxG - nw / 2, nt = gTop + ncyG - nh / 2;
-  const clip = `path('${neckPath(neck.shape, nw, nh)}')`;
-  const dragging = useRef(false);
-  const toGarment = (e: React.PointerEvent<HTMLDivElement>) => {
+  const fitW = Math.min(W * 0.6, (H - 80) * front.width / front.height);
+  const baseW = fitW * zoom, baseU = baseW / 541, hu = baseU * hang.hangerScale;
+  const gw = baseW * hang.scale, gh = gw * front.height / front.width;
+  // camera: 1x shows the whole garment; zoomed views centre on the opening (or the collar when there is none)
+  const focus = neck ? { x: neck.cx * gw, y: neck.cy * gh } : { x: gw / 2, y: 0 };
+  const gLeft = zoom === 1 ? (W - gw) / 2 : W / 2 - focus.x;
+  const gTop = zoom === 1 ? 70 * hu + 20 : H / 2 - focus.y;
+  const hookTop = gTop - 55 * hu - hang.dy * gw;
+  const hLeft = gLeft + gw / 2 - 85 * hu, hTop = hookTop - 3 * hu, hw = 170 * hu, hh = 130 * hu;
+  const n = neck ? { w: 2 * neck.rx * gw, h: 2 * neck.ry * gh, l: gLeft + neck.cx * gw - neck.rx * gw, t: gTop + neck.cy * gh - neck.ry * gh } : null;
+  const clip = n && neck ? `path('${neckPath(neck.shape, n.w, n.h)}')` : undefined;
+  const drag = useRef<{ kind: 'neck' | 'shirt'; x: number; y: number; cx: number; cy: number; dy: number } | null>(null);
+
+  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
     const r = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - r.left - gLeft) / gw, y = (e.clientY - r.top - gTop) / gh;
-    onMove(Math.min(0.9, Math.max(0.1, x)), Math.min(0.5, Math.max(0, y)));
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const inNeck = !!(n && x >= n.l - 6 && x <= n.l + n.w + 6 && y >= n.t - 6 && y <= n.t + n.h + 6);
+    drag.current = { kind: inNeck ? 'neck' : 'shirt', x, y, cx: neck?.cx ?? 0, cy: neck?.cy ?? 0, dy: hang.dy };
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
+  const move = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d || !(e.buttons & 1)) { drag.current = null; return; }   // a native dialog can swallow pointerup — stop when the button is no longer held
+    const r = e.currentTarget.getBoundingClientRect();
+    const dx = e.clientX - r.left - d.x, dyPx = e.clientY - r.top - d.y;
+    if (d.kind === 'neck' && neck) {
+      onNeck({ ...neck, cx: Math.min(0.9, Math.max(0.1, d.cx + dx / gw)), cy: Math.min(0.5, Math.max(0, d.cy + dyPx / gh)) });
+    } else {
+      onHang({ ...hang, dy: Math.min(0.25, Math.max(-0.25, d.dy + dyPx / gw)) });
+    }
+  };
+  const end = () => { drag.current = null; };
+
   return (
-    <div className="relative shrink-0 cursor-crosshair select-none overflow-hidden rounded-lg border border-brand-border bg-[#b3aca5]" style={{ width: W, height: H, maxWidth: '100%' }}
-         onPointerDown={e => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); toGarment(e); }}
-         onPointerMove={e => { if (dragging.current) toGarment(e); }}
-         onPointerUp={() => { dragging.current = false; }} onPointerCancel={() => { dragging.current = false; }}>
-      <div className="absolute w-px bg-[#17140f]" style={{ left: gLeft + gw / 2, top: 0, height: Math.max(0, hTop + 4) }} />
+    <div className="relative shrink-0 select-none overflow-hidden rounded-lg border border-brand-border bg-[#b3aca5]" style={{ width: W, height: H, maxWidth: '100%', cursor: 'grab', touchAction: 'none' }}
+         onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}>
+      <div className="absolute w-px bg-[#17140f]" style={{ left: gLeft + gw / 2, top: 0, height: Math.max(0, hookTop + 2) }} />
       <img src={HANGER_IMG} alt="" draggable={false} className="absolute max-w-none" style={{ left: hLeft, top: hTop, width: hw, height: hh }} />
       <img src={front.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: gLeft, top: gTop, width: gw, height: gh, filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.28))' }} />
-      <div className="absolute" style={{ left: nl, top: nt, width: nw, height: nh, clipPath: clip, WebkitClipPath: clip, background: hexToRgba(neck.color || '#000000', neck.strength ?? 0.26) }}>
-        <img src={HANGER_IMG} alt="" draggable={false} className="absolute max-w-none" style={{ left: hLeft - nl, top: hTop - nt, width: hw, height: hh }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,0) 45%)' }} />
+      {n && neck && (
+        <>
+          <div className="absolute" style={{ left: n.l, top: n.t, width: n.w, height: n.h, clipPath: clip, WebkitClipPath: clip, background: hexToRgba(neck.color || '#000000', neck.strength ?? 0.26) }}>
+            <img src={HANGER_IMG} alt="" draggable={false} className="absolute max-w-none" style={{ left: hLeft - n.l, top: hTop - n.t, width: hw, height: hh }} />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,0) 45%)' }} />
+          </div>
+          <svg className="pointer-events-none absolute" style={{ left: n.l - 1, top: n.t - 1 }} width={n.w + 2} height={n.h + 2} viewBox={`-1 -1 ${n.w + 2} ${n.h + 2}`}>
+            <path d={neckPath(neck.shape, n.w, n.h)} fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="4 3" opacity=".9" />
+          </svg>
+        </>
+      )}
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">
+        {zoom}× · drag the shirt up / down{neck ? ' · drag inside the outline to move the opening' : ''}
       </div>
-      <svg className="pointer-events-none absolute" style={{ left: nl - 1, top: nt - 1 }} width={nw + 2} height={nh + 2} viewBox={`-1 -1 ${nw + 2} ${nh + 2}`}>
-        <path d={neckPath(neck.shape, nw, nh)} fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="4 3" opacity=".9" />
-      </svg>
-      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">{zoom}× · drag to move the opening</div>
     </div>
   );
 }
@@ -148,57 +178,70 @@ const SHAPES: { id: AxcNeckShape; label: string }[] = [
   { id: 'oval', label: 'Oval' }, { id: 'crew', label: 'Crew' }, { id: 'square', label: 'Rounded' }, { id: 'v', label: 'V-neck' },
 ];
 
-function NeckEditor({ front, neck, onChange }: { front: AxcImage | null; neck: AxcNeck | null | undefined; onChange: (n: AxcNeck | null) => void }) {
+function HangEditor({ front, neck, hang, onNeck, onHang }: {
+  front: AxcImage | null; neck: AxcNeck | null | undefined; hang: AxcHang | null | undefined;
+  onNeck: (n: AxcNeck | null) => void; onHang: (h: AxcHang | null) => void;
+}) {
   const n = neck || null;
+  const h: AxcHang = { ...DEFAULT_HANG, ...(hang || {}) };
   const [zoom, setZoom] = useState(2);
+  const pill = (on: boolean) => `rounded-full border px-3 py-1 ${on ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border hover:border-brand-primary'}`;
+  if (!front) return null;
   return (
     <div className="md:col-span-2">
-      <label className="flex items-center gap-3">
-        <input type="checkbox" className="h-4 w-4" checked={!!n} onChange={e => onChange(e.target.checked ? { ...DEFAULT_NECK } : null)} disabled={!front} />
-        <span className="text-sm text-brand-primary">Show the hanger through the neck opening</span>
-      </label>
+      <label className={tokens.typography.label}>Hanging</label>
       <p className="mt-1 text-[11px] text-brand-secondary">
-        For flatlays whose collar is closed. Fit the dashed outline to the inside of the collar; the live page draws the hanger inside it and shades the opening so the garment reads as hanging.
+        How this garment sits on the hanger on the live page. Drag the shirt on the board to move it up or down; use the sliders for size.
+        Tick the neck option for flatlays whose collar is closed, then fit the dashed outline to the inside of the collar.
       </p>
-      {front && n && (
-        <div className="mt-3 flex flex-col gap-4 lg:flex-row">
-          <div>
-            <NeckArtboard front={front} neck={n} zoom={zoom} onMove={(cx, cy) => onChange({ ...n, cx, cy })} />
-            <div className="mt-2 flex items-center gap-2 text-xs text-brand-secondary">
-              <span>Zoom</span>
-              {[1, 2, 3, 4].map(z => (
-                <button key={z} type="button" onClick={() => setZoom(z)}
-                  className={`rounded-full border px-3 py-1 ${zoom === z ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border hover:border-brand-primary'}`}>{z}×</button>
-              ))}
-            </div>
-          </div>
-          <div className="flex-1 space-y-3 pt-1 lg:min-w-[260px]">
-            <div className="text-xs text-brand-secondary">
-              <div className="mb-1">Shape</div>
-              <div className="flex flex-wrap gap-2">
-                {SHAPES.map(sh => (
-                  <button key={sh.id} type="button" onClick={() => onChange({ ...n, shape: sh.id })}
-                    className={`rounded-full border px-3 py-1 ${(n.shape || 'oval') === sh.id ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border hover:border-brand-primary'}`}>{sh.label}</button>
-                ))}
-              </div>
-            </div>
-            <RangeRow label="Width" value={n.rx} min={0.03} max={0.25} step={0.001} onInput={v => onChange({ ...n, rx: v })} />
-            <RangeRow label="Height" value={n.ry} min={0.01} max={0.12} step={0.001} onInput={v => onChange({ ...n, ry: v })} />
-            <RangeRow label="Down from the top" value={n.cy} min={0} max={0.2} step={0.001} onInput={v => onChange({ ...n, cy: v })} />
-            <RangeRow label="Left / right" value={n.cx} min={0.35} max={0.65} step={0.001} onInput={v => onChange({ ...n, cx: v })} />
-            <div className="flex items-end gap-3">
-              <label className="block text-xs text-brand-secondary">
-                <span>Shade colour</span>
-                <input type="color" value={n.color || '#000000'} onChange={e => onChange({ ...n, color: e.target.value })} className="mt-1 block h-8 w-12 cursor-pointer rounded border border-brand-border bg-white p-0.5" />
-              </label>
-              <div className="flex-1">
-                <RangeRow label="Shade strength" value={n.strength ?? 0.26} min={0} max={0.8} step={0.01} format={v => `${Math.round(v * 100)}%`} onInput={v => onChange({ ...n, strength: v })} />
-              </div>
-            </div>
-            <button type="button" onClick={() => onChange({ ...DEFAULT_NECK })} className="text-xs text-brand-secondary hover:text-brand-primary">Reset to default</button>
-          </div>
+      <div className="mt-3">
+        <HangArtboard front={front} neck={n} hang={h} zoom={zoom} onNeck={onNeck} onHang={onHang} />
+        <div className="mt-2 flex items-center gap-2 text-xs text-brand-secondary">
+          <span>Zoom</span>
+          {[1, 2, 3, 4].map(z => <button key={z} type="button" onClick={() => setZoom(z)} className={pill(zoom === z)}>{z}×</button>)}
         </div>
-      )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-x-10 gap-y-3 pr-3 sm:grid-cols-2">
+        <div className="space-y-3">
+          <div className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Shirt &amp; hanger</div>
+          <RangeRow label="Shirt up / down" value={h.dy} min={-0.25} max={0.25} step={0.002} format={pct} onInput={v => onHang({ ...h, dy: v })} />
+          <RangeRow label="Shirt size" value={h.scale} min={0.6} max={1.4} step={0.01} format={times} onInput={v => onHang({ ...h, scale: v })} />
+          <RangeRow label="Hanger size" value={h.hangerScale} min={0.6} max={1.4} step={0.01} format={times} onInput={v => onHang({ ...h, hangerScale: v })} />
+          <button type="button" onClick={() => onHang(null)} className="text-xs text-brand-secondary hover:text-brand-primary">Reset hanging</button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="flex items-center gap-3">
+            <input type="checkbox" className="h-4 w-4" checked={!!n} onChange={e => onNeck(e.target.checked ? { ...DEFAULT_NECK } : null)} />
+            <span className="text-xs font-semibold uppercase tracking-wider text-brand-primary">Show the hanger through the neck opening</span>
+          </label>
+          {n && (
+            <>
+              <div className="text-xs text-brand-secondary">
+                <div className="mb-1">Shape</div>
+                <div className="flex flex-wrap gap-2">
+                  {SHAPES.map(sh => <button key={sh.id} type="button" onClick={() => onNeck({ ...n, shape: sh.id })} className={pill((n.shape || 'oval') === sh.id)}>{sh.label}</button>)}
+                </div>
+              </div>
+              <RangeRow label="Width" value={n.rx} min={0.03} max={0.25} step={0.001} onInput={v => onNeck({ ...n, rx: v })} />
+              <RangeRow label="Height" value={n.ry} min={0.01} max={0.12} step={0.001} onInput={v => onNeck({ ...n, ry: v })} />
+              <RangeRow label="Down from the top" value={n.cy} min={0} max={0.2} step={0.001} onInput={v => onNeck({ ...n, cy: v })} />
+              <RangeRow label="Left / right" value={n.cx} min={0.3} max={0.7} step={0.001} onInput={v => onNeck({ ...n, cx: v })} />
+              <div className="flex items-end gap-3">
+                <label className="block text-xs text-brand-secondary">
+                  <span>Shade colour</span>
+                  <input type="color" value={n.color || '#000000'} onChange={e => onNeck({ ...n, color: e.target.value })} className="mt-1 block h-8 w-12 cursor-pointer rounded border border-brand-border bg-white p-0.5" />
+                </label>
+                <div className="flex-1">
+                  <RangeRow label="Shade strength" value={n.strength ?? 0.26} min={0} max={0.8} step={0.01} format={times} onInput={v => onNeck({ ...n, strength: v })} />
+                </div>
+              </div>
+              <button type="button" onClick={() => onNeck({ ...DEFAULT_NECK })} className="text-xs text-brand-secondary hover:text-brand-primary">Reset opening</button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -311,7 +354,7 @@ function GarmentEditor({
 
         <SidePicker side="front" label="Front" />
         <SidePicker side="back" label="Back (optional — enables the flip)" />
-        <NeckEditor front={g.front} neck={g.neck} onChange={n => set('neck', n)} />
+        <HangEditor front={g.front} neck={g.neck} hang={g.hang} onNeck={n => set('neck', n)} onHang={h => set('hang', h)} />
 
         <div className="md:col-span-2">
           <label className={tokens.typography.label}>Garment makeup</label>

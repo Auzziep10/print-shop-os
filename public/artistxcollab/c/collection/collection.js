@@ -13,6 +13,7 @@
     return {
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
       layout: g.layout === 'canvas' ? 'canvas' : 'garment',
+      hang: { dy: +((g.hang||{}).dy || 0), scale: +((g.hang||{}).scale || 1), hangerScale: +((g.hang||{}).hangerScale || 1) },
       neck: (g.neck && g.neck.rx > 0 && g.neck.ry > 0) ? { cx: +g.neck.cx, cy: +g.neck.cy, rx: +g.neck.rx, ry: +g.neck.ry, shape: g.neck.shape || 'oval', color: g.neck.color || '#000000', strength: (g.neck.strength == null ? 0.26 : +g.neck.strength) } : null,
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
@@ -140,12 +141,13 @@
         var hg = els[i].querySelector('.hanger');
         if(g.layout === 'garment'){
           // tight cutout: normalise to a shared width, hang it under a drawn hanger at the room's hook line
-          rw = (data.garmentWidth || 0.32) * roomH; rh = ih * (rw/iw);
+          // baseU = one reference px for the hanger (independent of the shirt-size tweak); the shirt itself is scaled and shifted per garment
+          var baseW = (data.garmentWidth || 0.32) * roomH, hu = (baseW / 541) * g.hang.hangerScale;
+          rw = baseW * g.hang.scale; rh = ih * (rw/iw);
           hookTop = roomTop + (data.hookY || 0.34) * roomH;
-          var u = rw / 541;   // one reference px on screen (541 = reference garment width)
-          left = (W - rw)/2; top = hookTop + 55 * u;
-          var hgL = W/2 - 85*u, hgT = hookTop - 3*u;
-          if(hg){ hg.style.left = hgL+'px'; hg.style.top = hgT+'px'; hg.style.width = (170*u)+'px'; hg.style.height = (130*u)+'px'; }
+          left = (W - rw)/2; top = hookTop + 55 * hu + g.hang.dy * rw;
+          var hgL = W/2 - 85*hu, hgT = hookTop - 3*hu;
+          if(hg){ hg.style.left = hgL+'px'; hg.style.top = hgT+'px'; hg.style.width = (170*hu)+'px'; hg.style.height = (130*hu)+'px'; }
           var nk = els[i].querySelector('.neck');
           if(nk && g.neck){
             // collar hole: a second copy of the hanger clipped to the oval, shaded so it sits inside the shirt
@@ -153,7 +155,7 @@
             var nw = 2*g.neck.rx*rw, nh = 2*g.neck.ry*rh, clip = "path('"+neckPath(g.neck.shape, nw, nh)+"')";
             nk.style.left = nl+'px'; nk.style.top = nt+'px'; nk.style.width = nw+'px'; nk.style.height = nh+'px';
             nk.style.clipPath = clip; nk.style.webkitClipPath = clip; nk.style.background = rgba(g.neck.color, g.neck.strength);
-            var ni = nk.firstChild; ni.style.left = (hgL - nl)+'px'; ni.style.top = (hgT - nt)+'px'; ni.style.width = (170*u)+'px'; ni.style.height = (130*u)+'px';
+            var ni = nk.firstChild; ni.style.left = (hgL - nl)+'px'; ni.style.top = (hgT - nt)+'px'; ni.style.width = (170*hu)+'px'; ni.style.height = (130*hu)+'px';
           }
         } else {
           // legacy full-canvas plate with the hanger baked in
