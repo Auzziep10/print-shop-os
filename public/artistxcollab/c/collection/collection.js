@@ -13,13 +13,24 @@
     return {
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
       layout: g.layout === 'canvas' ? 'canvas' : 'garment',
-      neck: (g.neck && g.neck.rx > 0 && g.neck.ry > 0) ? { cx: +g.neck.cx, cy: +g.neck.cy, rx: +g.neck.rx, ry: +g.neck.ry } : null,
+      neck: (g.neck && g.neck.rx > 0 && g.neck.ry > 0) ? { cx: +g.neck.cx, cy: +g.neck.cy, rx: +g.neck.rx, ry: +g.neck.ry, shape: g.neck.shape || 'oval', color: g.neck.color || '#000000', strength: (g.neck.strength == null ? 0.26 : +g.neck.strength) } : null,
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
       back: (g.back && g.back.url) ? { url: g.back.url, width: g.back.width || 920, height: g.back.height || 2000 } : null,
       closeups: (g.closeups || []).map(function(c){ return { label: c.label || 'Closeup', image: c.image && c.image.url ? c.image.url : c.image }; }).filter(function(c){ return c.image; })
     };
   }
+  // outline of a neck opening as an SVG path for a w x h box — identical to neckPath() in the admin
+  function neckPath(shape, w, h){
+    var k = 0.5523;
+    if(shape === 'crew'){ var t = h*0.42; return 'M0 '+t+' C0 '+(t*0.3)+' '+(w*0.22)+' 0 '+(w/2)+' 0 C'+(w*0.78)+' 0 '+w+' '+(t*0.3)+' '+w+' '+t+' C'+w+' '+(h*0.82)+' '+(w*0.76)+' '+h+' '+(w/2)+' '+h+' C'+(w*0.24)+' '+h+' 0 '+(h*0.82)+' 0 '+t+' Z'; }
+    if(shape === 'square'){ var r = Math.min(w,h)*0.38; return 'M'+r+' 0 H'+(w-r)+' C'+(w-r+r*k)+' 0 '+w+' '+(r-r*k)+' '+w+' '+r+' V'+(h-r)+' C'+w+' '+(h-r+r*k)+' '+(w-r+r*k)+' '+h+' '+(w-r)+' '+h+' H'+r+' C'+(r-r*k)+' '+h+' 0 '+(h-r+r*k)+' 0 '+(h-r)+' V'+r+' C0 '+(r-r*k)+' '+(r-r*k)+' 0 '+r+' 0 Z'; }
+    if(shape === 'v'){ var q = w*0.06; return 'M0 0 H'+w+' L'+(w/2+q)+' '+(h-q*0.6)+' Q'+(w/2)+' '+(h+q*0.4)+' '+(w/2-q)+' '+(h-q*0.6)+' Z'; }
+    var rx = w/2, ry = h/2;
+    return 'M'+rx+' 0 C'+(rx+rx*k)+' 0 '+w+' '+(ry-ry*k)+' '+w+' '+ry+' C'+w+' '+(ry+ry*k)+' '+(rx+rx*k)+' '+h+' '+rx+' '+h+' C'+(rx-rx*k)+' '+h+' 0 '+(ry+ry*k)+' 0 '+ry+' C0 '+(ry-ry*k)+' '+(rx-rx*k)+' 0 '+rx+' 0 Z';
+  }
+  function rgba(hex, a){ var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); var n = m ? parseInt(m[1], 16) : 0; return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'; }
+
   async function loadLive(){
     var cfg = window.AXC_FIREBASE; if(!cfg || /[?&]sample(=|&|$)/.test(location.search)) return null;   // ?sample forces the built-in set (for previews)
     var timeout = new Promise(function(r){ setTimeout(function(){ r(null); }, 5000); });
@@ -139,7 +150,9 @@
           if(nk && g.neck){
             // collar hole: a second copy of the hanger clipped to the oval, shaded so it sits inside the shirt
             var nl = left + (g.neck.cx - g.neck.rx) * rw, nt = top + (g.neck.cy - g.neck.ry) * rh;
-            nk.style.left = nl+'px'; nk.style.top = nt+'px'; nk.style.width = (2*g.neck.rx*rw)+'px'; nk.style.height = (2*g.neck.ry*rh)+'px';
+            var nw = 2*g.neck.rx*rw, nh = 2*g.neck.ry*rh, clip = "path('"+neckPath(g.neck.shape, nw, nh)+"')";
+            nk.style.left = nl+'px'; nk.style.top = nt+'px'; nk.style.width = nw+'px'; nk.style.height = nh+'px';
+            nk.style.clipPath = clip; nk.style.webkitClipPath = clip; nk.style.background = rgba(g.neck.color, g.neck.strength);
             var ni = nk.firstChild; ni.style.left = (hgL - nl)+'px'; ni.style.top = (hgT - nt)+'px'; ni.style.width = (170*u)+'px'; ni.style.height = (130*u)+'px';
           }
         } else {

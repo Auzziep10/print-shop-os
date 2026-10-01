@@ -8,8 +8,8 @@ import {
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import {
-  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_NECK, emptyGarment,
-  type AxcCloseup, type AxcGarment, type AxcImage, type AxcNeck, type AxcSpec,
+  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_NECK, emptyGarment, neckPath,
+  type AxcCloseup, type AxcGarment, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
 } from './artistCollabTypes';
 
 const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
@@ -84,38 +84,73 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 
 const HANGER_IMG = '/artistxcollab/img/garments/hanger.png';
 
-/**
- * Same geometry as the live viewer: the garment is placed in "reference units" (u = width / 541),
- * the hanger sits 58u above the collar line, and the collar hole shows a second copy of the hanger.
- */
-function NeckPreview({ front, neck }: { front: AxcImage; neck: AxcNeck | null }) {
-  const W = 300, gw = 190, u = gw / 541, gh = gw * front.height / front.width;
-  const gLeft = (W - gw) / 2, gTop = 70 * u + 24;
-  const hLeft = W / 2 - 85 * u, hTop = gTop - 58 * u, hw = 170 * u, hh = 130 * u;
-  const n = neck ? { l: gLeft + (neck.cx - neck.rx) * gw, t: gTop + (neck.cy - neck.ry) * gh, w: 2 * neck.rx * gw, h: 2 * neck.ry * gh } : null;
+function hexToRgba(hex: string, a: number) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const n = m ? parseInt(m[1], 16) : 0;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/** Module-level so React keeps the same <input> across renders (an inline component would remount mid-drag). */
+function RangeRow({ label, value, min, max, step, format, onInput }: {
+  label: string; value: number; min: number; max: number; step: number; format?: (v: number) => string; onInput: (v: number) => void;
+}) {
   return (
-    <div className="relative shrink-0 overflow-hidden rounded-lg border border-brand-border bg-[#b3aca5]" style={{ width: W, height: Math.min(gTop + gh + 30, 420) }}>
-      <div className="absolute left-1/2 top-0 w-px bg-[#17140f]" style={{ height: hTop + 4 }} />
-      <img src={HANGER_IMG} alt="" className="absolute" style={{ left: hLeft, top: hTop, width: hw, height: hh }} />
-      <img src={front.url} alt="" className="absolute" style={{ left: gLeft, top: gTop, width: gw, height: gh, filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.28))' }} />
-      {n && (
-        <div className="absolute overflow-hidden rounded-[50%] bg-black/25 outline outline-1 outline-dashed outline-white/70" style={{ left: n.l, top: n.t, width: n.w, height: n.h }}>
-          <img src={HANGER_IMG} alt="" className="absolute max-w-none" style={{ left: hLeft - n.l, top: hTop - n.t, width: hw, height: hh }} />
-          <div className="absolute inset-0 rounded-[50%]" style={{ boxShadow: 'inset 0 5px 10px rgba(0,0,0,.55), inset 0 -2px 4px rgba(255,255,255,.08)' }} />
-        </div>
-      )}
+    <label className="block text-xs text-brand-secondary">
+      <span className="flex justify-between"><span>{label}</span><span className="tabular-nums">{format ? format(value) : `${Math.round(value * 1000) / 10}%`}</span></span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onInput(parseFloat(e.target.value))} className="mt-1 w-full accent-brand-primary" />
+    </label>
+  );
+}
+
+/**
+ * Same geometry as the live viewer: the garment is placed in "reference units" (u = width / 541), the hanger
+ * sits 58u above the collar line, and the collar opening shows a second copy of the hanger. The artboard can
+ * zoom on the opening, and dragging on it moves the opening's centre.
+ */
+function NeckArtboard({ front, neck, zoom, onMove }: { front: AxcImage; neck: AxcNeck; zoom: number; onMove: (cx: number, cy: number) => void }) {
+  const W = 620, H = 440;
+  const fitW = Math.min(W * 0.62, (H - 60) * front.width / front.height);   // garment width at 1x: whole garment in view
+  const gw = fitW * zoom, gh = gw * front.height / front.width, u = gw / 541;
+  // camera: at 1x centre the garment, when zoomed centre on the opening
+  const ncxG = neck.cx * gw, ncyG = neck.cy * gh;
+  const gLeft = zoom === 1 ? (W - gw) / 2 : W / 2 - ncxG;
+  const gTop = zoom === 1 ? 70 * u + 20 : H / 2 - ncyG;
+  const hLeft = gLeft + gw / 2 - 85 * u, hTop = gTop - 58 * u, hw = 170 * u, hh = 130 * u;
+  const nw = 2 * neck.rx * gw, nh = 2 * neck.ry * gh, nl = gLeft + ncxG - nw / 2, nt = gTop + ncyG - nh / 2;
+  const clip = `path('${neckPath(neck.shape, nw, nh)}')`;
+  const dragging = useRef(false);
+  const toGarment = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left - gLeft) / gw, y = (e.clientY - r.top - gTop) / gh;
+    onMove(Math.min(0.9, Math.max(0.1, x)), Math.min(0.5, Math.max(0, y)));
+  };
+  return (
+    <div className="relative shrink-0 cursor-crosshair select-none overflow-hidden rounded-lg border border-brand-border bg-[#b3aca5]" style={{ width: W, height: H, maxWidth: '100%' }}
+         onPointerDown={e => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); toGarment(e); }}
+         onPointerMove={e => { if (dragging.current) toGarment(e); }}
+         onPointerUp={() => { dragging.current = false; }} onPointerCancel={() => { dragging.current = false; }}>
+      <div className="absolute w-px bg-[#17140f]" style={{ left: gLeft + gw / 2, top: 0, height: Math.max(0, hTop + 4) }} />
+      <img src={HANGER_IMG} alt="" draggable={false} className="absolute max-w-none" style={{ left: hLeft, top: hTop, width: hw, height: hh }} />
+      <img src={front.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: gLeft, top: gTop, width: gw, height: gh, filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.28))' }} />
+      <div className="absolute" style={{ left: nl, top: nt, width: nw, height: nh, clipPath: clip, WebkitClipPath: clip, background: hexToRgba(neck.color || '#000000', neck.strength ?? 0.26) }}>
+        <img src={HANGER_IMG} alt="" draggable={false} className="absolute max-w-none" style={{ left: hLeft - nl, top: hTop - nt, width: hw, height: hh }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,0) 45%)' }} />
+      </div>
+      <svg className="pointer-events-none absolute" style={{ left: nl - 1, top: nt - 1 }} width={nw + 2} height={nh + 2} viewBox={`-1 -1 ${nw + 2} ${nh + 2}`}>
+        <path d={neckPath(neck.shape, nw, nh)} fill="none" stroke="#fff" strokeWidth="1.5" strokeDasharray="4 3" opacity=".9" />
+      </svg>
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">{zoom}× · drag to move the opening</div>
     </div>
   );
 }
 
+const SHAPES: { id: AxcNeckShape; label: string }[] = [
+  { id: 'oval', label: 'Oval' }, { id: 'crew', label: 'Crew' }, { id: 'square', label: 'Rounded' }, { id: 'v', label: 'V-neck' },
+];
+
 function NeckEditor({ front, neck, onChange }: { front: AxcImage | null; neck: AxcNeck | null | undefined; onChange: (n: AxcNeck | null) => void }) {
   const n = neck || null;
-  const Slider = ({ label, value, min, max, step, onInput }: { label: string; value: number; min: number; max: number; step: number; onInput: (v: number) => void }) => (
-    <label className="block text-xs text-brand-secondary">
-      <span className="flex justify-between"><span>{label}</span><span className="tabular-nums">{Math.round(value * 1000) / 10}%</span></span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onInput(parseFloat(e.target.value))} className="mt-1 w-full accent-brand-primary" />
-    </label>
-  );
+  const [zoom, setZoom] = useState(2);
   return (
     <div className="md:col-span-2">
       <label className="flex items-center gap-3">
@@ -123,16 +158,43 @@ function NeckEditor({ front, neck, onChange }: { front: AxcImage | null; neck: A
         <span className="text-sm text-brand-primary">Show the hanger through the neck opening</span>
       </label>
       <p className="mt-1 text-[11px] text-brand-secondary">
-        For flatlays whose collar is closed. Fit the dashed oval to the inside of the collar; the live page draws the hanger inside it and shades the opening so the garment reads as hanging.
+        For flatlays whose collar is closed. Fit the dashed outline to the inside of the collar; the live page draws the hanger inside it and shades the opening so the garment reads as hanging.
       </p>
       {front && n && (
-        <div className="mt-3 flex flex-col gap-4 sm:flex-row">
-          <NeckPreview front={front} neck={n} />
-          <div className="flex-1 space-y-3 pt-1">
-            <Slider label="Oval width" value={n.rx} min={0.03} max={0.25} step={0.001} onInput={v => onChange({ ...n, rx: v })} />
-            <Slider label="Oval height" value={n.ry} min={0.01} max={0.12} step={0.001} onInput={v => onChange({ ...n, ry: v })} />
-            <Slider label="Down from the top" value={n.cy} min={0} max={0.2} step={0.001} onInput={v => onChange({ ...n, cy: v })} />
-            <Slider label="Left / right" value={n.cx} min={0.35} max={0.65} step={0.001} onInput={v => onChange({ ...n, cx: v })} />
+        <div className="mt-3 flex flex-col gap-4 lg:flex-row">
+          <div>
+            <NeckArtboard front={front} neck={n} zoom={zoom} onMove={(cx, cy) => onChange({ ...n, cx, cy })} />
+            <div className="mt-2 flex items-center gap-2 text-xs text-brand-secondary">
+              <span>Zoom</span>
+              {[1, 2, 3, 4].map(z => (
+                <button key={z} type="button" onClick={() => setZoom(z)}
+                  className={`rounded-full border px-3 py-1 ${zoom === z ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border hover:border-brand-primary'}`}>{z}×</button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 space-y-3 pt-1 lg:min-w-[260px]">
+            <div className="text-xs text-brand-secondary">
+              <div className="mb-1">Shape</div>
+              <div className="flex flex-wrap gap-2">
+                {SHAPES.map(sh => (
+                  <button key={sh.id} type="button" onClick={() => onChange({ ...n, shape: sh.id })}
+                    className={`rounded-full border px-3 py-1 ${(n.shape || 'oval') === sh.id ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border hover:border-brand-primary'}`}>{sh.label}</button>
+                ))}
+              </div>
+            </div>
+            <RangeRow label="Width" value={n.rx} min={0.03} max={0.25} step={0.001} onInput={v => onChange({ ...n, rx: v })} />
+            <RangeRow label="Height" value={n.ry} min={0.01} max={0.12} step={0.001} onInput={v => onChange({ ...n, ry: v })} />
+            <RangeRow label="Down from the top" value={n.cy} min={0} max={0.2} step={0.001} onInput={v => onChange({ ...n, cy: v })} />
+            <RangeRow label="Left / right" value={n.cx} min={0.35} max={0.65} step={0.001} onInput={v => onChange({ ...n, cx: v })} />
+            <div className="flex items-end gap-3">
+              <label className="block text-xs text-brand-secondary">
+                <span>Shade colour</span>
+                <input type="color" value={n.color || '#000000'} onChange={e => onChange({ ...n, color: e.target.value })} className="mt-1 block h-8 w-12 cursor-pointer rounded border border-brand-border bg-white p-0.5" />
+              </label>
+              <div className="flex-1">
+                <RangeRow label="Shade strength" value={n.strength ?? 0.26} min={0} max={0.8} step={0.01} format={v => `${Math.round(v * 100)}%`} onInput={v => onChange({ ...n, strength: v })} />
+              </div>
+            </div>
             <button type="button" onClick={() => onChange({ ...DEFAULT_NECK })} className="text-xs text-brand-secondary hover:text-brand-primary">Reset to default</button>
           </div>
         </div>
