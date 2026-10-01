@@ -17,6 +17,7 @@ window.AXC_COLLECTION = {
       artist: "SantosBravos",
       front: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },
       back: null,
+      neck: { cx: 0.5, cy: 0.045, rx: 0.1, ry: 0.035 },
       story: "Built from light, drawn to trouble. A heavyweight enzyme-washed tee with a puff-ink manifesto at the chest and a hand-thrown splatter across the hem.",
       specs: [
         ["Fabric", "6.5 oz organic ring-spun cotton"],

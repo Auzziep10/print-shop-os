@@ -18,6 +18,15 @@ export interface AxcCloseup {
   image: AxcImage;
 }
 
+/** Collar hole on the FRONT image, as fractions of its width/height: the viewer shows the hanger through it. */
+export interface AxcNeck {
+  cx: number;   // centre x (0..1 of image width)
+  cy: number;   // centre y (0..1 of image height)
+  rx: number;   // half width (fraction of image width)
+  ry: number;   // half height (fraction of image height)
+}
+export const DEFAULT_NECK: AxcNeck = { cx: 0.5, cy: 0.05, rx: 0.085, ry: 0.03 };
+
 export interface AxcSpec {
   label: string;
   value: string;
@@ -31,7 +40,8 @@ export interface AxcGarment {
   specs: AxcSpec[];
   front: AxcImage | null;   // the garment only: tight transparent cutout, no hanger (the viewer sizes and hangs it)
   back: AxcImage | null;    // optional, same crop as the front; enables the flip control
-  layout?: 'garment' | 'canvas';   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
+  layout?: 'garment' | 'canvas';
+  neck?: AxcNeck | null;           // optional collar hole; when set the hanger is drawn through it   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
   closeups: AxcCloseup[];
   active: boolean;
   sortOrder: number;
@@ -57,6 +67,7 @@ export function emptyGarment(sortOrder: number): Omit<AxcGarment, 'id'> {
     front: null,
     back: null,
     layout: 'garment',
+    neck: null,
     closeups: [],
     active: false,
     sortOrder,

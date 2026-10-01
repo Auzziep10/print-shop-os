@@ -8,8 +8,8 @@ import {
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import {
-  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, emptyGarment,
-  type AxcCloseup, type AxcGarment, type AxcImage, type AxcSpec,
+  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_NECK, emptyGarment,
+  type AxcCloseup, type AxcGarment, type AxcImage, type AxcNeck, type AxcSpec,
 } from './artistCollabTypes';
 
 const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
@@ -81,6 +81,65 @@ async function uploadAxcImage(file: File, folder: string): Promise<AxcImage> {
 }
 
 const newId = () => Math.random().toString(36).slice(2, 10);
+
+const HANGER_IMG = '/artistxcollab/img/garments/hanger.png';
+
+/**
+ * Same geometry as the live viewer: the garment is placed in "reference units" (u = width / 541),
+ * the hanger sits 58u above the collar line, and the collar hole shows a second copy of the hanger.
+ */
+function NeckPreview({ front, neck }: { front: AxcImage; neck: AxcNeck | null }) {
+  const W = 300, gw = 190, u = gw / 541, gh = gw * front.height / front.width;
+  const gLeft = (W - gw) / 2, gTop = 70 * u + 24;
+  const hLeft = W / 2 - 85 * u, hTop = gTop - 58 * u, hw = 170 * u, hh = 130 * u;
+  const n = neck ? { l: gLeft + (neck.cx - neck.rx) * gw, t: gTop + (neck.cy - neck.ry) * gh, w: 2 * neck.rx * gw, h: 2 * neck.ry * gh } : null;
+  return (
+    <div className="relative shrink-0 overflow-hidden rounded-lg border border-brand-border bg-[#b3aca5]" style={{ width: W, height: Math.min(gTop + gh + 30, 420) }}>
+      <div className="absolute left-1/2 top-0 w-px bg-[#17140f]" style={{ height: hTop + 4 }} />
+      <img src={HANGER_IMG} alt="" className="absolute" style={{ left: hLeft, top: hTop, width: hw, height: hh }} />
+      <img src={front.url} alt="" className="absolute" style={{ left: gLeft, top: gTop, width: gw, height: gh, filter: 'drop-shadow(0 10px 12px rgba(0,0,0,.28))' }} />
+      {n && (
+        <div className="absolute overflow-hidden rounded-[50%] bg-black/25 outline outline-1 outline-dashed outline-white/70" style={{ left: n.l, top: n.t, width: n.w, height: n.h }}>
+          <img src={HANGER_IMG} alt="" className="absolute max-w-none" style={{ left: hLeft - n.l, top: hTop - n.t, width: hw, height: hh }} />
+          <div className="absolute inset-0 rounded-[50%]" style={{ boxShadow: 'inset 0 5px 10px rgba(0,0,0,.55), inset 0 -2px 4px rgba(255,255,255,.08)' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NeckEditor({ front, neck, onChange }: { front: AxcImage | null; neck: AxcNeck | null | undefined; onChange: (n: AxcNeck | null) => void }) {
+  const n = neck || null;
+  const Slider = ({ label, value, min, max, step, onInput }: { label: string; value: number; min: number; max: number; step: number; onInput: (v: number) => void }) => (
+    <label className="block text-xs text-brand-secondary">
+      <span className="flex justify-between"><span>{label}</span><span className="tabular-nums">{Math.round(value * 1000) / 10}%</span></span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onInput(parseFloat(e.target.value))} className="mt-1 w-full accent-brand-primary" />
+    </label>
+  );
+  return (
+    <div className="md:col-span-2">
+      <label className="flex items-center gap-3">
+        <input type="checkbox" className="h-4 w-4" checked={!!n} onChange={e => onChange(e.target.checked ? { ...DEFAULT_NECK } : null)} disabled={!front} />
+        <span className="text-sm text-brand-primary">Show the hanger through the neck opening</span>
+      </label>
+      <p className="mt-1 text-[11px] text-brand-secondary">
+        For flatlays whose collar is closed. Fit the dashed oval to the inside of the collar; the live page draws the hanger inside it and shades the opening so the garment reads as hanging.
+      </p>
+      {front && n && (
+        <div className="mt-3 flex flex-col gap-4 sm:flex-row">
+          <NeckPreview front={front} neck={n} />
+          <div className="flex-1 space-y-3 pt-1">
+            <Slider label="Oval width" value={n.rx} min={0.03} max={0.25} step={0.001} onInput={v => onChange({ ...n, rx: v })} />
+            <Slider label="Oval height" value={n.ry} min={0.01} max={0.12} step={0.001} onInput={v => onChange({ ...n, ry: v })} />
+            <Slider label="Down from the top" value={n.cy} min={0} max={0.2} step={0.001} onInput={v => onChange({ ...n, cy: v })} />
+            <Slider label="Left / right" value={n.cx} min={0.35} max={0.65} step={0.001} onInput={v => onChange({ ...n, cx: v })} />
+            <button type="button" onClick={() => onChange({ ...DEFAULT_NECK })} className="text-xs text-brand-secondary hover:text-brand-primary">Reset to default</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ================================================================== */
 /* Garment editor                                                      */
@@ -190,6 +249,7 @@ function GarmentEditor({
 
         <SidePicker side="front" label="Front" />
         <SidePicker side="back" label="Back (optional — enables the flip)" />
+        <NeckEditor front={g.front} neck={g.neck} onChange={n => set('neck', n)} />
 
         <div className="md:col-span-2">
           <label className={tokens.typography.label}>Garment makeup</label>

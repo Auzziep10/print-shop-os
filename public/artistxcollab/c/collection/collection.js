@@ -13,6 +13,7 @@
     return {
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
       layout: g.layout === 'canvas' ? 'canvas' : 'garment',
+      neck: (g.neck && g.neck.rx > 0 && g.neck.ry > 0) ? { cx: +g.neck.cx, cy: +g.neck.cy, rx: +g.neck.rx, ry: +g.neck.ry } : null,
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
       back: (g.back && g.back.url) ? { url: g.back.url, width: g.back.width || 920, height: g.back.height || 2000 } : null,
@@ -20,7 +21,7 @@
     };
   }
   async function loadLive(){
-    var cfg = window.AXC_FIREBASE; if(!cfg) return null;
+    var cfg = window.AXC_FIREBASE; if(!cfg || /[?&]sample(=|&|$)/.test(location.search)) return null;   // ?sample forces the built-in set (for previews)
     var timeout = new Promise(function(r){ setTimeout(function(){ r(null); }, 5000); });
     var fetchIt = (async function(){
       var appMod = await import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js');
@@ -111,6 +112,7 @@
       el.innerHTML = '<div class="cord"></div><div class="swing">' + hanger + '<div class="flip">' +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
         (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +
+        (g.neck && g.layout === 'garment' ? '<div class="neck" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         '</div></div>';
       stage.appendChild(el);
       return el;
@@ -131,7 +133,15 @@
           hookTop = roomTop + (data.hookY || 0.34) * roomH;
           var u = rw / 541;   // one reference px on screen (541 = reference garment width)
           left = (W - rw)/2; top = hookTop + 55 * u;
-          if(hg){ hg.style.left = (W/2 - 85*u)+'px'; hg.style.top = (hookTop - 3*u)+'px'; hg.style.width = (170*u)+'px'; hg.style.height = (130*u)+'px'; }
+          var hgL = W/2 - 85*u, hgT = hookTop - 3*u;
+          if(hg){ hg.style.left = hgL+'px'; hg.style.top = hgT+'px'; hg.style.width = (170*u)+'px'; hg.style.height = (130*u)+'px'; }
+          var nk = els[i].querySelector('.neck');
+          if(nk && g.neck){
+            // collar hole: a second copy of the hanger clipped to the oval, shaded so it sits inside the shirt
+            var nl = left + (g.neck.cx - g.neck.rx) * rw, nt = top + (g.neck.cy - g.neck.ry) * rh;
+            nk.style.left = nl+'px'; nk.style.top = nt+'px'; nk.style.width = (2*g.neck.rx*rw)+'px'; nk.style.height = (2*g.neck.ry*rh)+'px';
+            var ni = nk.firstChild; ni.style.left = (hgL - nl)+'px'; ni.style.top = (hgT - nt)+'px'; ni.style.width = (170*u)+'px'; ni.style.height = (130*u)+'px';
+          }
         } else {
           // legacy full-canvas plate with the hanger baked in
           var s = desktop() ? Math.min(W/iw, H/ih) : (fit ? fit.h/ih : Math.max(W/iw, H/ih));
