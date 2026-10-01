@@ -34,6 +34,43 @@ function readImageSize(file: File): Promise<{ width: number; height: number }> {
   });
 }
 
+/**
+ * Crop a transparent cutout to its opaque bounding box (plus a hair of padding) so the viewer
+ * can hang every garment by its top edge and scale it by its real width. Files without
+ * transparency, or already tight, come back unchanged.
+ */
+async function trimTransparent(file: File): Promise<File> {
+  if (!/png|webp/i.test(file.type)) return file;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('Could not read image')); i.src = url;
+    });
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0);
+    const px = ctx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (px[(y * w + x) * 4 + 3] > 8) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+      }
+    }
+    if (maxX < 0) return file;                                   // fully transparent — leave it alone
+    const pad = 2;
+    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
+    const cw = maxX - minX + 1, ch = maxY - minY + 1;
+    if (cw >= w - 4 && ch >= h - 4) return file;                 // already tight
+    const out = document.createElement('canvas'); out.width = cw; out.height = ch;
+    out.getContext('2d')!.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.(webp|png)$/i, '') + '.png', { type: 'image/png' });
+  } finally { URL.revokeObjectURL(url); }
+}
+
 async function uploadAxcImage(file: File, folder: string): Promise<AxcImage> {
   const { width, height } = await readImageSize(file);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -70,7 +107,7 @@ function GarmentEditor({
   const pickSide = async (side: 'front' | 'back', file: File | undefined) => {
     if (!file) return;
     setBusy(side); setError(null);
-    try { set(side, await uploadAxcImage(file, `${folderKey}/${side}`)); }
+    try { set(side, await uploadAxcImage(await trimTransparent(file), `${folderKey}/${side}`)); }
     catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
     finally { setBusy(null); }
   };
@@ -278,7 +315,7 @@ export function ArtistCollabTab() {
       </div>
 
       <div className="mb-5 rounded-lg border border-brand-border bg-brand-bg/60 px-4 py-3 text-xs text-brand-secondary">
-        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: just the garment, cut out on a transparent background (PNG or WebP), cropped tight, no hanger and no room. Any size works; the viewer sizes each garment, hangs it from the rail and draws the hanger. Export the back with the same crop as the front so the flip lines up. Closeups: portrait photos, any size.
+        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: just the garment, cut out on a transparent background (PNG or WebP), no hanger and no room. Any size works and extra empty margin is trimmed on upload; the viewer sizes each garment, hangs it from the rail and draws the hanger. Export the back with the same crop as the front so the flip lines up. Closeups: portrait photos, any size.
       </div>
 
       {editingId === 'new' && (

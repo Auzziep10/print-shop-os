@@ -246,7 +246,10 @@
     });
 
     // ---- details sheet (opens off a short upward scroll, which also lets Safari collapse its bars)
-    var sheetOpen = false, baseY = window.scrollY;
+    // start from the top, and don't let a restored scroll position or layout settling open the sheet on load
+    if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    var sheetOpen = false, baseY = window.scrollY, armedAt = performance.now() + 700;
     function openSheet(){ sheetOpen = true; sheet.classList.add('on'); scrim.classList.add('on'); foot.classList.add('hide'); side.classList.add('hide'); }
     function closeSheet(){
       sheetOpen = false; sheet.classList.remove('on'); scrim.classList.remove('on'); foot.classList.remove('hide'); side.classList.remove('hide'); sheet.style.transform = '';
@@ -256,6 +259,7 @@
     }
     window.addEventListener('scroll', function(){
       if(sheetOpen) return;
+      if(performance.now() < armedAt){ baseY = window.scrollY; return; }
       if(window.scrollY - baseY > 40) openSheet();
       else if(window.scrollY < baseY) baseY = window.scrollY;
     }, {passive:true});
