@@ -750,9 +750,89 @@ export const sortGarmentSizes = (a: string, b: string): number => {
 };
 
 export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] => {
-  if (!item && !styleHint) return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+  if (!item && !styleHint) return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
 
-  // 1. If explicit sizes array is present and non-empty
+  // Check if Headwear / Accessory (OSFA)
+  const combinedText = [item?.title, item?.category, item?.style, styleHint, item?.customName].filter(Boolean).join(' ').toLowerCase();
+  if (
+    combinedText.includes('hat') ||
+    combinedText.includes('cap') ||
+    combinedText.includes('beanie') ||
+    combinedText.includes('tumbler') ||
+    combinedText.includes('bag') ||
+    combinedText.includes('chill') ||
+    combinedText.includes('tote')
+  ) {
+    return ['OSFA'];
+  }
+
+  // 1. Identify candidate styles/codes and map known custom storefront names
+  const KNOWN_CUSTOM_STYLE_MAP: Record<string, string> = {
+    'heavy hoodie': 'BC4719',
+    'lounge hoodie': 'BC4719',
+    'hd-heavy crew': 'BC4711',
+    'oversized crew': 'BC4711',
+    'hd-heavy tee': 'BC4610',
+    'heavy weight tee': 'BC4610',
+    'everyday tee': 'BC3001CVC',
+    'field polo': 'KP55',
+    'apex hat': '258',
+    'fairway cap': '256'
+  };
+
+  const rawCandidates: string[] = [
+    item?.itemNum,
+    item?.style,
+    item?.styleId,
+    item?.sku,
+    item?.garment_id,
+    styleHint,
+    item?.id,
+    item?.title,
+    item?.customName,
+    item?.garment_name
+  ].filter(Boolean).map(s => String(s).trim());
+
+  const candidates: string[] = [];
+  for (const c of rawCandidates) {
+    candidates.push(c);
+    const mapped = KNOWN_CUSTOM_STYLE_MAP[c.toLowerCase()];
+    if (mapped && !candidates.includes(mapped)) {
+      candidates.push(mapped);
+    }
+  }
+
+  // 2. Lookup in catalog FIRST so official full size runs (e.g. up to 4XL / 5XL / 6XL) are prioritized
+  for (const cand of candidates) {
+    const candLower = cand.toLowerCase();
+    const candClean = candLower.replace(/[\s-]/g, '');
+
+    const found = sanmarCatalog.find(p => {
+      const pStyleLower = (p.style || '').toLowerCase();
+      const pClean = pStyleLower.replace(/[\s-]/g, '');
+      if (pClean === candClean) return true;
+      if (pClean === `bc${candClean}` || `bc${pClean}` === candClean) return true;
+      if (pClean === `dt${candClean}` || `dt${pClean}` === candClean) return true;
+      if (pClean === `nl${candClean}` || `nl${pClean}` === candClean) return true;
+      if (pStyleLower.length >= 3 && candLower.includes(pStyleLower)) return true;
+      return false;
+    });
+
+    if (found && Array.isArray(found.sizes) && found.sizes.length > 0) {
+      // Merge with any custom or youth sizes present in item.quantities or item.sizes
+      const extraSizes: string[] = [];
+      if (Array.isArray(item?.sizes)) {
+        extraSizes.push(...item.sizes);
+      }
+      if (item?.quantities && typeof item.quantities === 'object') {
+        extraSizes.push(...Object.keys(item.quantities));
+      }
+      const merged = Array.from(new Set([...found.sizes, ...extraSizes])).filter(Boolean);
+      return merged.sort(sortGarmentSizes);
+    }
+  }
+
+  // 3. If explicit sizes array is present on a non-catalog or custom item
   if (Array.isArray(item?.sizes) && item.sizes.length > 0) {
     return [...item.sizes].sort(sortGarmentSizes);
   }
@@ -775,50 +855,7 @@ export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] =>
     return [...item.variations[0].sizes].sort(sortGarmentSizes);
   }
 
-  // 2. Identify candidate styles/codes
-  const candidates: string[] = [
-    item?.itemNum,
-    item?.style,
-    styleHint,
-    item?.id,
-    item?.title
-  ].filter(Boolean).map(s => String(s).trim());
-
-  // 3. Lookup in catalog
-  for (const cand of candidates) {
-    const candLower = cand.toLowerCase();
-    const candClean = candLower.replace(/[\s-]/g, '');
-
-    const found = sanmarCatalog.find(p => {
-      const pStyleLower = (p.style || '').toLowerCase();
-      const pClean = pStyleLower.replace(/[\s-]/g, '');
-      if (pClean === candClean) return true;
-      if (pClean === `bc${candClean}` || `bc${pClean}` === candClean) return true;
-      if (pClean === `dt${candClean}` || `dt${pClean}` === candClean) return true;
-      if (pClean === `nl${candClean}` || `nl${pClean}` === candClean) return true;
-      return false;
-    });
-
-    if (found && Array.isArray(found.sizes) && found.sizes.length > 0) {
-      return [...found.sizes].sort(sortGarmentSizes);
-    }
-  }
-
-  // 4. Check if Headwear / Accessory (OSFA)
-  const combinedText = [item?.title, item?.category, item?.style, styleHint].filter(Boolean).join(' ').toLowerCase();
-  if (
-    combinedText.includes('hat') ||
-    combinedText.includes('cap') ||
-    combinedText.includes('beanie') ||
-    combinedText.includes('tumbler') ||
-    combinedText.includes('bag') ||
-    combinedText.includes('chill') ||
-    combinedText.includes('tote')
-  ) {
-    return ['OSFA'];
-  }
-
-  // 5. Intelligent Category / Brand fallbacks (full size runs without artificial cut-offs)
+  // 4. Intelligent Category / Brand fallbacks (full size runs without artificial cut-offs)
   if (/^[l|L]\d+/.test(styleHint) || combinedText.includes('ladies') || combinedText.includes('women')) {
     return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
   }
@@ -829,7 +866,7 @@ export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] =>
     return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
   }
   if (combinedText.includes('bella') || combinedText.includes('canvas')) {
-    return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
   }
 
   return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];

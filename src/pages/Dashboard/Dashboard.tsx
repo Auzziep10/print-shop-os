@@ -38,7 +38,7 @@ export function Dashboard() {
   const [staffTimeframe, setStaffTimeframe] = useState('Day');
   const [activeStat, setActiveStat] = useState<string | null>(null);
   const [printerFilter, setPrinterFilter] = useState<'pending' | 'printed' | 'all'>('pending');
-  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string; item?: any; itemStyle?: string } | null>(null);
   
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
@@ -1169,7 +1169,7 @@ export function Dashboard() {
                           src={item.printReadyUrl} 
                           alt="Layout Preview" 
                           className="w-full h-full object-contain p-3 hover:scale-102 transition-transform duration-300 cursor-pointer"
-                          onClick={() => setExpandedImage({ src: item.printReadyUrl, alt: `${item.style || 'Gang Sheet'}` })}
+                          onClick={() => setExpandedImage({ src: item.printReadyUrl, alt: `${item.style || 'Gang Sheet'}`, item, itemStyle: item.style || 'Gang Sheet' })}
                         />
                       ) : (
                         <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6 bg-neutral-900 w-full h-full justify-center">
@@ -1357,6 +1357,8 @@ export function Dashboard() {
         <ImageLightboxModal
           src={expandedImage.src}
           alt={expandedImage.alt}
+          item={expandedImage.item}
+          itemStyle={expandedImage.itemStyle || expandedImage.item?.style || expandedImage.alt}
           onClose={() => setExpandedImage(null)}
         />
       )}

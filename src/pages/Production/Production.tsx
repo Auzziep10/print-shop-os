@@ -49,7 +49,7 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
   const [targetInput, setTargetInput] = useState<string>('');
   const [editingTargetDateId, setEditingTargetDateId] = useState<string | null>(null);
   const [targetDateInput, setTargetDateInput] = useState<string>('');
-  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string, item?: any, itemStyle?: string} | null>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
   const [metricsMode, setMetricsMode] = useState<'Production' | 'Kitting'>('Production');
@@ -495,7 +495,7 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
          <div className="flex items-center gap-4">
            <div 
              className="w-16 h-16 rounded-[14px] overflow-hidden shrink-0 bg-transparent flex items-center justify-center cursor-pointer hover:scale-[1.05] transition-transform tooltip relative z-20"
-             onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
+             onClick={() => setExpandedImage({ src: item.image, alt: item.style, item, itemStyle: item.style })}
              title="Click to view full screen"
            >
              <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
@@ -1692,6 +1692,8 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
         <ImageLightboxModal
           src={expandedImage.src}
           alt={expandedImage.alt}
+          item={expandedImage.item}
+          itemStyle={expandedImage.itemStyle || expandedImage.item?.style || expandedImage.alt}
           onClose={() => setExpandedImage(null)}
         />
       )}

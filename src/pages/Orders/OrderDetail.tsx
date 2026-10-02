@@ -1591,7 +1591,7 @@ export function OrderDetail() {
   const [dtfLadder, setDtfLadder] = useState<any>(null);
   const [quickShipItem, setQuickShipItem] = useState<any>(null);
   const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
-  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{src: string, alt?: string, item?: any, itemStyle?: string} | null>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
   const [isItemSaving, setIsItemSaving] = useState(false);
@@ -4251,7 +4251,7 @@ export function OrderDetail() {
                               <div 
                                 onMouseEnter={() => setHoveredItemId(item.id)}
                                 onMouseLeave={() => setHoveredItemId(null)}
-                                onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
+                                onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style, item, itemStyle: item.style })}
                                 className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all relative group/thumb`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
@@ -5207,7 +5207,7 @@ export function OrderDetail() {
                                               src={art.url}
                                               alt={art.name || 'Logo preview'}
                                               className="w-full h-full object-contain p-0.5 cursor-pointer hover:scale-105 transition-transform"
-                                              onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                              onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview', item: card.item, itemStyle: card.title })}
                                               title="Click to view larger image"
                                             />
                                             <label 
@@ -5246,7 +5246,7 @@ export function OrderDetail() {
                                         <p 
                                           className="text-[10px] font-bold text-neutral-350 hover:text-white truncate inline-block cursor-pointer transition-colors" 
                                           title={art.url ? `Click to view ${art.name || 'Logo'}` : (art.name || 'Unnamed Logo')}
-                                          onClick={() => art.url && setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                          onClick={() => art.url && setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview', item: card.item, itemStyle: card.title })}
                                         >
                                           {art.name || 'Unnamed Logo'}
                                         </p>
@@ -5333,7 +5333,7 @@ export function OrderDetail() {
                                 src={activePreviewUrl} 
                                 alt="Layout Preview" 
                                 className="w-full h-full object-contain p-4 hover:scale-105 transition-transform duration-300 cursor-zoom-in"
-                                onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}` })}
+                                onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}`, item: card.item, itemStyle: card.title })}
                               />
                             ) : (
                               <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
@@ -5627,7 +5627,7 @@ export function OrderDetail() {
                                           />
                                           {item.image && (
                                              <div 
-                                                onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
+                                                onClick={() => setExpandedImage({ src: item.image, alt: item.style, item, itemStyle: item.style })}
                                                 title="Click to view full screen"
                                                 className="w-7 h-7 rounded bg-neutral-100 border border-brand-border flex items-center justify-center shrink-0 cursor-pointer shadow-sm overflow-hidden"
                                              >
@@ -5827,7 +5827,7 @@ export function OrderDetail() {
                                                      <div className="flex items-center gap-2.5 min-w-0">
                                                         {matchedItem.image && (
                                                            <div 
-                                                              onClick={() => setExpandedImage({ src: matchedItem.image, alt: matchedItem.style })}
+                                                              onClick={() => setExpandedImage({ src: matchedItem.image, alt: matchedItem.style, item: matchedItem, itemStyle: matchedItem.style })}
                                                               title="Click to view full screen"
                                                               className="w-7 h-7 rounded bg-white border border-brand-border flex items-center justify-center shrink-0 cursor-pointer shadow-sm overflow-hidden hover:scale-[1.05] transition-transform"
                                                            >
@@ -7542,7 +7542,7 @@ export function OrderDetail() {
                        <span className="text-xs font-semibold text-brand-primary flex items-center gap-2"><ImageIcon size={14}/> Main Mockup</span>
                        <div className="w-full aspect-square bg-brand-bg border border-brand-border rounded-lg flex items-center justify-center overflow-hidden">
                          {editItemObj.image ? (
-                           <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image, alt: "Main mockup" })} />
+                           <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image, alt: "Main mockup", item: editItemObj, itemStyle: editItemObj.style })} />
                          ) : (
                            <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
                              <ImageIcon size={32} />
@@ -7741,7 +7741,7 @@ export function OrderDetail() {
                              {editItemObj.referenceImages.map((refImg: string, i: number) => (
                                <div key={i} className="relative aspect-square rounded-lg group overflow-hidden border border-brand-border bg-white shadow-sm">
                                  <img src={refImg} alt={`Reference ${i}`} className="w-full h-full object-contain p-1" />
-                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity" onClick={() => setExpandedImage({ src: refImg, alt: `Reference ${i}` })}>
+                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity" onClick={() => setExpandedImage({ src: refImg, alt: `Reference ${i + 1}`, item: editItemObj, itemStyle: editItemObj.style })}>
                                      <Search size={16} className="text-white hover:text-brand-primary cursor-pointer drop-shadow-md" />
                                  </div>
                                  <button 
@@ -7831,7 +7831,7 @@ export function OrderDetail() {
                                                    src={art.url} 
                                                    alt={art.name || 'Logo'} 
                                                    className="w-full h-full object-contain p-1 cursor-pointer hover:scale-105 transition-transform" 
-                                                   onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview' })}
+                                                   onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview', item: editItemObj, itemStyle: editItemObj.style })}
                                                    title="Click to view larger image"
                                                 />
                                                 <label 
@@ -7932,7 +7932,7 @@ export function OrderDetail() {
                           </span>
                           <div className="w-full aspect-square bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard">
                             {editItemObj.originalSheetUrl ? (
-                              <img src={editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
+                              <img src={editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.originalSheetUrl, alt: "Artwork preview", item: editItemObj, itemStyle: editItemObj.style })} />
                             ) : (
                               <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
                                 <ImageIcon size={32} />
@@ -8782,6 +8782,8 @@ export function OrderDetail() {
         <ImageLightboxModal
           src={expandedImage.src}
           alt={expandedImage.alt}
+          item={expandedImage.item}
+          itemStyle={expandedImage.itemStyle || expandedImage.item?.style || expandedImage.alt}
           orderNumber={order?.orderNumber || order?.id}
           onClose={() => setExpandedImage(null)}
         />
