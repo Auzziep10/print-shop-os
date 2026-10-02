@@ -123,7 +123,8 @@
       // the hanger is lifted from the original render (img/garments/hanger.png, 170x130 on the 806px reference canvas,
       // cap top 3px below its top edge, collar line 58px down); the viewer places it in those reference units
       var hanger = g.layout === 'garment' ? '<img class="hanger" src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false">' : '';
-      el.innerHTML = '<div class="cord"></div><div class="swing">' + hanger + '<div class="flip">' +
+      // the hanger lives inside the flip so it turns with the garment; the cord stays put on the ceiling
+      el.innerHTML = '<div class="cord"></div><div class="swing"><div class="flip">' + hanger +
         '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
         (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +
         (g.neck && g.layout === 'garment' ? '<div class="neck f" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
