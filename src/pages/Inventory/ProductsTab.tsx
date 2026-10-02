@@ -6,6 +6,7 @@ import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
+import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -1546,36 +1547,11 @@ export function ProductsTab({
 
       {/* Expanded Image Lightbox Modal */}
       {expandedImage && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-6 bg-black/30 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setExpandedImage(null)}
-        >
-           <button 
-             onClick={() => setExpandedImage(null)} 
-             className="absolute top-6 right-6 p-2 text-white/70 hover:text-white bg-black/20 hover:bg-black/40 rounded-full transition-colors z-10"
-             title="Close"
-           >
-              <X size={24} />
-           </button>
-           <div 
-             className="relative max-w-[95vw] max-h-[85vh] rounded-[1rem] overflow-hidden cursor-crosshair shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center bg-black/5"
-             onClick={(e) => e.stopPropagation()}
-             onMouseMove={(e) => {
-               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-               const x = (e.clientX - left) / width;
-               const y = (e.clientY - top) / height;
-               const img = e.currentTarget.querySelector('img');
-               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
-             }}
-             title="Hover to zoom"
-           >
-              <img 
-                 src={expandedImage} 
-                 alt="Expanded view"
-                 className="max-w-[95vw] max-h-[85vh] object-contain scale-100 hover:scale-[1.8] transition-transform duration-300 ease-out"
-              />
-           </div>
-        </div>
+        <ImageLightboxModal
+          src={expandedImage}
+          alt="Product Image"
+          onClose={() => setExpandedImage(null)}
+        />
       )}
 
       {printingBox && createPortal(

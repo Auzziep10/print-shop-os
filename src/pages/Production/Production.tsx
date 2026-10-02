@@ -7,6 +7,7 @@ import { db } from '../../lib/firebase';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { tokens } from '../../lib/tokens';
 import { normalizeUser } from '../../lib/utils';
+import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 const getBaseSize = (s: string) => {
   const base = s.split(' ')[0].toUpperCase();
@@ -1688,35 +1689,11 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
 
       {/* Image Overlay */}
       {expandedImage && (
-        <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-md p-6 animate-in fade-in duration-200" 
-          onClick={() => setExpandedImage(null)}
-        >
-           <button 
-             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full" 
-             onClick={() => setExpandedImage(null)}
-           >
-             <X size={24} />
-           </button>
-           <div 
-             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
-             onClick={(e) => e.stopPropagation()}
-             onMouseMove={(e) => {
-               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-               const x = (e.clientX - left) / width;
-               const y = (e.clientY - top) / height;
-               const img = e.currentTarget.querySelector('img');
-               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
-             }}
-             title="Hover to zoom"
-           >
-             <img 
-               src={expandedImage.src} 
-               alt={expandedImage.alt} 
-               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
-             />
-           </div>
-        </div>
+        <ImageLightboxModal
+          src={expandedImage.src}
+          alt={expandedImage.alt}
+          onClose={() => setExpandedImage(null)}
+        />
       )}
     </div>
   );

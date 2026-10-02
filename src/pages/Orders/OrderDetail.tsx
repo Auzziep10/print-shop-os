@@ -18,6 +18,8 @@ import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
+import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
+import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
@@ -4250,7 +4252,7 @@ export function OrderDetail() {
                                 onMouseEnter={() => setHoveredItemId(item.id)}
                                 onMouseLeave={() => setHoveredItemId(null)}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
-                                className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all`}
+                                className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all relative group/thumb`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
                                 {item.image ? (
@@ -4283,6 +4285,23 @@ export function OrderDetail() {
                                   )
                                 ) : (
                                   <Box size={24} className="text-brand-secondary/40" />
+                                )}
+                                {item.image && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadImageAsPng(
+                                        item.image,
+                                        `Order_${order?.orderNumber || order?.id || 'Order'}_${item.style || 'Garment'}_Mockup_FullSize.png`,
+                                        { minDimension: 2400 }
+                                      );
+                                    }}
+                                    className="absolute bottom-1 right-1 p-1 bg-black/80 hover:bg-black text-white rounded-lg opacity-0 group-hover/thumb:opacity-100 transition-opacity shadow-md z-10 cursor-pointer"
+                                    title="Download full size PNG"
+                                  >
+                                    <Download size={12} />
+                                  </button>
                                 )}
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
@@ -4439,6 +4458,25 @@ export function OrderDetail() {
                                             </a>
                                          );
                                        })}
+                                       {item.image && (
+                                         <button
+                                           type="button"
+                                           onClick={(e) => {
+                                             e.stopPropagation();
+                                             downloadImageAsPng(
+                                               item.image,
+                                               `Order_${order?.orderNumber || order?.id || 'Order'}_${item.style || 'Garment'}_Mockup_FullSize.png`,
+                                               { minDimension: 2400 }
+                                             );
+                                           }}
+                                           className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-800 bg-neutral-100 border border-neutral-300 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
+                                           title="Download full resolution garment mockup PNG"
+                                         >
+                                            <Shirt size={12} strokeWidth={2.5} />
+                                            <Download size={12} strokeWidth={2.5} />
+                                            <span>Mockup PNG</span>
+                                         </button>
+                                       )}
                                        {(!item.artworks || item.artworks.length === 0) && typeof item.image === 'string' && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
                                          <a 
                                            href={item.image} 
@@ -8741,36 +8779,12 @@ export function OrderDetail() {
 
       {/* Image Overlay */}
       {expandedImage && (
-        <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-200" 
-          onClick={() => setExpandedImage(null)}
-        >
-           <button 
-             className="absolute top-6 right-6 text-neutral-800 hover:text-black hover:scale-105 transition-all p-2 bg-white rounded-full shadow-lg border border-neutral-100 z-50 cursor-pointer" 
-             onClick={() => setExpandedImage(null)}
-           >
-             <X size={20} />
-           </button>
-           <div 
-             className="relative max-w-4xl max-h-[85vh] w-full bg-checkerboard rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
-             onClick={(e) => e.stopPropagation()}
-             onMouseMove={(e) => {
-               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-               const x = (e.clientX - left) / width;
-               const y = (e.clientY - top) / height;
-               const img = e.currentTarget.querySelector('img');
-               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
-             }}
-             title="Hover to zoom"
-           >
-             <img 
-               src={expandedImage.src} 
-               alt={expandedImage.alt} 
-               style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
-               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
-             />
-           </div>
-        </div>
+        <ImageLightboxModal
+          src={expandedImage.src}
+          alt={expandedImage.alt}
+          orderNumber={order?.orderNumber || order?.id}
+          onClose={() => setExpandedImage(null)}
+        />
       )}
 
       {/* Quick Ship Modal */}

@@ -11,6 +11,7 @@ import { collection, query, getDocs, onSnapshot, updateDoc, doc } from 'firebase
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
 import { Printer, CheckCircle2, AlertTriangle, Download, X } from 'lucide-react';
+import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
 export function Dashboard() {
@@ -1353,36 +1354,11 @@ export function Dashboard() {
 
       {/* Image Overlay Lightbox */}
       {expandedImage && (
-        <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-200" 
-          onClick={() => setExpandedImage(null)}
-        >
-           <button 
-             className="absolute top-6 right-6 text-neutral-800 hover:text-black hover:scale-105 transition-all p-2 bg-white rounded-full shadow-lg border border-neutral-100 z-50 cursor-pointer" 
-             onClick={() => setExpandedImage(null)}
-           >
-             <X size={20} />
-           </button>
-           <div 
-             className="relative max-w-4xl max-h-[85vh] w-full bg-checkerboard rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
-             onClick={(e) => e.stopPropagation()}
-             onMouseMove={(e) => {
-               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-               const x = (e.clientX - left) / width;
-               const y = (e.clientY - top) / height;
-               const img = e.currentTarget.querySelector('img');
-               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
-             }}
-             title="Hover to zoom"
-           >
-             <img 
-               src={expandedImage.src} 
-               alt={expandedImage.alt} 
-               style={{ width: 'auto', height: 'auto', maxWidth: '105%', maxHeight: '70vh' }}
-               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
-             />
-           </div>
-        </div>
+        <ImageLightboxModal
+          src={expandedImage.src}
+          alt={expandedImage.alt}
+          onClose={() => setExpandedImage(null)}
+        />
       )}
     </div>
   );

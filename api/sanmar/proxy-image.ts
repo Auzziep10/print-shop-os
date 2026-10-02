@@ -28,6 +28,7 @@ export default async function handler(req: Request) {
     host === 'cdnm.sanmar.com' ||
     host === 'image.pollinations.ai' ||
     host === 'firebasestorage.googleapis.com' ||
+    host === 'storage.googleapis.com' ||
     host === 'images.unsplash.com' ||
     host.endsWith('.vercel.app') ||
     host === 'wovn-garment-catalog.vercel.app';
