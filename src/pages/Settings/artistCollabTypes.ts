@@ -77,7 +77,9 @@ export interface AxcGarment {
   back: AxcImage | null;    // optional, same crop as the front; enables the flip control
   layout?: 'garment' | 'canvas';
   neck?: AxcNeck | null;           // optional collar hole; when set the hanger is drawn through it
-  hang?: AxcHang | null;           // optional manual hanging adjustments   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
+  hang?: AxcHang | null;           // optional manual hanging adjustments (front)
+  neckBack?: AxcNeck | null;       // collar opening on the BACK image
+  hangBack?: AxcHang | null;       // hanging adjustments for the back (falls back to the front's)   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
   closeups: AxcCloseup[];
   active: boolean;
   sortOrder: number;
@@ -105,6 +107,8 @@ export function emptyGarment(sortOrder: number): Omit<AxcGarment, 'id'> {
     layout: 'garment',
     neck: null,
     hang: null,
+    neckBack: null,
+    hangBack: null,
     closeups: [],
     active: false,
     sortOrder,

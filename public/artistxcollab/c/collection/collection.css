@@ -66,7 +66,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .flip img.hero.b{transform:rotateY(180deg);opacity:0;}
 .flip.back img.hero.f{opacity:0;}
 .flip.back img.hero.b{opacity:1;}
-.neck{position:absolute;overflow:hidden;pointer-events:none;}   /* clip-path, size and tint are set per garment */
+.neck{position:absolute;overflow:hidden;pointer-events:none;transition:opacity 0s linear .4s;}   /* clip-path, size and tint are set per garment */
+.neck.b{opacity:0;transform:rotateY(180deg);}   /* pre-mirrored like the back image, revealed at the midpoint of the turn */
+.flip.back .neck.f{opacity:0;}
+.flip.back .neck.b{opacity:1;}
 .neck img{position:absolute;max-width:none;}
 .neck i{position:absolute;inset:0;background:linear-gradient(to bottom, rgba(0,0,0,.5), rgba(0,0,0,0) 45%);}
 .swing.settle{transition:transform .9s cubic-bezier(.34,1.56,.64,1);}

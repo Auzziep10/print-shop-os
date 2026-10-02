@@ -112,7 +112,7 @@ const times = (v: number) => `${Math.round(v * 100)}%`;
  * the opening to move the opening.
  */
 function HangArtboard({ front, neck, hang, zoom, onNeck, onHang }: {
-  front: AxcImage; neck: AxcNeck | null; hang: AxcHang; zoom: number;
+  front: AxcImage; neck: AxcNeck | null; hang: AxcHang; zoom: number;   // `front` is whichever face is being placed
   onNeck: (n: AxcNeck) => void; onHang: (h: AxcHang) => void;
 }) {
   const W = 620, H = 440;
@@ -178,9 +178,10 @@ const SHAPES: { id: AxcNeckShape; label: string }[] = [
   { id: 'oval', label: 'Oval' }, { id: 'crew', label: 'Crew' }, { id: 'square', label: 'Rounded' }, { id: 'v', label: 'V-neck' },
 ];
 
-function HangEditor({ front, neck, hang, onNeck, onHang }: {
-  front: AxcImage | null; neck: AxcNeck | null | undefined; hang: AxcHang | null | undefined;
+function HangEditor({ title, intro, front, neck, hang, onNeck, onHang, copyFrom }: {
+  title: string; intro: string; front: AxcImage | null; neck: AxcNeck | null | undefined; hang: AxcHang | null | undefined;
   onNeck: (n: AxcNeck | null) => void; onHang: (h: AxcHang | null) => void;
+  copyFrom?: { label: string; neck: AxcNeck | null | undefined; hang: AxcHang | null | undefined } | null;
 }) {
   const n = neck || null;
   const h: AxcHang = { ...DEFAULT_HANG, ...(hang || {}) };
@@ -189,11 +190,14 @@ function HangEditor({ front, neck, hang, onNeck, onHang }: {
   if (!front) return null;
   return (
     <div className="md:col-span-2">
-      <label className={tokens.typography.label}>Hanging</label>
-      <p className="mt-1 text-[11px] text-brand-secondary">
-        How this garment sits on the hanger on the live page. Drag the shirt on the board to move it up or down; use the sliders for size.
-        Tick the neck option for flatlays whose collar is closed, then fit the dashed outline to the inside of the collar.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className={tokens.typography.label}>{title}</label>
+        {copyFrom && (
+          <button type="button" onClick={() => { onHang(copyFrom.hang ? { ...copyFrom.hang } : null); onNeck(copyFrom.neck ? { ...copyFrom.neck } : null); }}
+            className="rounded-full border border-brand-border px-3 py-1 text-xs text-brand-primary hover:border-brand-primary">{copyFrom.label}</button>
+        )}
+      </div>
+      <p className="mt-1 text-[11px] text-brand-secondary">{intro}</p>
       <div className="mt-3">
         <HangArtboard front={front} neck={n} hang={h} zoom={zoom} onNeck={onNeck} onHang={onHang} />
         <div className="mt-2 flex items-center gap-2 text-xs text-brand-secondary">
@@ -354,7 +358,13 @@ function GarmentEditor({
 
         <SidePicker side="front" label="Front" />
         <SidePicker side="back" label="Back (optional — enables the flip)" />
-        <HangEditor front={g.front} neck={g.neck} hang={g.hang} onNeck={n => set('neck', n)} onHang={h => set('hang', h)} />
+        <HangEditor title="Hanging — front" front={g.front} neck={g.neck} hang={g.hang} onNeck={n => set('neck', n)} onHang={h => set('hang', h)}
+          intro="How the front sits on the hanger on the live page. Drag the shirt on the board to move it up or down; use the sliders for size. Tick the neck option for flatlays whose collar is closed, then fit the dashed outline to the inside of the collar." />
+        {g.back && (
+          <HangEditor title="Hanging — back" front={g.back} neck={g.neckBack} hang={g.hangBack} onNeck={n => set('neckBack', n)} onHang={h => set('hangBack', h)}
+            copyFrom={{ label: 'Copy settings from front', neck: g.neck, hang: g.hang }}
+            intro="Shown after the Turn button. The back neck usually sits higher and narrower than the front, so it gets its own placement and opening. Until you change anything here, the back uses the front's hanging settings." />
+        )}
 
         <div className="md:col-span-2">
           <label className={tokens.typography.label}>Garment makeup</label>

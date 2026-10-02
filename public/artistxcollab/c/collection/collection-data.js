@@ -41,6 +41,8 @@ window.AXC_COLLECTION = {
       artist: "Sample — replace in admin",
       front: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },
       back: { url: "/artistxcollab/img/garments/sb-tee-garment.webp", width: 541, height: 565 },   // placeholder back so the Turn control can be tried
+      neckBack: { cx: 0.5, cy: 0.03, rx: 0.08, ry: 0.022, shape: "crew" },
+      hangBack: { dy: -0.02, scale: 1, hangerScale: 1 },
       story: "Placeholder so the carousel can be felt before real garments are uploaded.",
       specs: [["Fabric", "—"], ["Fit", "—"], ["Decoration", "—"]],
       closeups: [{ label: "Art 1", image: "/artistxcollab/img/garments/sb-tee-chest.webp" }]
