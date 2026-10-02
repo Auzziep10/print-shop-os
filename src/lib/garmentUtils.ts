@@ -732,3 +732,107 @@ export const sortGarmentsByTypeOrder = (
   });
 };
 
+export const STANDARD_SIZE_ORDER: Record<string, number> = {
+  'y2xs': -7, 'yxxs': -6, 'yxs': -5, 'ys': -4, 'ym': -3, 'yl': -2, 'yxl': -1,
+  'xxs': 1, '2xs': 1, 'xs': 2, 's': 3, 'm': 4, 'l': 5, 'xl': 6,
+  '2xl': 7, 'xxl': 7, '3xl': 8, 'xxxl': 8, '4xl': 9, 'xxxxl': 9, '5xl': 10, '6xl': 11, '7xl': 12, '8xl': 13, '9xl': 14, '10xl': 15,
+  'sm': 18, 'm/l': 19, 'l/xl': 20,
+  'osfa': 30, 'os': 31, 'one size': 32
+};
+
+export const sortGarmentSizes = (a: string, b: string): number => {
+  const aNorm = a.split(' ')[0].toLowerCase().trim();
+  const bNorm = b.split(' ')[0].toLowerCase().trim();
+  const aVal = STANDARD_SIZE_ORDER[aNorm] ?? 50;
+  const bVal = STANDARD_SIZE_ORDER[bNorm] ?? 50;
+  if (aVal !== bVal) return aVal - bVal;
+  return a.localeCompare(b);
+};
+
+export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] => {
+  if (!item && !styleHint) return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+
+  // 1. If explicit sizes array is present and non-empty
+  if (Array.isArray(item?.sizes) && item.sizes.length > 0) {
+    return [...item.sizes].sort(sortGarmentSizes);
+  }
+  if (typeof item?.sizes === 'string' && item.sizes.trim()) {
+    return item.sizes.split(',').map((s: string) => s.trim()).filter(Boolean).sort(sortGarmentSizes);
+  }
+  if (Array.isArray(item?.availableSizes) && item.availableSizes.length > 0) {
+    return [...item.availableSizes].sort(sortGarmentSizes);
+  }
+  if (typeof item?.availableSizes === 'string' && item.availableSizes.trim()) {
+    return item.availableSizes.split(',').map((s: string) => s.trim()).filter(Boolean).sort(sortGarmentSizes);
+  }
+  if (item?.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
+    return item.sizeSpread.split(',').map((s: string) => s.trim()).filter(Boolean).sort(sortGarmentSizes);
+  }
+  if (item?.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
+    return item.size_spread.split(',').map((s: string) => s.trim()).filter(Boolean).sort(sortGarmentSizes);
+  }
+  if (Array.isArray(item?.variations) && item.variations[0]?.sizes) {
+    return [...item.variations[0].sizes].sort(sortGarmentSizes);
+  }
+
+  // 2. Identify candidate styles/codes
+  const candidates: string[] = [
+    item?.itemNum,
+    item?.style,
+    styleHint,
+    item?.id,
+    item?.title
+  ].filter(Boolean).map(s => String(s).trim());
+
+  // 3. Lookup in catalog
+  for (const cand of candidates) {
+    const candLower = cand.toLowerCase();
+    const candClean = candLower.replace(/[\s-]/g, '');
+
+    const found = sanmarCatalog.find(p => {
+      const pStyleLower = (p.style || '').toLowerCase();
+      const pClean = pStyleLower.replace(/[\s-]/g, '');
+      if (pClean === candClean) return true;
+      if (pClean === `bc${candClean}` || `bc${pClean}` === candClean) return true;
+      if (pClean === `dt${candClean}` || `dt${pClean}` === candClean) return true;
+      if (pClean === `nl${candClean}` || `nl${pClean}` === candClean) return true;
+      return false;
+    });
+
+    if (found && Array.isArray(found.sizes) && found.sizes.length > 0) {
+      return [...found.sizes].sort(sortGarmentSizes);
+    }
+  }
+
+  // 4. Check if Headwear / Accessory (OSFA)
+  const combinedText = [item?.title, item?.category, item?.style, styleHint].filter(Boolean).join(' ').toLowerCase();
+  if (
+    combinedText.includes('hat') ||
+    combinedText.includes('cap') ||
+    combinedText.includes('beanie') ||
+    combinedText.includes('tumbler') ||
+    combinedText.includes('bag') ||
+    combinedText.includes('chill') ||
+    combinedText.includes('tote')
+  ) {
+    return ['OSFA'];
+  }
+
+  // 5. Intelligent Category / Brand fallbacks (full size runs without artificial cut-offs)
+  if (/^[l|L]\d+/.test(styleHint) || combinedText.includes('ladies') || combinedText.includes('women')) {
+    return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+  }
+  if (combinedText.includes('gildan')) {
+    return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  }
+  if (combinedText.includes('comfort colors')) {
+    return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+  }
+  if (combinedText.includes('bella') || combinedText.includes('canvas')) {
+    return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+  }
+
+  return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+};
+
+

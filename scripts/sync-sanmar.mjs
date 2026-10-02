@@ -129,8 +129,15 @@ function parseCSV(filePath) {
           category: category,
           price: parseFloat(row['PIECE_PRICE'] || row['PiecePrice'] || row['piece_price'] || '0') || 0,
           colors: [],
+          sizes: [],
           images: {} // color_name -> image_url
         };
+      }
+
+      // Add Size
+      const size = (row['SIZE'] || row['Size'] || row['size'] || '').trim();
+      if (size && !productsMap[style].sizes.includes(size)) {
+        productsMap[style].sizes.push(size);
       }
 
       // Add Color
@@ -149,7 +156,27 @@ function parseCSV(filePath) {
       }
     })
     .on('end', () => {
-      const products = Object.values(productsMap);
+      const sizeOrder = {
+        'Y2XS': -7, 'YXXS': -6, 'YXS': -5, 'YS': -4, 'YM': -3, 'YL': -2, 'YXL': -1,
+        'XXS': 1, '2XS': 1, 'XS': 2, 'S': 3, 'M': 4, 'L': 5, 'XL': 6,
+        '2XL': 7, 'XXL': 7, '3XL': 8, 'XXXL': 8, '4XL': 9, 'XXXXL': 9, '5XL': 10, '6XL': 11, '7XL': 12, '8XL': 13, '9XL': 14, '10XL': 15,
+        'SM': 18, 'M/L': 19, 'L/XL': 20,
+        'OSFA': 30, 'OS': 31, 'ONE SIZE': 32
+      };
+
+      const products = Object.values(productsMap).map(p => {
+        if (p.sizes && p.sizes.length > 0) {
+          p.sizes.sort((a, b) => {
+            const aVal = sizeOrder[a.toUpperCase()] ?? 50;
+            const bVal = sizeOrder[b.toUpperCase()] ?? 50;
+            if (aVal !== bVal) return aVal - bVal;
+            return a.localeCompare(b);
+          });
+        } else {
+          p.sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+        }
+        return p;
+      });
       console.log(`Parsed ${products.length} popular styles.`);
 
       const outDir = path.resolve(process.cwd(), 'src/data');
@@ -170,3 +197,4 @@ function parseCSV(filePath) {
       }
     });
 }
+

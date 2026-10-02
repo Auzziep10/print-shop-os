@@ -7,7 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, sortGarmentsByTypeOrder, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, sortGarmentsByTypeOrder, type GarmentTypeId, getGarmentAvailableSizes, sortGarmentSizes } from '../../lib/garmentUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -41,18 +41,8 @@ const DEFAULT_RACKS = {
   Team: { hat: '112', shirt: '64000', polo: 'ST665', crewneck: 'S6000', hoodie: '996M', longsleeve: '29LS' }
 };
 
-const sortSizes = (a: string, b: string) => {
-  const orderMap: Record<string, number> = { 
-    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
-    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
-  };
-  const aKey = a.split(' ')[0].toLowerCase();
-  const bKey = b.split(' ')[0].toLowerCase();
-  const aVal = orderMap[aKey] || 99;
-  const bVal = orderMap[bKey] || 99;
-  if (aVal !== bVal) return aVal - bVal;
-  return a.localeCompare(b);
-};
+const sortSizes = sortGarmentSizes;
+
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
   const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
@@ -80,78 +70,7 @@ const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
 };
 
 const parseSizesFromItem = (item: any, style = ''): string[] => {
-  const sUpper = style.toUpperCase().trim();
-  
-  // Specific style overrides
-  if (sUpper === 'STC70' || sUpper === '112' || sUpper === 'C402' || sUpper === '212' || sUpper === '115') return ['OSFA'];
-  if (sUpper === 'BC3001' || sUpper === 'BC3001CVC' || sUpper === '3001' || sUpper === '3001CVC') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
-  if (sUpper === 'ST640' || sUpper === 'ST665' || sUpper === 'ST550' || sUpper === 'S6000' || sUpper === 'DT6100' || sUpper === 'DT1304' || sUpper === 'DT6000' || sUpper === 'DT6001') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
-  if (sUpper === 'BC3719' || sUpper === 'BC3501' || sUpper === '3719' || sUpper === '3501') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
-  if (sUpper === '64000' || sUpper === '64800' || sUpper === '64000B') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
-  if (sUpper === 'SF000' || sUpper === 'SF500' || sUpper === '18500' || sUpper === '996M' || sUpper === '29LS' || sUpper === '5000' || sUpper === '562M') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
-  if (sUpper === '6014' || sUpper === '1717' || sUpper === '1566' || sUpper === '6030') return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
-  if (sUpper === 'K500' || sUpper === 'L500' || sUpper === 'K810' || sUpper === 'K420' || sUpper === 'K110' || sUpper === 'K540') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
-
-  let sizes: string[] = [];
-  if (Array.isArray(item.sizes) && item.sizes.length > 0) {
-      sizes = item.sizes;
-  } else if (typeof item.sizes === 'string' && item.sizes.trim()) {
-      sizes = item.sizes.split(',').map((s:string) => s.trim());
-  } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
-      sizes = item.availableSizes;
-  } else if (typeof item.availableSizes === 'string' && item.availableSizes.trim()) {
-      sizes = item.availableSizes.split(',').map((s:string) => s.trim());
-  } else if (item.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
-      sizes = item.sizeSpread.split(',').map((s:string) => s.trim());
-  } else if (item.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
-      sizes = item.size_spread.split(',').map((s:string) => s.trim());
-  } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
-      sizes = item.variations[0].sizes;
-  } else if (
-    style.toLowerCase().includes('chill') || 
-    style.toLowerCase().includes('tumbler') || 
-    style.toLowerCase().includes('bag') || 
-    style.toLowerCase().includes('hat') ||
-    style.toLowerCase().includes('cap') ||
-    (item.category && item.category.toLowerCase().includes('hat')) ||
-    (item.category && item.category.toLowerCase().includes('cap')) ||
-    (item.title && item.title.toLowerCase().includes('hat')) ||
-    (item.title && item.title.toLowerCase().includes('cap'))
-  ) {
-      sizes = ['OSFA'];
-  }
-
-  if (sizes.length === 0) {
-    const styleLower = style.toLowerCase();
-    const titleLower = (item.title || '').toLowerCase();
-    const catLower = (item.category || '').toLowerCase();
-
-    // Ladies' styles
-    if (styleLower.startsWith('l') && /^[l|L]\d+/.test(styleLower)) {
-      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
-    }
-    if (titleLower.includes('ladies') || titleLower.includes('women')) {
-      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-    }
-
-    // Brand defaults
-    const brandLower = (item.brand || '').toLowerCase();
-    if (brandLower.includes('gildan')) {
-      return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
-    }
-    if (brandLower.includes('comfort colors')) {
-      return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
-    }
-    if (brandLower.includes('bella') || brandLower.includes('canvas')) {
-      if (catLower.includes('hoodie') || catLower.includes('sweatshirt') || catLower.includes('sleeve')) {
-        return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
-      }
-      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
-    }
-
-    sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-  }
-  return sizes;
+  return getGarmentAvailableSizes(item, style);
 };
 
 export function PortalCreateOrder() {
@@ -332,6 +251,12 @@ export function PortalCreateOrder() {
     const g = savedDesignItem.garment;
     if (!g) return;
 
+    const garmentSizes = parseSizesFromItem(g, g.style || g.itemNum || '');
+    const defaultQtyMap: any = {};
+    garmentSizes.forEach((s: string) => {
+      defaultQtyMap[s] = 0;
+    });
+
     const newItem = {
       ...g,
       style: g.title || `${g.brand || ''} ${g.style || ''}`.trim(),
@@ -340,8 +265,8 @@ export function PortalCreateOrder() {
       selectedColor: g.selectedColor || 'Black',
       image: g.image || g.customizedFrontImage || g.originalFrontImage,
       customized: true,
-      quantities: g.sizeQuantities || { S: 0, M: 0, L: 0, XL: 0, '2XL': 0 },
-      sizes: ['S', 'M', 'L', 'XL', '2XL']
+      quantities: { ...defaultQtyMap, ...(g.sizeQuantities || {}) },
+      sizes: garmentSizes
     };
 
     setOrderItems(prev => [...prev, newItem]);
@@ -1820,8 +1745,9 @@ export function PortalCreateOrder() {
 
   const handleAddItem = (item: any) => {
     // Determine dynamic size run specific to this garment
-    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-    const itemSizes = item.sizes && item.sizes.length > 0 ? item.sizes : defaultSizes;
+    const itemSizes = (item.sizes && item.sizes.length > 0) 
+      ? item.sizes 
+      : parseSizesFromItem(item, item.style || item.itemNum || '');
     
     // Create zeroed quantity map strictly from the provided sizes
     const qtyMap: any = {};
@@ -1846,6 +1772,7 @@ export function PortalCreateOrder() {
       instanceId: Math.random().toString(36).substring(7),
       selectedColor: defaultColor,
       quantities: qtyMap,
+      sizes: itemSizes,
       isSuggested: isSuggestedItem,
       hasFixedColors: isSuggestedItem ? true : item.hasFixedColors
     };
@@ -2747,21 +2674,26 @@ export function PortalCreateOrder() {
                             </div>
                           </div>
                           <div data-tour="sizing-matrix" className="flex flex-wrap gap-1.5 w-full">
-                            {Object.keys(item.quantities).sort(sortSizes).map((size) => (
-                              <div key={size} className="flex-1 min-w-[45px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
-                                <div className="bg-neutral-50 text-neutral-505 text-[9px] font-bold py-1 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
-                                  {size}
+                            {(() => {
+                              const catalogSizes = parseSizesFromItem(item, item.itemNum || item.style || '');
+                              const currentKeys = Object.keys(item.quantities || {});
+                              const mergedSizes = Array.from(new Set([...catalogSizes, ...currentKeys])).sort(sortSizes);
+                              return mergedSizes.map((size) => (
+                                <div key={size} className="flex-1 min-w-[45px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
+                                  <div className="bg-neutral-50 text-neutral-505 text-[9px] font-bold py-1 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
+                                    {size}
+                                  </div>
+                                  <input 
+                                    type="number"
+                                    min="0"
+                                    value={item.quantities[size] || ''}
+                                    placeholder="0"
+                                    onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
+                                    className="w-full h-8 text-center text-xs font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-350 font-semibold"
+                                  />
                                 </div>
-                                <input 
-                                  type="number"
-                                  min="0"
-                                  value={item.quantities[size] || ''}
-                                  placeholder="0"
-                                  onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
-                                  className="w-full h-8 text-center text-xs font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-350 font-semibold"
-                                />
-                              </div>
-                            ))}
+                              ));
+                            })()}
                           </div>
                         </div>
                         {/* Live Auto-Quote Breakdown per Item */}

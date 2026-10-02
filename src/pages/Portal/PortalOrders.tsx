@@ -9,19 +9,9 @@ import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
+import { getGarmentAvailableSizes, sortGarmentSizes } from '../../lib/garmentUtils';
 
-const sortSizes = (a: string, b: string) => {
-  const orderMap: Record<string, number> = { 
-    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
-    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
-  };
-  const aKey = a.split(' ')[0].toLowerCase();
-  const bKey = b.split(' ')[0].toLowerCase();
-  const aVal = orderMap[aKey] || 99;
-  const bVal = orderMap[bKey] || 99;
-  if (aVal !== bVal) return aVal - bVal;
-  return a.localeCompare(b);
-};
+const sortSizes = sortGarmentSizes;
 
 const formatDisplayDate = (dateStr: string | undefined | null): string => {
   if (!dateStr) return 'TBD';
@@ -309,8 +299,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         const updatedItems = ord.items.map((it: any) => {
           if (String(it.id) !== String(itemId)) return it;
 
-          const defaultSizes = { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0 };
-          const currentSizes = (it.sizes && Object.keys(it.sizes).length > 0) ? it.sizes : defaultSizes;
+          const garmentSizes = getGarmentAvailableSizes(it, it.style || it.itemNum || '');
+          const defaultSizes: Record<string, number> = {};
+          garmentSizes.forEach(s => { defaultSizes[s] = 0; });
+          const currentSizes = (it.sizes && Object.keys(it.sizes).length > 0) ? { ...defaultSizes, ...it.sizes } : defaultSizes;
           const updatedSizes = {
             ...currentSizes,
             [sizeKey]: val
@@ -1208,8 +1200,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         {/* Sizing Grid Area */}
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
                           {(() => {
-                            const defaultSizes = { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0 };
-                            const sizesToRender = (item.sizes && Object.keys(item.sizes).length > 0) ? item.sizes : defaultSizes;
+                            const garmentSizes = getGarmentAvailableSizes(item, item.style || item.itemNum || '');
+                            const defaultSizes: Record<string, number> = {};
+                            garmentSizes.forEach(s => { defaultSizes[s] = 0; });
+                            const sizesToRender = (item.sizes && Object.keys(item.sizes).length > 0) ? { ...defaultSizes, ...item.sizes } : defaultSizes;
                             return Object.entries(sizesToRender).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
                               <div key={size} className="w-10 sm:w-11 text-center flex flex-col">
                                 <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center select-none">{size}</div>
