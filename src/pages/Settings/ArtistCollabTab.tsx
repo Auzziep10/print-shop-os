@@ -51,20 +51,28 @@ async function trimTransparent(file: File): Promise<File> {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return file;
     ctx.drawImage(img, 0, 0);
-    const px = ctx.getImageData(0, 0, w, h).data;
-    let minX = w, minY = h, maxX = -1, maxY = -1;
+    const data = ctx.getImageData(0, 0, w, h);
+    const px = data.data;
+    let minX = w, minY = h, maxX = -1, maxY = -1, scrubbed = 0;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (px[(y * w + x) * 4 + 3] > 8) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        const i = (y * w + x) * 4 + 3;
+        if (px[i] <= 24) { if (px[i]) { px[i] = 0; scrubbed++; } continue; }   // haze left by background removal: drop it, or the shadow shows it as a band
+        if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
     }
     if (maxX < 0) return file;                                   // fully transparent — leave it alone
+    if (scrubbed) ctx.putImageData(data, 0, 0);
     const pad = 2;
     minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
     const cw = maxX - minX + 1, ch = maxY - minY + 1;
-    if (cw >= w - 4 && ch >= h - 4) return file;                 // already tight
-    const out = document.createElement('canvas'); out.width = cw; out.height = ch;
-    out.getContext('2d')!.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+    // Phones cap GPU textures around 4096px: anything bigger gets re-tiled and shows seams/bands under the hem,
+    // and a 20-megapixel PNG is slow to load anyway. 2048 on the long side is plenty for a full-screen garment.
+    const MAX = 2048, k = Math.min(1, MAX / Math.max(cw, ch));
+    if (cw >= w - 4 && ch >= h - 4 && !scrubbed && k === 1) return file;    // already tight, clean and sane
+    const out = document.createElement('canvas'); out.width = Math.round(cw * k); out.height = Math.round(ch * k);
+    const octx = out.getContext('2d')!; octx.imageSmoothingQuality = 'high';
+    octx.drawImage(canvas, minX, minY, cw, ch, 0, 0, out.width, out.height);
     const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'));
     if (!blob) return file;
     return new File([blob], file.name.replace(/\.(webp|png)$/i, '') + '.png', { type: 'image/png' });
@@ -490,7 +498,7 @@ export function ArtistCollabTab() {
       </div>
 
       <div className="mb-5 rounded-lg border border-brand-border bg-brand-bg/60 px-4 py-3 text-xs text-brand-secondary">
-        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: just the garment, cut out on a transparent background (PNG or WebP), no hanger and no room. Any size works and extra empty margin is trimmed on upload; the viewer sizes each garment, hangs it from the rail and draws the hanger. Export the back with the same crop as the front so the flip lines up. Closeups: portrait photos, any size.
+        <span className="font-semibold text-brand-primary">Asset specs.</span> Front and back: just the garment, cut out on a transparent background (PNG or WebP), no hanger and no room. Any size works: empty margin is trimmed and anything over 2048px is scaled down on upload; the viewer sizes each garment, hangs it from the rail and draws the hanger. Export the back with the same crop as the front so the flip lines up. Closeups: portrait photos, any size.
       </div>
 
       {editingId === 'new' && (
