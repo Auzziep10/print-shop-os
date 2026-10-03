@@ -178,6 +178,7 @@ export function GarmentCustomizerModal({
   
   // Guard against resetting selected color on same-garment prop updates
   const lastGarmentIdRef = useRef<string | null>(null);
+  const initializedGarmentKeyRef = useRef<string | null>(null);
 
   // Saved Designs library state
   const [isSaveToLibraryOpen, setIsSaveToLibraryOpen] = useState(false);
@@ -1537,6 +1538,17 @@ export function GarmentCustomizerModal({
 
   // Initialize and restore saved customization settings if editing an existing customization
   useEffect(() => {
+    if (!isOpen || !garment) {
+      initializedGarmentKeyRef.current = null;
+      return;
+    }
+
+    const garmentKey = `${garment.id || garment.itemNum || garment.style || ''}_${garment.selectedColor || ''}`;
+    if (initializedGarmentKeyRef.current === garmentKey) {
+      return;
+    }
+    initializedGarmentKeyRef.current = garmentKey;
+
     if (garment) {
       setSelectedColor(garment.selectedColor || garment.colors?.[0] || 'Custom Color');
     }
@@ -1659,21 +1671,19 @@ export function GarmentCustomizerModal({
   // Fetch customer assets (logos)
   useEffect(() => {
     const fetchAssets = async () => {
-      if (!customerId) return;
+      if (!isOpen || !customerId) return;
       if (customerId === 'PUBLIC_VISITOR') {
         const initialAssets: any[] = [];
         if (garment?.logoUrl) {
           const rawName = garment?.logoName || garment?.artworkName || 'Logo.png';
           const logoName = rawName.includes('.') ? rawName : `${rawName}.png`;
           const defaultLogo = { id: 'public-logo-front', name: logoName, url: garment.logoUrl };
-          setSelectedLogoFront(defaultLogo);
           initialAssets.push(defaultLogo);
         }
         if (garment?.logoUrlBack) {
           const rawBackName = garment?.logoNameBack || 'Back_Logo.png';
           const logoBackName = rawBackName.includes('.') ? rawBackName : `${rawBackName}.png`;
           const defaultBackLogo = { id: 'public-logo-back', name: logoBackName, url: garment.logoUrlBack };
-          setSelectedLogoBack(defaultBackLogo);
           initialAssets.push(defaultBackLogo);
         }
         setAssets(initialAssets);
@@ -1689,7 +1699,7 @@ export function GarmentCustomizerModal({
           setAssets(data.assets || []);
           const isAlreadyCustomized = !!(garment?.customized || garment?.logoUrl || garment?.logoUrlBack || garment?.logoUrlLeftSleeve || garment?.logoUrlRightSleeve);
           if (data.assets && data.assets.length > 0 && !isAlreadyCustomized) {
-            setSelectedLogoFront(data.assets[0]);
+            setSelectedLogoFront((prev: any) => prev || data.assets[0]);
           }
         }
       } catch (err) {
@@ -1699,7 +1709,7 @@ export function GarmentCustomizerModal({
       }
     };
     fetchAssets();
-  }, [customerId, isOpen, garment]);
+  }, [customerId, isOpen]);
 
   if (!isOpen || !activeGarment) return null;
 
@@ -2074,6 +2084,16 @@ export function GarmentCustomizerModal({
       setIsSaving(true);
     }
 
+    const createdBlobUrls: string[] = [];
+    const getSafeBlobUrl = async (url: string): Promise<string> => {
+      if (!url) return url;
+      const res = await fetchImageBlobUrl(url);
+      if (res.startsWith('blob:') && res !== url) {
+        createdBlobUrls.push(res);
+      }
+      return res;
+    };
+
     try {
       const hasFront = !!selectedLogoFront;
       const hasBack = !!selectedLogoBack;
@@ -2128,10 +2148,8 @@ export function GarmentCustomizerModal({
       };
 
       const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, rotationVal: number, canvasOffsetX: number, sideName: string) => {
-        const proxiedGarmentSrc = garmentSrc.startsWith('http')
-          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
-          : garmentSrc;
-        const garmentImg = await loadImg(proxiedGarmentSrc);
+        const safeGarmentSrc = await getSafeBlobUrl(garmentSrc);
+        const garmentImg = await loadImg(safeGarmentSrc);
 
         const frameAspect = panelWidth / panelHeight;
         const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
@@ -2163,8 +2181,9 @@ export function GarmentCustomizerModal({
         }
         ctx.restore();
 
-        if (logoAsset) {
-          const logoImg = await loadImg(logoAsset.url);
+        if (logoAsset && logoAsset.url) {
+          const safeLogoUrl = await getSafeBlobUrl(logoAsset.url);
+          const logoImg = await loadImg(safeLogoUrl);
           const logoWidth = panelWidth * ((scaleVal * 0.36) / 100);
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
@@ -2210,13 +2229,11 @@ export function GarmentCustomizerModal({
         tempCtx.fillStyle = '#FFFFFF';
         tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-        const proxiedGarmentSrc = garmentSrc.startsWith('http')
-          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
-          : garmentSrc;
+        const safeGarmentSrc = await getSafeBlobUrl(garmentSrc);
         
         let garmentImg;
         try {
-          garmentImg = await loadImg(proxiedGarmentSrc);
+          garmentImg = await loadImg(safeGarmentSrc);
         } catch (e) {
           console.error("Failed to load garment image for side upload:", e);
           return null;
@@ -2252,8 +2269,9 @@ export function GarmentCustomizerModal({
         }
         tempCtx.restore();
 
-        if (logoAsset) {
-          const logoImg = await loadImg(logoAsset.url);
+        if (logoAsset && logoAsset.url) {
+          const safeLogoUrl = await getSafeBlobUrl(logoAsset.url);
+          const logoImg = await loadImg(safeLogoUrl);
           const logoWidth = panelWidth * ((scaleVal * 0.36) / 100);
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
@@ -2441,7 +2459,11 @@ export function GarmentCustomizerModal({
       });
       onClose();
     } finally {
+      createdBlobUrls.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch {}
+      });
       setIsSaving(false);
+      setIsSavingToLibrary(false);
     }
   };
 

@@ -251,10 +251,15 @@ export function PortalCreateOrder() {
     const g = savedDesignItem.garment;
     if (!g) return;
 
-    const garmentSizes = parseSizesFromItem(g, g.style || g.itemNum || '');
-    const defaultQtyMap: any = {};
-    garmentSizes.forEach((s: string) => {
-      defaultQtyMap[s] = 0;
+    const defaultSizes = parseSizesFromItem(g, g.style || g.itemNum || '');
+    const sizes = (Array.isArray(g.sizes) && g.sizes.length > 0) ? g.sizes : defaultSizes;
+    const initialQuantities = g.sizeQuantities || g.quantities || {};
+    const quantities: Record<string, number> = {};
+    sizes.forEach((s: string) => {
+      quantities[s] = initialQuantities[s] || 0;
+    });
+    Object.keys(initialQuantities).forEach(k => {
+      quantities[k] = initialQuantities[k] || 0;
     });
 
     const newItem = {
@@ -265,8 +270,8 @@ export function PortalCreateOrder() {
       selectedColor: g.selectedColor || 'Black',
       image: g.image || g.customizedFrontImage || g.originalFrontImage,
       customized: true,
-      quantities: { ...defaultQtyMap, ...(g.sizeQuantities || {}) },
-      sizes: garmentSizes
+      quantities,
+      sizes: Array.from(new Set([...sizes, ...Object.keys(quantities)])).sort(sortSizes)
     };
 
     setOrderItems(prev => [...prev, newItem]);
@@ -1812,8 +1817,11 @@ export function PortalCreateOrder() {
     const parsedQty = parseInt(qty) || 0;
     setOrderItems(prev => prev.map(item => {
       if (item.instanceId === instanceId) {
+        const currentSizes = item.sizes || Object.keys(item.quantities || {});
+        const nextSizes = currentSizes.includes(size) ? currentSizes : [...currentSizes, size];
         return {
           ...item,
+          sizes: nextSizes,
           quantities: { ...item.quantities, [size]: parsedQty }
         };
       }
@@ -1850,6 +1858,17 @@ export function PortalCreateOrder() {
 
     // 3. Prepare quantities map
     const baseQuantities = { ...(item.quantities || {}) };
+
+    // Ensure all supported sizes for this item exist in baseQuantities
+    const supportedSizes = (Array.isArray(item.sizes) && item.sizes.length > 0)
+      ? item.sizes
+      : parseSizesFromItem(item, item.itemNum || item.style || '');
+    supportedSizes.forEach((s: string) => {
+      if (baseQuantities[s] === undefined) {
+        baseQuantities[s] = 0;
+      }
+    });
+
     if (hasYouthSizes) {
       youthSizes.forEach(s => {
         if (baseQuantities[s] === undefined) {
@@ -1857,6 +1876,17 @@ export function PortalCreateOrder() {
         }
       });
     }
+
+    // Also initialize any size from spread if supported or standard
+    Object.keys(spread).forEach(s => {
+      const norm = s.toUpperCase().trim();
+      const isAdultStandard = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'OSFA'].includes(norm);
+      if (supportedSizes.includes(norm) || isAdultStandard || hasYouthSizes) {
+        if (baseQuantities[norm] === undefined) {
+          baseQuantities[norm] = 0;
+        }
+      }
+    });
 
     const newQuantities = { ...baseQuantities };
 
@@ -1870,12 +1900,10 @@ export function PortalCreateOrder() {
     // 4. Apply spread counts
     const skippedSizes: string[] = [];
     Object.keys(spread).forEach(size => {
-      if (newQuantities[size] !== undefined) {
-        newQuantities[size] += spread[size];
+      const normalizedSize = size.toUpperCase().trim();
+      if (newQuantities[normalizedSize] !== undefined) {
+        newQuantities[normalizedSize] += spread[size];
       } else {
-        let matched = false;
-        const normalizedSize = size.trim();
-
         const keyMatch = Object.keys(newQuantities).find(k => {
           const kNorm = k.toUpperCase().trim();
           if (kNorm === normalizedSize) return true;
@@ -1888,11 +1916,8 @@ export function PortalCreateOrder() {
 
         if (keyMatch) {
           newQuantities[keyMatch] += spread[size];
-          matched = true;
-        }
-
-        if (!matched) {
-          skippedSizes.push(size);
+        } else {
+          newQuantities[normalizedSize] = spread[size];
         }
       }
     });
@@ -1988,6 +2013,69 @@ export function PortalCreateOrder() {
     if (item.logoUrlTag) count++;
     return count || 1;
   };
+
+  const customizerGarmentProps = useMemo(() => {
+    if (!customizingItem) return null;
+    return {
+      id: customizingItem.instanceId,
+      style: customizingItem.style,
+      itemNum: customizingItem.itemNum,
+      image: customizingItem.image,
+      images: customizingItem.images || null,
+      backImages: customizingItem.backImages || null,
+      colors: customizingItem.colors || ['Custom Color'],
+      selectedColor: customizingItem.selectedColor,
+      hasFixedColors: customizingItem.hasFixedColors,
+      isSuggested: customizingItem.isSuggested,
+      originalFrontImage: customizingItem.originalFrontImage || null,
+      originalBackImage: customizingItem.originalBackImage || null,
+      originalSleeveImage: customizingItem.originalSleeveImage || null,
+      customizedFrontImage: customizingItem.customizedFrontImage || null,
+      customizedBackImage: customizingItem.customizedBackImage || null,
+      customizedSleeveImage: customizingItem.customizedSleeveImage || null,
+      customized: customizingItem.customized || false,
+      logoUrl: customizingItem.logoUrl || null,
+      logoName: customizingItem.logoName || null,
+      logoWidthFront: customizingItem.logoWidthFront || null,
+      logoUrlBack: customizingItem.logoUrlBack || null,
+      logoNameBack: customizingItem.logoNameBack || null,
+      logoWidthBack: customizingItem.logoWidthBack || null,
+      logoUrlLeftSleeve: customizingItem.logoUrlLeftSleeve || null,
+      logoNameLeftSleeve: customizingItem.logoNameLeftSleeve || null,
+      logoWidthLeftSleeve: customizingItem.logoWidthLeftSleeve || null,
+      logoUrlRightSleeve: customizingItem.logoUrlRightSleeve || null,
+      logoNameRightSleeve: customizingItem.logoNameRightSleeve || null,
+      logoWidthRightSleeve: customizingItem.logoWidthRightSleeve || null,
+      customScaleFront: customizingItem.customScaleFront,
+      customOffsetXFront: customizingItem.customOffsetXFront,
+      customOffsetYFront: customizingItem.customOffsetYFront,
+      customRotationFront: customizingItem.customRotationFront,
+      detectedPrintSizeFront: customizingItem.detectedPrintSizeFront,
+      detectedPrintSizeBack: customizingItem.detectedPrintSizeBack,
+      customScaleBack: customizingItem.customScaleBack,
+      customOffsetXBack: customizingItem.customOffsetXBack,
+      customOffsetYBack: customizingItem.customOffsetYBack,
+      customRotationBack: customizingItem.customRotationBack,
+      customScaleLeftSleeve: customizingItem.customScaleLeftSleeve,
+      customOffsetXLeftSleeve: customizingItem.customOffsetXLeftSleeve,
+      customOffsetYLeftSleeve: customizingItem.customOffsetYLeftSleeve,
+      customRotationLeftSleeve: customizingItem.customRotationLeftSleeve,
+      customScaleRightSleeve: customizingItem.customScaleRightSleeve,
+      customOffsetXRightSleeve: customizingItem.customOffsetXRightSleeve,
+      customOffsetYRightSleeve: customizingItem.customOffsetYRightSleeve,
+      customRotationRightSleeve: customizingItem.customRotationRightSleeve,
+      // Tag properties
+      logoUrlTag: customizingItem.logoUrlTag || null,
+      tagLayout: customizingItem.tagLayout || null,
+      tagSizeX: customizingItem.tagSizeX,
+      tagSizeY: customizingItem.tagSizeY,
+      tagSizeScale: customizingItem.tagSizeScale,
+      tagSizeFont: customizingItem.tagSizeFont,
+      tagSizeColor: customizingItem.tagSizeColor,
+      tagSizeBold: customizingItem.tagSizeBold,
+      tagSizeItalic: customizingItem.tagSizeItalic
+    };
+  }, [customizingItem]);
 
   if (!customer || isLoadingDecks) {
     return (
@@ -3289,65 +3377,7 @@ export function PortalCreateOrder() {
             });
             setCustomizingItem(null);
           }}
-          garment={{
-            id: customizingItem.instanceId,
-            style: customizingItem.style,
-            itemNum: customizingItem.itemNum,
-            image: customizingItem.image,
-            images: customizingItem.images || null,
-            backImages: customizingItem.backImages || null,
-            colors: customizingItem.colors || ['Custom Color'],
-            selectedColor: customizingItem.selectedColor,
-            hasFixedColors: customizingItem.hasFixedColors,
-            isSuggested: customizingItem.isSuggested,
-            originalFrontImage: customizingItem.originalFrontImage || null,
-            originalBackImage: customizingItem.originalBackImage || null,
-            originalSleeveImage: customizingItem.originalSleeveImage || null,
-            customizedFrontImage: customizingItem.customizedFrontImage || null,
-            customizedBackImage: customizingItem.customizedBackImage || null,
-            customizedSleeveImage: customizingItem.customizedSleeveImage || null,
-            customized: customizingItem.customized || false,
-            logoUrl: customizingItem.logoUrl || null,
-            logoName: customizingItem.logoName || null,
-            logoWidthFront: customizingItem.logoWidthFront || null,
-            logoUrlBack: customizingItem.logoUrlBack || null,
-            logoNameBack: customizingItem.logoNameBack || null,
-            logoWidthBack: customizingItem.logoWidthBack || null,
-            logoUrlLeftSleeve: customizingItem.logoUrlLeftSleeve || null,
-            logoNameLeftSleeve: customizingItem.logoNameLeftSleeve || null,
-            logoWidthLeftSleeve: customizingItem.logoWidthLeftSleeve || null,
-            logoUrlRightSleeve: customizingItem.logoUrlRightSleeve || null,
-            logoNameRightSleeve: customizingItem.logoNameRightSleeve || null,
-            logoWidthRightSleeve: customizingItem.logoWidthRightSleeve || null,
-            customScaleFront: customizingItem.customScaleFront,
-            customOffsetXFront: customizingItem.customOffsetXFront,
-            customOffsetYFront: customizingItem.customOffsetYFront,
-            customRotationFront: customizingItem.customRotationFront,
-            detectedPrintSizeFront: customizingItem.detectedPrintSizeFront,
-            detectedPrintSizeBack: customizingItem.detectedPrintSizeBack,
-            customScaleBack: customizingItem.customScaleBack,
-            customOffsetXBack: customizingItem.customOffsetXBack,
-            customOffsetYBack: customizingItem.customOffsetYBack,
-            customRotationBack: customizingItem.customRotationBack,
-            customScaleLeftSleeve: customizingItem.customScaleLeftSleeve,
-            customOffsetXLeftSleeve: customizingItem.customOffsetXLeftSleeve,
-            customOffsetYLeftSleeve: customizingItem.customOffsetYLeftSleeve,
-            customRotationLeftSleeve: customizingItem.customRotationLeftSleeve,
-            customScaleRightSleeve: customizingItem.customScaleRightSleeve,
-            customOffsetXRightSleeve: customizingItem.customOffsetXRightSleeve,
-            customOffsetYRightSleeve: customizingItem.customOffsetYRightSleeve,
-            customRotationRightSleeve: customizingItem.customRotationRightSleeve,
-            // Tag properties
-            logoUrlTag: customizingItem.logoUrlTag || null,
-            tagLayout: customizingItem.tagLayout || null,
-            tagSizeX: customizingItem.tagSizeX,
-            tagSizeY: customizingItem.tagSizeY,
-            tagSizeScale: customizingItem.tagSizeScale,
-            tagSizeFont: customizingItem.tagSizeFont,
-            tagSizeColor: customizingItem.tagSizeColor,
-            tagSizeBold: customizingItem.tagSizeBold,
-            tagSizeItalic: customizingItem.tagSizeItalic
-          }}
+          garment={customizerGarmentProps}
           customerId={customerId || 'CUS-001'}
           onSave={(customizedData) => {
             setOrderItems(prev => prev.map(item => item.instanceId === customizingItem.instanceId ? {
@@ -3458,12 +3488,16 @@ export function PortalCreateOrder() {
                 // Check for skipped sizes
                 const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
                 const hasYouthSizes = Object.keys(spread).some(s => youthSizes.includes(s));
-                const availableGarmentSizes = applySizingItem.item.sizes || [];
+                const availableGarmentSizes = (Array.isArray(applySizingItem.item.sizes) && applySizingItem.item.sizes.length > 0)
+                  ? applySizingItem.item.sizes
+                  : parseSizesFromItem(applySizingItem.item, applySizingItem.item.style || applySizingItem.item.itemNum || '');
+                const standardAdultSizes = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'OSFA'];
                 
                 const skipped: string[] = [];
                 Object.keys(spread).forEach(s => {
-                  const isYouth = youthSizes.includes(s);
-                  const isSupported = availableGarmentSizes.includes(s) || isYouth; // youth sizes will be auto-enabled
+                  const sUpper = s.toUpperCase().trim();
+                  const isYouth = youthSizes.includes(sUpper);
+                  const isSupported = availableGarmentSizes.includes(sUpper) || standardAdultSizes.includes(sUpper) || isYouth;
                   if (!isSupported) {
                     skipped.push(s);
                   }
