@@ -139,12 +139,17 @@ export function PortalCreateOrder() {
   }, [customer]);  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
+  const orderItemsRef = useRef(orderItems);
+  useEffect(() => {
+    orderItemsRef.current = orderItems;
+  }, [orderItems]);
+  const lastLocalEditTimeRef = useRef<number>(0);
 
   const hasLowQuantityItems = useMemo(() => {
     if (customer?.bypassMinimumRequirement || customer?.disableMinimumRequirement) return false;
     if (orderItems.length === 0) return false;
     return orderItems.some(item => {
-      const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
+      const totalQty = Object.values(item.quantities as Record<string, number> || {}).reduce((sum, qty) => sum + (parseInt((qty || 0).toString(), 10) || 0), 0);
       return totalQty < 20;
     });
   }, [orderItems, customer]);
@@ -252,7 +257,10 @@ export function PortalCreateOrder() {
     if (!g) return;
 
     const defaultSizes = parseSizesFromItem(g, g.style || g.itemNum || '');
-    const sizes = (Array.isArray(g.sizes) && g.sizes.length > 0) ? g.sizes : defaultSizes;
+    const sizes = Array.from(new Set([
+      ...defaultSizes,
+      ...((Array.isArray(g.sizes) && g.sizes.length > 0) ? g.sizes : [])
+    ])).sort(sortSizes);
     const initialQuantities = g.sizeQuantities || g.quantities || {};
     const quantities: Record<string, number> = {};
     sizes.forEach((s: string) => {
@@ -274,6 +282,7 @@ export function PortalCreateOrder() {
       sizes: Array.from(new Set([...sizes, ...Object.keys(quantities)])).sort(sortSizes)
     };
 
+    lastLocalEditTimeRef.current = Date.now();
     setOrderItems(prev => [...prev, newItem]);
     setIsCartOpen(true);
   };
@@ -1000,17 +1009,30 @@ export function PortalCreateOrder() {
   }, []);
 
   const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
-    // If it's already in builder format, don't re-map it
-    if (item.quantities && typeof item.quantities === 'object' && !Array.isArray(item.quantities)) {
-      return item;
-    }
-
-    const quantities = (item.sizes && typeof item.sizes === 'object' && !Array.isArray(item.sizes)) ? item.sizes : {};
-    
     const matchingCatalogGarment = decks.find(dItem => 
       (dItem.garment_id || dItem.sku || dItem.id) === item.itemNum ||
       (dItem.garment_name || dItem.name || dItem.style || dItem.title) === item.style
     );
+
+    const availableSizes = parseSizesFromItem(matchingCatalogGarment || item, item.style || item.itemNum || '');
+
+    // If it's already in builder format, ensure all available sizes exist in quantities and sizes
+    if (item.quantities && typeof item.quantities === 'object' && !Array.isArray(item.quantities)) {
+      const mergedQuantities: Record<string, number> = { ...item.quantities };
+      availableSizes.forEach((s: string) => {
+        if (mergedQuantities[s] === undefined) {
+          mergedQuantities[s] = 0;
+        }
+      });
+      const mergedSizes = Array.from(new Set([...(item.sizes || []), ...availableSizes, ...Object.keys(mergedQuantities)])).sort(sortSizes);
+      return {
+        ...item,
+        sizes: mergedSizes,
+        quantities: mergedQuantities
+      };
+    }
+
+    const quantities = (item.sizes && typeof item.sizes === 'object' && !Array.isArray(item.sizes)) ? item.sizes : {};
     
     let colors = ['Custom Color'];
     if (matchingCatalogGarment) {
@@ -1120,10 +1142,30 @@ export function PortalCreateOrder() {
     if (!isInitialLoadDone || !customerId) return;
     const unsub = onSnapshot(doc(db, 'active_carts', customerId), (docSnap) => {
       if (docSnap.metadata.hasPendingWrites) return;
+
+      // Ignore incoming snapshots if user was recently typing or editing locally (< 2000ms)
+      if (Date.now() - lastLocalEditTimeRef.current < 2000) {
+        return;
+      }
+
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const remoteItems = Array.isArray(data?.items) ? data.items : [];
-        if (JSON.stringify(remoteItems) !== JSON.stringify(orderItems)) {
+        const rawRemoteItems = Array.isArray(data?.items) ? data.items : [];
+        const remoteItems = rawRemoteItems.map((ritem: any) => {
+          if (!ritem || typeof ritem !== 'object') return ritem;
+          const availSizes = parseSizesFromItem(ritem, ritem.style || ritem.itemNum || '');
+          const qMap = { ...(ritem.quantities || {}) };
+          availSizes.forEach(s => {
+            if (qMap[s] === undefined) qMap[s] = 0;
+          });
+          return {
+            ...ritem,
+            sizes: Array.from(new Set([...(ritem.sizes || []), ...availSizes, ...Object.keys(qMap)])).sort(sortSizes),
+            quantities: qMap
+          };
+        });
+
+        if (JSON.stringify(remoteItems) !== JSON.stringify(orderItemsRef.current)) {
           isRemoteSyncRef.current = true;
           setOrderItems(remoteItems);
           const cartKey = `wovn_reorder_cart_${customerId}`;
@@ -1132,7 +1174,7 @@ export function PortalCreateOrder() {
           } catch (e) {}
           window.dispatchEvent(new Event('wovn_cart_updated'));
         }
-      } else if (orderItems.length > 0) {
+      } else if (orderItemsRef.current.length > 0) {
         isRemoteSyncRef.current = true;
         setOrderItems([]);
         const cartKey = `wovn_reorder_cart_${customerId}`;
@@ -1146,7 +1188,7 @@ export function PortalCreateOrder() {
     });
 
     return () => unsub();
-  }, [isInitialLoadDone, customerId, orderItems]);
+  }, [isInitialLoadDone, customerId]);
 
   const handleSaveCart = async () => {
     if (!customerId || orderItems.length === 0 || !savedCartName.trim()) return;
@@ -1532,7 +1574,7 @@ export function PortalCreateOrder() {
       
       // Map item artworks asynchronously to resolve natural aspect ratios and calculate heights proportionally
       const resolvedItems = await Promise.all(orderItems.map(async (item) => {
-         const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+         const totalQty = Object.values(item.quantities as Record<string, number> || {}).reduce((q, val) => q + (parseInt((val || 0).toString(), 10) || 0), 0);
          const p = parseFloat(item.price) || 0;
          
          const artworks = [];
@@ -1644,7 +1686,7 @@ export function PortalCreateOrder() {
          finalItems = resolvedItems.map(item => {
            const autoQuote = autoQuoteItem({ ...item, packaging: selectedPackaging }, dtfSettings.costs, dtfSettings.ladder, selectedPackaging);
            const priceEach = autoQuote.pricePerPiece;
-           const totalQty = Object.values(item.sizes as Record<string, number> || {}).reduce((q, val) => q + val, 0) || item.qty || 1;
+           const totalQty = Object.values(item.sizes as Record<string, number> || {}).reduce((q, val) => q + (parseInt((val || 0).toString(), 10) || 0), 0) || item.qty || 1;
            calculatedTotal += priceEach * totalQty;
            return {
              ...item,
@@ -1658,7 +1700,7 @@ export function PortalCreateOrder() {
        } else {
          const extraPackagingPerPiece = selectedPackaging === 'Individually Bagged and Labeled' ? 0.20 : 0;
          calculatedTotal = orderItems.reduce((sum, item) => {
-           const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+           const totalQty = Object.values(item.quantities as Record<string, number> || {}).reduce((q, val) => q + (parseInt((val || 0).toString(), 10) || 0), 0);
            const basePrice = (parseFloat(item.price) || 0) + extraPackagingPerPiece;
            return sum + (totalQty * basePrice);
          }, 0);
@@ -1749,10 +1791,12 @@ export function PortalCreateOrder() {
   };
 
   const handleAddItem = (item: any) => {
-    // Determine dynamic size run specific to this garment
-    const itemSizes = (item.sizes && item.sizes.length > 0) 
-      ? item.sizes 
-      : parseSizesFromItem(item, item.style || item.itemNum || '');
+    // Determine dynamic size run specific to this garment (ensure catalog sizes up to 4XL are included)
+    const defaultSizes = parseSizesFromItem(item, item.style || item.itemNum || '');
+    const itemSizes = Array.from(new Set([
+      ...defaultSizes,
+      ...((Array.isArray(item.sizes) && item.sizes.length > 0) ? item.sizes : [])
+    ])).sort(sortSizes);
     
     // Create zeroed quantity map strictly from the provided sizes
     const qtyMap: any = {};
@@ -1781,6 +1825,7 @@ export function PortalCreateOrder() {
       isSuggested: isSuggestedItem,
       hasFixedColors: isSuggestedItem ? true : item.hasFixedColors
     };
+    lastLocalEditTimeRef.current = Date.now();
     setOrderItems(prev => [...prev, newItem]);
     setCustomizingItem(newItem); // Open the customizer modal right away
     setIsCartOpen(false); // Ensure cart drawer is closed so customizer is visible
@@ -1814,7 +1859,9 @@ export function PortalCreateOrder() {
   };
 
   const handleUpdateQuantity = (instanceId: string, size: string, qty: string) => {
-    const parsedQty = parseInt(qty) || 0;
+    lastLocalEditTimeRef.current = Date.now();
+    const parsedQty = parseInt(qty, 10) || 0;
+    const cleanQty = Math.max(0, parsedQty);
     setOrderItems(prev => prev.map(item => {
       if (item.instanceId === instanceId) {
         const currentSizes = item.sizes || Object.keys(item.quantities || {});
@@ -1822,7 +1869,7 @@ export function PortalCreateOrder() {
         return {
           ...item,
           sizes: nextSizes,
-          quantities: { ...item.quantities, [size]: parsedQty }
+          quantities: { ...item.quantities, [size]: cleanQty }
         };
       }
       return item;
@@ -1923,6 +1970,7 @@ export function PortalCreateOrder() {
     });
 
     // 5. Update state
+    lastLocalEditTimeRef.current = Date.now();
     setOrderItems(prev => prev.map(o => {
       if (o.instanceId === item.instanceId) {
         const updatedSizes = Array.from(new Set([...(o.sizes || []), ...Object.keys(newQuantities)]));
@@ -1943,6 +1991,7 @@ export function PortalCreateOrder() {
   };
 
   const handleRemoveItem = (instanceId: string) => {
+    lastLocalEditTimeRef.current = Date.now();
     const itemToRemove = orderItems.find(item => item.instanceId === instanceId);
     setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
 
@@ -1992,6 +2041,7 @@ export function PortalCreateOrder() {
       images: item.images || null
     };
 
+    lastLocalEditTimeRef.current = Date.now();
     setOrderItems(prev => {
       const idx = prev.findIndex(o => o.instanceId === item.instanceId);
       if (idx !== -1) {
@@ -2750,6 +2800,7 @@ export function PortalCreateOrder() {
                                 data-tour="add-youth-sizing-btn"
                                 onClick={() => {
                                   const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                                  lastLocalEditTimeRef.current = Date.now();
                                   setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
                                     ...o,
                                     quantities: { ...youthSizes, ...(o.quantities || {}) }
@@ -2774,7 +2825,7 @@ export function PortalCreateOrder() {
                                   <input 
                                     type="number"
                                     min="0"
-                                    value={item.quantities[size] || ''}
+                                    value={item.quantities?.[size] ? item.quantities[size] : ''}
                                     placeholder="0"
                                     onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
                                     className="w-full h-8 text-center text-xs font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-350 font-semibold"
@@ -3380,6 +3431,7 @@ export function PortalCreateOrder() {
           garment={customizerGarmentProps}
           customerId={customerId || 'CUS-001'}
           onSave={(customizedData) => {
+            lastLocalEditTimeRef.current = Date.now();
             setOrderItems(prev => prev.map(item => item.instanceId === customizingItem.instanceId ? {
               ...item,
               style: customizedData.style,
