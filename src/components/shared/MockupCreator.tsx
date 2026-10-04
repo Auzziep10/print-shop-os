@@ -3,7 +3,7 @@ import { X, Upload, RotateCw, Check, RefreshCw, Sparkles, Loader2, ChevronDown }
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { generateRotatedGarment, isDarkTone, isHeatherOrGrey } from '../../lib/geminiService';
+import { generateRotatedGarment } from '../../lib/geminiService';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -378,25 +378,6 @@ export function MockupCreator({
 
   // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
 
-  const isLongSleeveOrHoodie = (
-    cleanStyle.toUpperCase().includes('LS') || 
-    cleanStyle.toUpperCase().includes('HOOD') || 
-    /hood|fleece|sweatshirt|long sleeve|pullover/i.test(catalogProduct?.title || '')
-  );
-
-  let localLeftSleeve = null;
-  if (!isLongSleeveOrHoodie) {
-    const darkCheck = isDarkTone(cleanColor);
-    const heatherCheck = isHeatherOrGrey(cleanColor);
-    if (darkCheck) {
-      localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
-    } else if (heatherCheck) {
-      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-    } else {
-      localLeftSleeve = generatedViews['sleeve'] || '/mockups/NL6210/left_sleeve.png';
-    }
-  }
-
   let localBackImage = garmentBackImageUrl || null;
   if (localBackImage && catalogBack) {
     const gBackLower = localBackImage.toLowerCase();
@@ -407,7 +388,7 @@ export function MockupCreator({
   }
 
   const resolvedBackImageUrl = localBackImage || catalogBack || generatedViews.back || null;
-  const resolvedSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedViews['sleeve'] || null;
+  const resolvedSleeveImageUrl = garmentLeftSleeveImageUrl || generatedViews['sleeve'] || null;
 
   const activeGarmentUrl = useMemo(() => {
     if (activeTab === 'front') return garmentImageUrl;
@@ -449,13 +430,9 @@ export function MockupCreator({
       } else if (activeTab === 'sleeve') {
         setGeneratedViews(prev => ({ ...prev, sleeve: generatedImageUrl }));
       }
-    } catch (err) {
-      console.error("Failed to generate rotated garment view:", err);
-      const isDark = isDarkTone(cleanColor);
-      const fallbackUrl = isDark ? '/mockups/NL6210/black_left_sleeve.png' : '/mockups/NL6210/left_sleeve.png';
-      if (activeTab === 'sleeve') {
-        setGeneratedViews(prev => ({ ...prev, sleeve: fallbackUrl }));
-      }
+    } catch (err: any) {
+      console.error("Failed to generate rotated garment view with Gemini:", err);
+      alert(err.message || "Failed to generate view. Please try again.");
     } finally {
       setIsGeneratingView(false);
     }
