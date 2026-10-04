@@ -3,7 +3,7 @@ import { X, Upload, RotateCw, Check, RefreshCw, Sparkles, Loader2, ChevronDown }
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { generateRotatedGarment } from '../../lib/geminiService';
+import { generateRotatedGarment, isDarkTone, isHeatherOrGrey } from '../../lib/geminiService';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -377,15 +377,23 @@ export function MockupCreator({
   // Pollinations URLs removed since we are calling Gemini API directly
 
   // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
-  const colorLower = cleanColor.toLowerCase();
-  const nameLower = cleanStyle.toLowerCase();
-  
+
+  const isLongSleeveOrHoodie = (
+    cleanStyle.toUpperCase().includes('LS') || 
+    cleanStyle.toUpperCase().includes('HOOD') || 
+    /hood|fleece|sweatshirt|long sleeve|pullover/i.test(catalogProduct?.title || '')
+  );
+
   let localLeftSleeve = null;
-  if (nameLower.includes('nl6210')) {
-    if (colorLower.includes('charcoal')) {
-      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-    } else if (colorLower.includes('black')) {
+  if (!isLongSleeveOrHoodie) {
+    const darkCheck = isDarkTone(cleanColor);
+    const heatherCheck = isHeatherOrGrey(cleanColor);
+    if (darkCheck) {
       localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
+    } else if (heatherCheck) {
+      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+    } else {
+      localLeftSleeve = generatedViews['sleeve'] || '/mockups/NL6210/left_sleeve.png';
     }
   }
 
@@ -431,7 +439,10 @@ export function MockupCreator({
         viewAngleStr = 'Left Side View';
       }
       
-      const generatedImageUrl = await generateRotatedGarment(garmentImageUrl, viewAngleStr);
+      const generatedImageUrl = await generateRotatedGarment(garmentImageUrl, viewAngleStr, {
+        color: cleanColor,
+        style: cleanStyle
+      });
       
       if (activeTab === 'back') {
         setGeneratedViews(prev => ({ ...prev, back: generatedImageUrl }));
@@ -439,8 +450,12 @@ export function MockupCreator({
         setGeneratedViews(prev => ({ ...prev, sleeve: generatedImageUrl }));
       }
     } catch (err) {
-      console.error("Failed to generate rotated garment view with Gemini:", err);
-      alert("Failed to recreate view. Please try again.");
+      console.error("Failed to generate rotated garment view:", err);
+      const isDark = isDarkTone(cleanColor);
+      const fallbackUrl = isDark ? '/mockups/NL6210/black_left_sleeve.png' : '/mockups/NL6210/left_sleeve.png';
+      if (activeTab === 'sleeve') {
+        setGeneratedViews(prev => ({ ...prev, sleeve: fallbackUrl }));
+      }
     } finally {
       setIsGeneratingView(false);
     }

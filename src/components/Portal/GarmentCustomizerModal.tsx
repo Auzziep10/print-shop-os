@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../lib/firebase';
 import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye, UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { generateRotatedGarment } from '../../lib/geminiService';
+import { generateRotatedGarment, isDarkTone, isHeatherOrGrey } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
@@ -988,15 +988,47 @@ export function GarmentCustomizerModal({
       }
 
       const cleanColor = (selectedColor || '').trim();
-      const styleCode = catalogProduct ? catalogProduct.style.toUpperCase() : '';
-      const colorLower = cleanColor.toLowerCase();
-      
+      const styleCode = (
+        catalogProduct?.style || 
+        activeGarment?.style || 
+        garment?.style || 
+        activeGarment?.sku || 
+        ''
+      ).toUpperCase();
+
+      // Check if this garment is explicitly a long sleeve or hoodie
+      const isLongSleeveOrHoodie = (
+        styleCode.includes('LS') || 
+        styleCode.includes('HOOD') || 
+        (catalogProduct?.title && /hood|fleece|sweatshirt|long sleeve|pullover/i.test(catalogProduct.title)) ||
+        (activeGarment?.title && /hood|fleece|sweatshirt|long sleeve|pullover/i.test(activeGarment.title)) ||
+        (activeGarment?.name && /hood|fleece|sweatshirt|long sleeve|pullover/i.test(activeGarment.name)) ||
+        (garment?.name && /hood|fleece|sweatshirt|long sleeve|pullover/i.test((garment as any).name))
+      );
+
       let localLeftSleeve = null;
-      if (styleCode === 'NL6210') {
-        if (colorLower.includes('charcoal')) {
-          localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-        } else if (colorLower.includes('black')) {
+
+      // Check explicit sleeve on garment image data first
+      const garmentImages = activeGarment?.images || (garment as any)?.images || {};
+      const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
+      const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
+      if (garmentColorVal && typeof garmentColorVal === 'object' && (garmentColorVal as any).sleeve) {
+        localLeftSleeve = (garmentColorVal as any).sleeve;
+      } else if (activeGarment?.originalSleeveImage) {
+        localLeftSleeve = activeGarment.originalSleeveImage;
+      }
+
+      // If no explicit manufacturer sleeve asset exists, provide the photorealistic sleeve mockup!
+      if (!localLeftSleeve && !isLongSleeveOrHoodie) {
+        const swatchHex = getSwatchColor(cleanColor, false);
+        const darkCheck = isDarkTone(cleanColor, swatchHex);
+        const heatherCheck = isHeatherOrGrey(cleanColor);
+        if (darkCheck) {
           localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
+        } else if (heatherCheck) {
+          localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+        } else {
+          localLeftSleeve = generatedViews['sleeve'] || '/mockups/NL6210/left_sleeve.png';
         }
       }
 
@@ -1008,18 +1040,23 @@ export function GarmentCustomizerModal({
     }
 
     // 3. Fallback to originalFrontImage if we couldn't resolve color-specific images
+    const cleanColor = (selectedColor || '').trim();
+    const swatchHex = getSwatchColor(cleanColor, false);
+    const darkCheck = isDarkTone(cleanColor, swatchHex);
+    const fallbackSleeve = darkCheck ? '/mockups/NL6210/black_left_sleeve.png' : '/mockups/NL6210/left_sleeve.png';
+
     if (activeGarment?.originalFrontImage) {
       return {
         frontImage: activeGarment.originalFrontImage,
         backImage: activeGarment.originalBackImage || null,
-        sleeveImage: activeGarment.originalSleeveImage || null
+        sleeveImage: activeGarment.originalSleeveImage || generatedViews['sleeve'] || fallbackSleeve
       };
     }
 
     return {
       frontImage: activeGarment?.image || '',
-      backImage: null,
-      sleeveImage: null
+      backImage: generatedViews.back || null,
+      sleeveImage: generatedViews['sleeve'] || fallbackSleeve
     };
   }, [activeGarment, garment, selectedColor, catalogProduct, generatedViews, fetchedColorMockups]);
 
@@ -1161,7 +1198,10 @@ export function GarmentCustomizerModal({
         viewAngleStr = 'Left Side View';
       }
       
-      const generatedImageUrl = await generateRotatedGarment(frontImage, viewAngleStr);
+      const generatedImageUrl = await generateRotatedGarment(frontImage, viewAngleStr, {
+        color: selectedColor,
+        style: catalogProduct?.style || activeGarment?.style || garment?.style
+      });
       
       if (activeTab === 'back') {
         setGeneratedViews(prev => ({ ...prev, back: generatedImageUrl }));
@@ -1169,8 +1209,14 @@ export function GarmentCustomizerModal({
         setGeneratedViews(prev => ({ ...prev, sleeve: generatedImageUrl }));
       }
     } catch (err) {
-      console.error("Failed to generate rotated garment view with Gemini:", err);
-      alert("Failed to recreate view. Please try again.");
+      console.error("Failed to generate rotated garment view:", err);
+      // Graceful fail-safe fallback: Never block user with alert
+      const cleanCol = (selectedColor || '').trim();
+      const isDark = isDarkTone(cleanCol, getSwatchColor(cleanCol, false));
+      const fallbackSleeve = isDark ? '/mockups/NL6210/black_left_sleeve.png' : '/mockups/NL6210/left_sleeve.png';
+      if (activeTab === 'sleeve') {
+        setGeneratedViews(prev => ({ ...prev, sleeve: fallbackSleeve }));
+      }
     } finally {
       setIsGeneratingView(false);
     }
