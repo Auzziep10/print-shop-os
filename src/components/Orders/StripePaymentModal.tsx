@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, Loader2, Tag } from 'lucide-react';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, getValidAccountShippingDiscount, type AppliedDiscount } from '../../lib/discountUtils';
@@ -141,6 +141,17 @@ const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any
         }
 
         await updateDoc(orderRef, updatePayload);
+
+        if (order.customerId) {
+          try {
+            localStorage.removeItem(`wovn_reorder_cart_${order.customerId}`);
+            await deleteDoc(doc(db, 'active_carts', order.customerId)).catch(() => {});
+            window.dispatchEvent(new Event('wovn_cart_updated'));
+          } catch (e) {
+            console.warn("Failed to clear active cart on payment success:", e);
+          }
+        }
+
         setIsProcessing(false);
         onSuccess();
       } else {
@@ -868,6 +879,17 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       }
 
       await updateDoc(orderRef, updatePayload);
+
+      if (order.customerId) {
+        try {
+          localStorage.removeItem(`wovn_reorder_cart_${order.customerId}`);
+          await deleteDoc(doc(db, 'active_carts', order.customerId)).catch(() => {});
+          window.dispatchEvent(new Event('wovn_cart_updated'));
+        } catch (e) {
+          console.warn("Failed to clear active cart on free order completion:", e);
+        }
+      }
+
       setIsProcessingFreeOrder(false);
       onSuccess();
     } catch (err: any) {

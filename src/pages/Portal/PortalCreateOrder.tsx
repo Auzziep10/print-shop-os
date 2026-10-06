@@ -1799,6 +1799,12 @@ export function PortalCreateOrder() {
 
       await setDoc(doc(db, 'orders', orderId), payload);
 
+      // Reset cart state and close drawer
+      setOrderItems([]);
+      setIsCartOpen(false);
+      setAppliedDiscount(null);
+      setAppliedShippingDiscount(null);
+
       if (customerId) {
         const cartKey = `wovn_reorder_cart_${customerId}`;
         try {
@@ -2054,6 +2060,24 @@ export function PortalCreateOrder() {
         }
       }
     }
+  };
+
+  const handleClearCart = async () => {
+    if (!window.confirm("Are you sure you want to empty your cart?")) return;
+    lastLocalEditTimeRef.current = Date.now();
+    setOrderItems([]);
+    setAppliedDiscount(null);
+    setAppliedShippingDiscount(null);
+    if (customerId) {
+      const cartKey = `wovn_reorder_cart_${customerId}`;
+      try {
+        localStorage.removeItem(cartKey);
+        await deleteDoc(doc(db, 'active_carts', customerId)).catch(() => {});
+      } catch (e) {
+        console.error("Failed to clear cart:", e);
+      }
+    }
+    window.dispatchEvent(new Event('wovn_cart_updated'));
   };
 
   const handleDuplicateItem = (item: any) => {
@@ -2645,12 +2669,22 @@ export function PortalCreateOrder() {
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-extrabold uppercase tracking-widest text-neutral-400">Garments in Cart ({orderItems.length})</h3>
-                      <button
-                        onClick={() => setIsCartOpen(false)}
-                        className="text-xs font-bold text-neutral-505 hover:text-black transition-colors"
-                      >
-                        + Add More
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleClearCart}
+                          className="text-[11px] font-bold text-neutral-400 hover:text-red-600 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Empty entire cart"
+                        >
+                          <Trash2 size={11} /> Clear Cart
+                        </button>
+                        <button
+                          onClick={() => setIsCartOpen(false)}
+                          className="text-xs font-bold text-neutral-505 hover:text-black transition-colors cursor-pointer"
+                        >
+                          + Add More
+                        </button>
+                      </div>
                     </div>
                     {orderItems.map((item) => (
                       <div key={item.instanceId} className="bg-white border border-neutral-200 rounded-2xl p-4 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.01)] relative">
