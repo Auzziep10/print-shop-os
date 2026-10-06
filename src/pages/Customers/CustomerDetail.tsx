@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -116,7 +116,14 @@ export function CustomerDetail() {
     autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
     allowLocalDelivery: true,
     resaleCertificateUrl: '',
-    resaleCertificateName: ''
+    resaleCertificateName: '',
+    accountDiscount: {
+      enabled: false,
+      type: 'percent' as 'percent' | 'fixed',
+      value: 0,
+      expires: '',
+      note: ''
+    }
   });
 
   const [customPricing, setCustomPricing] = useState<{
@@ -1209,7 +1216,14 @@ export function CustomerDetail() {
             autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
             allowLocalDelivery: data.allowLocalDelivery ?? true,
             resaleCertificateUrl: data.resaleCertificateUrl || '',
-            resaleCertificateName: data.resaleCertificateName || ''
+            resaleCertificateName: data.resaleCertificateName || '',
+            accountDiscount: {
+              enabled: !!data.accountDiscount?.enabled,
+              type: data.accountDiscount?.type === 'fixed' ? 'fixed' : 'percent',
+              value: typeof data.accountDiscount?.value === 'number' ? data.accountDiscount.value : (parseFloat(data.accountDiscount?.value) || 0),
+              expires: data.accountDiscount?.expires || '',
+              note: data.accountDiscount?.note || ''
+            }
           });
 
            // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
@@ -1297,6 +1311,7 @@ export function CustomerDetail() {
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
+        accountDiscount: editCompanyForm.accountDiscount,
         customPricing: customPricing,
         invoiceSettings: invoiceForm
       }, { merge: true });
@@ -1317,6 +1332,7 @@ export function CustomerDetail() {
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
+        accountDiscount: editCompanyForm.accountDiscount,
         customPricing: customPricing,
         invoiceSettings: invoiceForm
       });
@@ -1544,7 +1560,39 @@ export function CustomerDetail() {
             <ExternalLink size={16} />
             Login to Client Portal
           </PillButton>
-          <PillButton variant="filled" onClick={() => setIsEditDialogOpen(true)}>
+          <PillButton variant="filled" onClick={() => {
+            if (liveCustomerData) {
+              setEditCompanyForm(prev => ({
+                ...prev,
+                name: liveCustomerData.company || liveCustomerData.contactName || prev.name,
+                email: liveCustomerData.email || prev.email,
+                phone: liveCustomerData.phone || prev.phone,
+                location: liveCustomerData.location || prev.location,
+                shippingStreet: liveCustomerData.shippingStreet || prev.shippingStreet,
+                shippingCity: liveCustomerData.shippingCity || prev.shippingCity,
+                shippingState: liveCustomerData.shippingState || prev.shippingState,
+                shippingZip: liveCustomerData.shippingZip || prev.shippingZip,
+                type: liveCustomerData.type || prev.type,
+                net30Terms: liveCustomerData.net30Terms ?? prev.net30Terms,
+                fulfillmentType: liveCustomerData.fulfillmentType ?? prev.fulfillmentType,
+                disableRack: liveCustomerData.disableRack ?? prev.disableRack,
+                taxExempt: liveCustomerData.taxExempt ?? prev.taxExempt,
+                bypassMinimumRequirement: liveCustomerData.bypassMinimumRequirement ?? prev.bypassMinimumRequirement,
+                autoQuotingEnabled: liveCustomerData.autoQuotingEnabled || prev.autoQuotingEnabled,
+                allowLocalDelivery: liveCustomerData.allowLocalDelivery ?? prev.allowLocalDelivery,
+                resaleCertificateUrl: liveCustomerData.resaleCertificateUrl || prev.resaleCertificateUrl,
+                resaleCertificateName: liveCustomerData.resaleCertificateName || prev.resaleCertificateName,
+                accountDiscount: {
+                  enabled: !!liveCustomerData.accountDiscount?.enabled,
+                  type: liveCustomerData.accountDiscount?.type === 'fixed' ? 'fixed' : 'percent',
+                  value: typeof liveCustomerData.accountDiscount?.value === 'number' ? liveCustomerData.accountDiscount.value : (parseFloat(liveCustomerData.accountDiscount?.value) || 0),
+                  expires: liveCustomerData.accountDiscount?.expires || '',
+                  note: liveCustomerData.accountDiscount?.note || ''
+                }
+              }));
+            }
+            setIsEditDialogOpen(true);
+          }}>
             Edit Company
           </PillButton>
         </div>
@@ -1628,6 +1676,22 @@ export function CustomerDetail() {
                       <Zap size={10} className="text-red-500" /> Auto-Quote: Forced OFF
                     </span>
                   )}
+                  {(() => {
+                    const accDisc = liveCustomerData?.accountDiscount || customer?.accountDiscount;
+                    if (!accDisc?.enabled || !(accDisc.value > 0)) return null;
+                    const isExpired = accDisc.expires ? new Date(`${accDisc.expires}T23:59:59`).getTime() < Date.now() : false;
+                    return (
+                      <span className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm ${
+                        isExpired 
+                          ? 'bg-amber-50 border border-amber-300 text-amber-700' 
+                          : 'bg-emerald-50 border border-emerald-300 text-emerald-800'
+                      }`}>
+                        <Tag size={10} className={isExpired ? 'text-amber-600' : 'text-emerald-600'} />
+                        {accDisc.note ? accDisc.note : 'Account Discount'}: {accDisc.type === 'percent' ? `${accDisc.value}% Off` : `$${accDisc.value} Off`}
+                        {isExpired ? ' (Expired)' : accDisc.expires ? ` (Exp: ${accDisc.expires})` : ' (Forever)'}
+                      </span>
+                    );
+                  })()}
                   {customer?.resaleCertificateUrl && (
                     <a 
                       href={customer.resaleCertificateUrl} 
@@ -2617,6 +2681,207 @@ export function CustomerDetail() {
                       )}
                     </div>
                   </div>
+               </div>
+
+               {/* Automatic Account Discount Card */}
+               <div className="bg-white rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] overflow-hidden">
+                 <div className="p-5 flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-xl shrink-0">
+                       <Percent size={18} />
+                     </div>
+                     <div>
+                       <div className="flex items-center gap-2">
+                         <h3 className="text-sm font-bold text-brand-primary">
+                           Automatic Account Discount
+                         </h3>
+                         <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                           editCompanyForm.accountDiscount?.enabled
+                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                             : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
+                         }`}>
+                           {editCompanyForm.accountDiscount?.enabled
+                             ? editCompanyForm.accountDiscount.expires
+                               ? `Active • Exp: ${editCompanyForm.accountDiscount.expires}`
+                               : 'Active • Forever'
+                             : 'Disabled'}
+                         </span>
+                       </div>
+                       <p className="text-[11px] text-brand-secondary mt-0.5">
+                         Applies automatically to all cart orders for this customer account only. Active forever until turned off or expiration date is met.
+                       </p>
+                     </div>
+                   </div>
+
+                   {/* Enable / Disable Toggle Switch */}
+                   <button
+                     type="button"
+                     onClick={() => setEditCompanyForm(prev => ({
+                       ...prev,
+                       accountDiscount: {
+                         ...prev.accountDiscount,
+                         enabled: !prev.accountDiscount?.enabled
+                       }
+                     }))}
+                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                       editCompanyForm.accountDiscount?.enabled ? 'bg-emerald-500' : 'bg-neutral-300'
+                     }`}
+                   >
+                     <span
+                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                         editCompanyForm.accountDiscount?.enabled ? 'translate-x-5' : 'translate-x-0'
+                       }`}
+                     />
+                   </button>
+                 </div>
+
+                 {editCompanyForm.accountDiscount?.enabled && (
+                   <div className="p-5 pt-0 border-t border-brand-border/40 mt-1 space-y-4">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                       {/* Discount Type */}
+                       <div className="space-y-1">
+                         <label className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest block">
+                           Discount Type
+                         </label>
+                         <select
+                           value={editCompanyForm.accountDiscount.type}
+                           onChange={(e) => setEditCompanyForm(prev => ({
+                             ...prev,
+                             accountDiscount: {
+                               ...prev.accountDiscount,
+                               type: e.target.value as 'percent' | 'fixed'
+                             }
+                           }))}
+                           className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-3 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary/30"
+                         >
+                           <option value="percent">Percentage (%)</option>
+                           <option value="fixed">Fixed Dollar ($)</option>
+                         </select>
+                       </div>
+
+                       {/* Discount Amount */}
+                       <div className="space-y-1">
+                         <label className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest block">
+                           Discount Value {editCompanyForm.accountDiscount.type === 'percent' ? '(%)' : '($)'}
+                         </label>
+                         <div className="relative">
+                           {editCompanyForm.accountDiscount.type === 'fixed' && (
+                             <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" />
+                           )}
+                           <input
+                             type="number"
+                             min="0"
+                             step={editCompanyForm.accountDiscount.type === 'percent' ? '1' : '0.50'}
+                             max={editCompanyForm.accountDiscount.type === 'percent' ? '100' : undefined}
+                             value={editCompanyForm.accountDiscount.value || ''}
+                             onChange={(e) => setEditCompanyForm(prev => ({
+                               ...prev,
+                               accountDiscount: {
+                                 ...prev.accountDiscount,
+                                 value: parseFloat(e.target.value) || 0
+                               }
+                             }))}
+                             placeholder={editCompanyForm.accountDiscount.type === 'percent' ? '10' : '25.00'}
+                             className={`w-full bg-brand-bg border border-brand-border/60 rounded-xl py-2 pr-3 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary/30 ${
+                               editCompanyForm.accountDiscount.type === 'fixed' ? 'pl-8' : 'pl-3'
+                             }`}
+                           />
+                           {editCompanyForm.accountDiscount.type === 'percent' && (
+                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-secondary">%</span>
+                           )}
+                         </div>
+                       </div>
+
+                       {/* Expiration Date */}
+                       <div className="space-y-1">
+                         <div className="flex items-center justify-between">
+                           <label className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest block">
+                             Expiration Date
+                           </label>
+                           {editCompanyForm.accountDiscount.expires ? (
+                             <button
+                               type="button"
+                               onClick={() => setEditCompanyForm(prev => ({
+                                 ...prev,
+                                 accountDiscount: { ...prev.accountDiscount, expires: '' }
+                               }))}
+                               className="text-[10px] text-brand-secondary hover:text-red-500 font-semibold"
+                             >
+                               Set to Forever
+                             </button>
+                           ) : (
+                             <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                               Forever Active
+                             </span>
+                           )}
+                         </div>
+                         <input
+                           type="date"
+                           value={editCompanyForm.accountDiscount.expires || ''}
+                           onChange={(e) => setEditCompanyForm(prev => ({
+                             ...prev,
+                             accountDiscount: {
+                               ...prev.accountDiscount,
+                               expires: e.target.value
+                             }
+                           }))}
+                           className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary/30"
+                         />
+                         <p className="text-[10px] text-brand-secondary/80">
+                           {editCompanyForm.accountDiscount.expires
+                             ? `Valid through end of ${editCompanyForm.accountDiscount.expires}`
+                             : 'Leave blank to stay active forever until turned off'}
+                         </p>
+                       </div>
+
+                       {/* Custom Label / Note */}
+                       <div className="col-span-1 md:col-span-3 space-y-1">
+                         <label className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest block">
+                           Discount Label / Cart Note (Optional)
+                         </label>
+                         <input
+                           type="text"
+                           value={editCompanyForm.accountDiscount.note || ''}
+                           onChange={(e) => setEditCompanyForm(prev => ({
+                             ...prev,
+                             accountDiscount: {
+                               ...prev.accountDiscount,
+                               note: e.target.value
+                             }
+                           }))}
+                           placeholder="e.g. VIP Partner 10% Off or Contract Discount"
+                           className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary/30"
+                         />
+                         <p className="text-[10px] text-brand-secondary/80">
+                           Appears on the customer's portal cart, checkout discount tag, and order invoice. Defaults to "ACCOUNT DISCOUNT" if blank.
+                         </p>
+                       </div>
+                     </div>
+
+                     {/* Live Summary Preview Box */}
+                     <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-3 flex items-start gap-2.5 text-xs text-emerald-900">
+                       <Tag size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                       <div>
+                         <p className="font-semibold">
+                           Customer Automatic Cart Discount Summary:
+                         </p>
+                         <p className="text-[11px] text-emerald-800 mt-0.5">
+                           Every order placed in the customer portal by this account will automatically receive{' '}
+                           <span className="font-bold underline">
+                             {editCompanyForm.accountDiscount.type === 'percent'
+                               ? `${editCompanyForm.accountDiscount.value || 0}% off`
+                               : `$${(editCompanyForm.accountDiscount.value || 0).toFixed(2)} off`}
+                           </span>{' '}
+                           under label "<span className="font-semibold">{editCompanyForm.accountDiscount.note?.trim() || 'ACCOUNT DISCOUNT'}</span>"{' '}
+                           {editCompanyForm.accountDiscount.expires
+                             ? `through ${editCompanyForm.accountDiscount.expires}`
+                             : 'forever until turned off (no expiration)'}
+                           .
+                         </p>
+                       </div>
+                     </div>
+                   </div>
+                 )}
                </div>
 
                {/* Customer Custom Auto-Quoting & Pricing Overrides Card */}

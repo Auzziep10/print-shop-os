@@ -5,7 +5,7 @@ import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, L
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { validateDiscountCode, discountAmountFor, type AppliedDiscount } from '../../lib/discountUtils';
+import { validateDiscountCode, discountAmountFor, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
@@ -283,6 +283,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       : null
   );
 
+  const [customerData, setCustomerData] = useState<any>(null);
+
   useEffect(() => {
     if (order.discountAmount > 0 || order.discountCode) {
       setAppliedDiscount({
@@ -290,10 +292,17 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         type: 'fixed',
         value: parseFloat(order.discountAmount || 0)
       });
+    } else if (customerData?.accountDiscount) {
+      const accDiscount = getValidAccountDiscount(customerData.accountDiscount);
+      if (accDiscount) {
+        setAppliedDiscount(accDiscount);
+      } else {
+        setAppliedDiscount(null);
+      }
     } else {
       setAppliedDiscount(null);
     }
-  }, [order.discountAmount, order.discountCode]);
+  }, [order.discountAmount, order.discountCode, customerData]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
@@ -311,8 +320,6 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     }
     setIsApplyingDiscount(false);
   };
-
-  const [customerData, setCustomerData] = useState<any>(null);
 
   useEffect(() => {
     if (!order.customerId) return;

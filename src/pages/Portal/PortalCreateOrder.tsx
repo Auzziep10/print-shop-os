@@ -12,7 +12,7 @@ import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { fetchDtfPricingSettings, autoQuoteItem, PLACEMENT_LABELS } from '../../lib/dtfAutoQuoting';
-import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -434,6 +434,7 @@ export function PortalCreateOrder() {
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
+  const [accountDiscount, setAccountDiscount] = useState<AppliedDiscount | null>(null);
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
@@ -1401,6 +1402,14 @@ export function PortalCreateOrder() {
         if (customerDoc.exists()) {
           const customerData = customerDoc.data();
           setCustomer(customerData);
+
+          // Evaluate automatic account discount for this customer
+          const accDiscount = getValidAccountDiscount(customerData.accountDiscount);
+          if (accDiscount) {
+            setAccountDiscount(accDiscount);
+            setAppliedDiscount(prev => prev || accDiscount);
+          }
+
           // Support both array and single string for backwards compatibility
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
           
@@ -3233,8 +3242,13 @@ export function PortalCreateOrder() {
                           Discount Code
                         </span>
                         {appliedDiscount && (
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                             {appliedDiscount.code} ({formatDiscountLabel(appliedDiscount)})
+                            {accountDiscount && appliedDiscount.code === accountDiscount.code && (
+                              <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1 py-0.2 rounded font-extrabold uppercase tracking-wider">
+                                Account
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
@@ -3246,6 +3260,22 @@ export function PortalCreateOrder() {
                           </span>
                         )}
                       </div>
+
+                      {!appliedDiscount && accountDiscount && (
+                        <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-250 rounded-xl px-2.5 py-1.5 text-xs text-emerald-900">
+                          <span className="text-[10px] font-semibold flex items-center gap-1">
+                            <Tag size={12} className="text-emerald-600" />
+                            Account discount: <strong>{accountDiscount.code} ({formatDiscountLabel(accountDiscount)})</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { setAppliedDiscount(accountDiscount); setDiscountError(''); }}
+                            className="text-[10px] font-extrabold text-emerald-700 hover:underline uppercase cursor-pointer"
+                          >
+                            Re-apply
+                          </button>
+                        </div>
+                      )}
 
                       {!appliedDiscount && (
                         <div className="flex gap-2">

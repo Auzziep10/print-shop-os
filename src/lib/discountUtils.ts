@@ -21,6 +21,31 @@ export interface AppliedDiscount {
   value: number;
 }
 
+export interface AccountDiscount {
+  enabled: boolean;
+  type: 'percent' | 'fixed';
+  value: number;
+  expires?: string; // YYYY-MM-DD; valid through end of that day, or empty for forever
+  note?: string; // optional label/name, e.g. "VIP Client 10% Off"
+}
+
+export function getValidAccountDiscount(accountDiscount?: AccountDiscount | null): AppliedDiscount | null {
+  if (!accountDiscount || !accountDiscount.enabled) return null;
+  const numVal = typeof accountDiscount.value === 'number' ? accountDiscount.value : parseFloat(accountDiscount.value as any);
+  if (isNaN(numVal) || numVal <= 0) return null;
+  if (accountDiscount.expires && accountDiscount.expires.trim()) {
+    const exp = new Date(`${accountDiscount.expires.trim()}T23:59:59`);
+    if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
+      return null;
+    }
+  }
+  return {
+    code: (accountDiscount.note && accountDiscount.note.trim()) ? accountDiscount.note.trim().toUpperCase() : 'ACCOUNT DISCOUNT',
+    type: accountDiscount.type === 'fixed' ? 'fixed' : 'percent',
+    value: numVal,
+  };
+}
+
 export type DiscountValidation =
   | { ok: true; discount: AppliedDiscount }
   | { ok: false; error: string };
