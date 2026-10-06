@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, Loader2 } from 'lucide-react';
+import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, Loader2, Tag } from 'lucide-react';
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { validateDiscountCode, discountAmountFor, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
@@ -95,6 +95,17 @@ const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any
           });
         }
 
+        if (order.shippingDiscountAmount > 0) {
+          cleanItems.push({
+            id: `shipping-discount-${Date.now()}`,
+            style: `Shipping Discount${order.shippingDiscountCode ? ` (${order.shippingDiscountCode})` : ''}`,
+            itemType: 'service',
+            qty: 1,
+            price: -order.shippingDiscountAmount,
+            total: -order.shippingDiscountAmount
+          });
+        }
+
         const isAchProcessing = paymentIntent.status === 'processing';
         const updatePayload: any = {
           statusIndex: 4, // Move to Sourcing
@@ -108,6 +119,8 @@ const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any
           total: order.calculatedTotal || 0,
           discountCode: order.discountCode || '',
           discountAmount: order.discountAmount || 0,
+          shippingDiscountCode: order.shippingDiscountCode || '',
+          shippingDiscountAmount: order.shippingDiscountAmount || 0,
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
@@ -277,8 +290,21 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     order.discountAmount > 0 || order.discountCode
       ? {
           code: order.discountCode || 'DISCOUNT',
-          type: 'fixed',
-          value: parseFloat(order.discountAmount || 0)
+          type: order.discountType || 'fixed',
+          value: parseFloat(order.discountAmount || order.discountValue || 0),
+          target: 'items'
+        }
+      : null
+  );
+
+  // Dedicated Shipping Discount code (e.g. Free shipping or $ off shipping)
+  const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(
+    order.shippingDiscountAmount > 0 || order.shippingDiscountCode
+      ? {
+          code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
+          type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
+          value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
+          target: 'shipping'
         }
       : null
   );
@@ -289,8 +315,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     if (order.discountAmount > 0 || order.discountCode) {
       setAppliedDiscount({
         code: order.discountCode || 'DISCOUNT',
-        type: 'fixed',
-        value: parseFloat(order.discountAmount || 0)
+        type: order.discountType || 'fixed',
+        value: parseFloat(order.discountAmount || order.discountValue || 0),
+        target: 'items'
       });
     } else if (customerData?.accountDiscount) {
       const accDiscount = getValidAccountDiscount(customerData.accountDiscount);
@@ -302,23 +329,60 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     } else {
       setAppliedDiscount(null);
     }
-  }, [order.discountAmount, order.discountCode, customerData]);
+  }, [order.discountAmount, order.discountCode, order.discountType, order.discountValue, customerData]);
+
+  useEffect(() => {
+    if (order.shippingDiscountAmount > 0 || order.shippingDiscountCode) {
+      setAppliedShippingDiscount({
+        code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
+        type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
+        value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
+        target: 'shipping'
+      });
+    }
+  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+
+  const [shippingDiscountInput, setShippingDiscountInput] = useState('');
+  const [shippingDiscountError, setShippingDiscountError] = useState('');
+  const [isApplyingShippingDiscount, setIsApplyingShippingDiscount] = useState(false);
+  const [isShippingPromoOpen, setIsShippingPromoOpen] = useState(false);
 
   const applyDiscountCode = async () => {
     setIsApplyingDiscount(true);
     setDiscountError('');
     const result = await validateDiscountCode(discountInput);
     if (result.ok) {
-      setAppliedDiscount(result.discount);
+      if (result.discount.target === 'shipping') {
+        setAppliedShippingDiscount(result.discount);
+      } else {
+        setAppliedDiscount(result.discount);
+      }
       setDiscountInput('');
     } else {
       setDiscountError(result.error);
     }
     setIsApplyingDiscount(false);
+  };
+
+  const applyShippingDiscountCode = async () => {
+    setIsApplyingShippingDiscount(true);
+    setShippingDiscountError('');
+    const result = await validateDiscountCode(shippingDiscountInput);
+    if (result.ok) {
+      setAppliedShippingDiscount({
+        ...result.discount,
+        target: 'shipping'
+      });
+      setShippingDiscountInput('');
+      setIsShippingPromoOpen(false);
+    } else {
+      setShippingDiscountError(result.error);
+    }
+    setIsApplyingShippingDiscount(false);
   };
 
   useEffect(() => {
@@ -657,6 +721,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     ? 0
     : (selectedShippingOption ? selectedShippingOption.rate : shippingAmount);
 
+  const shippingDiscountAmount = discountAmountFor(appliedShippingDiscount, currentShippingAmount);
+  const effectiveShippingAmount = Math.max(0, currentShippingAmount - shippingDiscountAmount);
+
   useEffect(() => {
     const calculateStripeTax = async () => {
       if (isCustomerTaxExempt) {
@@ -681,7 +748,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 amount: Math.round((parseFloat(item.total) || 0) * factor * 100) / 100,
               }));
             })(),
-            shippingAmount: currentShippingAmount,
+            shippingAmount: effectiveShippingAmount,
           }),
         });
         if (!response.ok) {
@@ -701,16 +768,105 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt, appliedDiscount, effectiveShippingAddress]);
+  }, [order.id, hasShippingAddress, order.items, effectiveShippingAmount, isCustomerTaxExempt, appliedDiscount, effectiveShippingAddress]);
 
   const finalTaxAmount = isCustomerTaxExempt ? 0 : (calculatedTax !== null ? calculatedTax : taxAmount);
   const discountAmount = discountAmountFor(appliedDiscount, itemsSubtotal);
-  const finalTotal = Math.max(0, itemsSubtotal - discountAmount + finalTaxAmount + currentShippingAmount);
+  const finalTotal = Math.max(0, itemsSubtotal - discountAmount + finalTaxAmount + effectiveShippingAmount);
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
   const formattedTax = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTaxAmount);
   const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentShippingAmount);
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
+
+  const [isProcessingFreeOrder, setIsProcessingFreeOrder] = useState(false);
+
+  const handleCompleteFreeOrder = async () => {
+    setIsProcessingFreeOrder(true);
+    try {
+      const orderRef = doc(db, 'orders', order.id);
+      const cleanItems = (order.items || []).filter((item: any) => {
+        const styleLower = (item.style || '').toLowerCase();
+        const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+        const isTax = styleLower.includes('sales tax') || (item.id && item.id.toString().startsWith('tax-'));
+        const isDiscount = styleLower.startsWith('discount') || (item.id && item.id.toString().startsWith('discount-'));
+        return !isShipping && !isTax && !isDiscount;
+      });
+
+      if (finalTaxAmount > 0) {
+        cleanItems.push({
+          id: `tax-${Date.now()}`,
+          style: 'Sales Tax (Stripe Calculated)',
+          itemType: 'service',
+          qty: 1,
+          price: finalTaxAmount,
+          total: finalTaxAmount
+        });
+      }
+
+      if (discountAmount > 0) {
+        cleanItems.push({
+          id: `discount-${Date.now()}`,
+          style: `Discount${appliedDiscount?.code ? ` (${appliedDiscount.code})` : ''}`,
+          itemType: 'service',
+          qty: 1,
+          price: -discountAmount,
+          total: -discountAmount
+        });
+      }
+
+      if (shippingDiscountAmount > 0) {
+        cleanItems.push({
+          id: `shipping-discount-${Date.now()}`,
+          style: `Shipping Discount${appliedShippingDiscount?.code ? ` (${appliedShippingDiscount.code})` : ''}`,
+          itemType: 'service',
+          qty: 1,
+          price: -shippingDiscountAmount,
+          total: -shippingDiscountAmount
+        });
+      }
+
+      const selectedShipping = selectedDeliveryOption === 'Shipping' ? selectedShippingOption : null;
+      const updatePayload: any = {
+        statusIndex: 4, // Move to Sourcing
+        paymentStatus: 'paid',
+        paymentDate: new Date().toISOString(),
+        paymentRead: false,
+        deliveryOption: selectedDeliveryOption,
+        selectedShippingOption: selectedShipping || order.selectedShippingOption || null,
+        items: cleanItems,
+        tax: finalTaxAmount,
+        total: 0,
+        discountCode: appliedDiscount?.code || '',
+        discountAmount: discountAmount,
+        shippingDiscountCode: appliedShippingDiscount?.code || '',
+        shippingDiscountAmount: shippingDiscountAmount,
+        activities: arrayUnion({
+          id: `act-${Date.now()}`,
+          type: 'system',
+          message: `Order completed with 100% discount ($0.00 balance). (Codes: ${appliedDiscount?.code || 'Items'}${appliedShippingDiscount ? `, Shipping: ${appliedShippingDiscount.code}` : ''}).`,
+          user: order.customerId || 'Customer',
+          timestamp: new Date().toISOString()
+        })
+      };
+
+      if (selectedDeliveryOption === 'Local Delivery') {
+        updatePayload.shipping = 0;
+        updatePayload.shippingCost = 0;
+      } else if (selectedShipping) {
+        updatePayload.shipping = selectedShipping.rate;
+        updatePayload.shippingCost = selectedShipping.rate;
+      }
+
+      await updateDoc(orderRef, updatePayload);
+      setIsProcessingFreeOrder(false);
+      onSuccess();
+    } catch (err: any) {
+      console.error("Failed to complete free order:", err);
+      alert(err.message || "Failed to complete order.");
+      setIsProcessingFreeOrder(false);
+    }
+  };
 
   const orderWithTotal = {
     ...order,
@@ -723,7 +879,11 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     discountCode: appliedDiscount?.code || '',
     discountType: appliedDiscount?.type || 'fixed',
     discountValue: appliedDiscount?.value || 0,
-    discountAmount: discountAmount
+    discountAmount: discountAmount,
+    shippingDiscountCode: appliedShippingDiscount?.code || '',
+    shippingDiscountType: appliedShippingDiscount?.type || 'fixed',
+    shippingDiscountValue: appliedShippingDiscount?.value || 0,
+    shippingDiscountAmount: shippingDiscountAmount
   };
 
   return (
@@ -1169,11 +1329,87 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               </div>
 
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                <span>Shipping & Handling</span>
+                <div className="flex items-center gap-1.5">
+                  <span>Shipping & Handling</span>
+                  {currentShippingAmount > 0 && !appliedShippingDiscount && !isShippingPromoOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setIsShippingPromoOpen(true)}
+                      className="text-[9px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 px-1.5 py-0.5 rounded cursor-pointer lowercase tracking-normal transition-colors"
+                    >
+                      + add code
+                    </button>
+                  )}
+                </div>
                 <span className="font-bold text-neutral-800">
                   {currentShippingAmount > 0 ? formattedShipping : 'Free'}
                 </span>
               </div>
+
+              {/* Shipping Promo Input if toggled */}
+              {currentShippingAmount > 0 && !appliedShippingDiscount && isShippingPromoOpen && (
+                <div className="bg-neutral-50 border border-neutral-200/80 rounded-xl p-2.5 flex flex-col gap-1.5 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                    <span className="flex items-center gap-1">
+                      <Tag size={10} className="text-emerald-600" />
+                      Shipping Discount Code
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setIsShippingPromoOpen(false); setShippingDiscountError(''); }}
+                      className="text-neutral-400 hover:text-neutral-600 text-xs cursor-pointer p-0.5"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={shippingDiscountInput}
+                      onChange={(e) => { setShippingDiscountInput(e.target.value.toUpperCase()); setShippingDiscountError(''); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyShippingDiscountCode(); } }}
+                      placeholder="e.g. FREESHIP"
+                      className="flex-1 min-w-0 bg-white border border-neutral-300 rounded-lg px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyShippingDiscountCode}
+                      disabled={isApplyingShippingDiscount || !shippingDiscountInput.trim()}
+                      className="shrink-0 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      {isApplyingShippingDiscount ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                  {shippingDiscountError && (
+                    <p className="text-[9px] text-red-600 font-semibold">{shippingDiscountError}</p>
+                  )}
+                </div>
+              )}
+
+              {appliedShippingDiscount && shippingDiscountAmount > 0 && (
+                <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
+                  <span className="text-emerald-700 flex items-center gap-1.5 normal-case">
+                    Shipping Discount
+                    <span className="font-mono text-[9px] font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 px-1.5 py-0.5 rounded tracking-widest">
+                      {appliedShippingDiscount.code}
+                    </span>
+                    <span className="text-[9px] text-emerald-700/80 font-medium">
+                      ({formatDiscountLabel(appliedShippingDiscount)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setAppliedShippingDiscount(null); setShippingDiscountError(''); }}
+                      className="text-neutral-400 hover:text-red-600 text-[10px] font-bold cursor-pointer ml-0.5"
+                      title="Remove shipping discount"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                  <span className="font-bold text-emerald-700">
+                    −{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingDiscountAmount)}
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                 <span>Estimated Sales Tax</span>
@@ -1281,6 +1517,24 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 </button>
                 <span className="text-[10px] text-neutral-400 font-semibold text-center leading-normal block">
                   Review garments & total pricing above before approving.
+                </span>
+              </div>
+            ) : finalTotal <= 0 ? (
+              <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+                <button
+                  type="button"
+                  onClick={handleCompleteFreeOrder}
+                  disabled={isProcessingFreeOrder}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 flex justify-center items-center gap-2 cursor-pointer"
+                >
+                  {isProcessingFreeOrder ? (
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  ) : (
+                    <span>Confirm & Place Order ($0.00)</span>
+                  )}
+                </button>
+                <span className="text-[10px] text-emerald-700 font-semibold text-center leading-normal block">
+                  Promotional discounts cover 100% of this order. No payment method required!
                 </span>
               </div>
             ) : (

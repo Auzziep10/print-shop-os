@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Tag } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Tag, Truck } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -439,17 +439,44 @@ export function PortalCreateOrder() {
   const [discountError, setDiscountError] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
+  const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(null);
+  const [shippingDiscountInput, setShippingDiscountInput] = useState('');
+  const [shippingDiscountError, setShippingDiscountError] = useState('');
+  const [isApplyingShippingDiscount, setIsApplyingShippingDiscount] = useState(false);
+  const [isShippingPromoOpen, setIsShippingPromoOpen] = useState(false);
+
   const applyDiscountCode = async () => {
     setIsApplyingDiscount(true);
     setDiscountError('');
     const result = await validateDiscountCode(discountInput);
     if (result.ok) {
-      setAppliedDiscount(result.discount);
+      if (result.discount.target === 'shipping') {
+        setAppliedShippingDiscount(result.discount);
+      } else {
+        setAppliedDiscount(result.discount);
+      }
       setDiscountInput('');
     } else {
       setDiscountError(result.error);
     }
     setIsApplyingDiscount(false);
+  };
+
+  const applyShippingDiscountCode = async () => {
+    setIsApplyingShippingDiscount(true);
+    setShippingDiscountError('');
+    const result = await validateDiscountCode(shippingDiscountInput);
+    if (result.ok) {
+      setAppliedShippingDiscount({
+        ...result.discount,
+        target: 'shipping'
+      });
+      setShippingDiscountInput('');
+      setIsShippingPromoOpen(false);
+    } else {
+      setShippingDiscountError(result.error);
+    }
+    setIsApplyingShippingDiscount(false);
   };
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
@@ -1737,6 +1764,9 @@ export function PortalCreateOrder() {
           discountType: appliedDiscount?.type || 'fixed',
           discountValue: appliedDiscount?.value || 0,
           discountAmount: dAmount,
+          shippingDiscountCode: appliedShippingDiscount?.code || '',
+          shippingDiscountType: appliedShippingDiscount?.type || 'fixed',
+          shippingDiscountValue: appliedShippingDiscount?.value || 0,
           shippingAddress: {
             name: profileContactName.trim(),
             company: profileCompany.trim(),
@@ -3298,6 +3328,71 @@ export function PortalCreateOrder() {
                         </div>
                       )}
                       {discountError && <p className="text-[10px] text-red-600 font-bold">{discountError}</p>}
+
+                      {/* Shipping Discount Section (if delivery option is Shipping) */}
+                      {deliveryOption === 'Shipping' && (
+                        <div className="pt-2.5 border-t border-neutral-200/80 mt-1 flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-extrabold text-neutral-600 tracking-wider flex items-center gap-1">
+                              <Truck size={12} className="text-neutral-500" />
+                              Shipping Discount
+                            </span>
+                            {appliedShippingDiscount ? (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                {appliedShippingDiscount.code} ({formatDiscountLabel(appliedShippingDiscount)})
+                                <button
+                                  type="button"
+                                  onClick={() => { setAppliedShippingDiscount(null); setShippingDiscountError(''); }}
+                                  className="text-neutral-400 hover:text-red-500 ml-1 cursor-pointer"
+                                  title="Remove shipping discount"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </span>
+                            ) : !isShippingPromoOpen ? (
+                              <button
+                                type="button"
+                                onClick={() => setIsShippingPromoOpen(true)}
+                                className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-250 px-2 py-0.5 rounded-full cursor-pointer transition-colors"
+                              >
+                                + add shipping code
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {!appliedShippingDiscount && isShippingPromoOpen && (
+                            <div className="flex flex-col gap-1 mt-0.5 animate-in fade-in duration-150">
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={shippingDiscountInput}
+                                  onChange={(e) => { setShippingDiscountInput(e.target.value.toUpperCase()); setShippingDiscountError(''); }}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyShippingDiscountCode(); } }}
+                                  placeholder="Enter shipping code (e.g. FREESHIP)"
+                                  className="flex-1 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-black uppercase"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={applyShippingDiscountCode}
+                                  disabled={isApplyingShippingDiscount || !shippingDiscountInput.trim()}
+                                  className="bg-emerald-700 hover:bg-emerald-800 disabled:bg-neutral-200 text-white disabled:text-neutral-400 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:cursor-not-allowed"
+                                >
+                                  {isApplyingShippingDiscount ? <Loader2 size={12} className="animate-spin" /> : 'Apply'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setIsShippingPromoOpen(false); setShippingDiscountError(''); }}
+                                  className="text-neutral-400 hover:text-neutral-600 px-1 text-xs cursor-pointer"
+                                  title="Cancel"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              {shippingDiscountError && <p className="text-[10px] text-red-600 font-bold">{shippingDiscountError}</p>}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {dtfCartSummary && (() => {

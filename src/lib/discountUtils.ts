@@ -6,19 +6,23 @@ import { db } from './firebase';
 // Managed from Settings → Discount Codes; redeemable on the public /start
 // checkout and the portal payment modal.
 
+export type DiscountTarget = 'items' | 'shipping';
+
 export interface DiscountCodeEntry {
-  type: 'percent' | 'fixed';
+  type: 'percent' | 'fixed' | 'free_shipping';
   value: number;
   active: boolean;
   expires?: string; // YYYY-MM-DD; valid through end of that day
   note?: string;
   createdAt?: number;
+  target?: DiscountTarget;
 }
 
 export interface AppliedDiscount {
   code: string;
-  type: 'percent' | 'fixed';
+  type: 'percent' | 'fixed' | 'free_shipping';
   value: number;
+  target?: DiscountTarget;
 }
 
 export interface AccountDiscount {
@@ -43,6 +47,7 @@ export function getValidAccountDiscount(accountDiscount?: AccountDiscount | null
     code: (accountDiscount.note && accountDiscount.note.trim()) ? accountDiscount.note.trim().toUpperCase() : 'ACCOUNT DISCOUNT',
     type: accountDiscount.type === 'fixed' ? 'fixed' : 'percent',
     value: numVal,
+    target: 'items',
   };
 }
 
@@ -57,7 +62,18 @@ export async function validateDiscountCode(rawCode: string): Promise<DiscountVal
     const snap = await getDoc(doc(db, 'settings', 'discounts'));
     const codes = snap.exists() ? ((snap.data() as any).codes || {}) : {};
     const entry: DiscountCodeEntry | undefined = codes[code];
-    if (!entry) return { ok: false, error: 'Invalid code' };
+
+    if (!entry) {
+      // Common built-in fallback for free shipping codes
+      if (code === 'FREESHIP' || code === 'FREESHIPPING' || code === 'SHIPFREE') {
+        return {
+          ok: true,
+          discount: { code, type: 'free_shipping', value: 100, target: 'shipping' },
+        };
+      }
+      return { ok: false, error: 'Invalid code' };
+    }
+
     if (!entry.active) return { ok: false, error: 'This code is no longer active' };
     if (entry.expires) {
       const exp = new Date(`${entry.expires}T23:59:59`);
@@ -65,10 +81,27 @@ export async function validateDiscountCode(rawCode: string): Promise<DiscountVal
         return { ok: false, error: 'This code has expired' };
       }
     }
-    if (!(entry.value > 0)) return { ok: false, error: 'Invalid code' };
+
+    const target: DiscountTarget = entry.target || (
+      entry.type === 'free_shipping' || (entry.type as string).includes('shipping') ? 'shipping' : 'items'
+    );
+
+    const isFreeShipping = entry.type === 'free_shipping' || (target === 'shipping' && entry.type === 'percent' && entry.value >= 100);
+
+    if (!isFreeShipping && !(entry.value > 0)) return { ok: false, error: 'Invalid code' };
+
+    const resolvedType: 'percent' | 'fixed' | 'free_shipping' = isFreeShipping
+      ? 'free_shipping'
+      : (entry.type === 'fixed' || (entry.type as string) === 'shipping_fixed' ? 'fixed' : 'percent');
+
     return {
       ok: true,
-      discount: { code, type: entry.type === 'fixed' ? 'fixed' : 'percent', value: entry.value },
+      discount: {
+        code,
+        type: resolvedType,
+        value: isFreeShipping ? 100 : entry.value,
+        target,
+      },
     };
   } catch (err) {
     console.error('Discount validation failed:', err);
@@ -76,13 +109,24 @@ export async function validateDiscountCode(rawCode: string): Promise<DiscountVal
   }
 }
 
-/** Dollar amount a discount takes off a subtotal (never more than the subtotal). */
+/** Dollar amount a discount takes off a subtotal or shipping amount (never more than the subtotal). */
 export function discountAmountFor(discount: AppliedDiscount | null | undefined, subtotal: number): number {
   if (!discount || !(subtotal > 0)) return 0;
-  const amt = discount.type === 'percent' ? subtotal * (discount.value / 100) : discount.value;
-  return Math.min(subtotal, Math.round(amt * 100) / 100);
+  if (discount.type === 'free_shipping') return subtotal;
+  if (discount.type === 'percent') {
+    if (discount.value >= 100) return subtotal;
+    const amt = subtotal * (discount.value / 100);
+    return Math.min(subtotal, Math.round(amt * 100) / 100);
+  }
+  return Math.min(subtotal, Math.round(discount.value * 100) / 100);
 }
 
 export function formatDiscountLabel(discount: AppliedDiscount): string {
+  if (discount.type === 'free_shipping' || (discount.target === 'shipping' && discount.type === 'percent' && discount.value >= 100)) {
+    return 'Free Shipping';
+  }
+  if (discount.target === 'shipping') {
+    return discount.type === 'percent' ? `${discount.value}% off shipping` : `$${discount.value.toFixed(2)} off shipping`;
+  }
   return discount.type === 'percent' ? `${discount.value}% off` : `$${discount.value.toFixed(2)} off`;
 }
