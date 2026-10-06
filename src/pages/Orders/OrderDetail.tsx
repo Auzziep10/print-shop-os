@@ -419,12 +419,20 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
 };
 
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
+export interface FinalSheetOutput {
+    printDataUrl: string;
+    cutDataUrl: string;
+    sheetHeight: number;
+    sheetNumber: number;
+    totalSheets: number;
+}
+
 const generateFinalSheetsForPrintAndCut = async (
     orderItem: any,
     orderId: string,
     customerName: string,
     shippingAddress: any,
-): Promise<{ printDataUrl: string; cutDataUrl: string; sheetHeight: number }> => {
+): Promise<FinalSheetOutput[]> => {
     const HEADER_HEIGHT_INCHES = 1;
     const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
     const HEADER_TO_DESIGN_GAP_INCHES = 0.5;
@@ -471,7 +479,6 @@ const generateFinalSheetsForPrintAndCut = async (
         });
     }
 
-    let sheetContentHeightInches: number;
     const SPACING_INCHES = 0.5;
 
     // Define placement instances for auto-repeated single transfer layout
@@ -483,7 +490,13 @@ const generateFinalSheetsForPrintAndCut = async (
         h: number; // inches
         rotated?: boolean;
     }
-    let rawPlacements: Placement[] = [];
+
+    interface SheetPlan {
+        placements?: Placement[];
+        height: number;
+    }
+
+    let sheetsToRender: SheetPlan[] = [];
 
     if (isSingleTransferLayout) {
         const instances: Array<{
@@ -544,17 +557,27 @@ const generateFinalSheetsForPrintAndCut = async (
             placements: Placement[];
         }
 
-        interface PackResult {
+        interface SheetPack {
             placements: Placement[];
+            shelves: Shelf[];
             height: number;
         }
+
+        interface PackResult {
+            sheets: SheetPack[];
+            totalHeight: number;
+        }
+
+        // Max height per individual gang sheet chunk in inches (100" at 300 DPI stays safely within browser memory and allocation limits)
+        const MAX_CHUNK_HEIGHT_INCHES = 100;
 
         const runPacking = (
             items: Array<{ url: string; w: number; h: number }>,
             rotationMode: 'none' | 'auto' | 'force'
         ): PackResult => {
-            const placementsList: Placement[] = [];
-            const shelves: Shelf[] = [];
+            const sheets: SheetPack[] = [
+                { placements: [], shelves: [], height: 0 }
+            ];
 
             const getDims = (w: number, h: number, currentX: number, shelfHeight?: number) => {
                 const normW = w;
@@ -582,7 +605,6 @@ const generateFinalSheetsForPrintAndCut = async (
                     } else if (expRot < expNorm) {
                         return { w: rotW, h: rotH, rotated: true };
                     } else {
-                        // Same height expansion: choose smaller width to leave more shelf space
                         return normW <= rotW 
                             ? { w: normW, h: normH, rotated: false }
                             : { w: rotW, h: rotH, rotated: true };
@@ -592,7 +614,6 @@ const generateFinalSheetsForPrintAndCut = async (
                 } else if (fitsRot) {
                     return { w: rotW, h: rotH, rotated: true };
                 } else {
-                    // Neither fits horizontally on current shelf: pick orientation with smaller height
                     return normH <= rotH 
                         ? { w: normW, h: normH, rotated: false }
                         : { w: rotW, h: rotH, rotated: true };
@@ -601,8 +622,10 @@ const generateFinalSheetsForPrintAndCut = async (
 
             items.forEach(inst => {
                 let placed = false;
-                for (let sIdx = 0; sIdx < shelves.length; sIdx++) {
-                    const shelf = shelves[sIdx];
+                let currentSheet = sheets[sheets.length - 1];
+
+                for (let sIdx = 0; sIdx < currentSheet.shelves.length; sIdx++) {
+                    const shelf = currentSheet.shelves[sIdx];
                     const dims = getDims(inst.w, inst.h, shelf.currentX, shelf.height);
                     if (shelf.currentX + dims.w <= designWidthInches) {
                         const newPlacement: Placement = {
@@ -613,21 +636,21 @@ const generateFinalSheetsForPrintAndCut = async (
                             h: dims.h,
                             rotated: dims.rotated
                         };
-                        placementsList.push(newPlacement);
+                        currentSheet.placements.push(newPlacement);
                         shelf.placements.push(newPlacement);
                         shelf.currentX += dims.w + SPACING_INCHES;
 
                         if (dims.h > shelf.height) {
                             const deltaY = dims.h - shelf.height;
                             shelf.height = dims.h;
-                            // Shift all subsequent lower shelves AND their placements down by deltaY
-                            for (let nextIdx = sIdx + 1; nextIdx < shelves.length; nextIdx++) {
-                                const lowerShelf = shelves[nextIdx];
+                            for (let nextIdx = sIdx + 1; nextIdx < currentSheet.shelves.length; nextIdx++) {
+                                const lowerShelf = currentSheet.shelves[nextIdx];
                                 lowerShelf.y += deltaY;
                                 lowerShelf.placements.forEach(p => {
                                     p.y += deltaY;
                                 });
                             }
+                            currentSheet.height = Math.max(...currentSheet.shelves.map(s => s.y + s.height)) + SPACING_INCHES;
                         }
                         placed = true;
                         break;
@@ -636,36 +659,60 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 if (!placed) {
                     const dims = getDims(inst.w, inst.h, 0);
-                    const newY = shelves.length === 0 
+                    const newY = currentSheet.shelves.length === 0 
                         ? SPACING_INCHES 
-                        : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
+                        : currentSheet.shelves[currentSheet.shelves.length - 1].y + currentSheet.shelves[currentSheet.shelves.length - 1].height + SPACING_INCHES;
                     
-                    const newPlacement: Placement = {
-                        url: inst.url,
-                        x: 0,
-                        y: newY,
-                        w: dims.w,
-                        h: dims.h,
-                        rotated: dims.rotated
-                    };
+                    if (newY + dims.h + SPACING_INCHES > MAX_CHUNK_HEIGHT_INCHES && currentSheet.placements.length > 0) {
+                        currentSheet = {
+                            placements: [],
+                            shelves: [],
+                            height: 0
+                        };
+                        sheets.push(currentSheet);
 
-                    const newShelf: Shelf = {
-                        y: newY,
-                        height: dims.h,
-                        currentX: dims.w + SPACING_INCHES,
-                        placements: [newPlacement]
-                    };
-
-                    shelves.push(newShelf);
-                    placementsList.push(newPlacement);
+                        const firstY = SPACING_INCHES;
+                        const newPlacement: Placement = {
+                            url: inst.url,
+                            x: 0,
+                            y: firstY,
+                            w: dims.w,
+                            h: dims.h,
+                            rotated: dims.rotated
+                        };
+                        const newShelf: Shelf = {
+                            y: firstY,
+                            height: dims.h,
+                            currentX: dims.w + SPACING_INCHES,
+                            placements: [newPlacement]
+                        };
+                        currentSheet.shelves.push(newShelf);
+                        currentSheet.placements.push(newPlacement);
+                        currentSheet.height = firstY + dims.h + SPACING_INCHES;
+                    } else {
+                        const newPlacement: Placement = {
+                            url: inst.url,
+                            x: 0,
+                            y: newY,
+                            w: dims.w,
+                            h: dims.h,
+                            rotated: dims.rotated
+                        };
+                        const newShelf: Shelf = {
+                            y: newY,
+                            height: dims.h,
+                            currentX: dims.w + SPACING_INCHES,
+                            placements: [newPlacement]
+                        };
+                        currentSheet.shelves.push(newShelf);
+                        currentSheet.placements.push(newPlacement);
+                        currentSheet.height = newY + dims.h + SPACING_INCHES;
+                    }
                 }
             });
 
-            const totalHeight = shelves.length === 0 
-                ? 0 
-                : Math.max(...shelves.map(s => s.y + s.height)) + SPACING_INCHES;
-
-            return { placements: placementsList, height: totalHeight };
+            const totalHeight = sheets.reduce((sum, s) => sum + s.height, 0);
+            return { sheets, totalHeight };
         };
 
         const resultNone = runPacking(instances, 'none');
@@ -673,311 +720,332 @@ const generateFinalSheetsForPrintAndCut = async (
         const resultForce = runPacking(instances, 'force');
 
         let bestResult = resultNone;
-        if (resultAuto.height < bestResult.height) {
+        const score = (r: PackResult) => (r.sheets.length * 10000) + r.totalHeight;
+        if (score(resultAuto) < score(bestResult)) {
             bestResult = resultAuto;
         }
-        if (resultForce.height < bestResult.height) {
+        if (score(resultForce) < score(bestResult)) {
             bestResult = resultForce;
         }
 
-        rawPlacements = bestResult.placements;
-        sheetContentHeightInches = bestResult.height;
+        sheetsToRender = bestResult.sheets.map(s => ({
+            placements: s.placements,
+            height: Math.max(12, Math.ceil(s.height))
+        }));
     } else {
-        sheetContentHeightInches = orderItem.sheetHeight || 24;
+        sheetsToRender = [{
+            height: orderItem.sheetHeight || 24
+        }];
     }
 
     // Strictly enforce 300 DPI for all print & cut master gang sheets (1 inch = 300 pixels)
     const BASE_DPI = 300;
-
     const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px at 300 DPI
     const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI
     const HEADER_TO_DESIGN_GAP = HEADER_TO_DESIGN_GAP_INCHES * BASE_DPI; // 150px at 300 DPI
     const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP;
 
-    // Convert placements from inches to pixel positions
-    interface PixelPlacement {
-        url: string;
-        x: number;
-        y: number;
-        wPx: number;
-        hPx: number;
-        rotated: boolean;
-    }
-    const placements: PixelPlacement[] = rawPlacements.map(p => ({
-        url: p.url,
-        x: p.x * BASE_DPI,
-        y: p.y * BASE_DPI,
-        wPx: p.w * BASE_DPI,
-        hPx: p.h * BASE_DPI,
-        rotated: !!p.rotated
-    }));
-
-    const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
-    const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
-
-    // 1. Create PRINT Canvas
-    const printCanvas = document.createElement('canvas');
-    printCanvas.width = finalCanvasWidth;
-    printCanvas.height = finalCanvasHeight;
-    const printCtx = printCanvas.getContext('2d');
-    if (!printCtx) throw new Error('No print context');
-
-    // 2. Create CUT Canvas
-    const cutCanvas = document.createElement('canvas');
-    cutCanvas.width = finalCanvasWidth;
-    cutCanvas.height = finalCanvasHeight;
-    const cutCtx = cutCanvas.getContext('2d');
-    if (!cutCtx) throw new Error('No cut context');
-
-    cutCtx.fillStyle = 'white';
-    cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
-
-    const designCanvas = document.createElement('canvas');
-    designCanvas.width = designWidthInches * BASE_DPI;
-    designCanvas.height = sheetContentHeightInches * BASE_DPI;
-    const designCtx = designCanvas.getContext('2d');
-    if (!designCtx) throw new Error('No design context');
-
-    // --- Draw Main Content ---
-    if (isSingleTransferLayout) {
-        placements.forEach(p => {
-            const printX = p.x + MARGIN_PX;
-            const printY = p.y + yOffset;
-            const designX = p.x;
-            const designY = p.y;
-
-            const img = loadedImages[p.url];
-            if (img) {
-                if (p.rotated) {
-                    printCtx.save();
-                    printCtx.translate(printX + p.wPx / 2, printY + p.hPx / 2);
-                    printCtx.rotate(Math.PI / 2);
-                    printCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
-                    printCtx.restore();
-
-                    designCtx.save();
-                    designCtx.translate(designX + p.wPx / 2, designY + p.hPx / 2);
-                    designCtx.rotate(Math.PI / 2);
-                    designCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
-                    designCtx.restore();
-                } else {
-                    printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
-                    designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
-                }
-            }
-
-            if (!isVinyl) {
-                // Draw black outline around each item for DTF plotter cutter
-                cutCtx.strokeStyle = 'black';
-                cutCtx.lineWidth = 6;
-                const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
-                cutCtx.strokeRect(
-                    printX - paddingPx,
-                    printY - paddingPx,
-                    p.wPx + (2 * paddingPx),
-                    p.hPx + (2 * paddingPx)
-                );
-            }
-        });
-    } else {
-        // --- Standard Gang Sheet ---
-        const artworks = (orderItem.artworks || []).filter(
-            (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
-        );
-        const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
-        const sourceImage = loadedImages[sourceUrl];
-
-        if (sourceImage) {
-            if (isAutoLayout && artworks.length > 0) {
-                artworks.forEach((art: any) => {
-                    const artX = art.x * BASE_DPI;
-                    const artY = art.y * BASE_DPI;
-                    const artW = art.width * BASE_DPI;
-                    const artH = art.height * BASE_DPI;
-
-                    printCtx.drawImage(sourceImage, artX + MARGIN_PX, artY + yOffset, artW, artH);
-                    designCtx.drawImage(sourceImage, artX, artY, artW, artH);
-                });
-            } else {
-                printCtx.drawImage(sourceImage, MARGIN_PX, yOffset, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
-                designCtx.drawImage(sourceImage, 0, 0, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
-            }
-        }
-
-        if (!isVinyl && sourceImage) {
-            cutCtx.strokeStyle = 'black';
-            cutCtx.lineWidth = 6;
-
-            if (artworks.length > 0 && isAutoLayout) {
-                artworks.forEach((art: any) => {
-                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
-                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
-
-                    const targetPadding = 0.08 * BASE_DPI;
-                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
-
-                    cutCtx.save();
-                    cutCtx.translate(centerX, centerY);
-                    cutCtx.rotate((art.rotation || 0) * Math.PI / 180);
-
-                    const wPx = art.width * BASE_DPI + (2 * safePadding);
-                    const hPx = art.height * BASE_DPI + (2 * safePadding);
-                    cutCtx.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
-
-                    cutCtx.restore();
-                });
-            } else {
-                const contentMargin = 0.25 * BASE_DPI;
-                cutCtx.strokeRect(
-                    MARGIN_PX + contentMargin,
-                    yOffset + contentMargin,
-                    (designWidthInches * BASE_DPI) - (contentMargin * 2),
-                    ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
-                );
-            }
-        }
-    }
-
-    if (isVinyl) {
-        designCtx.globalCompositeOperation = 'source-in';
-        designCtx.fillStyle = 'black';
-        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
-        cutCtx.drawImage(designCanvas, MARGIN_PX, yOffset);
-    }
-
-    // --- Draw Headers and QR Codes ---
+    // Generate shared QR code
     const origin = window.location.origin;
     const qrUrl = `${origin}/orders/${orderId}`;
     const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
-    
     const qrImg = new window.Image();
     await new Promise(resolve => { qrImg.onload = resolve; qrImg.src = qrCodeDataUrl; });
 
     const FONT_SIZE_LARGE = BASE_DPI / 4;
     const FONT_SIZE_MEDIUM = BASE_DPI / 6;
     const FONT_SIZE_SMALL = BASE_DPI / 8;
-    
-    // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
-    drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
-    drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
 
-    const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
-        const headerY = 1.0 * BASE_DPI;
-        if (isCut) {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+    const outputSheets: FinalSheetOutput[] = [];
+    const totalSheets = sheetsToRender.length;
+
+    for (let sIdx = 0; sIdx < totalSheets; sIdx++) {
+        const sheetPlan = sheetsToRender[sIdx];
+        const sheetNumber = sIdx + 1;
+        const sheetContentHeightInches = sheetPlan.height;
+
+        interface PixelPlacement {
+            url: string;
+            x: number;
+            y: number;
+            wPx: number;
+            hPx: number;
+            rotated: boolean;
         }
-        
-        // Start header content at 420px (1.4 inches) to ensure 100% clearance from top-left L-mark (which ends at 300px / 1.0 inch)
-        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 120; 
-        
-        if (!isCut) {
-            ctx.drawImage(qrImg, contentStartX, headerY + 10);
-        }
+        const placements: PixelPlacement[] = (sheetPlan.placements || []).map(p => ({
+            url: p.url,
+            x: p.x * BASE_DPI,
+            y: p.y * BASE_DPI,
+            wPx: p.w * BASE_DPI,
+            hPx: p.h * BASE_DPI,
+            rotated: !!p.rotated
+        }));
 
-        ctx.fillStyle = 'black';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
+        const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
+        const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
 
-        const textX = isCut ? contentStartX : contentStartX + (HEADER_HEIGHT_PX - 20) + 20;
+        // 1. Create PRINT Canvas
+        const printCanvas = document.createElement('canvas');
+        printCanvas.width = finalCanvasWidth;
+        printCanvas.height = finalCanvasHeight;
+        const printCtx = printCanvas.getContext('2d');
+        if (!printCtx) throw new Error('No print context');
 
-        let textY = headerY + 15;
-        ctx.font = `bold ${FONT_SIZE_LARGE}px Arial`;
-        ctx.fillText(`Order: ${orderId}`, textX, textY);
-        textY += FONT_SIZE_LARGE + 15;
-        
-        ctx.font = `bold ${FONT_SIZE_MEDIUM}px Arial`;
-        ctx.fillText(`To: ${customerName}`, textX, textY);
-        textY += FONT_SIZE_MEDIUM + 10;
-        
-        ctx.font = `${FONT_SIZE_SMALL}px Arial`;
-        const shipToName = shippingAddress ? `${shippingAddress.street || ''}, ${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.zip || ''}` : 'Pickup';
-        ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
-        textY += FONT_SIZE_SMALL + 15;
-        
-        const sheetDescription = isSingleTransferLayout
-            ? `Multi-logo Auto-repeat Sheet`
-            : `${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}" Sheet`;
-        ctx.fillText(`Sheet: ${sheetDescription}`, textX, textY);
-    };
+        // 2. Create CUT Canvas
+        const cutCanvas = document.createElement('canvas');
+        cutCanvas.width = finalCanvasWidth;
+        cutCanvas.height = finalCanvasHeight;
+        const cutCtx = cutCanvas.getContext('2d');
+        if (!cutCtx) throw new Error('No cut context');
 
-    drawHeader(printCtx, false);
+        cutCtx.fillStyle = 'white';
+        cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
 
-    // --- Generate SVG Cut File ---
-    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
-    svgContent += `  <!-- Background -->\n`;
-    svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
+        const designCanvas = document.createElement('canvas');
+        designCanvas.width = designWidthInches * BASE_DPI;
+        designCanvas.height = sheetContentHeightInches * BASE_DPI;
+        const designCtx = designCanvas.getContext('2d');
+        if (!designCtx) throw new Error('No design context');
 
-    const margin = 0.5 * BASE_DPI;
-    const markLength = 0.5 * BASE_DPI;
-    const thickness = 0.04 * BASE_DPI;
-    const xLeft = margin;
-    const xRight = finalCanvasWidth - margin;
-    const yTop = 0.5 * BASE_DPI;
-    const yBottom = finalCanvasHeight - margin;
-
-    svgContent += `  <!-- Graphtec Registration Marks -->\n`;
-    svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
-    svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
-    svgContent += `  <rect x="${xRight - markLength}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
-    svgContent += `  <rect x="${xRight - thickness}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
-    svgContent += `  <rect x="${xLeft}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
-    svgContent += `  <rect x="${xLeft}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
-    svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
-    svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
-
-    svgContent += `  <!-- Cut Paths -->\n`;
-    if (!isVinyl) {
+        // --- Draw Main Content ---
         if (isSingleTransferLayout) {
             placements.forEach(p => {
-                const artW = p.wPx;
-                const artH = p.hPx;
                 const printX = p.x + MARGIN_PX;
                 const printY = p.y + yOffset;
-                const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
-                
-                svgContent += `  <rect x="${printX - paddingPx}" y="${printY - paddingPx}" width="${artW + (2 * paddingPx)}" height="${artH + (2 * paddingPx)}" fill="none" stroke="black" stroke-width="6" />\n`;
+                const designX = p.x;
+                const designY = p.y;
+
+                const img = loadedImages[p.url];
+                if (img) {
+                    if (p.rotated) {
+                        printCtx.save();
+                        printCtx.translate(printX + p.wPx / 2, printY + p.hPx / 2);
+                        printCtx.rotate(Math.PI / 2);
+                        printCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                        printCtx.restore();
+
+                        designCtx.save();
+                        designCtx.translate(designX + p.wPx / 2, designY + p.hPx / 2);
+                        designCtx.rotate(Math.PI / 2);
+                        designCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                        designCtx.restore();
+                    } else {
+                        printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
+                        designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
+                    }
+                }
+
+                if (!isVinyl) {
+                    cutCtx.strokeStyle = 'black';
+                    cutCtx.lineWidth = 6;
+                    const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
+                    cutCtx.strokeRect(
+                        printX - paddingPx,
+                        printY - paddingPx,
+                        p.wPx + (2 * paddingPx),
+                        p.hPx + (2 * paddingPx)
+                    );
+                }
             });
         } else {
             // --- Standard Gang Sheet ---
-            const artworks = (orderItem.artworks || []).filter(
+            const sheetArtworks = (orderItem.artworks || []).filter(
                 (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
             );
+            const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
+            const sourceImage = loadedImages[sourceUrl];
 
-            if (artworks.length > 0 && isAutoLayout) {
-                artworks.forEach((art: any) => {
-                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
-                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+            if (sourceImage) {
+                if (isAutoLayout && sheetArtworks.length > 0) {
+                    sheetArtworks.forEach((art: any) => {
+                        const artX = art.x * BASE_DPI;
+                        const artY = art.y * BASE_DPI;
+                        const artW = art.width * BASE_DPI;
+                        const artH = art.height * BASE_DPI;
 
-                    const targetPadding = 0.08 * BASE_DPI;
-                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
+                        printCtx.drawImage(sourceImage, artX + MARGIN_PX, artY + yOffset, artW, artH);
+                        designCtx.drawImage(sourceImage, artX, artY, artW, artH);
+                    });
+                } else {
+                    printCtx.drawImage(sourceImage, MARGIN_PX, yOffset, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
+                    designCtx.drawImage(sourceImage, 0, 0, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
+                }
+            }
 
-                    const wPx = art.width * BASE_DPI + (2 * safePadding);
-                    const hPx = art.height * BASE_DPI + (2 * safePadding);
+            if (!isVinyl && sourceImage) {
+                cutCtx.strokeStyle = 'black';
+                cutCtx.lineWidth = 6;
 
-                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${art.rotation || 0})">\n`;
-                    svgContent += `    <rect x="${-wPx / 2}" y="${-hPx / 2}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" />\n`;
-                    svgContent += `  </g>\n`;
-                });
-            } else {
-                const contentMargin = 0.25 * BASE_DPI;
-                const rectX = MARGIN_PX + contentMargin;
-                const rectY = yOffset + contentMargin;
-                const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
-                const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
-                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
+                if (sheetArtworks.length > 0 && isAutoLayout) {
+                    sheetArtworks.forEach((art: any) => {
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+
+                        const targetPadding = 0.08 * BASE_DPI;
+                        const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
+
+                        cutCtx.save();
+                        cutCtx.translate(centerX, centerY);
+                        cutCtx.rotate((art.rotation || 0) * Math.PI / 180);
+
+                        const wPx = art.width * BASE_DPI + (2 * safePadding);
+                        const hPx = art.height * BASE_DPI + (2 * safePadding);
+                        cutCtx.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+
+                        cutCtx.restore();
+                    });
+                } else {
+                    const contentMargin = 0.25 * BASE_DPI;
+                    cutCtx.strokeRect(
+                        MARGIN_PX + contentMargin,
+                        yOffset + contentMargin,
+                        (designWidthInches * BASE_DPI) - (contentMargin * 2),
+                        ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
+                    );
+                }
             }
         }
+
+        if (isVinyl) {
+            designCtx.globalCompositeOperation = 'source-in';
+            designCtx.fillStyle = 'black';
+            designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+            cutCtx.drawImage(designCanvas, MARGIN_PX, yOffset);
+        }
+
+        // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
+        drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+        drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
+        const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
+            const headerY = 1.0 * BASE_DPI;
+            if (isCut) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+            }
+            
+            const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 120; 
+            
+            if (!isCut) {
+                ctx.drawImage(qrImg, contentStartX, headerY + 10);
+            }
+
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+
+            const textX = isCut ? contentStartX : contentStartX + (HEADER_HEIGHT_PX - 20) + 20;
+
+            let textY = headerY + 15;
+            const sheetSuffix = totalSheets > 1 ? ` (Sheet ${sheetNumber} of ${totalSheets})` : '';
+            ctx.font = `bold ${FONT_SIZE_LARGE}px Arial`;
+            ctx.fillText(`Order: ${orderId}${sheetSuffix}`, textX, textY);
+            textY += FONT_SIZE_LARGE + 15;
+            
+            ctx.font = `bold ${FONT_SIZE_MEDIUM}px Arial`;
+            ctx.fillText(`To: ${customerName}`, textX, textY);
+            textY += FONT_SIZE_MEDIUM + 10;
+            
+            ctx.font = `${FONT_SIZE_SMALL}px Arial`;
+            const shipToName = shippingAddress ? `${shippingAddress.street || ''}, ${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.zip || ''}` : 'Pickup';
+            ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
+            textY += FONT_SIZE_SMALL + 15;
+            
+            const sheetDescription = totalSheets > 1
+                ? `22" x ${Math.round(sheetContentHeightInches)}" • 300 DPI • Part ${sheetNumber} of ${totalSheets}`
+                : (isSingleTransferLayout
+                    ? `Multi-logo Auto-repeat Sheet (22" x ${Math.round(sheetContentHeightInches)}")`
+                    : `${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}" Sheet`);
+            ctx.fillText(`Sheet: ${sheetDescription}`, textX, textY);
+        };
+
+        drawHeader(printCtx, false);
+        drawHeader(cutCtx, true);
+
+        // --- Generate SVG Cut File ---
+        let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+        svgContent += `  <!-- Background -->\n`;
+        svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
+
+        const margin = 0.5 * BASE_DPI;
+        const markLength = 0.5 * BASE_DPI;
+        const thickness = 0.04 * BASE_DPI;
+        const xLeft = margin;
+        const xRight = finalCanvasWidth - margin;
+        const yTop = 0.5 * BASE_DPI;
+        const yBottom = finalCanvasHeight - margin;
+
+        svgContent += `  <!-- Graphtec Registration Marks -->\n`;
+        svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+        svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+        svgContent += `  <rect x="${xRight - markLength}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+        svgContent += `  <rect x="${xRight - thickness}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+        svgContent += `  <rect x="${xLeft}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+        svgContent += `  <rect x="${xLeft}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+        svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+        svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+
+        svgContent += `  <!-- Cut Paths -->\n`;
+        if (!isVinyl) {
+            if (isSingleTransferLayout) {
+                placements.forEach(p => {
+                    const artW = p.wPx;
+                    const artH = p.hPx;
+                    const printX = p.x + MARGIN_PX;
+                    const printY = p.y + yOffset;
+                    const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
+                    
+                    svgContent += `  <rect x="${printX - paddingPx}" y="${printY - paddingPx}" width="${artW + (2 * paddingPx)}" height="${artH + (2 * paddingPx)}" fill="none" stroke="black" stroke-width="6" />\n`;
+                });
+            } else {
+                const sheetArtworks = (orderItem.artworks || []).filter(
+                    (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
+                );
+
+                if (sheetArtworks.length > 0 && isAutoLayout) {
+                    sheetArtworks.forEach((art: any) => {
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+
+                        const targetPadding = 0.08 * BASE_DPI;
+                        const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
+
+                        const wPx = art.width * BASE_DPI + (2 * safePadding);
+                        const hPx = art.height * BASE_DPI + (2 * safePadding);
+
+                        svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${art.rotation || 0})">\n`;
+                        svgContent += `    <rect x="${-wPx / 2}" y="${-hPx / 2}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" />\n`;
+                        svgContent += `  </g>\n`;
+                    });
+                } else {
+                    const contentMargin = 0.25 * BASE_DPI;
+                    const rectX = MARGIN_PX + contentMargin;
+                    const rectY = yOffset + contentMargin;
+                    const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
+                    const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
+                    svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
+                }
+            }
+        }
+
+        svgContent += `</svg>`;
+        const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
+
+        const rawPrintDataUrl = printCanvas.toDataURL('image/png');
+        if (!rawPrintDataUrl || rawPrintDataUrl === 'data:,' || rawPrintDataUrl.length < 1000) {
+            throw new Error(`Failed to generate 300 DPI canvas for sheet ${sheetNumber} of ${totalSheets}. Browser returned empty image.`);
+        }
+
+        outputSheets.push({
+            printDataUrl: injectDpiInPngDataUrl(rawPrintDataUrl, 300),
+            cutDataUrl,
+            sheetHeight: sheetContentHeightInches,
+            sheetNumber,
+            totalSheets
+        });
     }
 
-    svgContent += `</svg>`;
-    const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
-
-    return {
-        printDataUrl: injectDpiInPngDataUrl(printCanvas.toDataURL('image/png'), 300),
-        cutDataUrl: cutDataUrl,
-        sheetHeight: sheetContentHeightInches
-    };
+    return outputSheets;
 };
 
 
@@ -2827,30 +2895,56 @@ export function OrderDetail() {
         quantity: 1,
       };
 
-      const { printDataUrl, cutDataUrl, sheetHeight } = await generateFinalSheetsForPrintAndCut(
+      const sheets = await generateFinalSheetsForPrintAndCut(
         syntheticItem,
         order.id,
         order.customerName || 'Customer',
         order.shippingAddress || null
       );
 
-      const printStorageRef = ref(storage, `production-sheets/${id}/master-combined-print.png`);
-      const cutStorageRef = ref(storage, `production-sheets/${id}/master-combined-cut.svg`);
+      const uploadedSheets: Array<{
+        sheetNumber: number;
+        totalSheets: number;
+        height: number;
+        printUrl: string;
+        cutUrl: string;
+      }> = [];
 
-      await uploadString(printStorageRef, printDataUrl, 'data_url');
-      await uploadString(cutStorageRef, cutDataUrl, 'data_url');
+      for (const sheet of sheets) {
+        const fileSuffix = sheets.length > 1 ? `-sheet-${sheet.sheetNumber}` : '';
+        const printStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-print.png`);
+        const cutStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-cut.svg`);
 
-      const masterPrintReadyUrl = await getDownloadURL(printStorageRef);
-      const masterCutReadyUrl = await getDownloadURL(cutStorageRef);
+        await uploadString(printStorageRef, sheet.printDataUrl, 'data_url');
+        await uploadString(cutStorageRef, sheet.cutDataUrl, 'data_url');
+
+        const printUrl = await getDownloadURL(printStorageRef);
+        const cutUrl = await getDownloadURL(cutStorageRef);
+
+        uploadedSheets.push({
+          sheetNumber: sheet.sheetNumber,
+          totalSheets: sheet.totalSheets,
+          height: sheet.sheetHeight,
+          printUrl,
+          cutUrl
+        });
+      }
+
+      const totalHeight = uploadedSheets.reduce((sum, s) => sum + s.height, 0);
 
       await updateDoc(doc(db, 'orders', id), {
-        masterPrintReadyUrl,
-        masterCutReadyUrl,
-        masterSheetHeight: sheetHeight,
+        masterPrintReadyUrl: uploadedSheets[0].printUrl,
+        masterCutReadyUrl: uploadedSheets[0].cutUrl,
+        masterSheetHeight: totalHeight,
+        masterSheets: uploadedSheets,
         masterReadyToPrint: true,
       });
 
-      alert("Master combined gang sheet successfully generated for the entire order!");
+      if (uploadedSheets.length > 1) {
+        alert(`Successfully generated ${uploadedSheets.length} master gang sheets (all strictly 300 DPI) for this order!`);
+      } else {
+        alert("Master combined gang sheet successfully generated for the entire order!");
+      }
     } catch (err) {
       console.error('Error generating combined print/cut files:', err);
       alert('Failed to generate master combined sheet: ' + (err as Error).message);
@@ -3165,7 +3259,7 @@ export function OrderDetail() {
   const handleToggleItemReadyToPrint = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
     
-    if (itemId === 'master-combined-item') {
+    if (itemId === 'master-combined-item' || itemId.startsWith('master-combined-')) {
       const nextReadyState = !order.masterReadyToPrint;
       await updateDoc(doc(db, 'orders', id), {
         masterReadyToPrint: nextReadyState,
@@ -3249,7 +3343,7 @@ export function OrderDetail() {
   const handleToggleItemPrinted = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
 
-    if (itemId === 'master-combined-item') {
+    if (itemId === 'master-combined-item' || itemId.startsWith('master-combined-')) {
       const nextPrintedState = !order.masterPrinted;
       await updateDoc(doc(db, 'orders', id), {
         masterPrinted: nextPrintedState,
@@ -3340,24 +3434,50 @@ export function OrderDetail() {
       // Find all printable items in this order
       const printableItems = (order.items || []).filter(isPrintableItem);
 
-      if (order.masterPrintReadyUrl) {
-        try {
-          const masterPrintRes = await fetch(order.masterPrintReadyUrl);
-          const masterPrintBlob = await masterPrintRes.blob();
-          zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
-          hasFiles = true;
-        } catch (err) {
-          console.error("Failed to fetch master print file", err);
+      if (Array.isArray(order.masterSheets) && order.masterSheets.length > 0) {
+        for (const s of order.masterSheets) {
+          const suffix = order.masterSheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
+          if (s.printUrl) {
+            try {
+              const masterPrintRes = await fetch(s.printUrl);
+              const masterPrintBlob = await masterPrintRes.blob();
+              zip.file(`${order.id}-MASTER-COMBINED${suffix}-print.png`, masterPrintBlob);
+              hasFiles = true;
+            } catch (err) {
+              console.error("Failed to fetch master print file", err);
+            }
+          }
+          if (s.cutUrl) {
+            try {
+              const masterCutRes = await fetch(s.cutUrl);
+              const masterCutBlob = await masterCutRes.blob();
+              zip.file(`${order.id}-MASTER-COMBINED${suffix}-cut.svg`, masterCutBlob);
+              hasFiles = true;
+            } catch (err) {
+              console.error("Failed to fetch master cut file", err);
+            }
+          }
         }
-      }
-      if (order.masterCutReadyUrl) {
-        try {
-          const masterCutRes = await fetch(order.masterCutReadyUrl);
-          const masterCutBlob = await masterCutRes.blob();
-          zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
-          hasFiles = true;
-        } catch (err) {
-          console.error("Failed to fetch master cut file", err);
+      } else {
+        if (order.masterPrintReadyUrl) {
+          try {
+            const masterPrintRes = await fetch(order.masterPrintReadyUrl);
+            const masterPrintBlob = await masterPrintRes.blob();
+            zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error("Failed to fetch master print file", err);
+          }
+        }
+        if (order.masterCutReadyUrl) {
+          try {
+            const masterCutRes = await fetch(order.masterCutReadyUrl);
+            const masterCutBlob = await masterCutRes.blob();
+            zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error("Failed to fetch master cut file", err);
+          }
         }
       }
 
@@ -5002,21 +5122,41 @@ export function OrderDetail() {
                       return sum + (Object.values(item.sizes || {}).reduce((s: number, v: any) => s + (parseInt(v) || 0), 0) || item.quantity || 1);
                     }, 0);
 
-                    productionCards.push({
-                      id: 'master-combined-card',
-                      item: { id: 'master-combined-item', style: 'Combined Order Master Sheet' },
-                      type: 'art',
-                      isMaster: true,
-                      title: `✨ Combined Order Master Sheet (All Items)`,
-                      description: `Single Combined 22" Sheet • ${printableItems.length} Line Items • ${totalGarmentsCount} Total Garments`,
-                      isPrintReady: !!(order.masterPrintReadyUrl && order.masterCutReadyUrl),
-                      isReady: !!order.masterReadyToPrint,
-                      isPrinted: !!order.masterPrinted,
-                      printUrl: order.masterPrintReadyUrl || null,
-                      cutUrl: order.masterCutReadyUrl || null,
-                      isGenerating: isGeneratingCombined,
-                      generateFunc: () => handleGenerateCombinedOrderGangSheet()
-                    });
+                    if (Array.isArray(order.masterSheets) && order.masterSheets.length > 1) {
+                      order.masterSheets.forEach((sheet: any) => {
+                        productionCards.push({
+                          id: `master-combined-sheet-${sheet.sheetNumber}`,
+                          item: { id: `master-combined-sheet-${sheet.sheetNumber}`, style: `Master Sheet ${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length}` },
+                          type: 'art',
+                          isMaster: true,
+                          title: `✨ Combined Master Sheet (${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length})`,
+                          description: `22" x ${Math.round(sheet.height || 0)}" Sheet • 300 DPI • Part ${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length}`,
+                          isPrintReady: !!(sheet.printUrl && sheet.cutUrl),
+                          isReady: !!order.masterReadyToPrint,
+                          isPrinted: !!order.masterPrinted,
+                          printUrl: sheet.printUrl || null,
+                          cutUrl: sheet.cutUrl || null,
+                          isGenerating: isGeneratingCombined,
+                          generateFunc: () => handleGenerateCombinedOrderGangSheet()
+                        });
+                      });
+                    } else {
+                      productionCards.push({
+                        id: 'master-combined-card',
+                        item: { id: 'master-combined-item', style: 'Combined Order Master Sheet' },
+                        type: 'art',
+                        isMaster: true,
+                        title: `✨ Combined Order Master Sheet (All Items)`,
+                        description: `Single Combined 22" Sheet • ${printableItems.length} Line Items • ${totalGarmentsCount} Total Garments`,
+                        isPrintReady: !!(order.masterPrintReadyUrl && order.masterCutReadyUrl),
+                        isReady: !!order.masterReadyToPrint,
+                        isPrinted: !!order.masterPrinted,
+                        printUrl: order.masterPrintReadyUrl || null,
+                        cutUrl: order.masterCutReadyUrl || null,
+                        isGenerating: isGeneratingCombined,
+                        generateFunc: () => handleGenerateCombinedOrderGangSheet()
+                      });
+                    }
                   }
 
                   const tagItems = (order.items || []).filter((item: any) => !!item.logoUrlTag);
