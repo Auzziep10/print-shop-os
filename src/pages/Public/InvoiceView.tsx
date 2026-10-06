@@ -566,6 +566,7 @@ export function InvoiceView() {
       {/* Native Stripe Credit Card Checkout Modal */}
       {isPayModalOpen && (
         <StripePaymentModal
+          customer={customer}
           order={{
             ...order,
             shippingAddress: (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.city))

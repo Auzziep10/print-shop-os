@@ -1669,6 +1669,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
       {payingOrder && (
         <StripePaymentModal 
+          customer={customer}
           order={localOrders.find(o => o.id === payingOrder.id) || payingOrder} 
           onClose={() => setPayingOrder(null)} 
           onSuccess={() => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, Loader2, Tag } from 'lucide-react';
-import { doc, updateDoc, arrayUnion, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, deleteDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, getValidAccountShippingDiscount, type AppliedDiscount } from '../../lib/discountUtils';
@@ -282,7 +282,7 @@ const StripePaymentContainer = ({ order, onSuccess, onCancel }: { order: any, on
   );
 };
 
-export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, onClose: () => void, onSuccess: () => void }) {
+export function StripePaymentModal({ order, customer: initialCustomer, onClose, onSuccess }: { order: any, customer?: any, onClose: () => void, onSuccess: () => void }) {
   const [statusIndex, setStatusIndex] = useState<number>(order.statusIndex);
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [calculatedTax, setCalculatedTax] = useState<number | null>(null);
@@ -298,7 +298,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   // Discount code (managed in Settings → Discount Codes). Pre-applied if the
   // order already carries one (e.g. entered on the public storefront checkout).
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(
-    order.discountAmount > 0 || order.discountCode
+    order.discountAmount > 0 || (order.discountCode && order.discountCode.trim())
       ? {
           code: order.discountCode || 'DISCOUNT',
           type: order.discountType || 'fixed',
@@ -310,7 +310,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   // Dedicated Shipping Discount code (e.g. Free shipping or $ off shipping)
   const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(
-    order.shippingDiscountAmount > 0 || order.shippingDiscountCode
+    order.shippingDiscountAmount > 0 || (order.shippingDiscountCode && order.shippingDiscountCode.trim())
       ? {
           code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
           type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
@@ -320,47 +320,49 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       : null
   );
 
-  const [customerData, setCustomerData] = useState<any>(null);
+  const [customerData, setCustomerData] = useState<any>(initialCustomer || order.customer || null);
 
   useEffect(() => {
-    if (order.discountAmount > 0 || order.discountCode) {
+    if (order.discountAmount > 0 || (order.discountCode && order.discountCode.trim())) {
       setAppliedDiscount({
         code: order.discountCode || 'DISCOUNT',
         type: order.discountType || 'fixed',
         value: parseFloat(order.discountAmount || order.discountValue || 0),
         target: 'items'
       });
-    } else if (customerData?.accountDiscount) {
-      const accDiscount = getValidAccountDiscount(customerData.accountDiscount);
-      if (accDiscount) {
-        setAppliedDiscount(accDiscount);
+    } else {
+      const targetCustomer = customerData || initialCustomer || order.customer;
+      if (targetCustomer?.accountDiscount) {
+        const accDiscount = getValidAccountDiscount(targetCustomer.accountDiscount);
+        if (accDiscount) {
+          setAppliedDiscount(accDiscount);
+        } else {
+          setAppliedDiscount(null);
+        }
       } else {
         setAppliedDiscount(null);
       }
-    } else {
-      setAppliedDiscount(null);
     }
-  }, [order.discountAmount, order.discountCode, order.discountType, order.discountValue, customerData]);
+  }, [order.discountAmount, order.discountCode, order.discountType, order.discountValue, customerData, initialCustomer]);
 
   useEffect(() => {
-    if (order.shippingDiscountAmount > 0 || order.shippingDiscountCode) {
+    if (order.shippingDiscountAmount > 0 || (order.shippingDiscountCode && order.shippingDiscountCode.trim())) {
       setAppliedShippingDiscount({
         code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
         type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
         value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
         target: 'shipping'
       });
-    } else if (customerData) {
-      const accShippingDiscount = getValidAccountShippingDiscount(customerData);
+    } else {
+      const targetCustomer = customerData || initialCustomer || order.customer;
+      const accShippingDiscount = getValidAccountShippingDiscount(targetCustomer);
       if (accShippingDiscount) {
         setAppliedShippingDiscount(accShippingDiscount);
       } else {
         setAppliedShippingDiscount(null);
       }
-    } else {
-      setAppliedShippingDiscount(null);
     }
-  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue, customerData]);
+  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue, customerData, initialCustomer]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');
@@ -406,12 +408,47 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   };
 
   useEffect(() => {
-    if (!order.customerId) return;
+    if (initialCustomer) {
+      setCustomerData(initialCustomer);
+      setIsCustomerTaxExempt(!!initialCustomer.taxExempt);
+      return;
+    }
+
+    const cId = order.customerId || order.customerDocId || order.customer?.id;
+    const cEmail = order.customerEmail || order.email || order.shippingAddress?.email;
+    if (!cId && !cEmail) return;
+
     const fetchCustomerTaxStatus = async () => {
       try {
-        const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
-        if (customerSnap.exists()) {
-          const custData = customerSnap.data();
+        let custData: any = null;
+        if (cId) {
+          const customerSnap = await getDoc(doc(db, 'customers', cId));
+          if (customerSnap.exists()) {
+            custData = customerSnap.data();
+          } else {
+            const q1 = query(collection(db, 'customers'), where('customerId', '==', cId));
+            const q1Snap = await getDocs(q1);
+            if (!q1Snap.empty) {
+              custData = q1Snap.docs[0].data();
+            } else {
+              const q2 = query(collection(db, 'customers'), where('uid', '==', cId));
+              const q2Snap = await getDocs(q2);
+              if (!q2Snap.empty) {
+                custData = q2Snap.docs[0].data();
+              }
+            }
+          }
+        }
+
+        if (!custData && cEmail) {
+          const qEmail = query(collection(db, 'customers'), where('email', '==', cEmail.toLowerCase().trim()));
+          const emailSnap = await getDocs(qEmail);
+          if (!emailSnap.empty) {
+            custData = emailSnap.docs[0].data();
+          }
+        }
+
+        if (custData) {
           setCustomerData(custData);
           setIsCustomerTaxExempt(!!custData.taxExempt);
         }
@@ -420,7 +457,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       }
     };
     fetchCustomerTaxStatus();
-  }, [order.customerId]);
+  }, [order.customerId, order.customerEmail, order.email, initialCustomer]);
 
   const isLocalDeliveryAllowed = customerData ? (customerData.allowLocalDelivery !== false) : (order.allowLocalDelivery !== false);
 

@@ -59,7 +59,13 @@ export function getValidAccountShippingDiscount(customer?: any): AppliedDiscount
   if (!customer) return null;
 
   // 1. Direct freeShipping flag on customer profile
-  if (customer.freeShipping === true) {
+  if (
+    customer.freeShipping === true ||
+    customer.free_shipping === true ||
+    customer.freeShippingEnabled === true ||
+    customer.shippingDiscount === 'free' ||
+    customer.allowFreeShipping === true
+  ) {
     return {
       code: 'FREE SHIPPING',
       type: 'free_shipping',
@@ -91,6 +97,22 @@ export function getValidAccountShippingDiscount(customer?: any): AppliedDiscount
         target: 'shipping',
       };
     }
+
+    // 3. If account has 100% off full discount and no target restriction was set, waive shipping automatically
+    if (accountDiscount.type === 'percent' && Number(accountDiscount.value) >= 100 && !accountDiscount.target) {
+      if (accountDiscount.expires && accountDiscount.expires.trim()) {
+        const exp = new Date(`${accountDiscount.expires.trim()}T23:59:59`);
+        if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
+          return null;
+        }
+      }
+      return {
+        code: (accountDiscount.note && accountDiscount.note.trim()) ? accountDiscount.note.trim().toUpperCase() : 'FREE SHIPPING',
+        type: 'free_shipping',
+        value: 100,
+        target: 'shipping',
+      };
+    }
   }
 
   return null;
@@ -109,14 +131,7 @@ export async function validateDiscountCode(rawCode: string): Promise<DiscountVal
     const entry: DiscountCodeEntry | undefined = codes[code];
 
     if (!entry) {
-      // Common built-in fallback for free shipping codes
-      if (code === 'FREESHIP' || code === 'FREESHIPPING' || code === 'SHIPFREE') {
-        return {
-          ok: true,
-          discount: { code, type: 'free_shipping', value: 100, target: 'shipping' },
-        };
-      }
-      return { ok: false, error: 'Invalid code' };
+      return { ok: false, error: 'Invalid discount code' };
     }
 
     if (!entry.active) return { ok: false, error: 'This code is no longer active' };
