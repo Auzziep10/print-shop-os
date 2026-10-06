@@ -5,7 +5,7 @@ import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, L
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, getValidAccountShippingDiscount, type AppliedDiscount } from '../../lib/discountUtils';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
@@ -339,8 +339,17 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
         target: 'shipping'
       });
+    } else if (customerData) {
+      const accShippingDiscount = getValidAccountShippingDiscount(customerData);
+      if (accShippingDiscount) {
+        setAppliedShippingDiscount(accShippingDiscount);
+      } else {
+        setAppliedShippingDiscount(null);
+      }
+    } else {
+      setAppliedShippingDiscount(null);
     }
-  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue]);
+  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue, customerData]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');

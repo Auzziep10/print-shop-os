@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -115,6 +115,7 @@ export function CustomerDetail() {
     bypassMinimumRequirement: false,
     autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
     allowLocalDelivery: true,
+    freeShipping: false,
     resaleCertificateUrl: '',
     resaleCertificateName: '',
     accountDiscount: {
@@ -1215,6 +1216,7 @@ export function CustomerDetail() {
             bypassMinimumRequirement: data.bypassMinimumRequirement ?? false,
             autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
             allowLocalDelivery: data.allowLocalDelivery ?? true,
+            freeShipping: data.freeShipping ?? false,
             resaleCertificateUrl: data.resaleCertificateUrl || '',
             resaleCertificateName: data.resaleCertificateName || '',
             accountDiscount: {
@@ -1309,6 +1311,7 @@ export function CustomerDetail() {
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
+        freeShipping: editCompanyForm.freeShipping ?? false,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
         accountDiscount: editCompanyForm.accountDiscount,
@@ -1330,6 +1333,7 @@ export function CustomerDetail() {
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
+        freeShipping: editCompanyForm.freeShipping ?? false,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
         accountDiscount: editCompanyForm.accountDiscount,
@@ -1580,6 +1584,7 @@ export function CustomerDetail() {
                 bypassMinimumRequirement: liveCustomerData.bypassMinimumRequirement ?? prev.bypassMinimumRequirement,
                 autoQuotingEnabled: liveCustomerData.autoQuotingEnabled || prev.autoQuotingEnabled,
                 allowLocalDelivery: liveCustomerData.allowLocalDelivery ?? prev.allowLocalDelivery,
+                freeShipping: liveCustomerData.freeShipping ?? prev.freeShipping,
                 resaleCertificateUrl: liveCustomerData.resaleCertificateUrl || prev.resaleCertificateUrl,
                 resaleCertificateName: liveCustomerData.resaleCertificateName || prev.resaleCertificateName,
                 accountDiscount: {
@@ -1662,6 +1667,11 @@ export function CustomerDetail() {
                   )}
                   {customer?.taxExempt && (
                     <span className="text-[10px] bg-purple-50 border border-purple-200 text-purple-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Tax Exempt</span>
+                  )}
+                  {(liveCustomerData?.freeShipping || customer?.freeShipping) && (
+                    <span className="text-[10px] bg-emerald-50 border border-emerald-300 text-emerald-800 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <Truck size={10} className="text-emerald-600" /> Free Shipping
+                    </span>
                   )}
                   {customer?.bypassMinimumRequirement && (
                     <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">No Order Minimum</span>
@@ -2592,6 +2602,10 @@ export function CustomerDetail() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="allowLocalDelivery" checked={editCompanyForm.allowLocalDelivery ?? true} onChange={e => setEditCompanyForm({...editCompanyForm, allowLocalDelivery: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="allowLocalDelivery" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW LOCAL DELIVERY OPTION IN CART & CHECKOUT</label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="freeShipping" checked={editCompanyForm.freeShipping ?? false} onChange={e => setEditCompanyForm({...editCompanyForm, freeShipping: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="freeShipping" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">FREE SHIPPING (ALWAYS FREE SHIPPING ON ALL ORDERS)</label>
                     </div>
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="disableRack" checked={editCompanyForm.disableRack} onChange={e => setEditCompanyForm({...editCompanyForm, disableRack: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />

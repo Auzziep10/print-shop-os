@@ -12,7 +12,7 @@ import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { fetchDtfPricingSettings, autoQuoteItem, PLACEMENT_LABELS } from '../../lib/dtfAutoQuoting';
-import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, type AppliedDiscount } from '../../lib/discountUtils';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, getValidAccountShippingDiscount, type AppliedDiscount } from '../../lib/discountUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -440,6 +440,7 @@ export function PortalCreateOrder() {
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
   const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(null);
+  const [accountShippingDiscount, setAccountShippingDiscount] = useState<AppliedDiscount | null>(null);
   const [shippingDiscountInput, setShippingDiscountInput] = useState('');
   const [shippingDiscountError, setShippingDiscountError] = useState('');
   const [isApplyingShippingDiscount, setIsApplyingShippingDiscount] = useState(false);
@@ -1435,6 +1436,12 @@ export function PortalCreateOrder() {
           if (accDiscount) {
             setAccountDiscount(accDiscount);
             setAppliedDiscount(prev => prev || accDiscount);
+          }
+
+          const accShipDiscount = getValidAccountShippingDiscount(customerData);
+          if (accShipDiscount) {
+            setAccountShippingDiscount(accShipDiscount);
+            setAppliedShippingDiscount(prev => prev || accShipDiscount);
           }
 
           // Support both array and single string for backwards compatibility
@@ -3340,6 +3347,11 @@ export function PortalCreateOrder() {
                             {appliedShippingDiscount ? (
                               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                                 {appliedShippingDiscount.code} ({formatDiscountLabel(appliedShippingDiscount)})
+                                {accountShippingDiscount && appliedShippingDiscount.code === accountShippingDiscount.code && (
+                                  <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1 py-0.2 rounded font-extrabold uppercase tracking-wider">
+                                    Account
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => { setAppliedShippingDiscount(null); setShippingDiscountError(''); }}
@@ -3359,6 +3371,22 @@ export function PortalCreateOrder() {
                               </button>
                             ) : null}
                           </div>
+
+                          {!appliedShippingDiscount && accountShippingDiscount && (
+                            <div className="flex items-center justify-between bg-emerald-50/80 border border-emerald-250 rounded-xl px-2.5 py-1.5 text-xs text-emerald-900">
+                              <span className="text-[10px] font-semibold flex items-center gap-1">
+                                <Truck size={12} className="text-emerald-600" />
+                                Account shipping: <strong>{accountShippingDiscount.code} ({formatDiscountLabel(accountShippingDiscount)})</strong>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setAppliedShippingDiscount(accountShippingDiscount); setShippingDiscountError(''); }}
+                                className="text-[10px] font-extrabold text-emerald-700 hover:underline uppercase cursor-pointer"
+                              >
+                                Re-apply
+                              </button>
+                            </div>
+                          )}
 
                           {!appliedShippingDiscount && isShippingPromoOpen && (
                             <div className="flex flex-col gap-1 mt-0.5 animate-in fade-in duration-150">

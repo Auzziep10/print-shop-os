@@ -27,14 +27,18 @@ export interface AppliedDiscount {
 
 export interface AccountDiscount {
   enabled: boolean;
-  type: 'percent' | 'fixed';
+  type: 'percent' | 'fixed' | 'free_shipping';
   value: number;
   expires?: string; // YYYY-MM-DD; valid through end of that day, or empty for forever
   note?: string; // optional label/name, e.g. "VIP Client 10% Off"
+  target?: DiscountTarget;
 }
 
 export function getValidAccountDiscount(accountDiscount?: AccountDiscount | null): AppliedDiscount | null {
   if (!accountDiscount || !accountDiscount.enabled) return null;
+  const target: DiscountTarget = accountDiscount.target || (accountDiscount.type === 'free_shipping' ? 'shipping' : 'items');
+  if (target === 'shipping') return null;
+
   const numVal = typeof accountDiscount.value === 'number' ? accountDiscount.value : parseFloat(accountDiscount.value as any);
   if (isNaN(numVal) || numVal <= 0) return null;
   if (accountDiscount.expires && accountDiscount.expires.trim()) {
@@ -49,6 +53,47 @@ export function getValidAccountDiscount(accountDiscount?: AccountDiscount | null
     value: numVal,
     target: 'items',
   };
+}
+
+export function getValidAccountShippingDiscount(customer?: any): AppliedDiscount | null {
+  if (!customer) return null;
+
+  // 1. Direct freeShipping flag on customer profile
+  if (customer.freeShipping === true) {
+    return {
+      code: 'FREE SHIPPING',
+      type: 'free_shipping',
+      value: 100,
+      target: 'shipping',
+    };
+  }
+
+  // 2. Account discount targeting shipping
+  const accountDiscount = customer.accountDiscount as AccountDiscount | undefined;
+  if (accountDiscount && accountDiscount.enabled) {
+    const target: DiscountTarget = accountDiscount.target || (accountDiscount.type === 'free_shipping' ? 'shipping' : 'items');
+    if (target === 'shipping') {
+      if (accountDiscount.expires && accountDiscount.expires.trim()) {
+        const exp = new Date(`${accountDiscount.expires.trim()}T23:59:59`);
+        if (!isNaN(exp.getTime()) && exp.getTime() < Date.now()) {
+          return null;
+        }
+      }
+
+      const isFree = accountDiscount.type === 'free_shipping' || Number(accountDiscount.value) >= 100;
+      const numVal = typeof accountDiscount.value === 'number' ? accountDiscount.value : parseFloat(accountDiscount.value as any);
+      if (!isFree && (isNaN(numVal) || numVal <= 0)) return null;
+
+      return {
+        code: (accountDiscount.note && accountDiscount.note.trim()) ? accountDiscount.note.trim().toUpperCase() : 'FREE SHIPPING',
+        type: isFree ? 'free_shipping' : (accountDiscount.type === 'fixed' ? 'fixed' : 'percent'),
+        value: isFree ? 100 : numVal,
+        target: 'shipping',
+      };
+    }
+  }
+
+  return null;
 }
 
 export type DiscountValidation =
