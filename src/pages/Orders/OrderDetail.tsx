@@ -23,7 +23,7 @@ import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
-import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric } from '../../lib/garmentUtils';
+import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric, isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
@@ -4372,7 +4372,7 @@ export function OrderDetail() {
                                 onMouseEnter={() => setHoveredItemId(item.id)}
                                 onMouseLeave={() => setHoveredItemId(null)}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style, item, itemStyle: item.style })}
-                                className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all relative group/thumb`}
+                                className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : isDiscountItem(item) ? 'bg-emerald-50 border border-emerald-200/80 text-emerald-600' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all relative group/thumb`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
                                 {item.image ? (
@@ -4404,7 +4404,11 @@ export function OrderDetail() {
                                     />
                                   )
                                 ) : (
+                                  isDiscountItem(item) ? (
+                                  <Tag size={24} className="text-emerald-600" />
+                                ) : (
                                   <Box size={24} className="text-brand-secondary/40" />
+                                )
                                 )}
                                 {item.image && (
                                   <button
@@ -4486,6 +4490,7 @@ export function OrderDetail() {
                                           <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
                                         </button>
                                       )}
+                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && (
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -4496,6 +4501,7 @@ export function OrderDetail() {
                                       >
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
+                                      )}
                                       {itemExpenses.length > 0 && (
                                         <div 
                                           className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-700 px-3 py-1.5 rounded-full border border-red-200 shrink-0 whitespace-nowrap shadow-sm cursor-help"
@@ -4677,6 +4683,7 @@ export function OrderDetail() {
                         {/* Right Side: Sizing & Pricing */}
                         <div className="flex flex-col sm:flex-row items-center sm:items-end lg:items-center gap-4 w-full xl:w-auto shrink-0 justify-center xl:justify-end mt-4 xl:mt-0">
                           {/* Sizing Grid Area */}
+                          {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.keys(item.sizes).length > 0 && (
                           <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans overflow-x-auto max-w-full scrollbar-none shrink-0 sm:shrink">
                            {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
                              const isCompleted = item.completedSizes?.includes(size);
@@ -4792,22 +4799,28 @@ export function OrderDetail() {
                              </div>
                            )})}
                          </div>
+                          )}
 
                          {/* Pricing Summary */}
                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                            {(() => {
+                              const isDisc = isDiscountItem(item);
                               const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
                               const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
                               
                               let safePriceNum = 0;
                               if (item.price !== undefined && item.price !== null) {
                                   const pString = item.price.toString().replace(/[^0-9.]/g, '');
-                                  if (pString !== '') safePriceNum = parseFloat(pString);
+                                  if (pString !== '') {
+                                    safePriceNum = parseFloat(pString);
+                                    if (item.price?.toString().includes('-') || isDisc) safePriceNum = -Math.abs(safePriceNum);
+                                  }
                               }
 
                               let safeTotalStr = '-';
                               if (safeQty > 0 && safePriceNum > 0) {
-                                  safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
+                                  const calcTot = safeQty * safePriceNum;
+                                  safeTotalStr = calcTot < 0 ? `-$${Math.abs(calcTot).toFixed(2)}` : `$${calcTot.toFixed(2)}`;
                               } else if (item.total && item.total !== '-') {
                                   let tString = item.total.toString().replace(/[^0-9.]/g, '');
                                   if (tString !== '' && !isNaN(parseFloat(tString))) { safeTotalStr = `$${parseFloat(tString).toFixed(2)}`; }
@@ -4817,7 +4830,7 @@ export function OrderDetail() {
                                 <>
                                   <div className="w-12 text-center flex flex-col overflow-hidden">
                                     <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                                    <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                    <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
                                       {safeQty}
                                     </div>
                                   </div>
@@ -4825,13 +4838,13 @@ export function OrderDetail() {
                                     <>
                                       <div className="w-16 text-center flex flex-col overflow-hidden">
                                         <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                        <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                          {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
+                                        <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
+                                          {safePriceNum !== 0 ? (safePriceNum < 0 ? `-$${Math.abs(safePriceNum).toFixed(2)}` : `$${safePriceNum.toFixed(2)}`) : (item.price || '-')}
                                         </div>
                                       </div>
                                       <div className="w-20 text-center flex flex-col overflow-hidden">
                                         <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                                        <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                        <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
                                           {safeTotalStr}
                                         </div>
                                       </div>

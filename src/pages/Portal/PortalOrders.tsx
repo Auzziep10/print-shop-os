@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -9,7 +9,7 @@ import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
-import { getGarmentAvailableSizes, sortGarmentSizes } from '../../lib/garmentUtils';
+import { getGarmentAvailableSizes, sortGarmentSizes, isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
 
 const sortSizes = sortGarmentSizes;
 
@@ -1108,7 +1108,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                e.stopPropagation();
                                if (item.image) setExpandedImage({ src: item.image, alt: item.style });
                              }}
-                             className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-neutral-50 border border-neutral-100'}`}
+                             className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : isDiscountItem(item) ? 'bg-emerald-50 border border-emerald-200/80 text-emerald-600' : 'bg-neutral-50 border border-neutral-100'}`}
                              title={item.image ? "Click to view full screen" : "No image provided"}
                            >
                              {item.image ? (
@@ -1139,6 +1139,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                    className="w-full h-full object-contain mix-blend-multiply p-1 select-none pointer-events-none" 
                                  />
                                )
+                             ) : isDiscountItem(item) ? (
+                               <Tag size={22} className="text-emerald-600" />
                              ) : (
                                <Box size={24} className="text-neutral-300" />
                              )}
@@ -1147,10 +1149,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                            <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 w-full">
                              <div className="flex flex-col justify-center">
                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
-                               <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                  {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
-                                  {item.color ? `${item.gender && item.gender !== 'Unisex' ? '- ' : ''}${item.color}` : ''}
-                               </p>
+                               {isDiscountItem(item) ? (
+                                 <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider mt-0.5">Applied Discount</span>
+                               ) : (
+                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                                    {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                                    {item.color ? `${item.gender && item.gender !== 'Unisex' ? '- ' : ''}${item.color}` : ''}
+                                 </p>
+                               )}
                              </div>
                              
                              {(() => {
@@ -1197,78 +1203,100 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
                       {/* Right Side: Sizing & Pricing */}
                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
-                        {/* Sizing Grid Area */}
-                        <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
-                          {(() => {
-                            const garmentSizes = getGarmentAvailableSizes(item, item.style || item.itemNum || '');
-                            const defaultSizes: Record<string, number> = {};
-                            garmentSizes.forEach(s => { defaultSizes[s] = 0; });
-                            const sizesToRender = (item.sizes && Object.keys(item.sizes).length > 0) ? { ...defaultSizes, ...item.sizes } : defaultSizes;
-                            return Object.entries(sizesToRender).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
-                              <div key={size} className="w-10 sm:w-11 text-center flex flex-col">
-                                <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center select-none">{size}</div>
-                                {order.statusIndex < 3 ? (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={qty === 0 || qty === '0' ? '' : qty}
-                                    placeholder="0"
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) => handleSizeChange(order.id, item.id, size, e.target.value)}
-                                    className="w-10 sm:w-11 h-8 text-[12px] font-bold py-1 rounded-b-[8px] bg-white text-center text-neutral-900 border border-transparent hover:border-neutral-300 focus:border-black focus:ring-2 focus:ring-black/10 focus:outline-none focus:z-10 transition-all placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    title={`Edit quantity for ${size}`}
-                                  />
-                                ) : (
-                                  <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
-                                    {qty}
-                                  </div>
-                                )}
-                              </div>
-                            ));
-                          })()}
-                        </div>
+                        {/* Sizing Grid Area - Suppressed for Discounts & Non-Garment Items */}
+                        {(() => {
+                          if (isDiscountItem(item) || isNonGarmentItem(item)) return null;
+                          const garmentSizes = getGarmentAvailableSizes(item, item.style || item.itemNum || '');
+                          const defaultSizes: Record<string, number> = {};
+                          garmentSizes.forEach(s => { defaultSizes[s] = 0; });
+                          const sizesToRender = (item.sizes && Object.keys(item.sizes).length > 0) ? { ...defaultSizes, ...item.sizes } : defaultSizes;
+                          const sizeEntries = Object.entries(sizesToRender).sort(([a], [b]) => sortSizes(a, b));
+                          if (sizeEntries.length === 0) return null;
+
+                          return (
+                            <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
+                              {sizeEntries.map(([size, qty]: [string, any]) => (
+                                <div key={size} className="w-10 sm:w-11 text-center flex flex-col">
+                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center select-none">{size}</div>
+                                  {order.statusIndex < 3 ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={qty === 0 || qty === '0' ? '' : qty}
+                                      placeholder="0"
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => handleSizeChange(order.id, item.id, size, e.target.value)}
+                                      className="w-10 sm:w-11 h-8 text-[12px] font-bold py-1 rounded-b-[8px] bg-white text-center text-neutral-900 border border-transparent hover:border-neutral-300 focus:border-black focus:ring-2 focus:ring-black/10 focus:outline-none focus:z-10 transition-all placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      title={`Edit quantity for ${size}`}
+                                    />
+                                  ) : (
+                                    <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                                      {qty}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
 
                         {/* Pricing Summary */}
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                           {(() => {
+                            const isDisc = isDiscountItem(item);
                             const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
                             const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
                             
                             let safePriceNum = 0;
+                            let isNegativePrice = false;
                             if (item.price !== undefined && item.price !== null) {
-                                const pString = item.price.toString().replace(/[^0-9.]/g, '');
-                                if (pString !== '') safePriceNum = parseFloat(pString);
+                                const pStr = item.price.toString().trim();
+                                if (pStr.startsWith('-') || pStr.includes('-$')) isNegativePrice = true;
+                                const pClean = pStr.replace(/[^0-9.]/g, '');
+                                if (pClean !== '') {
+                                  safePriceNum = parseFloat(pClean);
+                                  if (isNegativePrice || isDisc) safePriceNum = -Math.abs(safePriceNum);
+                                }
                             }
 
                             let safeTotalStr = '-';
-                            if (safeQty > 0 && safePriceNum > 0) {
-                                safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
+                            if (safeQty > 0 && safePriceNum !== 0) {
+                                const calcTot = safeQty * safePriceNum;
+                                safeTotalStr = calcTot < 0 ? `-$${Math.abs(calcTot).toFixed(2)}` : `$${calcTot.toFixed(2)}`;
                             } else if (item.total && item.total !== '-') {
-                                let tString = item.total.toString().replace(/[^0-9.]/g, '');
-                                if (tString !== '' && !isNaN(parseFloat(tString))) { safeTotalStr = `$${parseFloat(tString).toFixed(2)}`; }
+                                let tStr = item.total.toString().trim();
+                                let isNegTotal = tStr.startsWith('-') || tStr.includes('-$') || isDisc;
+                                let cleanT = tStr.replace(/[^0-9.]/g, '');
+                                if (cleanT !== '' && !isNaN(parseFloat(cleanT))) {
+                                  safeTotalStr = isNegTotal ? `-$${parseFloat(cleanT).toFixed(2)}` : `$${parseFloat(cleanT).toFixed(2)}`;
+                                }
                             }
 
                             const showPricing = order.statusIndex >= 2 && hasPermission('viewPricing');
+
+                            const priceDisplay = safePriceNum !== 0 
+                              ? (safePriceNum < 0 ? `-$${Math.abs(safePriceNum).toFixed(2)}` : `$${safePriceNum.toFixed(2)}`)
+                              : (item.price || '-');
 
                             return (
                               <>
                                 <div className="w-12 text-center flex flex-col overflow-hidden">
                                   <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
                                   <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                    {safeQty}
+                                    {safeQty || 1}
                                   </div>
                                 </div>
                                 {showPricing && (
                                   <>
-                                    <div className="w-16 text-center flex flex-col overflow-hidden">
+                                    <div className="w-20 text-center flex flex-col overflow-hidden">
                                       <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                      <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                        {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
+                                      <div className={`bg-neutral-50 ${isDisc ? 'text-emerald-700 font-extrabold' : 'text-neutral-800'} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
+                                        {priceDisplay}
                                       </div>
                                     </div>
                                     <div className="w-20 text-center flex flex-col overflow-hidden">
                                       <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                                      <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                      <div className={`bg-neutral-50 ${isDisc ? 'text-emerald-700 font-extrabold' : 'text-neutral-800'} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
                                         {safeTotalStr}
                                       </div>
                                     </div>
@@ -1279,28 +1307,30 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           })()}
                         </div>
 
-                        {/* Reorder Button */}
-                        <button
-                          data-tour={idx === 0 ? "reorder-item-btn-0" : undefined}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleReorderClick(item, e);
-                          }}
-                          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer shrink-0 ${
-                            addedItemIds[item.id]
-                              ? 'bg-emerald-600 text-white font-extrabold scale-105 animate-in zoom-in-95 duration-200'
-                              : 'bg-black hover:bg-neutral-800 text-white hover:scale-105 active:scale-95'
-                          }`}
-                          title="Reorder"
-                        >
-                          {addedItemIds[item.id] ? (
-                            <svg className="w-4 h-4 fill-none stroke-current animate-in fade-in duration-200" strokeWidth={3} viewBox="0 0 24 24">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          ) : (
-                            <RotateCcw size={14} />
-                          )}
-                        </button>
+                        {/* Reorder Button - Suppressed for Discounts & Non-Garments */}
+                        {!isDiscountItem(item) && !isNonGarmentItem(item) && (
+                          <button
+                            data-tour={idx === 0 ? "reorder-item-btn-0" : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReorderClick(item, e);
+                            }}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer shrink-0 ${
+                              addedItemIds[item.id]
+                                ? 'bg-emerald-600 text-white font-extrabold scale-105 animate-in zoom-in-95 duration-200'
+                                : 'bg-black hover:bg-neutral-800 text-white hover:scale-105 active:scale-95'
+                            }`}
+                            title="Reorder"
+                          >
+                            {addedItemIds[item.id] ? (
+                              <svg className="w-4 h-4 fill-none stroke-current animate-in fade-in duration-200" strokeWidth={3} viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <RotateCcw size={14} />
+                            )}
+                          </button>
+                        )}
                       </div>
                       </div>
                       

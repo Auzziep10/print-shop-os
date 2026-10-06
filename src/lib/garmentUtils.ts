@@ -749,7 +749,117 @@ export const sortGarmentSizes = (a: string, b: string): number => {
   return a.localeCompare(b);
 };
 
+export const isDiscountItem = (item: any): boolean => {
+  if (!item) return false;
+
+  // Direct flags / types
+  if (item.itemType === 'discount' || item.type === 'discount' || item.isDiscount) return true;
+  if (item.id && String(item.id).toLowerCase().startsWith('disc-')) return true;
+
+  // Text checking across common fields
+  const combinedText = [
+    item.style,
+    item.title,
+    item.itemNum,
+    item.name,
+    item.customName,
+    item.category,
+    item.description,
+    item.notes
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (
+    combinedText.includes('discount') ||
+    combinedText.includes('coupon') ||
+    combinedText.includes('promo code') ||
+    combinedText.includes('promo discount') ||
+    combinedText.includes('account discount')
+  ) {
+    return true;
+  }
+
+  // Check negative price or total (e.g. Price: -$132.85)
+  const priceStr = String(item.price ?? '').trim();
+  const totalStr = String(item.total ?? '').trim();
+  if (
+    priceStr.startsWith('-') ||
+    priceStr.startsWith('-$') ||
+    totalStr.startsWith('-') ||
+    totalStr.startsWith('-$')
+  ) {
+    return true;
+  }
+
+  const pNum = parseFloat(priceStr.replace(/[^0-9.-]/g, ''));
+  const tNum = parseFloat(totalStr.replace(/[^0-9.-]/g, ''));
+  if ((!isNaN(pNum) && pNum < 0) || (!isNaN(tNum) && tNum < 0)) {
+    return true;
+  }
+
+  return false;
+};
+
+export const isNonGarmentItem = (item: any): boolean => {
+  if (!item) return false;
+  if (isDiscountItem(item)) return true;
+
+  if (
+    item.itemType === 'fee' ||
+    item.itemType === 'shipping' ||
+    item.itemType === 'service' ||
+    item.itemType === 'adjustment' ||
+    item.type === 'fee' ||
+    item.type === 'shipping' ||
+    item.type === 'service' ||
+    item.type === 'adjustment'
+  ) {
+    return true;
+  }
+
+  const combinedText = [
+    item.style,
+    item.title,
+    item.itemNum,
+    item.name,
+    item.customName,
+    item.category
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (
+    combinedText.includes('shipping fee') ||
+    combinedText.includes('delivery fee') ||
+    combinedText.includes('setup fee') ||
+    combinedText.includes('rush fee') ||
+    combinedText.includes('screen fee') ||
+    combinedText.includes('digitizing fee') ||
+    combinedText.includes('credit adjustment')
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] => {
+  if (isNonGarmentItem(item)) return [];
+
+  const hintLower = (styleHint || '').toLowerCase();
+  if (
+    hintLower.includes('discount') ||
+    hintLower.includes('coupon') ||
+    hintLower.includes('promo code') ||
+    hintLower.includes('shipping fee') ||
+    hintLower.includes('setup fee')
+  ) {
+    return [];
+  }
+
   if (!item && !styleHint) return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
 
   // Check if Headwear / Accessory (OSFA)
