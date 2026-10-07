@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Factory, Flag } from
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { formatDisplayDate } from '../../lib/utils';
 
 interface ProductionCalendarProps {
   orders: any[];
@@ -334,7 +335,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-white px-2 py-0.5 rounded-md shadow-sm" style={{ backgroundColor: hoveredOrder.order.statusIndex >= 7 ? '#10B981' : hoveredOrder.order.statusIndex === 6 ? '#6366F1' : '#3B82F6' }}>
                    {formatStatus(hoveredOrder.order.statusIndex || 0)}
                 </span>
-                <span className="text-[11px] font-bold text-brand-secondary ml-auto">{hoveredOrder.order.targetCompletionDate || 'No Due Date'}</span>
+                <span className="text-[11px] font-bold text-brand-secondary ml-auto">{formatDisplayDate(hoveredOrder.order.targetCompletionDate) || 'No Due Date'}</span>
              </div>
              <h4 className="font-serif text-lg text-brand-primary leading-tight mb-2 line-clamp-2">{hoveredOrder.order.title || 'Untitled'}</h4>
              

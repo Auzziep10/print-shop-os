@@ -11,6 +11,7 @@ import { collection, onSnapshot, doc, deleteDoc, query, where, getDocs } from 'f
 import { useOrders } from '../../hooks/useOrders';
 import { NewCustomerModal } from './NewCustomerModal';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
+import { isPlacedOrder, calculateOrderFinalTotal, formatDisplayDate } from '../../lib/utils';
 
 export function CustomersList() {
   const navigate = useNavigate();
@@ -65,20 +66,19 @@ export function CustomersList() {
       const companyString = liveData.company || '-';
       
       const customerOrders = orders.filter(o => o.customerId === id);
-      const ordersToDate = customerOrders.length;
+      const placedCustomerOrders = customerOrders.filter(o => isPlacedOrder(o));
+      const ordersToDate = placedCustomerOrders.length;
       
-      const ltvValue = customerOrders.reduce((acc, order) => {
-        const orderTotal = order.items?.reduce((sum: number, item: any) => {
-          const priceStr = (item.total || '$0').toString().replace(/[^0-9.]/g, '');
-          return sum + (parseFloat(priceStr) || 0);
-        }, 0) || 0;
-        return acc + orderTotal;
+      const ltvValue = placedCustomerOrders.reduce((acc, order) => {
+        return acc + calculateOrderFinalTotal(order);
       }, 0);
       const ltvFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ltvValue);
 
       let lastOrderStr = '-';
-      if (customerOrders.length > 0) {
-        lastOrderStr = customerOrders[customerOrders.length - 1].date || '-';
+      if (placedCustomerOrders.length > 0) {
+        lastOrderStr = formatDisplayDate(placedCustomerOrders[placedCustomerOrders.length - 1].date || placedCustomerOrders[placedCustomerOrders.length - 1].targetCompletionDate) || '-';
+      } else if (customerOrders.length > 0) {
+        lastOrderStr = formatDisplayDate(customerOrders[customerOrders.length - 1].date) || '-';
       }
 
       return {

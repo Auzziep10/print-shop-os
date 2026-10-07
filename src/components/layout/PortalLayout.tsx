@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db, storage } from '../../lib/firebase';
-import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
@@ -80,33 +80,16 @@ export function PortalLayout() {
         setIsJiggling(true);
         setTimeout(() => setIsJiggling(false), 600);
       } else {
+        // Document does not exist in Firestore: cart has been cleared or submitted into an order.
+        // Purge local storage and set count to 0 so we never resurrect an old/placed cart.
+        setCartCount(0);
         try {
-          const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-          if (Array.isArray(localCart) && localCart.length > 0) {
-            setCartCount(localCart.length);
-            // Migrate local cart to Firestore so admin sees it right away
-            setDoc(cartDocRef, {
-              customerId,
-              items: localCart,
-              itemCount: localCart.length,
-              updatedAt: new Date().toISOString(),
-              source: 'migrated_local'
-            }, { merge: true }).catch(() => {});
-          } else {
-            setCartCount(0);
-          }
-        } catch (e) {
-          setCartCount(0);
-        }
+          localStorage.removeItem(cartKey);
+        } catch (e) {}
       }
     }, (err) => {
       console.warn("Active cart onSnapshot error in layout:", err);
-      try {
-        const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        setCartCount(Array.isArray(localCart) ? localCart.length : 0);
-      } catch (e) {
-        setCartCount(0);
-      }
+      setCartCount(0);
     });
 
     const updateCount = () => {

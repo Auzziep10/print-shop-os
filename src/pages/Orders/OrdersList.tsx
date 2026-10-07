@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
 import { OrderReportsPanel } from './OrderReportsPanel';
+import { formatDisplayDate } from '../../lib/utils';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
@@ -302,7 +303,9 @@ export function OrdersList() {
                        </span>
                      )}
                   </div>
-                  <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
+                  <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">
+                    {formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}
+                  </div>
                   <div className="flex justify-end">
                      <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
                        <MoreHorizontal size={18} />

@@ -107,20 +107,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         const items = Array.isArray(data?.items) ? data.items : [];
         setActiveCartCount(items.length);
       } else {
+        setActiveCartCount(0);
         try {
-          const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-          setActiveCartCount(Array.isArray(localCart) ? localCart.length : 0);
-        } catch (e) {
-          setActiveCartCount(0);
-        }
+          localStorage.removeItem(cartKey);
+        } catch (e) {}
       }
     }, () => {
-      try {
-        const localCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        setActiveCartCount(Array.isArray(localCart) ? localCart.length : 0);
-      } catch (e) {
-        setActiveCartCount(0);
-      }
+      setActiveCartCount(0);
     });
 
     const handleCartUpdated = () => {

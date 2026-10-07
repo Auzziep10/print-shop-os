@@ -15,7 +15,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { getTrackingLink, normalizeUser } from '../../lib/utils';
+import { getTrackingLink, normalizeUser, formatDisplayDate } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
@@ -4125,9 +4125,9 @@ export function OrderDetail() {
                   </span>
                   <span className="font-serif text-lg block">
                     {order.neededByDate ? (
-                      new Date(order.neededByDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      formatDisplayDate(order.neededByDate)
                     ) : (
-                      order.date
+                      formatDisplayDate(order.targetCompletionDate || order.date) || 'TBD'
                     )}
                   </span>
                </div>

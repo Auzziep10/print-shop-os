@@ -980,17 +980,13 @@ export function PortalCreateOrder() {
             } catch (e) {}
           }
         } else {
-          // If no active cart in Firestore, check localStorage
-          const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-          if (Array.isArray(savedCart) && savedCart.length > 0) {
-            const existingIds = new Set(preselected.map((p: any) => p.instanceId || p.id));
-            savedCart.forEach((it: any) => {
-              const itId = it.instanceId || it.id;
-              if (!existingIds.has(itId)) {
-                preselected.push(it);
-              }
-            });
-            // Push to Firestore so it syncs immediately
+          // If no active cart in Firestore, purge local storage unless new items were passed via location state
+          if (preselected.length === 0) {
+            try {
+              localStorage.removeItem(cartKey);
+            } catch (e) {}
+          } else {
+            // Only sync if there are explicitly passed preselected items (e.g. from a reorder action)
             setDoc(doc(db, 'active_carts', customerId), {
               customerId,
               items: preselected,
@@ -1001,12 +997,6 @@ export function PortalCreateOrder() {
         }
       } catch (err) {
         console.warn("Error fetching active cart from Firestore:", err);
-        try {
-          const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-          if (Array.isArray(savedCart) && savedCart.length > 0) {
-            preselected = [...preselected, ...savedCart];
-          }
-        } catch (e) {}
       }
 
       if (isSubscribed) {

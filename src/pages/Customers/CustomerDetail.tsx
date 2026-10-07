@@ -23,6 +23,7 @@ import { AddressAutocompleteInput } from '../../components/ui/AddressAutocomplet
 import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
 import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
+import { isPlacedOrder, calculateOrderFinalTotal } from '../../lib/utils';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
@@ -1516,14 +1517,16 @@ export function CustomerDetail() {
     croppedLogo: liveCroppedLogo || liveCustomerData?.croppedLogo
   };
 
-  const totalOrders = orders.length;
-  const lifetimeValue = orders.reduce((acc, order) => {
-    const orderTotal = order.items?.reduce((sum: number, i: any) => {
-      const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
-      return sum + (parseFloat(priceMatch) || 0);
-    }, 0) || 0;
-    return acc + orderTotal;
-  }, 0);
+  const placedOrders = useMemo(() => {
+    return (orders || []).filter(o => isPlacedOrder(o));
+  }, [orders]);
+
+  const totalOrders = placedOrders.length;
+  const lifetimeValue = useMemo(() => {
+    return placedOrders.reduce((acc, order) => {
+      return acc + calculateOrderFinalTotal(order);
+    }, 0);
+  }, [placedOrders]);
   const formattedLTV = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(lifetimeValue);
 
   const hasNet30 = customer?.net30Terms ?? (customer?.type === 'B2B');
