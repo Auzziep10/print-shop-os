@@ -1,14 +1,82 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'react-qr-code';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer, Filter } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+
+export const GARMENT_TYPE_CATEGORIES = [
+  'T-Shirts',
+  'Polos',
+  'Hoodies',
+  'Crewnecks',
+  'Jackets & Outerwear',
+  'Sweaters & Knits',
+  'Button Downs & Blouses',
+  'Quarter & Half Zips',
+  'Long Sleeve',
+  'Tanks & Sleeveless',
+  'Blazers',
+  'Hats & Headwear',
+  'Shorts',
+  'Pants',
+  'Accessories & Other'
+];
+
+const WOMENS_BRANDS = [
+  'athleta', 'evereve', 'madewell', 'jessica london', 'ann taylor', 'whbm', 
+  'chicos', 'veronica beard', 'aritzia', 'skies are blue', 'desigual', 
+  'dokotoo', 'ecowish', 'zesica', 'timeson', 'spanx', 'makemechic'
+];
+const MENS_BRANDS = [
+  'bonobos', 'charles tyrwhitt', 'coofandy', 'flint and tinder', 'lavnis'
+];
+
+export const getProductGender = (p: any): string => {
+  if (p?.gender && typeof p.gender === 'string' && p.gender.trim()) return p.gender.trim();
+  const title = (p?.title || '').toLowerCase();
+  const desc = (p?.description || '').toLowerCase();
+  const style = (p?.style || '').toLowerCase();
+  const text = `${title} ${style} ${desc}`;
+  
+  if (WOMENS_BRANDS.some(b => title.includes(b))) return 'Womens';
+  if (MENS_BRANDS.some(b => title.includes(b))) return 'Mens';
+
+  if (/\b(women|womens|women\'s|ladies|lady|female|crop|cropped|dress|skirt|blouse)\b/i.test(text)) return 'Womens';
+  if (/\b(men|mens|men\'s|male|gentleman|gentlemen)\b/i.test(text)) return 'Mens';
+  if (/\b(youth|kids|kid|toddler|infant|boy|girl)\b/i.test(text)) return 'Youth';
+  if (p?.sizeSpread && Object.keys(p.sizeSpread).some(s => s.toLowerCase().startsWith('y') && p.sizeSpread[s] > 0)) return 'Youth';
+  
+  return 'Unisex';
+};
+
+export const getProductGarmentType = (p: any): string => {
+  if (p?.garmentType && typeof p.garmentType === 'string' && p.garmentType.trim()) return p.garmentType.trim();
+  const text = `${p?.style || ''} ${p?.title || ''} ${p?.description || ''}`.toLowerCase();
+  
+  if (/hat|cap|beanie|trucker|snapback/i.test(text)) return 'Hats & Headwear';
+  if (/short\b/i.test(text) && !/sleeve|short\s*sleeve/i.test(text)) return 'Shorts';
+  if (/pant|jogger|sweatpant|trouser|bottom/i.test(text)) return 'Pants';
+  if (/jacket|coat|vest|windbreaker|parka|puffer|bomber/i.test(text)) return 'Jackets & Outerwear';
+  if (/blazer|suit\s*coat|suit\s*jacket/i.test(text)) return 'Blazers';
+  if (/hoodi|hooded/i.test(text)) return 'Hoodies';
+  if (/quarter\s*zip|half\s*zip|1\/4\s*zip|1\/2\s*zip/i.test(text)) return 'Quarter & Half Zips';
+  if (/crewneck|fleece\s*crew|sweatshirt|\bcrew\b/i.test(text)) return 'Crewnecks';
+  if (/sweater|cardigan|knit/i.test(text)) return 'Sweaters & Knits';
+  if (/polo/i.test(text)) return 'Polos';
+  if (/button\s*up|button\s*down|dress\s*shirt|blouse/i.test(text)) return 'Button Downs & Blouses';
+  if (/long\s*sleeve|\bls\b|\bl\/s\b/i.test(text)) return 'Long Sleeve';
+  if (/tank|sleeveless/i.test(text)) return 'Tanks & Sleeveless';
+  if (/tee|t-shirt|shirt|henley|v-neck/i.test(text)) return 'T-Shirts';
+  if (/bag|tote|backpack|duffle|case|glove|tumbler|accessory|tag|blanket|mask|throw|scarf|candle/i.test(text)) return 'Accessories & Other';
+  
+  return p?.style ? p.style.trim() : 'Other';
+};
 
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
@@ -58,6 +126,9 @@ export function ProductsTab({
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSize, setSelectedSize] = useState<string>('All');
+  const [selectedGender, setSelectedGender] = useState<string>('All');
+  const [selectedGarmentType, setSelectedGarmentType] = useState<string>('All');
 
   // Racks and boxes tracking
   const [pallets, setPallets] = useState<any[]>([]);
@@ -288,6 +359,8 @@ export function ProductsTab({
     description: '',
     sku: '',
     style: '',
+    gender: 'Unisex',
+    garmentType: '',
     colors: '',
     sizeSpread: {} as Record<string, number>,
     images: [] as string[]
@@ -325,7 +398,7 @@ export function ProductsTab({
   }, [qrSessionId]);
 
   const handleCreateNew = () => {
-    setFormData({ title: '', description: '', sku: '', style: '', colors: '', sizeSpread: {}, images: [] });
+    setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', sizeSpread: {}, images: [] });
     setImageUrlInput('');
     setIsCreating(true);
     setIsEditing(true);
@@ -345,6 +418,8 @@ export function ProductsTab({
       description: product.description || '',
       sku: product.sku || '',
       style: product.style || '',
+      gender: product.gender || getProductGender(product),
+      garmentType: product.garmentType || getProductGarmentType(product),
       colors: Array.isArray(product.colors) ? product.colors.join(', ') : (product.colors || ''),
       sizeSpread: parsedSizeSpread,
       images: product.images || []
@@ -463,6 +538,8 @@ export function ProductsTab({
 
     const payload = {
       ...formData,
+      gender: formData.gender || 'Unisex',
+      garmentType: formData.garmentType || '',
       colors: formData.colors.split(',').map(s => s.trim()).filter(Boolean),
       sizeSpread: cleanSizeSpread,
     };
@@ -477,12 +554,12 @@ export function ProductsTab({
       
       // Keep selection but exit editing mode
       if (selectedProduct && !isCreating) {
-          setIsEditing(false);
-          // Wait for backend to send snapshot updates
+        setIsEditing(false);
+        // Wait for backend to send snapshot updates
       } else {
-          setIsCreating(false);
-          setIsEditing(false);
-          setFormData({ title: '', description: '', sku: '', style: '', colors: '', sizeSpread: {}, images: [] });
+        setIsCreating(false);
+        setIsEditing(false);
+        setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', sizeSpread: {}, images: [] });
       }
     } catch (err) {
       console.error(err);
@@ -538,15 +615,79 @@ export function ProductsTab({
     );
   };
 
-  const filteredProducts = products.filter(p => {
-    const query = searchQuery.toLowerCase();
-    const titleMatch = (p.title || '').toLowerCase().includes(query);
-    const skuMatch = (p.sku || '').toLowerCase().includes(query);
-    const colorsMatch = Array.isArray(p.colors)
-       ? p.colors.some((c: string) => c.toLowerCase().includes(query))
-       : (p.colors || '').toLowerCase().includes(query);
-    return titleMatch || skuMatch || colorsMatch;
-  });
+  const availableGarmentTypes = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      const t = getProductGarmentType(p);
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    const definedOrder = GARMENT_TYPE_CATEGORIES.filter(c => counts[c] !== undefined);
+    const customTypes = Object.keys(counts).filter(c => !GARMENT_TYPE_CATEGORIES.includes(c));
+    return [...definedOrder, ...customTypes];
+  }, [products]);
+
+  const availableSizes = useMemo(() => {
+    const sizeSet = new Set<string>(SIZES);
+    products.forEach(p => {
+      if (p.sizeSpread) {
+        Object.entries(p.sizeSpread).forEach(([s, q]) => {
+          if (typeof q === 'number' && q > 0) {
+            sizeSet.add(s);
+          }
+        });
+      }
+    });
+    return Array.from(sizeSet).sort(sortSizes);
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return products.filter(p => {
+      if (query) {
+        const titleMatch = (p.title || '').toLowerCase().includes(query);
+        const skuMatch = (p.sku || '').toLowerCase().includes(query);
+        const styleMatch = (p.style || '').toLowerCase().includes(query);
+        const typeMatch = getProductGarmentType(p).toLowerCase().includes(query);
+        const genderMatch = getProductGender(p).toLowerCase().includes(query);
+        const colorsMatch = Array.isArray(p.colors)
+           ? p.colors.some((c: string) => c.toLowerCase().includes(query))
+           : (p.colors || '').toLowerCase().includes(query);
+        if (!titleMatch && !skuMatch && !styleMatch && !typeMatch && !genderMatch && !colorsMatch) {
+          return false;
+        }
+      }
+
+      if (selectedGarmentType !== 'All') {
+        if (getProductGarmentType(p) !== selectedGarmentType) {
+          return false;
+        }
+      }
+
+      if (selectedGender !== 'All') {
+        if (getProductGender(p).toLowerCase() !== selectedGender.toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (selectedSize !== 'All') {
+        const qty = p.sizeSpread ? p.sizeSpread[selectedSize] : 0;
+        if (typeof qty !== 'number' || qty <= 0) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [products, searchQuery, selectedGarmentType, selectedGender, selectedSize]);
+
+  const hasActiveFilters = searchQuery !== '' || selectedSize !== 'All' || selectedGender !== 'All' || selectedGarmentType !== 'All';
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedSize('All');
+    setSelectedGender('All');
+    setSelectedGarmentType('All');
+  };
 
   const totalGarmentsAcrossCatalog = products.reduce((total, p) => {
     if (!p.sizeSpread) return total;
@@ -558,7 +699,7 @@ export function ProductsTab({
       
       {/* Left List Pane (hides on mobile if detail is open, or just flex-shrink) */}
       <div className={`w-full md:w-1/3 flex flex-col border-r border-brand-border bg-brand-bg transition-all ${(selectedProduct || isCreating) ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-4 border-b border-brand-border bg-white flex flex-col gap-3 shrink-0">
+        <div className="p-4 border-b border-brand-border bg-white flex flex-col gap-2.5 shrink-0">
            <div className="flex justify-between items-center">
               <div>
                 <h2 className="font-serif font-bold text-lg text-brand-primary tracking-tight leading-tight">Product Catalog</h2>
@@ -571,24 +712,157 @@ export function ProductsTab({
                  <Plus size={14} /> New Item
               </button>
            </div>
+
+           {/* Search Input */}
            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={14} />
               <input 
                 type="text" 
-                placeholder="Search products, SKU..." 
+                placeholder="Search products, SKU, colors..." 
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-brand-bg border border-brand-border rounded-lg pl-9 pr-3 py-2 text-xs font-medium focus:outline-brand-primary"
+                className="w-full bg-brand-bg border border-brand-border rounded-lg pl-9 pr-8 py-2 text-xs font-medium focus:outline-brand-primary"
               />
+              {searchQuery && (
+                <button 
+                  type="button" 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 p-0.5"
+                >
+                  <X size={13} />
+                </button>
+              )}
            </div>
+
+           {/* Filter Row: Garment Type & Gender */}
+           <div className="grid grid-cols-2 gap-2">
+              <div>
+                 <div className="flex items-center justify-between mb-1">
+                    <label className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider block">Garment Type</label>
+                    {selectedGarmentType !== 'All' && (
+                       <button onClick={() => setSelectedGarmentType('All')} className="text-[8px] font-bold text-brand-primary hover:underline">Reset</button>
+                    )}
+                 </div>
+                 <select
+                    value={selectedGarmentType}
+                    onChange={e => setSelectedGarmentType(e.target.value)}
+                    className={`w-full text-xs font-medium rounded-lg border py-1.5 px-2 bg-brand-bg/60 transition-colors focus:outline-brand-primary truncate ${
+                       selectedGarmentType !== 'All' ? 'border-brand-primary text-brand-primary font-bold bg-brand-primary/5' : 'border-brand-border text-brand-secondary'
+                    }`}
+                 >
+                    <option value="All">All Types ({products.length})</option>
+                    {availableGarmentTypes.map(t => {
+                       const count = products.filter(p => getProductGarmentType(p) === t).length;
+                       return <option key={t} value={t}>{t} ({count})</option>;
+                    })}
+                 </select>
+              </div>
+
+              <div>
+                 <div className="flex items-center justify-between mb-1">
+                    <label className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider block">Gender</label>
+                    {selectedGender !== 'All' && (
+                       <button onClick={() => setSelectedGender('All')} className="text-[8px] font-bold text-brand-primary hover:underline">Reset</button>
+                    )}
+                 </div>
+                 <select
+                    value={selectedGender}
+                    onChange={e => setSelectedGender(e.target.value)}
+                    className={`w-full text-xs font-medium rounded-lg border py-1.5 px-2 bg-brand-bg/60 transition-colors focus:outline-brand-primary truncate ${
+                       selectedGender !== 'All' ? 'border-brand-primary text-brand-primary font-bold bg-brand-primary/5' : 'border-brand-border text-brand-secondary'
+                    }`}
+                 >
+                    <option value="All">All Genders</option>
+                    <option value="Mens">Mens ({products.filter(p => getProductGender(p) === 'Mens').length})</option>
+                    <option value="Womens">Womens ({products.filter(p => getProductGender(p) === 'Womens').length})</option>
+                    <option value="Unisex">Unisex ({products.filter(p => getProductGender(p) === 'Unisex').length})</option>
+                    <option value="Youth">Youth ({products.filter(p => getProductGender(p) === 'Youth').length})</option>
+                 </select>
+              </div>
+           </div>
+
+           {/* Filter Row: Sizes */}
+           <div>
+              <div className="flex justify-between items-center mb-1">
+                 <label className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider block">Filter by Size</label>
+                 {selectedSize !== 'All' && (
+                    <button 
+                       onClick={() => setSelectedSize('All')} 
+                       className="text-[8px] font-bold text-brand-primary hover:underline"
+                    >
+                       Reset ({selectedSize})
+                    </button>
+                 )}
+              </div>
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar -mx-1 px-1">
+                 <button
+                    type="button"
+                    onClick={() => setSelectedSize('All')}
+                    className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all shrink-0 ${
+                       selectedSize === 'All'
+                          ? 'bg-brand-primary text-white shadow-sm'
+                          : 'bg-brand-bg hover:bg-neutral-200 text-brand-secondary border border-brand-border/60'
+                    }`}
+                 >
+                    All
+                 </button>
+                 {availableSizes.map(size => {
+                    const isSelected = selectedSize === size;
+                    return (
+                       <button
+                          key={size}
+                          type="button"
+                          onClick={() => setSelectedSize(isSelected ? 'All' : size)}
+                          className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all shrink-0 ${
+                             isSelected
+                                ? 'bg-brand-primary text-white shadow-sm ring-1 ring-brand-primary'
+                                : 'bg-brand-bg hover:bg-neutral-200 text-brand-secondary border border-brand-border/60'
+                          }`}
+                       >
+                          {size}
+                       </button>
+                    );
+                 })}
+              </div>
+           </div>
+
+           {/* Active Filters Summary */}
+           {hasActiveFilters && (
+              <div className="flex items-center justify-between pt-1 border-t border-brand-border/40 text-[10px]">
+                 <span className="font-semibold text-brand-secondary">
+                    Showing <strong className="text-brand-primary">{filteredProducts.length}</strong> of {products.length} items
+                 </span>
+                 <button
+                    type="button"
+                    onClick={handleClearAllFilters}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 hover:underline cursor-pointer"
+                 >
+                    <X size={11} /> Clear filters
+                 </button>
+              </div>
+           )}
         </div>
         
         <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
            {filteredProducts.length === 0 ? (
-             <div className="p-8 text-center text-brand-secondary text-xs">No products found.</div>
+             <div className="p-8 text-center text-brand-secondary text-xs flex flex-col items-center justify-center gap-2">
+                <Filter size={24} className="opacity-30" />
+                <p>No products match your filters.</p>
+                {hasActiveFilters && (
+                   <button 
+                      onClick={handleClearAllFilters}
+                      className="text-xs font-bold text-brand-primary hover:underline mt-1"
+                   >
+                      Reset all filters
+                   </button>
+                )}
+             </div>
            ) : (
              <div className="divide-y divide-brand-border/50">
-               {filteredProducts.map(p => (
+               {filteredProducts.map(p => {
+                  const itemGender = getProductGender(p);
+                  const itemType = getProductGarmentType(p);
+                  return (
                   <div 
                     key={p.id} 
                     onClick={() => handleSelectProduct(p)}
@@ -616,23 +890,55 @@ export function ProductsTab({
                         )}
                      </div>
                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
-                        <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">
-                           {getProductDescriptor(p)}
-                           {p.style && <span className="ml-2 text-brand-primary/60 border-l border-brand-border pl-2">{p.style}</span>}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                           <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
+                        </div>
+                        <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate flex items-center gap-1.5 flex-wrap">
+                           <span>{getProductDescriptor(p)}</span>
+                           {itemType && (
+                              <span className="text-brand-primary/70 border-l border-brand-border pl-1.5 font-medium">
+                                 {itemType}
+                              </span>
+                           )}
+                           {itemGender && (
+                              <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider border leading-none ${
+                                 itemGender === 'Womens' ? 'bg-pink-50 text-pink-700 border-pink-200' :
+                                 itemGender === 'Mens' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                 itemGender === 'Youth' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                              }`}>
+                                 {itemGender}
+                              </span>
+                           )}
                         </p>
                         {p.sizeSpread && Object.keys(p.sizeSpread).length > 0 && (
                            <div className="flex flex-wrap gap-1 mt-2">
-                              {SIZES.filter(size => p.sizeSpread[size]).map(size => (
-                                 <span key={size} className="text-[9px] bg-white border border-brand-border text-brand-secondary px-1.5 py-0.5 rounded-md font-bold shrink-0 shadow-sm leading-none flex items-center gap-1">
-                                    {size} <span className="text-brand-primary">{p.sizeSpread[size]}</span>
-                                 </span>
-                              ))}
+                              {SIZES.filter(size => p.sizeSpread[size]).map(size => {
+                                 const isSelected = selectedSize === size;
+                                 return (
+                                    <span 
+                                       key={size} 
+                                       onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedSize(selectedSize === size ? 'All' : size);
+                                       }}
+                                       className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold shrink-0 shadow-sm leading-none flex items-center gap-1 cursor-pointer transition-all border ${
+                                          isSelected 
+                                             ? 'bg-brand-primary text-white border-brand-primary ring-1 ring-brand-primary/40' 
+                                             : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary/60'
+                                       }`}
+                                       title={`Filter by size ${size}`}
+                                    >
+                                       {size} <span className={isSelected ? 'text-white' : 'text-brand-primary'}>{p.sizeSpread[size]}</span>
+                                    </span>
+                                 );
+                              })}
                            </div>
                         )}
                      </div>
                   </div>
-               ))}
+               );
+               })}
              </div>
            )}
         </div>
@@ -656,7 +962,23 @@ export function ProductsTab({
                     </button>
                     <div>
                       <h2 className={tokens.typography.h2}>{isCreating ? 'Create New Product' : (selectedProduct?.title || 'Edit Product')}</h2>
-                      {!isCreating && <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">ID: {selectedProduct.id}</p>}
+                      {!isCreating && (
+                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <p className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">ID: {selectedProduct.id}</p>
+                            <span className="text-neutral-300">•</span>
+                            <span className="text-[10px] font-bold text-brand-primary bg-neutral-200/70 px-2 py-0.5 rounded uppercase tracking-wider">
+                               {formData.garmentType || getProductGarmentType(selectedProduct)}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border ${
+                               (formData.gender || getProductGender(selectedProduct)) === 'Womens' ? 'bg-pink-50 text-pink-700 border-pink-200' :
+                               (formData.gender || getProductGender(selectedProduct)) === 'Mens' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                               (formData.gender || getProductGender(selectedProduct)) === 'Youth' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                               'bg-neutral-100 text-neutral-600 border-neutral-200'
+                            }`}>
+                               {formData.gender || getProductGender(selectedProduct)}
+                            </span>
+                         </div>
+                      )}
                     </div>
                  </div>
                   <div className="flex gap-2">
@@ -734,8 +1056,41 @@ export function ProductsTab({
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Style</label>
                         <input disabled={!isEditing} type="text" value={formData.style} onChange={e => setFormData({...formData, style: e.target.value})} placeholder="e.g. Blank / Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
-                     
+
                      <div className="col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Garment Type</label>
+                        <input 
+                           disabled={!isEditing} 
+                           type="text" 
+                           list="garment-type-options" 
+                           value={formData.garmentType} 
+                           onChange={e => setFormData({...formData, garmentType: e.target.value})} 
+                           placeholder="e.g. Hoodies, T-Shirts" 
+                           className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" 
+                        />
+                        <datalist id="garment-type-options">
+                           {GARMENT_TYPE_CATEGORIES.map(gt => (
+                              <option key={gt} value={gt} />
+                           ))}
+                        </datalist>
+                     </div>
+
+                     <div className="col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Gender / Fit</label>
+                        <select 
+                           disabled={!isEditing} 
+                           value={formData.gender} 
+                           onChange={e => setFormData({...formData, gender: e.target.value})} 
+                           className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50"
+                        >
+                           <option value="Unisex">Unisex</option>
+                           <option value="Mens">Mens</option>
+                           <option value="Womens">Womens</option>
+                           <option value="Youth">Youth</option>
+                        </select>
+                     </div>
+                     
+                     <div className="col-span-1 md:col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
                         <input disabled={!isEditing} type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -202,6 +202,165 @@ export function CustomerDetail() {
       console.error("Error adding contact user:", e);
     }
   };
+
+  // Client Team Roster Management
+  const ROSTER_SIZES = [
+    'YXS', 'YS', 'YM', 'YL', 'YXL',
+    'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL',
+    'OSFA'
+  ];
+
+  const [teamRoster, setTeamRoster] = useState<any[]>([]);
+  const [rosterSearch, setRosterSearch] = useState('');
+  const [rosterSizeFilter, setRosterSizeFilter] = useState('All');
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<any | null>(null);
+  const [memberForm, setMemberForm] = useState({
+    name: '',
+    role: '',
+    size: 'M',
+    phone: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    notes: ''
+  });
+  const [isSavingMember, setIsSavingMember] = useState(false);
+
+  const handleOpenAddMemberModal = () => {
+    setEditingMember(null);
+    setMemberForm({
+      name: '',
+      role: '',
+      size: 'M',
+      phone: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      notes: ''
+    });
+    setIsMemberModalOpen(true);
+  };
+
+  const handleOpenEditMemberModal = (member: any) => {
+    setEditingMember(member);
+    setMemberForm({
+      name: member.name || '',
+      role: member.role || '',
+      size: member.size || 'M',
+      phone: member.phone || '',
+      street1: member.street1 || '',
+      street2: member.street2 || '',
+      city: member.city || '',
+      state: member.state || '',
+      zip: member.zip || '',
+      country: member.country || 'US',
+      notes: member.notes || ''
+    });
+    setIsMemberModalOpen(true);
+  };
+
+  const handleCopyCompanyAddressToMember = () => {
+    const compStreet = liveCustomerData?.shippingStreet || (customer as any)?.shippingStreet || '';
+    const compCity = liveCustomerData?.shippingCity || (customer as any)?.shippingCity || '';
+    const compState = liveCustomerData?.shippingState || (customer as any)?.shippingState || '';
+    const compZip = liveCustomerData?.shippingZip || (customer as any)?.shippingZip || '';
+    
+    setMemberForm(prev => ({
+      ...prev,
+      street1: compStreet || prev.street1,
+      city: compCity || prev.city,
+      state: compState || prev.state,
+      zip: compZip || prev.zip
+    }));
+  };
+
+  const handleSaveTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !memberForm.name.trim()) return;
+
+    setIsSavingMember(true);
+    try {
+      let updatedRoster: any[];
+      if (editingMember) {
+        updatedRoster = teamRoster.map(m => 
+          m.id === editingMember.id 
+            ? { ...m, ...memberForm, name: memberForm.name.trim(), updatedAt: new Date().toISOString() } 
+            : m
+        );
+      } else {
+        const newMember = {
+          id: `mem-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          ...memberForm,
+          name: memberForm.name.trim(),
+          createdAt: new Date().toISOString()
+        };
+        updatedRoster = [...teamRoster, newMember];
+      }
+
+      await updateDoc(doc(db, 'customers', id), {
+        teamRoster: updatedRoster
+      });
+
+      setTeamRoster(updatedRoster);
+      setLiveCustomerData((prev: any) => prev ? { ...prev, teamRoster: updatedRoster } : prev);
+      setIsMemberModalOpen(false);
+      setEditingMember(null);
+    } catch (err) {
+      console.error("Error saving team member:", err);
+      alert("Failed to save team member. Please try again.");
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  const handleDeleteTeamMember = async (memberId: string, memberName: string) => {
+    if (!id) return;
+    if (!window.confirm(`Are you sure you want to remove ${memberName || 'this team member'} from the roster?`)) return;
+
+    try {
+      const updatedRoster = teamRoster.filter(m => m.id !== memberId);
+      await updateDoc(doc(db, 'customers', id), {
+        teamRoster: updatedRoster
+      });
+      setTeamRoster(updatedRoster);
+      setLiveCustomerData((prev: any) => prev ? { ...prev, teamRoster: updatedRoster } : prev);
+    } catch (err) {
+      console.error("Error deleting team member:", err);
+      alert("Failed to delete team member.");
+    }
+  };
+
+  const filteredTeamMembers = useMemo(() => {
+    return teamRoster.filter(m => {
+      if (rosterSizeFilter !== 'All' && m.size !== rosterSizeFilter) return false;
+      if (rosterSearch.trim()) {
+        const query = rosterSearch.toLowerCase().trim();
+        const nameMatch = (m.name || '').toLowerCase().includes(query);
+        const roleMatch = (m.role || '').toLowerCase().includes(query);
+        const sizeMatch = (m.size || '').toLowerCase().includes(query);
+        const cityMatch = (m.city || '').toLowerCase().includes(query);
+        const streetMatch = (m.street1 || '').toLowerCase().includes(query);
+        return nameMatch || roleMatch || sizeMatch || cityMatch || streetMatch;
+      }
+      return true;
+    });
+  }, [teamRoster, rosterSearch, rosterSizeFilter]);
+
+  const rosterSizeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    teamRoster.forEach(m => {
+      const s = m.size || 'Unspecified';
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return counts;
+  }, [teamRoster]);
 
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [sampleItems, setSampleItems] = useState<any[]>([]);
@@ -974,8 +1133,8 @@ export function CustomerDetail() {
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   
-  // Right Column Tab (Asset Vault vs Chat)
-  const [activeRightTab, setActiveRightTab] = useState<'vault' | 'chat'>('vault');
+  // Right Column Tab (Asset Vault vs Chat vs Team Roster)
+  const [activeRightTab, setActiveRightTab] = useState<'vault' | 'chat' | 'roster'>('vault');
   const location = useLocation();
 
   useEffect(() => {
@@ -985,6 +1144,9 @@ export function CustomerDetail() {
       setActiveRightTab('chat');
     } else if (tabParam === 'vault') {
       setActiveRightTab('vault');
+    } else if (tabParam === 'roster') {
+      setActiveRightTab('roster');
+      setIsVaultSectionCollapsed(false);
     }
   }, [location.search]);
   const isOnline = () => {
@@ -1150,6 +1312,7 @@ export function CustomerDetail() {
           setSuggestedItems(data.suggestedItems || []);
           setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
+          setTeamRoster(data.teamRoster || []);
           
           if (data.hasUnreadCreation) {
             updateDoc(doc(db, 'customers', id), { hasUnreadCreation: false }).catch(err => {
@@ -1566,6 +1729,19 @@ export function CustomerDetail() {
           >
             <ExternalLink size={16} />
             Login to Client Portal
+          </PillButton>
+          <PillButton 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => {
+              setActiveRightTab('roster');
+              setIsVaultSectionCollapsed(false);
+              const el = document.getElementById('vault-roster-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <Users size={16} />
+            Team Roster ({teamRoster.length})
           </PillButton>
           <PillButton variant="filled" onClick={() => {
             if (liveCustomerData) {
@@ -2130,7 +2306,7 @@ export function CustomerDetail() {
           </div>
 
           {/* Customer Asset Vault & Chat Card */}
-          <div className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${!isVaultSectionCollapsed ? 'min-h-[450px]' : ''}`}>
+          <div id="vault-roster-section" className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${!isVaultSectionCollapsed ? 'min-h-[450px]' : ''}`}>
             <div>
               {/* Header Tabs */}
               <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
@@ -2165,6 +2341,21 @@ export function CustomerDetail() {
                       </span>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveRightTab('roster')}
+                    className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative gap-1.5 ${
+                      activeRightTab === 'roster'
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
+                    }`}
+                  >
+                    <Users size={15} />
+                    <span>Team Roster</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200">
+                      {teamRoster.length}
+                    </span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -2196,6 +2387,17 @@ export function CustomerDetail() {
                         {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
                       </label>
                     </>
+                  )}
+
+                  {!isVaultSectionCollapsed && activeRightTab === 'roster' && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddMemberModal}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <UserPlus size={14} />
+                      Add Member
+                    </button>
                   )}
 
                   <button
@@ -2256,7 +2458,7 @@ export function CustomerDetail() {
                     </div>
                   )}
                 </>
-              ) : (
+              ) : activeRightTab === 'chat' ? (
                 /* Customer Chat Content */
                 <div className="flex flex-col h-[350px] justify-between">
                   {/* Messages Area */}
@@ -2379,6 +2581,169 @@ export function CustomerDetail() {
                       <Send size={14} />
                     </button>
                   </form>
+                </div>
+              ) : (
+                /* Team Roster Content */
+                <div className="flex flex-col h-[400px]">
+                  {/* Search & Filter Bar */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-center justify-between pb-3 border-b border-brand-border/60 shrink-0">
+                    <div className="relative flex-1 w-full">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        placeholder="Search member name, role, size, address..."
+                        value={rosterSearch}
+                        onChange={(e) => setRosterSearch(e.target.value)}
+                        className="w-full bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-brand-primary rounded-xl pl-9 pr-3 py-1.5 text-xs text-neutral-900 focus:outline-none font-medium transition-all"
+                      />
+                      {rosterSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setRosterSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 shrink-0">
+                      <select
+                        value={rosterSizeFilter}
+                        onChange={(e) => setRosterSizeFilter(e.target.value)}
+                        className="bg-neutral-50 border border-neutral-200 text-neutral-700 text-xs font-bold rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
+                      >
+                        <option value="All">All Sizes ({teamRoster.length})</option>
+                        {ROSTER_SIZES.map(s => {
+                          const count = rosterSizeCounts[s] || 0;
+                          if (count === 0) return null;
+                          return (
+                            <option key={s} value={s}>{s} ({count})</option>
+                          );
+                        })}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleOpenAddMemberModal}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        <Plus size={14} /> Add Member
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Members List */}
+                  <div className="flex-1 overflow-y-auto pr-1 py-3 space-y-2.5 custom-scrollbar min-h-0">
+                    {teamRoster.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-brand-bg/40 rounded-xl border border-dashed border-brand-border/80 my-auto">
+                        <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-3 shadow-sm">
+                          <Users size={22} />
+                        </div>
+                        <h4 className="text-sm font-bold text-neutral-900 mb-1">No Team Members Added</h4>
+                        <p className="text-xs text-neutral-500 max-w-sm mb-4 leading-relaxed">
+                          Save client team members, their garment sizes, and delivery addresses. Addresses will automatically port as optional shipping locations across all client orders.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddMemberModal}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <UserPlus size={14} /> Add First Team Member
+                        </button>
+                      </div>
+                    ) : filteredTeamMembers.length === 0 ? (
+                      <div className="py-12 text-center text-xs text-neutral-500">
+                        No team members match "{rosterSearch}"
+                      </div>
+                    ) : (
+                      filteredTeamMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="p-3.5 bg-neutral-50/80 hover:bg-white border border-brand-border/80 hover:border-indigo-300 rounded-xl transition-all shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex items-start justify-between gap-3 group"
+                        >
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0 border border-indigo-200 shadow-xs">
+                              {(member.name || 'M').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-extrabold text-neutral-900 truncate">
+                                  {member.name}
+                                </span>
+                                {member.role && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-200/70 text-neutral-700 border border-neutral-300/60">
+                                    {member.role}
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-xs">
+                                  Size: {member.size || 'M'}
+                                </span>
+                              </div>
+
+                              {/* Address */}
+                              {member.street1 || member.city ? (
+                                <div className="flex items-center gap-1 text-[11px] text-neutral-600 mt-1.5 truncate">
+                                  <MapPin size={12} className="text-indigo-500 shrink-0" />
+                                  <span className="truncate">
+                                    {member.street1}{member.street2 ? `, ${member.street2}` : ''}, {member.city ? `${member.city}, ` : ''}{member.state} {member.zip}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-neutral-400 italic mt-1">
+                                  No shipping address
+                                </div>
+                              )}
+
+                              {/* Notes & Phone */}
+                              <div className="flex items-center gap-3 text-[10px] text-neutral-500 mt-1 flex-wrap">
+                                {member.phone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone size={10} className="text-neutral-400" />
+                                    {member.phone}
+                                  </span>
+                                )}
+                                {member.notes && (
+                                  <span className="italic text-neutral-600 bg-amber-50/80 border border-amber-200/60 px-1.5 py-0.5 rounded text-[10px]">
+                                    Note: {member.notes}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditMemberModal(member)}
+                              className="p-1.5 text-neutral-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Team Member"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTeamMember(member.id, member.name)}
+                              className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Team Member"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer status */}
+                  {teamRoster.length > 0 && (
+                    <div className="pt-2 border-t border-brand-border/60 flex items-center justify-between text-[11px] text-neutral-500 shrink-0">
+                      <span>Showing {filteredTeamMembers.length} of {teamRoster.length} members</span>
+                      <span className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
+                        <Truck size={12} />
+                        {teamRoster.filter(m => m.street1 || m.city).length} with shipping address
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
                 </>
@@ -2506,6 +2871,225 @@ export function CustomerDetail() {
                 </PillButton>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Team Member Modal */}
+      {isMemberModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="bg-white max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="p-6 border-b border-brand-border flex items-center justify-between bg-neutral-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-xs">
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-neutral-900">
+                    {editingMember ? 'Edit Team Member' : 'Add Team Member'}
+                  </h3>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Configure garment size and delivery address for this client contact.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMemberModalOpen(false)}
+                className="p-2 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleSaveTeamMember} className="flex flex-col">
+              <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Jane Doe"
+                      value={memberForm.name}
+                      onChange={(e) => setMemberForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-neutral-900 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
+                      Role / Title
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Project Manager"
+                      value={memberForm.role}
+                      onChange={(e) => setMemberForm(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-neutral-900 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
+                      Garment Size <span className="text-indigo-600">*</span>
+                    </label>
+                    <select
+                      value={memberForm.size}
+                      onChange={(e) => setMemberForm(prev => ({ ...prev, size: e.target.value }))}
+                      className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3.5 py-2.5 text-sm font-bold text-neutral-900 focus:outline-none transition-all cursor-pointer"
+                    >
+                      {ROSTER_SIZES.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
+                      Direct Phone
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="e.g. (555) 234-5678"
+                      value={memberForm.phone}
+                      onChange={(e) => setMemberForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3.5 py-2.5 text-sm font-medium text-neutral-900 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Shipping Address Section */}
+                <div className="pt-3 border-t border-brand-border/60">
+                  <div className="flex items-center justify-between pb-2 mb-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-900">
+                      <MapPin size={14} className="text-indigo-600" />
+                      <span>Shipping Address (Optional)</span>
+                    </div>
+                    {Boolean(liveCustomerData?.shippingStreet || (customer as any)?.shippingStreet) && (
+                      <button
+                        type="button"
+                        onClick={handleCopyCompanyAddressToMember}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Copy customer's primary address"
+                      >
+                        <Copy size={11} />
+                        Copy Company Address
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-neutral-500 mb-3">
+                    If populated, this address will be automatically available as a quick destination in all orders.
+                  </p>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
+                        Street Address
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="123 Main Street"
+                        value={memberForm.street1}
+                        onChange={(e) => setMemberForm(prev => ({ ...prev, street1: e.target.value }))}
+                        className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
+                        Apt / Suite / Bldg (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Suite 400"
+                        value={memberForm.street2}
+                        onChange={(e) => setMemberForm(prev => ({ ...prev, street2: e.target.value }))}
+                        className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-1">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Austin"
+                          value={memberForm.city}
+                          onChange={(e) => setMemberForm(prev => ({ ...prev, city: e.target.value }))}
+                          className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="TX"
+                          value={memberForm.state}
+                          onChange={(e) => setMemberForm(prev => ({ ...prev, state: e.target.value }))}
+                          className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
+                          ZIP
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="78701"
+                          value={memberForm.zip}
+                          onChange={(e) => setMemberForm(prev => ({ ...prev, zip: e.target.value }))}
+                          className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sizing & Shipping Notes */}
+                <div className="pt-2">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-700 mb-1.5">
+                    Sizing & Delivery Notes
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Prefers oversized fit, gate code 1234, leave with front desk"
+                    value={memberForm.notes}
+                    onChange={(e) => setMemberForm(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full bg-neutral-50 border border-neutral-300 focus:bg-white focus:border-indigo-600 rounded-xl px-3.5 py-2 text-xs font-medium text-neutral-900 focus:outline-none transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 px-6 border-t border-brand-border bg-neutral-50 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsMemberModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingMember || !memberForm.name.trim()}
+                  className="bg-black hover:bg-neutral-800 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingMember && <Loader2 size={13} className="animate-spin" />}
+                  {editingMember ? 'Save Changes' : 'Add Team Member'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -8,10 +8,21 @@ import {
   Upload, Check, RefreshCw, ArrowLeft
 } from 'lucide-react';
 
-interface TeamMember {
+export interface TeamMember {
   id: string;
   name: string;
   size: string;
+  role?: string;
+  phone?: string;
+  street1?: string;
+  street2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 const AVAILABLE_SIZES = [

@@ -1090,8 +1090,10 @@ export function OrderDetail() {
     discountValue: '',
     discountAmount: '',
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
+    shippingDestinations: [] as any[],
     thirdPartyBilling: { account: '', zip: '' }
   });
+  const [activeDestIndex, setActiveDestIndex] = useState(0);
 
   const [isInvoiceEditorOpen, setIsInvoiceEditorOpen] = useState(false);
   const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
@@ -1674,6 +1676,107 @@ export function OrderDetail() {
     phone: '',
     notes: ''
   });
+  const [quickShipSaveDestination, setQuickShipSaveDestination] = useState<boolean>(false);
+  const [itemSaveDestination, setItemSaveDestination] = useState<boolean>(false);
+
+  const [liveCustomer, setLiveCustomer] = useState<any>(null);
+  const [fetchingCustomer, setFetchingCustomer] = useState(true);
+
+  useEffect(() => {
+    const fetchLiveCustomer = async () => {
+      if (!order || !order.customerId) {
+        setFetchingCustomer(false);
+        return;
+      }
+      try {
+        const d = await getDoc(doc(db, 'customers', order.customerId));
+        if (d.exists()) {
+           setLiveCustomer(d.data());
+        }
+      } catch (err) {
+        console.error("Failed to fetch live customer data", err);
+      } finally {
+        setFetchingCustomer(false);
+      }
+    };
+    fetchLiveCustomer();
+  }, [order?.customerId]);
+
+  const orderSavedDestinations = useMemo(() => {
+    const list: { label: string; address: any }[] = [];
+
+    // 0. Client Team Roster (members with shipping address)
+    (liveCustomer?.teamRoster || []).forEach((member: any) => {
+      if (member && (member.street1 || member.city)) {
+        const sizeBadge = member.size ? ` (Size: ${member.size})` : '';
+        const roleBadge = member.role ? ` [${member.role}]` : '';
+        const summary = `${member.street1 || ''}, ${member.city || ''}${member.state ? `, ${member.state}` : ''}`;
+        list.push({
+          label: `👤 [Team Member] ${member.name}${roleBadge}${sizeBadge}: ${summary}`,
+          address: {
+            name: member.name || '',
+            company: liveCustomer?.company || liveCustomer?.name || '',
+            street1: member.street1 || '',
+            street2: member.street2 || '',
+            city: member.city || '',
+            state: member.state || '',
+            zip: member.zip || '',
+            country: member.country || 'US',
+            phone: member.phone || '',
+            notes: member.notes || (member.size ? `Size: ${member.size}` : '')
+          }
+        });
+      }
+    });
+
+    // 1. Order's configured shipping destinations
+    (order?.shippingDestinations || []).forEach((dest: any, idx: number) => {
+      if (dest && (dest.street1 || dest.name)) {
+        const title = dest.label || (idx === 0 ? 'Primary Destination' : `Destination ${idx + 1}`);
+        const summary = `${dest.name ? `${dest.name} • ` : ''}${dest.street1}, ${dest.city || ''}${dest.state ? `, ${dest.state}` : ''}`;
+        list.push({
+          label: `📍 [Order Saved] ${title}: ${summary}`,
+          address: dest
+        });
+      }
+    });
+
+    // 2. Primary order shippingAddress (if not already included)
+    if (order?.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.name)) {
+      const alreadyIn = list.some(d => d.address.street1 === order.shippingAddress.street1 && d.address.name === order.shippingAddress.name);
+      if (!alreadyIn) {
+        list.push({
+          label: `📍 [Primary Address]: ${order.shippingAddress.name || 'Recipient'} (${order.shippingAddress.city || ''}${order.shippingAddress.state ? `, ${order.shippingAddress.state}` : ''})`,
+          address: order.shippingAddress
+        });
+      }
+    }
+
+    // 3. Existing boxes in this order
+    (order?.boxes || []).forEach((b: any) => {
+      if (b.shippingAddress && (b.shippingAddress.name || b.shippingAddress.street1)) {
+        const alreadyIn = list.some(d => d.address.street1 === b.shippingAddress.street1 && d.address.name === b.shippingAddress.name);
+        if (!alreadyIn) {
+          const label = `📦 [${b.name}]: ${b.shippingAddress.name || 'Recipient'} (${b.shippingAddress.city || ''}${b.shippingAddress.state ? `, ${b.shippingAddress.state}` : ''})`;
+          list.push({ label, address: b.shippingAddress });
+        }
+      }
+    });
+
+    // 4. Existing items with custom shipping
+    (order?.items || []).forEach((it: any) => {
+      if (it.hasCustomShipping && it.shippingAddress && (it.shippingAddress.name || it.shippingAddress.street1)) {
+        const alreadyIn = list.some(d => d.address.street1 === it.shippingAddress.street1 && d.address.name === it.shippingAddress.name);
+        if (!alreadyIn) {
+          const label = `👕 [Item "${it.style || 'Garment'}"]: ${it.shippingAddress.name || 'Recipient'} (${it.shippingAddress.city || ''}${it.shippingAddress.state ? `, ${it.shippingAddress.state}` : ''})`;
+          list.push({ label, address: it.shippingAddress });
+        }
+      }
+    });
+
+    return list;
+  }, [liveCustomer?.teamRoster, liveCustomer?.company, liveCustomer?.name, order?.shippingDestinations, order?.shippingAddress, order?.boxes, order?.items]);
+
   const [expandedImage, setExpandedImage] = useState<{src: string, alt?: string, item?: any, itemStyle?: string} | null>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
@@ -2136,29 +2239,6 @@ export function OrderDetail() {
     }
   };
 
-  const [liveCustomer, setLiveCustomer] = useState<any>(null);
-  const [fetchingCustomer, setFetchingCustomer] = useState(true);
-
-  useEffect(() => {
-    const fetchLiveCustomer = async () => {
-      if (!order || !order.customerId) {
-        setFetchingCustomer(false);
-        return;
-      }
-      try {
-        const d = await getDoc(doc(db, 'customers', order.customerId));
-        if (d.exists()) {
-           setLiveCustomer(d.data());
-        }
-      } catch (err) {
-        console.error("Failed to fetch live customer data", err);
-      } finally {
-        setFetchingCustomer(false);
-      }
-    };
-    fetchLiveCustomer();
-  }, [order?.customerId]);
-
   const handleSearchShopify = async (e: React.FormEvent) => {
      e.preventDefault();
      if (!shopifySearchQuery.trim()) return;
@@ -2393,8 +2473,35 @@ export function OrderDetail() {
      };
 
      const updatedBoxes = [...liveBoxes, newBox];
+     
+     let updatedDestinations = Array.isArray(orderDoc.data()?.shippingDestinations) ? [...(orderDoc.data()?.shippingDestinations || [])] : [];
+     if (quickShipSaveDestination && isCustom && (quickShipShippingAddress.street1 || quickShipShippingAddress.name)) {
+       const alreadyExists = updatedDestinations.some((d: any) =>
+         d.street1?.toLowerCase().trim() === quickShipShippingAddress.street1?.toLowerCase().trim() &&
+         d.name?.toLowerCase().trim() === quickShipShippingAddress.name?.toLowerCase().trim()
+       );
+       if (!alreadyExists) {
+         updatedDestinations.push({
+           id: `dest-${Date.now()}`,
+           label: boxFinalName || quickShipShippingAddress.name || `Destination ${updatedDestinations.length + 1}`,
+           name: quickShipShippingAddress.name || '',
+           company: quickShipShippingAddress.company || '',
+           street1: quickShipShippingAddress.street1 || '',
+           street2: quickShipShippingAddress.street2 || '',
+           city: quickShipShippingAddress.city || '',
+           state: quickShipShippingAddress.state || '',
+           zip: quickShipShippingAddress.zip || '',
+           country: quickShipShippingAddress.country || 'US',
+           phone: quickShipShippingAddress.phone || '',
+           notes: quickShipShippingAddress.notes || '',
+           isDefault: false
+         });
+       }
+     }
+
      await setDoc(doc(db, 'orders', id), { 
        boxes: updatedBoxes,
+       ...(quickShipSaveDestination && isCustom && (quickShipShippingAddress.street1 || quickShipShippingAddress.name) ? { shippingDestinations: updatedDestinations } : {}),
        activities: [activity, ...(orderDoc.data()?.activities || [])]
      }, { merge: true });
      
@@ -2402,6 +2509,7 @@ export function OrderDetail() {
      
      setQuickShipItem(null);
      setQuickShipSizes({});
+     setQuickShipSaveDestination(false);
   };
 
    const handleSizeClick = async (item: any, size: string, qty: number) => {
@@ -3646,11 +3754,38 @@ export function OrderDetail() {
         timestamp: new Date().toISOString()
       };
 
+      let updatedDestinations = Array.isArray(orderData.shippingDestinations) ? [...orderData.shippingDestinations] : [];
+      if (itemSaveDestination && finalItem.hasCustomShipping && finalItem.shippingAddress && (finalItem.shippingAddress.street1 || finalItem.shippingAddress.name)) {
+        const alreadyExists = updatedDestinations.some((d: any) =>
+          d.street1?.toLowerCase().trim() === finalItem.shippingAddress.street1?.toLowerCase().trim() &&
+          d.name?.toLowerCase().trim() === finalItem.shippingAddress.name?.toLowerCase().trim()
+        );
+        if (!alreadyExists) {
+          updatedDestinations.push({
+            id: `dest-${Date.now()}`,
+            label: `Item: ${finalItem.style || finalItem.shippingAddress.name || 'Custom Location'}`,
+            name: finalItem.shippingAddress.name || '',
+            company: finalItem.shippingAddress.company || '',
+            street1: finalItem.shippingAddress.street1 || '',
+            street2: finalItem.shippingAddress.street2 || '',
+            city: finalItem.shippingAddress.city || '',
+            state: finalItem.shippingAddress.state || '',
+            zip: finalItem.shippingAddress.zip || '',
+            country: finalItem.shippingAddress.country || 'US',
+            phone: finalItem.shippingAddress.phone || '',
+            notes: finalItem.shippingAddress.notes || '',
+            isDefault: false
+          });
+        }
+      }
+
       await setDoc(doc(db, 'orders', id), { 
          items: updatedItems,
+         ...(itemSaveDestination && finalItem.hasCustomShipping && finalItem.shippingAddress && (finalItem.shippingAddress.street1 || finalItem.shippingAddress.name) ? { shippingDestinations: updatedDestinations } : {}),
          activities: [activity, ...(orderData.activities || [])]
       }, { merge: true });
       setEditItemObj(null);
+      setItemSaveDestination(false);
     } catch (err) {
       console.error(err);
     } finally {
@@ -3766,8 +3901,47 @@ export function OrderDetail() {
         city: liveCustomer?.shippingCity || '',
         state: liveCustomer?.shippingState || '',
         zip: liveCustomer?.shippingZip || '',
-        country: 'US'
+        country: 'US',
+        phone: liveCustomer?.phone || '',
+        notes: ''
       };
+
+      const primaryAddress = hasOrderAddress ? order.shippingAddress : fallbackAddress;
+
+      let initialDestinations: any[] = [];
+      if (Array.isArray(order.shippingDestinations) && order.shippingDestinations.length > 0) {
+        initialDestinations = order.shippingDestinations.map((d: any, idx: number) => ({
+          id: d.id || `dest-${idx}-${Date.now()}`,
+          label: d.label || (idx === 0 ? 'Primary Destination' : `Location ${idx + 1}`),
+          name: d.name || '',
+          company: d.company || '',
+          street1: d.street1 || '',
+          street2: d.street2 || '',
+          city: d.city || '',
+          state: d.state || '',
+          zip: d.zip || '',
+          country: d.country || 'US',
+          phone: d.phone || '',
+          notes: d.notes || '',
+          isDefault: idx === 0
+        }));
+      } else {
+        initialDestinations = [{
+          id: 'dest-primary',
+          label: 'Primary Destination',
+          name: primaryAddress.name || '',
+          company: primaryAddress.company || '',
+          street1: primaryAddress.street1 || '',
+          street2: primaryAddress.street2 || '',
+          city: primaryAddress.city || '',
+          state: primaryAddress.state || '',
+          zip: primaryAddress.zip || '',
+          country: primaryAddress.country || 'US',
+          phone: primaryAddress.phone || '',
+          notes: primaryAddress.notes || '',
+          isDefault: true
+        }];
+      }
 
       setEditForm({
         title: order.title || '',
@@ -3780,11 +3954,145 @@ export function OrderDetail() {
         discountType: (editForm as any).discountType || order.discountType || (order.discountCode?.includes('50') ? 'percent' : ''),
         discountValue: (editForm as any).discountValue || (order.discountValue !== undefined && order.discountValue !== null ? String(order.discountValue) : (order.discountCode?.includes('50') ? '50' : '')),
         discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
-        shippingAddress: hasOrderAddress ? order.shippingAddress : fallbackAddress,
+        shippingAddress: primaryAddress,
+        shippingDestinations: initialDestinations,
         thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
       });
+      setActiveDestIndex(0);
     }
   }, [orders, id, liveCustomer]);
+
+  const currentDest = (editForm.shippingDestinations && editForm.shippingDestinations[activeDestIndex]) 
+    ? editForm.shippingDestinations[activeDestIndex] 
+    : (editForm.shippingDestinations?.[0] || editForm.shippingAddress);
+
+  const updateCurrentDest = (updates: any) => {
+    setEditForm(prev => {
+      const dests = [...(prev.shippingDestinations || [])];
+      const targetIdx = (activeDestIndex >= 0 && activeDestIndex < dests.length) ? activeDestIndex : 0;
+      if (dests[targetIdx]) {
+        dests[targetIdx] = { ...dests[targetIdx], ...updates };
+      }
+      const isPrimary = targetIdx === 0;
+      const newShippingAddress = isPrimary ? {
+        name: dests[0]?.name || '',
+        company: dests[0]?.company || '',
+        street1: dests[0]?.street1 || '',
+        street2: dests[0]?.street2 || '',
+        city: dests[0]?.city || '',
+        state: dests[0]?.state || '',
+        zip: dests[0]?.zip || '',
+        country: dests[0]?.country || 'US',
+        phone: dests[0]?.phone || '',
+        notes: dests[0]?.notes || ''
+      } : prev.shippingAddress;
+
+      return {
+        ...prev,
+        shippingDestinations: dests,
+        shippingAddress: newShippingAddress
+      };
+    });
+  };
+
+  const handleMakePrimary = (indexToPromote: number) => {
+    if (indexToPromote <= 0 || !editForm.shippingDestinations?.[indexToPromote]) return;
+    setEditForm(prev => {
+      const dests = [...prev.shippingDestinations];
+      const [promoted] = dests.splice(indexToPromote, 1);
+      promoted.isDefault = true;
+      dests.forEach(d => { d.isDefault = false; });
+      const newDests = [promoted, ...dests];
+      return {
+        ...prev,
+        shippingDestinations: newDests,
+        shippingAddress: {
+          name: promoted.name || '',
+          company: promoted.company || '',
+          street1: promoted.street1 || '',
+          street2: promoted.street2 || '',
+          city: promoted.city || '',
+          state: promoted.state || '',
+          zip: promoted.zip || '',
+          country: promoted.country || 'US',
+          phone: promoted.phone || '',
+          notes: promoted.notes || ''
+        }
+      };
+    });
+    setActiveDestIndex(0);
+  };
+
+  const handleDeleteDestination = (indexToDelete: number) => {
+    if (indexToDelete <= 0) {
+      alert("Cannot remove the primary shipping destination.");
+      return;
+    }
+    const destToDelete = editForm.shippingDestinations[indexToDelete];
+    if (destToDelete && (destToDelete.street1 || destToDelete.name)) {
+      if (!window.confirm(`Are you sure you want to remove "${destToDelete.label || destToDelete.name || 'this destination'}"?`)) {
+        return;
+      }
+    }
+    setEditForm(prev => {
+      const dests = prev.shippingDestinations.filter((_, idx) => idx !== indexToDelete);
+      return {
+        ...prev,
+        shippingDestinations: dests
+      };
+    });
+    setActiveDestIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const handleAddDestination = () => {
+    const newNum = (editForm.shippingDestinations?.length || 0) + 1;
+    const newDest = {
+      id: `dest-${Date.now()}`,
+      label: `Location ${newNum}`,
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      notes: '',
+      isDefault: false
+    };
+    setEditForm(prev => ({
+      ...prev,
+      shippingDestinations: [...(prev.shippingDestinations || []), newDest]
+    }));
+    setActiveDestIndex(editForm.shippingDestinations?.length || 0);
+  };
+
+  const handleAddTeamMemberDestination = (member: any) => {
+    const newDest = {
+      id: `dest-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      label: `${member.name} (${member.size || 'Team'})`,
+      name: member.name || '',
+      company: liveCustomer?.company || liveCustomer?.name || '',
+      street1: member.street1 || '',
+      street2: member.street2 || '',
+      city: member.city || '',
+      state: member.state || '',
+      zip: member.zip || '',
+      country: member.country || 'US',
+      phone: member.phone || '',
+      notes: member.notes || (member.size ? `Size: ${member.size}` : ''),
+      isDefault: false
+    };
+    setEditForm(prev => {
+      const existing = prev.shippingDestinations || [];
+      return {
+        ...prev,
+        shippingDestinations: [...existing, newDest]
+      };
+    });
+    setActiveDestIndex(editForm.shippingDestinations?.length || 0);
+  };
 
   const handleSaveEdit = async () => {
     if (!id || !order) return;
@@ -3792,6 +4100,21 @@ export function OrderDetail() {
     try {
       const statusChanged = editForm.statusIndex !== order.statusIndex;
       const parsedDiscountAmount = parseFloat(editForm.discountAmount) || 0;
+      
+      const primaryDest = editForm.shippingDestinations?.[0] || editForm.shippingAddress;
+      const finalShippingAddress = {
+        name: primaryDest.name || '',
+        company: primaryDest.company || '',
+        street1: primaryDest.street1 || '',
+        street2: primaryDest.street2 || '',
+        city: primaryDest.city || '',
+        state: primaryDest.state || '',
+        zip: primaryDest.zip || '',
+        country: primaryDest.country || 'US',
+        phone: primaryDest.phone || '',
+        notes: primaryDest.notes || ''
+      };
+
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
@@ -3804,7 +4127,8 @@ export function OrderDetail() {
         discountType: (editForm as any).discountType || (editForm.discountCode.includes('50') ? 'percent' : 'fixed'),
         discountValue: parseFloat((editForm as any).discountValue) || (editForm.discountCode.includes('50') ? 50 : 0),
         discountAmount: parsedDiscountAmount,
-        shippingAddress: editForm.shippingAddress,
+        shippingAddress: finalShippingAddress,
+        shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling
       }, { merge: true });
       setIsEditDialogOpen(false);
@@ -3868,6 +4192,20 @@ export function OrderDetail() {
         timestamp: new Date().toISOString()
       };
 
+      const primaryDest = editForm.shippingDestinations?.[0] || editForm.shippingAddress;
+      const finalShippingAddress = {
+        name: primaryDest.name || '',
+        company: primaryDest.company || '',
+        street1: primaryDest.street1 || '',
+        street2: primaryDest.street2 || '',
+        city: primaryDest.city || '',
+        state: primaryDest.state || '',
+        zip: primaryDest.zip || '',
+        country: primaryDest.country || 'US',
+        phone: primaryDest.phone || '',
+        notes: primaryDest.notes || ''
+      };
+
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
@@ -3876,7 +4214,8 @@ export function OrderDetail() {
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
-        shippingAddress: editForm.shippingAddress,
+        shippingAddress: finalShippingAddress,
+        shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling,
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
@@ -6985,60 +7324,216 @@ export function OrderDetail() {
               {/* Right Column: Global Shipping Architecture */}
               <div className="flex flex-col gap-6">
                 <div>
-                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div> Global Origin / Destination Profile</h4>
-                  
-                  <div className="space-y-4">
-                    <p className="text-xs text-brand-secondary -mt-2">This is the default configuration used whenever you click "Buy UPS Label" on a specific box for this exact order.</p>
+                  <div className="flex items-center justify-between pb-2 border-b border-brand-border mb-3">
+                    <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div> 
+                      Shipping Destinations ({editForm.shippingDestinations?.length || 1})
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      {liveCustomer?.teamRoster && liveCustomer.teamRoster.filter((m: any) => m.street1 || m.city).length > 0 && (
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            const memberId = e.target.value;
+                            if (!memberId) return;
+                            const member = liveCustomer.teamRoster.find((m: any) => m.id === memberId);
+                            if (member) {
+                              handleAddTeamMemberDestination(member);
+                            }
+                            e.target.value = "";
+                          }}
+                          className="text-xs font-bold text-neutral-700 bg-white hover:bg-neutral-50 px-2.5 py-1.5 rounded-lg border border-brand-border transition-colors cursor-pointer outline-none shadow-xs"
+                          title="Quickly add a client team member's address to this order"
+                        >
+                          <option value="">👤 + Add from Team Roster...</option>
+                          {liveCustomer.teamRoster
+                            .filter((m: any) => m.street1 || m.city)
+                            .map((m: any) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.size || 'Member'}) - {m.city || m.street1}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleAddDestination}
+                        className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                      >
+                        <Plus size={13} strokeWidth={2.5} /> Add Destination
+                      </button>
+                    </div>
+                  </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Recipient Information</label>
-                      <div className="flex gap-2 mb-2">
-                        <input 
-                          type="text" placeholder="Recipient Name" autoComplete="name"
-                          value={editForm.shippingAddress.name || ''} 
-                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, name: e.target.value}}))}
-                          className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
-                        />
-                        <input 
-                          type="text" placeholder="Company (Optional)" autoComplete="organization"
-                          value={editForm.shippingAddress.company || ''} 
-                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, company: e.target.value}}))}
-                          className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                  <div className="space-y-4">
+                    <p className="text-xs text-brand-secondary -mt-1 mb-3">
+                      Configure all delivery locations for this order. The primary destination is used for order-level rating, invoices, and default box shipments.
+                    </p>
+
+                  {/* Destination Tabs */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 custom-scrollbar">
+                    {(editForm.shippingDestinations || []).map((dest: any, idx: number) => {
+                      const isSelected = activeDestIndex === idx;
+                      return (
+                        <button
+                          key={dest.id || idx}
+                          type="button"
+                          onClick={() => setActiveDestIndex(idx)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-600/30'
+                              : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200 border border-brand-border/60'
+                          }`}
+                        >
+                          <MapPin size={12} className={isSelected ? 'text-white' : 'text-neutral-500'} />
+                          <span>{dest.label || (idx === 0 ? 'Primary Destination' : `Location ${idx + 1}`)}</span>
+                          {idx === 0 && (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-wider ${
+                              isSelected ? 'bg-indigo-800 text-white' : 'bg-neutral-200 text-neutral-600'
+                            }`}>
+                              Primary
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active Destination Card / Form */}
+                  <div className="bg-neutral-50/70 p-4 rounded-xl border border-brand-border space-y-3">
+                    <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-brand-border/60 flex-wrap">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                          Destination Label / Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Primary Office, Austin Warehouse, Sarah - Drop 1"
+                          value={currentDest.label || ''}
+                          onChange={e => updateCurrentDest({ label: e.target.value })}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-bold text-brand-primary focus:border-brand-primary outline-none"
                         />
                       </div>
-                      <input 
-                        type="text" placeholder="Street Address" autoComplete="address-line1"
-                        value={editForm.shippingAddress.street1 || ''} 
-                        onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street1: e.target.value}}))}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
-                      />
-                      <input 
-                        type="text" placeholder="Apt, Suite, Unit (Optional)" autoComplete="address-line2"
-                        value={editForm.shippingAddress.street2 || ''} 
-                        onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street2: e.target.value}}))}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
-                      />
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" placeholder="City" autoComplete="address-level2"
-                          value={editForm.shippingAddress.city || ''} 
-                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, city: e.target.value}}))}
-                          className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
-                        />
-                        <input 
-                          type="text" placeholder="State" autoComplete="address-level1"
-                          value={editForm.shippingAddress.state || ''} 
-                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, state: e.target.value}}))}
-                          className="w-[20%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} 
-                        />
-                        <input 
-                          type="text" placeholder="Zip" autoComplete="postal-code"
-                          value={editForm.shippingAddress.zip || ''} 
-                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, zip: e.target.value}}))}
-                          className="w-[35%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
-                        />
+
+                      <div className="flex items-center gap-2 pt-3 sm:pt-0">
+                        {activeDestIndex > 0 ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleMakePrimary(activeDestIndex)}
+                              className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                              title="Set as Primary/Default Order Shipping Destination"
+                            >
+                              Make Primary
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDestination(activeDestIndex)}
+                              className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                              title="Remove this destination"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md font-semibold">
+                            Default Destination
+                          </span>
+                        )}
                       </div>
                     </div>
+
+                    {/* Address fields */}
+                    <div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name *</label>
+                          <input 
+                            type="text" placeholder="Recipient Name" autoComplete="name"
+                            value={currentDest.name || ''} 
+                            onChange={e => updateCurrentDest({ name: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none font-semibold" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Company (Optional)</label>
+                          <input 
+                            type="text" placeholder="Company (Optional)" autoComplete="organization"
+                            value={currentDest.company || ''} 
+                            onChange={e => updateCurrentDest({ company: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mb-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Street Address *</label>
+                        <input 
+                          type="text" placeholder="Street Address" autoComplete="address-line1"
+                          value={currentDest.street1 || ''} 
+                          onChange={e => updateCurrentDest({ street1: e.target.value })}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none mb-2" 
+                        />
+                        <input 
+                          type="text" placeholder="Apt, Suite, Unit, Dock (Optional)" autoComplete="address-line2"
+                          value={currentDest.street2 || ''} 
+                          onChange={e => updateCurrentDest({ street2: e.target.value })}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-12 gap-2 mb-2">
+                        <div className="col-span-5">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
+                          <input 
+                            type="text" placeholder="City" autoComplete="address-level2"
+                            value={currentDest.city || ''} 
+                            onChange={e => updateCurrentDest({ city: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
+                          <input 
+                            type="text" placeholder="ST" autoComplete="address-level1"
+                            value={currentDest.state || ''} 
+                            onChange={e => updateCurrentDest({ state: e.target.value.toUpperCase() })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none uppercase font-bold" maxLength={3} 
+                          />
+                        </div>
+                        <div className="col-span-4">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Zip *</label>
+                          <input 
+                            type="text" placeholder="Zip" autoComplete="postal-code"
+                            value={currentDest.zip || ''} 
+                            onChange={e => updateCurrentDest({ zip: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone (Optional)</label>
+                          <input 
+                            type="text" placeholder="Phone"
+                            value={currentDest.phone || ''} 
+                            onChange={e => updateCurrentDest({ phone: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Delivery Notes (Optional)</label>
+                          <input 
+                            type="text" placeholder="e.g. Loading dock code #1234"
+                            value={currentDest.notes || ''} 
+                            onChange={e => updateCurrentDest({ notes: e.target.value })}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                     {/* EasyPost Automated Shipping Estimation */}
                     <div className="mt-6 pt-6 border-t border-brand-border">
@@ -8779,6 +9274,44 @@ export function OrderDetail() {
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                {orderSavedDestinations.length > 0 && (
+                                  <div className="sm:col-span-2 bg-neutral-50 p-3 rounded-lg border border-brand-border/60">
+                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                                      Select from order destinations
+                                    </label>
+                                    <select 
+                                      onChange={(e) => {
+                                        const idx = parseInt(e.target.value);
+                                        if (!isNaN(idx) && orderSavedDestinations[idx]) {
+                                          const sel = orderSavedDestinations[idx].address;
+                                          setEditItemObj({
+                                            ...editItemObj,
+                                            shippingAddress: {
+                                              name: sel.name || '',
+                                              company: sel.company || '',
+                                              street1: sel.street1 || '',
+                                              street2: sel.street2 || '',
+                                              city: sel.city || '',
+                                              state: sel.state || '',
+                                              zip: sel.zip || '',
+                                              country: sel.country || 'US',
+                                              phone: sel.phone || '',
+                                              notes: sel.notes || ''
+                                            }
+                                          });
+                                        }
+                                      }}
+                                      defaultValue=""
+                                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                                    >
+                                      <option value="">-- Choose a location saved for this order --</option>
+                                      {orderSavedDestinations.map((d, i) => (
+                                        <option key={i} value={i}>{d.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                )}
+
                                 <div className="flex flex-col gap-1">
                                   <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Recipient Name *</label>
                                   <input 
@@ -8906,6 +9439,20 @@ export function OrderDetail() {
                                     placeholder="e.g. Leave at front desk, or separate box requested"
                                     className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
                                   />
+                                </div>
+
+                                <div className="sm:col-span-2 pt-1">
+                                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                                    <input 
+                                      type="checkbox"
+                                      checked={itemSaveDestination}
+                                      onChange={e => setItemSaveDestination(e.target.checked)}
+                                      className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                                    />
+                                    <span className="text-[11px] font-semibold text-brand-secondary">
+                                      Save this destination to order profile for other shipments
+                                    </span>
+                                  </label>
                                 </div>
                               </div>
                             </div>
@@ -9053,24 +9600,8 @@ export function OrderDetail() {
       {quickShipItem && (() => {
         const totalUnits = Object.values(quickShipSizes).reduce((acc, q) => acc + (Number(q) || 0), 0);
         
-        // Find all saved destinations across boxes & items in this order
-        const savedDestinations: { label: string, address: any }[] = [];
-        (order.boxes || []).forEach((b: any) => {
-          if (b.shippingAddress && (b.shippingAddress.name || b.shippingAddress.street1)) {
-            const label = `${b.name}: ${b.shippingAddress.name || 'Recipient'} (${b.shippingAddress.city || ''}${b.shippingAddress.state ? `, ${b.shippingAddress.state}` : ''})`;
-            if (!savedDestinations.some(d => d.address.street1 === b.shippingAddress.street1 && d.address.name === b.shippingAddress.name)) {
-              savedDestinations.push({ label, address: b.shippingAddress });
-            }
-          }
-        });
-        (order.items || []).forEach((it: any) => {
-          if (it.hasCustomShipping && it.shippingAddress && (it.shippingAddress.name || it.shippingAddress.street1)) {
-            const label = `Item "${it.style || 'Garment'}": ${it.shippingAddress.name || 'Recipient'} (${it.shippingAddress.city || ''}${it.shippingAddress.state ? `, ${it.shippingAddress.state}` : ''})`;
-            if (!savedDestinations.some(d => d.address.street1 === it.shippingAddress.street1 && d.address.name === it.shippingAddress.name)) {
-              savedDestinations.push({ label, address: it.shippingAddress });
-            }
-          }
-        });
+        // Use all saved destinations configured for this order
+        const savedDestinations = orderSavedDestinations;
 
         return (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setQuickShipItem(null)}>
@@ -9331,6 +9862,20 @@ export function OrderDetail() {
                             />
                           </div>
                         </div>
+
+                        <div className="pt-1">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input 
+                              type="checkbox"
+                              checked={quickShipSaveDestination}
+                              onChange={e => setQuickShipSaveDestination(e.target.checked)}
+                              className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                            />
+                            <span className="text-[11px] font-semibold text-brand-secondary">
+                              Save this destination to order profile for future shipments
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-neutral-50/60 p-3.5 rounded-xl border border-dashed border-brand-border text-xs text-brand-secondary flex items-start gap-2.5">
@@ -9398,6 +9943,7 @@ export function OrderDetail() {
           order={order}
           boxId={trackingBoxId}
           onClose={() => setTrackingBoxId(null)}
+          customer={liveCustomer}
         />
       )}
 

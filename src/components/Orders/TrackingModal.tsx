@@ -4,7 +4,7 @@ import { PillButton } from '../ui/PillButton';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: string, onClose: () => void }) {
+export function TrackingModal({ order, boxId, onClose, customer }: { order: any, boxId: string, onClose: () => void, customer?: any }) {
     const box = order.boxes?.find((b: any) => b.id === boxId);
     
     const [carrier, setCarrier] = useState(box?.trackingCarrier || '');
@@ -27,7 +27,67 @@ export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: st
         notes: box?.shippingAddress?.notes || ''
     });
 
+    const [saveToOrderDestinations, setSaveToOrderDestinations] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Compute saved destinations from order configuration, primary address, customer team roster, and boxes
+    const savedDestinations: { label: string; address: any }[] = [];
+
+    // 0. Client Team Roster (members with shipping address)
+    (customer?.teamRoster || []).forEach((member: any) => {
+        if (member && (member.street1 || member.city)) {
+            const sizeBadge = member.size ? ` (Size: ${member.size})` : '';
+            const roleBadge = member.role ? ` [${member.role}]` : '';
+            const summary = `${member.street1 || ''}, ${member.city || ''}${member.state ? `, ${member.state}` : ''}`;
+            savedDestinations.push({
+                label: `👤 [Team Member] ${member.name}${roleBadge}${sizeBadge}: ${summary}`,
+                address: {
+                    name: member.name || '',
+                    company: customer?.company || customer?.name || '',
+                    street1: member.street1 || '',
+                    street2: member.street2 || '',
+                    city: member.city || '',
+                    state: member.state || '',
+                    zip: member.zip || '',
+                    country: member.country || 'US',
+                    phone: member.phone || '',
+                    notes: member.notes || (member.size ? `Size: ${member.size}` : '')
+                }
+            });
+        }
+    });
+
+    // 1. Order's configured shipping destinations
+    (order.shippingDestinations || []).forEach((dest: any, idx: number) => {
+        if (dest && (dest.street1 || dest.name)) {
+            const title = dest.label || (idx === 0 ? 'Primary Destination' : `Destination ${idx + 1}`);
+            const summary = `${dest.name ? `${dest.name} • ` : ''}${dest.street1}, ${dest.city || ''}${dest.state ? `, ${dest.state}` : ''}`;
+            savedDestinations.push({
+                label: `📍 [Order Saved] ${title}: ${summary}`,
+                address: dest
+            });
+        }
+    });
+    if (order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.name)) {
+        const alreadyIn = savedDestinations.some(d => d.address.street1 === order.shippingAddress.street1 && d.address.name === order.shippingAddress.name);
+        if (!alreadyIn) {
+            savedDestinations.push({
+                label: `📍 [Primary Address]: ${order.shippingAddress.name || 'Recipient'} (${order.shippingAddress.city || ''}${order.shippingAddress.state ? `, ${order.shippingAddress.state}` : ''})`,
+                address: order.shippingAddress
+            });
+        }
+    }
+    (order.boxes || []).forEach((b: any) => {
+        if (b.id !== boxId && b.shippingAddress && (b.shippingAddress.name || b.shippingAddress.street1)) {
+            const alreadyIn = savedDestinations.some(d => d.address.street1 === b.shippingAddress.street1 && d.address.name === b.shippingAddress.name);
+            if (!alreadyIn) {
+                savedDestinations.push({
+                    label: `📦 [${b.name}]: ${b.shippingAddress.name || 'Recipient'} (${b.shippingAddress.city || ''}${b.shippingAddress.state ? `, ${b.shippingAddress.state}` : ''})`,
+                    address: b.shippingAddress
+                });
+            }
+        }
+    });
 
     const handleCopyOrderAddress = () => {
         const ordAddr = order.shippingAddress || {};
@@ -50,6 +110,31 @@ export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: st
         setIsSaving(true);
         try {
             const isCustom = hasCustomAddress && Boolean(address.name || address.street1 || address.city);
+            let updatedDestinations = Array.isArray(order.shippingDestinations) ? [...order.shippingDestinations] : [];
+            if (saveToOrderDestinations && isCustom && (address.street1 || address.name)) {
+                const alreadyExists = updatedDestinations.some((d: any) =>
+                    d.street1?.toLowerCase().trim() === address.street1?.toLowerCase().trim() &&
+                    d.name?.toLowerCase().trim() === address.name?.toLowerCase().trim()
+                );
+                if (!alreadyExists) {
+                    updatedDestinations.push({
+                        id: `dest-${Date.now()}`,
+                        label: boxName.trim() || address.name || `Destination ${updatedDestinations.length + 1}`,
+                        name: address.name || '',
+                        company: address.company || '',
+                        street1: address.street1 || '',
+                        street2: address.street2 || '',
+                        city: address.city || '',
+                        state: address.state || '',
+                        zip: address.zip || '',
+                        country: address.country || 'US',
+                        phone: address.phone || '',
+                        notes: address.notes || '',
+                        isDefault: false
+                    });
+                }
+            }
+
             const updatedBoxes = (order.boxes || []).map((b: any) => {
                 if (b.id === boxId) {
                     return { 
@@ -75,6 +160,7 @@ export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: st
 
             await setDoc(doc(db, 'orders', order.id), { 
                 boxes: updatedBoxes,
+                ...(saveToOrderDestinations && isCustom && (address.street1 || address.name) ? { shippingDestinations: updatedDestinations } : {}),
                 activities: [activity, ...(order.activities || [])]
             }, { merge: true });
             onClose();
@@ -166,6 +252,39 @@ export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: st
 
                         {hasCustomAddress ? (
                             <div className="bg-neutral-50/70 p-4 rounded-2xl border border-brand-border/80 space-y-3">
+                                {savedDestinations.length > 0 && (
+                                    <div className="pb-3 border-b border-brand-border/60">
+                                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Select from existing order locations</label>
+                                        <select 
+                                            onChange={(e) => {
+                                                const idx = parseInt(e.target.value);
+                                                if (!isNaN(idx) && savedDestinations[idx]) {
+                                                    const sel = savedDestinations[idx].address;
+                                                    setAddress({
+                                                        name: sel.name || '',
+                                                        company: sel.company || '',
+                                                        street1: sel.street1 || '',
+                                                        street2: sel.street2 || '',
+                                                        city: sel.city || '',
+                                                        state: sel.state || '',
+                                                        zip: sel.zip || '',
+                                                        country: sel.country || 'US',
+                                                        phone: sel.phone || '',
+                                                        notes: sel.notes || ''
+                                                    });
+                                                }
+                                            }}
+                                            defaultValue=""
+                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                                        >
+                                            <option value="">-- Choose a location saved for this order --</option>
+                                            {savedDestinations.map((d, i) => (
+                                                <option key={i} value={i}>{d.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name *</label>
@@ -262,6 +381,20 @@ export function TrackingModal({ order, boxId, onClose }: { order: any, boxId: st
                                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="pt-1">
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input 
+                                            type="checkbox"
+                                            checked={saveToOrderDestinations}
+                                            onChange={e => setSaveToOrderDestinations(e.target.checked)}
+                                            className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                                        />
+                                        <span className="text-[11px] font-semibold text-brand-secondary">
+                                            Save this destination to order profile for future shipments
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         ) : (
