@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, RefreshCw, Globe } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, ArrowLeftRight } from 'lucide-react';
+import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -33,6 +34,7 @@ export function OrdersList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'calendar';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+  const [transferringOrder, setTransferringOrder] = useState<any | null>(null);
 
   const displayedOrders = nonTempOrders.filter(order => {
     // 1. Tab filter
@@ -306,9 +308,14 @@ export function OrdersList() {
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">
                     {formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}
                   </div>
-                  <div className="flex justify-end">
-                     <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
-                       <MoreHorizontal size={18} />
+                  <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+                     <button 
+                       type="button"
+                       onClick={() => setTransferringOrder(order)}
+                       className="p-1.5 text-brand-secondary hover:text-black hover:bg-white rounded-lg transition-colors border border-transparent hover:border-brand-border flex items-center gap-1"
+                       title="Transfer order to another customer"
+                     >
+                       <ArrowLeftRight size={15} />
                      </button>
                   </div>
                 </div>
@@ -317,6 +324,16 @@ export function OrdersList() {
           </div>
         </div>
       </div>
+      )}
+
+      {transferringOrder && (
+        <TransferOrderModal
+          isOpen={Boolean(transferringOrder)}
+          onClose={() => setTransferringOrder(null)}
+          order={transferringOrder}
+          currentCustomer={transferringOrder.customerId ? liveCustomers[transferringOrder.customerId] : null}
+          onTransferred={() => setTransferringOrder(null)}
+        />
       )}
     </div>
   );

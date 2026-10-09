@@ -3,7 +3,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3, Sparkles, Check } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3, Sparkles, Check, MapPin } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
@@ -961,6 +961,23 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                           <p className="text-xs text-brand-secondary font-medium tracking-wide flex items-center gap-2">
                             {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
                           </p>
+                          {(() => {
+                            const dest = box.shippingAddress || (box.hasCustomShipping ? null : order.shippingAddress);
+                            if (!dest || (!dest.name && !dest.street1 && !dest.city)) return null;
+                            const isCustom = Boolean(box.hasCustomShipping && (box.shippingAddress?.name || box.shippingAddress?.street1));
+                            return (
+                              <div 
+                                onClick={(e) => { e.stopPropagation(); onEditTracking(box.id); }}
+                                className={`flex items-center gap-1.5 text-[10px] font-bold mt-1.5 px-2 py-0.5 rounded-md cursor-pointer transition-all hover:scale-105 max-w-[200px] truncate ${isCustom ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs' : 'bg-neutral-100 text-neutral-600 border border-neutral-200'}`}
+                                title={`Delivery Destination:\n${dest.name || 'Recipient'}${dest.company ? ` (${dest.company})` : ''}\n${dest.street1 || ''} ${dest.street2 || ''}\n${dest.city || ''}, ${dest.state || ''} ${dest.zip || ''}${dest.notes ? `\nNotes: ${dest.notes}` : ''}\n\nClick to edit shipment & destination`}
+                              >
+                                <MapPin size={10} className={isCustom ? 'text-blue-600 shrink-0' : 'text-neutral-400 shrink-0'} />
+                                <span className="truncate">
+                                  {dest.name || 'Recipient'} {dest.city ? `(${dest.city}${dest.state ? `, ${dest.state}` : ''})` : ''}
+                                </span>
+                              </div>
+                            );
+                          })()}
                        </div>
                      </div>
                      
@@ -1023,7 +1040,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                               </button>
                            )}
                            <button onClick={(e) => { e.stopPropagation(); onEditTracking(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors tooltip w-full h-[32px] rounded-full border ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'bg-brand-bg hover:bg-neutral-100 text-brand-primary border-brand-border'}`}>
-                             <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
+                             <Truck size={12} /> Edit Shipment
                            </button>
                            <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full h-[32px] bg-brand-bg hover:bg-neutral-100 rounded-full border border-brand-border">
                              <ExternalLink size={12} /> Public URL

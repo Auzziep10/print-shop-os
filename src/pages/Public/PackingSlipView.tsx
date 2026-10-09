@@ -119,6 +119,17 @@ export function PackingSlipView() {
                       <p className="text-[10px] print:text-[8px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 print:mb-0">Order ID <span className="hidden print:inline">:</span></p>
                       <p className="font-semibold text-neutral-800 text-sm print:text-[10px]">{order.portalId || order.id}</p>
                     </div>
+                    {(() => {
+                      const dest = box.shippingAddress || (box.hasCustomShipping ? null : order.shippingAddress);
+                      if (!dest || (!dest.name && !dest.street1 && !dest.city)) return null;
+                      return (
+                        <div className="bg-neutral-50/50 print:bg-transparent p-4 print:p-2 rounded-2xl border border-neutral-100/50 print:border-none col-span-2">
+                          <p className="text-[10px] print:text-[8px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 print:mb-0">Shipment Destination / Recipient <span className="hidden print:inline">:</span></p>
+                          <p className="font-semibold text-neutral-800 text-sm print:text-[10px]">{dest.name} {dest.company ? `(${dest.company})` : ''}</p>
+                          <p className="text-xs print:text-[9px] text-neutral-600">{dest.street1} {dest.street2 ? `• ${dest.street2}` : ''} • {dest.city}, {dest.state} {dest.zip}</p>
+                        </div>
+                      );
+                    })()}
                  </div>
 
                  {/* Items Header CONDENSED */}
@@ -224,6 +235,17 @@ export function PackingSlipView() {
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Order ID</p>
                       <p className="font-semibold text-neutral-800 text-sm">{order.portalId || order.id}</p>
                     </div>
+                    {(() => {
+                      const dest = box.shippingAddress || (box.hasCustomShipping ? null : order.shippingAddress);
+                      if (!dest || (!dest.name && !dest.street1 && !dest.city)) return null;
+                      return (
+                        <div className="bg-neutral-50/50 print:bg-transparent p-4 print:p-2 rounded-2xl border border-neutral-100/50 print:border-none col-span-2">
+                          <p className="text-[10px] print:text-[8px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 print:mb-0">Shipment Destination / Recipient <span className="hidden print:inline">:</span></p>
+                          <p className="font-semibold text-neutral-800 text-sm print:text-[10px]">{dest.name} {dest.company ? `(${dest.company})` : ''}</p>
+                          <p className="text-xs print:text-[9px] text-neutral-600">{dest.street1} {dest.street2 ? `• ${dest.street2}` : ''} • {dest.city}, {dest.state} {dest.zip}</p>
+                        </div>
+                      );
+                    })()}
                  </div>
 
                  {/* Items Header ORIGINAL */}

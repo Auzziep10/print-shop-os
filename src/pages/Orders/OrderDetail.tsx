@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
+import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -1659,6 +1660,20 @@ export function OrderDetail() {
   const [dtfLadder, setDtfLadder] = useState<any>(null);
   const [quickShipItem, setQuickShipItem] = useState<any>(null);
   const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
+  const [quickShipBoxName, setQuickShipBoxName] = useState<string>('');
+  const [quickShipHasCustomShipping, setQuickShipHasCustomShipping] = useState<boolean>(false);
+  const [quickShipShippingAddress, setQuickShipShippingAddress] = useState({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    phone: '',
+    notes: ''
+  });
   const [expandedImage, setExpandedImage] = useState<{src: string, alt?: string, item?: any, itemStyle?: string} | null>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
@@ -1674,6 +1689,7 @@ export function OrderDetail() {
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
+  const [isTransferCustomerModalOpen, setIsTransferCustomerModalOpen] = useState(false);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
@@ -2283,6 +2299,38 @@ export function OrderDetail() {
 
      const initialSizes: Record<string, number> = {};
      Object.keys(remainingSizes).forEach(k => { initialSizes[k] = 0; });
+
+     const liveBoxes = order.boxes || [];
+     let nextName = `Box ${(liveBoxes.length || 0) + 1}`;
+     const boxIds = liveBoxes.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
+     if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
+     setQuickShipBoxName(nextName);
+
+     const hasItemCustom = Boolean(item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1));
+     setQuickShipHasCustomShipping(hasItemCustom);
+     setQuickShipShippingAddress(hasItemCustom ? {
+        name: item.shippingAddress?.name || '',
+        company: item.shippingAddress?.company || '',
+        street1: item.shippingAddress?.street1 || '',
+        street2: item.shippingAddress?.street2 || '',
+        city: item.shippingAddress?.city || '',
+        state: item.shippingAddress?.state || '',
+        zip: item.shippingAddress?.zip || '',
+        country: item.shippingAddress?.country || 'US',
+        phone: item.shippingAddress?.phone || '',
+        notes: item.shippingAddress?.notes || ''
+     } : {
+        name: order.shippingAddress?.name || order.customerName || '',
+        company: order.shippingAddress?.company || '',
+        street1: order.shippingAddress?.street1 || '',
+        street2: order.shippingAddress?.street2 || '',
+        city: order.shippingAddress?.city || '',
+        state: order.shippingAddress?.state || '',
+        zip: order.shippingAddress?.zip || '',
+        country: order.shippingAddress?.country || 'US',
+        phone: order.shippingAddress?.phone || '',
+        notes: ''
+     });
      
      setQuickShipItem({ ...item, remainingSizes });
      setQuickShipSizes(initialSizes);
@@ -2304,14 +2352,18 @@ export function OrderDetail() {
      const boxIds = liveBoxes.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
      if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
 
+     const boxFinalName = quickShipBoxName.trim() || nextName;
+
      const packedSizes: Record<string, number> = {};
      Object.entries(quickShipSizes).forEach(([s, q]) => {
         if (q > 0) packedSizes[s] = q;
      });
 
+     const isCustom = quickShipHasCustomShipping && Boolean(quickShipShippingAddress.name || quickShipShippingAddress.street1 || quickShipShippingAddress.city);
+
      const newBox = {
         id: `box-${Date.now()}`,
-        name: nextName,
+        name: boxFinalName,
         createdAt: new Date().toISOString(),
         items: [{
            id: quickShipItem.id,
@@ -2324,16 +2376,18 @@ export function OrderDetail() {
            sizes: packedSizes,
            qty: totalQty
         }],
-        ...(quickShipItem.hasCustomShipping && quickShipItem.shippingAddress && (quickShipItem.shippingAddress.name || quickShipItem.shippingAddress.street1) ? {
-           shippingAddress: quickShipItem.shippingAddress,
-           hasCustomShipping: true
-        } : {})
+        shippingAddress: isCustom ? quickShipShippingAddress : (order.shippingAddress || null),
+        hasCustomShipping: isCustom
      };
      
+     const destSummary = isCustom 
+       ? ` to ${quickShipShippingAddress.name || 'Separate Recipient'}${quickShipShippingAddress.city ? ` (${quickShipShippingAddress.city}, ${quickShipShippingAddress.state})` : ''}`
+       : '';
+
      const activity = {
        id: `act-${Date.now()}`,
        type: 'system',
-       message: `Created ${nextName} containing ${totalQty} items`,
+       message: `Created ${boxFinalName} containing ${totalQty} items${destSummary}`,
        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
        timestamp: new Date().toISOString()
      };
@@ -4035,12 +4089,23 @@ export function OrderDetail() {
                   )}
                   {order.customerId ? (
                     <div className="flex flex-col gap-1">
-                      <Link 
-                        to={`/customers/${order.customerId}`}
-                        className="text-lg text-brand-secondary hover:text-brand-primary hover:underline transition-colors line-clamp-2 inline-block font-semibold"
-                      >
-                        {customer.company}
-                      </Link>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Link 
+                          to={`/customers/${order.customerId}`}
+                          className="text-lg text-brand-secondary hover:text-brand-primary hover:underline transition-colors line-clamp-2 inline-block font-semibold"
+                        >
+                          {customer.company}
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setIsTransferCustomerModalOpen(true)}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-full border border-neutral-200 transition-all shadow-2xs hover:shadow-xs cursor-pointer shrink-0"
+                          title="Transfer order to another customer"
+                        >
+                          <ArrowLeftRight size={12} className="text-black" />
+                          <span>Transfer Customer</span>
+                        </button>
+                      </div>
                       {(customer.contactName || customer.email || customer.phone) && (
                         <div className="text-xs text-brand-secondary flex flex-wrap gap-x-4 gap-y-1 mt-1">
                           {customer.contactName && <span><strong>Contact:</strong> {customer.contactName}</span>}
@@ -4058,7 +4123,18 @@ export function OrderDetail() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsTransferCustomerModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-full border border-neutral-200 transition-all shadow-2xs hover:shadow-xs cursor-pointer shrink-0"
+                        title="Assign or transfer order to a customer"
+                      >
+                        <ArrowLeftRight size={12} className="text-black" />
+                        <span>Transfer / Assign Customer</span>
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
@@ -4933,6 +5009,23 @@ export function OrderDetail() {
                                      <p className="text-[10px] text-brand-secondary font-medium tracking-wide flex gap-1 items-center">
                                        <Printer size={10} /> {box.items?.reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0) || 0} ITEMS TOTAL
                                      </p>
+                                     {(() => {
+                                       const dest = box.shippingAddress || (box.hasCustomShipping ? null : order.shippingAddress);
+                                       if (!dest || (!dest.name && !dest.street1 && !dest.city)) return null;
+                                       const isCustom = Boolean(box.hasCustomShipping && (box.shippingAddress?.name || box.shippingAddress?.street1));
+                                       return (
+                                         <div 
+                                           onClick={(e) => { e.stopPropagation(); setTrackingBoxId(box.id); }}
+                                           className={`flex items-center gap-1.5 text-[10px] font-bold mt-1.5 px-2 py-0.5 rounded-md cursor-pointer transition-all hover:scale-105 max-w-[200px] truncate ${isCustom ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs' : 'bg-neutral-100 text-neutral-600 border border-neutral-200'}`}
+                                           title={`Delivery Destination:\n${dest.name || 'Recipient'}${dest.company ? ` (${dest.company})` : ''}\n${dest.street1 || ''} ${dest.street2 || ''}\n${dest.city || ''}, ${dest.state || ''} ${dest.zip || ''}${dest.notes ? `\nNotes: ${dest.notes}` : ''}\n\nClick to edit shipment & destination`}
+                                         >
+                                           <MapPin size={10} className={isCustom ? 'text-blue-600 shrink-0' : 'text-neutral-400 shrink-0'} />
+                                           <span className="truncate">
+                                             {dest.name || 'Recipient'} {dest.city ? `(${dest.city}${dest.state ? `, ${dest.state}` : ''})` : ''}
+                                           </span>
+                                         </div>
+                                       );
+                                     })()}
                                    </div>
                                  </div>
                                  
@@ -4984,7 +5077,7 @@ export function OrderDetail() {
                                        <ExternalLink size={12} /> View Slip
                                      </a>
                                      <button onClick={(e) => { e.stopPropagation(); setTrackingBoxId(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'text-brand-primary hover:text-black bg-neutral-50 hover:bg-neutral-100'}`}>
-                                       <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
+                                       <Truck size={12} /> Edit Shipment
                                      </button>
                                      <button 
                                         type="button"
@@ -6713,6 +6806,20 @@ export function OrderDetail() {
                         onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                       />
+                    </div>
+
+                    <div className="p-3.5 bg-neutral-50 rounded-xl border border-brand-border flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary block mb-0.5">Assigned Customer Account</span>
+                        <p className="text-sm font-bold text-brand-primary truncate">{customer.company || customer.name || 'Unknown Customer'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsTransferCustomerModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-black hover:bg-neutral-800 px-3 py-2 rounded-xl transition-all shadow-sm shrink-0 cursor-pointer"
+                      >
+                        <ArrowLeftRight size={13} /> Transfer Order
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -8943,58 +9050,317 @@ export function OrderDetail() {
       )}
 
       {/* Quick Ship Modal */}
-      {quickShipItem && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setQuickShipItem(null)}>
-          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full flex flex-col shadow-2xl border border-brand-border" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-2">
-               <h3 className="text-2xl font-black text-gray-900 leading-tight">Quick Ship</h3>
-               <button className="p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors" onClick={() => setQuickShipItem(null)}><X size={16} /></button>
-            </div>
-            
-            <p className="font-semibold text-brand-primary mb-6 flex items-center gap-2 flex-wrap">
-              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shrink-0">Target Garment</span> 
-              <span>{quickShipItem.style}</span>
-            </p>
-            
-            <p className="text-[13px] text-gray-500 mb-6 font-medium bg-neutral-50 p-3 rounded-xl border border-neutral-100">Select sizes and quantities to pack. A new discrete tracking box will automatically generate containing precisely these items.</p>
-            
-            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-8">
-               {Object.entries(quickShipItem.remainingSizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, maxQty]: [string, any]) => {
-                  if (maxQty === 0) return null;
-                  return (
-                    <div key={size} className="grid grid-rows-[1fr_auto] border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white group">
-                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center min-h-[44px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
-                         <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center line-clamp-2">{size}</span>
-                       </div>
-                       <div className="bg-white flex flex-col items-center justify-center py-2.5 h-full gap-1.5">
-                         <input 
-                           type="number"
-                           min="0"
-                           max={maxQty}
-                           value={quickShipSizes[size] === 0 ? '' : quickShipSizes[size]}
-                           onChange={(e) => {
-                              let val = parseInt(e.target.value) || 0;
-                              if (val > maxQty) val = maxQty;
-                              if (val < 0) val = 0;
-                              setQuickShipSizes(prev => ({ ...prev, [size]: val }));
-                           }}
-                           className="w-full bg-transparent px-2 text-xl font-black text-center focus:outline-none placeholder:text-gray-200"
-                           placeholder="0"
-                         />
-                         <span className="text-[10px] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md text-blue-700 font-bold uppercase tracking-widest shadow-sm">Max {maxQty}</span>
-                       </div>
+      {quickShipItem && (() => {
+        const totalUnits = Object.values(quickShipSizes).reduce((acc, q) => acc + (Number(q) || 0), 0);
+        
+        // Find all saved destinations across boxes & items in this order
+        const savedDestinations: { label: string, address: any }[] = [];
+        (order.boxes || []).forEach((b: any) => {
+          if (b.shippingAddress && (b.shippingAddress.name || b.shippingAddress.street1)) {
+            const label = `${b.name}: ${b.shippingAddress.name || 'Recipient'} (${b.shippingAddress.city || ''}${b.shippingAddress.state ? `, ${b.shippingAddress.state}` : ''})`;
+            if (!savedDestinations.some(d => d.address.street1 === b.shippingAddress.street1 && d.address.name === b.shippingAddress.name)) {
+              savedDestinations.push({ label, address: b.shippingAddress });
+            }
+          }
+        });
+        (order.items || []).forEach((it: any) => {
+          if (it.hasCustomShipping && it.shippingAddress && (it.shippingAddress.name || it.shippingAddress.street1)) {
+            const label = `Item "${it.style || 'Garment'}": ${it.shippingAddress.name || 'Recipient'} (${it.shippingAddress.city || ''}${it.shippingAddress.state ? `, ${it.shippingAddress.state}` : ''})`;
+            if (!savedDestinations.some(d => d.address.street1 === it.shippingAddress.street1 && d.address.name === it.shippingAddress.name)) {
+              savedDestinations.push({ label, address: it.shippingAddress });
+            }
+          }
+        });
+
+        return (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setQuickShipItem(null)}>
+            <div className="bg-white rounded-3xl p-6 md:p-8 max-w-xl w-full flex flex-col shadow-2xl border border-brand-border my-auto max-h-[92vh]" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-2">
+                 <div>
+                   <h3 className="text-2xl font-black text-gray-900 leading-tight flex items-center gap-2">
+                     <Truck size={24} className="text-black" />
+                     Quick Ship
+                   </h3>
+                   <p className="text-xs text-brand-secondary mt-0.5 font-medium">Pack garments into a dedicated shipment with its own tracking and destination address.</p>
+                 </div>
+                 <button className="p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors shrink-0" onClick={() => setQuickShipItem(null)}><X size={16} /></button>
+              </div>
+              
+              <div className="flex items-center justify-between gap-2 flex-wrap bg-neutral-50 p-3 rounded-2xl border border-neutral-100 mb-5">
+                <p className="font-semibold text-brand-primary flex items-center gap-2 flex-wrap text-sm">
+                  <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shrink-0 font-bold">Target Garment</span> 
+                  <span className="font-bold">{quickShipItem.style}</span>
+                </p>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${totalUnits > 0 ? 'bg-black text-white' : 'bg-neutral-200 text-neutral-600'}`}>
+                  {totalUnits} {totalUnits === 1 ? 'Unit Selected' : 'Units Selected'}
+                </span>
+              </div>
+              
+              <div className="overflow-y-auto custom-scrollbar pr-1 flex-1 space-y-5 mb-5">
+                {/* Size Grid */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary">1. Select Garments To Pack</span>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const all: Record<string, number> = {};
+                        Object.entries(quickShipItem.remainingSizes).forEach(([s, q]) => { all[s] = Number(q) || 0; });
+                        setQuickShipSizes(all);
+                      }}
+                      className="text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:underline cursor-pointer"
+                    >
+                      Pack All Remaining
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                     {Object.entries(quickShipItem.remainingSizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, maxQty]: [string, any]) => {
+                        if (maxQty === 0) return null;
+                        const curVal = quickShipSizes[size] || 0;
+                        return (
+                          <div key={size} className={`grid grid-rows-[auto_1fr] border shadow-xs rounded-xl overflow-hidden transition-all bg-white group ${curVal > 0 ? 'border-black ring-1 ring-black' : 'border-brand-border'}`}>
+                             <div className={`p-1.5 flex flex-col items-center justify-center border-b transition-colors ${curVal > 0 ? 'bg-black text-white border-black' : 'bg-neutral-100/70 text-brand-secondary border-brand-border'}`}>
+                               <span className="text-[10px] font-bold uppercase tracking-wider leading-tight text-center line-clamp-1">{size}</span>
+                             </div>
+                             <div className="bg-white flex flex-col items-center justify-center py-2 h-full gap-1">
+                               <input 
+                                 type="number"
+                                 min="0"
+                                 max={maxQty}
+                                 value={quickShipSizes[size] === 0 ? '' : quickShipSizes[size]}
+                                 onChange={(e) => {
+                                    let val = parseInt(e.target.value) || 0;
+                                    if (val > maxQty) val = maxQty;
+                                    if (val < 0) val = 0;
+                                    setQuickShipSizes(prev => ({ ...prev, [size]: val }));
+                                 }}
+                                 className="w-full bg-transparent px-1 text-lg font-black text-center focus:outline-none placeholder:text-gray-200"
+                                 placeholder="0"
+                               />
+                               <span className="text-[9px] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-blue-700 font-bold uppercase tracking-widest">Max {maxQty}</span>
+                             </div>
+                          </div>
+                        )
+                     })}
+                  </div>
+                </div>
+
+                {/* Shipment Details & Destination */}
+                <div className="pt-4 border-t border-brand-border/60 space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Shipment Name / Box Label</label>
+                    <input 
+                      type="text" 
+                      value={quickShipBoxName} 
+                      onChange={e => setQuickShipBoxName(e.target.value)} 
+                      placeholder="e.g. Box 1, West Coast Drop, Suite 200" 
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:border-brand-primary outline-none" 
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input 
+                          type="checkbox"
+                          checked={quickShipHasCustomShipping}
+                          onChange={e => setQuickShipHasCustomShipping(e.target.checked)}
+                          className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                        />
+                        <span className="text-xs font-bold text-brand-primary flex items-center gap-1.5">
+                          <MapPin size={14} className={quickShipHasCustomShipping ? "text-blue-600" : "text-neutral-400"} />
+                          Ship to a separate location / address
+                        </span>
+                      </label>
+
+                      {quickShipHasCustomShipping && (
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            const ordAddr = order.shippingAddress || {};
+                            setQuickShipShippingAddress({
+                              name: ordAddr.name || order.customerName || '',
+                              company: ordAddr.company || '',
+                              street1: ordAddr.street1 || '',
+                              street2: ordAddr.street2 || '',
+                              city: ordAddr.city || '',
+                              state: ordAddr.state || '',
+                              zip: ordAddr.zip || '',
+                              country: ordAddr.country || 'US',
+                              phone: ordAddr.phone || '',
+                              notes: ''
+                            });
+                          }}
+                          className="text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:text-black flex items-center gap-1 bg-neutral-100 hover:bg-neutral-200 px-2 py-1 rounded-md transition-colors"
+                          title="Fill with main order shipping address"
+                        >
+                          <Copy size={11} /> Copy Order Address
+                        </button>
+                      )}
                     </div>
-                  )
-               })}
-            </div>
-            
-            <div className="flex gap-4">
-              <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center py-4">Cancel</PillButton>
-              <PillButton variant="filled" className="flex-1 justify-center bg-black text-white hover:bg-neutral-800 py-4 shadow-lg shadow-black/10" onClick={handleSaveQuickShip}>Submit Shipment</PillButton>
+
+                    {quickShipHasCustomShipping ? (
+                      <div className="bg-neutral-50/70 p-4 rounded-2xl border border-brand-border/80 space-y-3">
+                        {savedDestinations.length > 0 && (
+                          <div className="pb-3 border-b border-brand-border/60">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Select from existing order locations</label>
+                            <select 
+                              onChange={(e) => {
+                                const idx = parseInt(e.target.value);
+                                if (!isNaN(idx) && savedDestinations[idx]) {
+                                  const sel = savedDestinations[idx].address;
+                                  setQuickShipShippingAddress({
+                                    name: sel.name || '',
+                                    company: sel.company || '',
+                                    street1: sel.street1 || '',
+                                    street2: sel.street2 || '',
+                                    city: sel.city || '',
+                                    state: sel.state || '',
+                                    zip: sel.zip || '',
+                                    country: sel.country || 'US',
+                                    phone: sel.phone || '',
+                                    notes: sel.notes || ''
+                                  });
+                                }
+                              }}
+                              defaultValue=""
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                            >
+                              <option value="">-- Choose a location already used in this order --</option>
+                              {savedDestinations.map((d, i) => (
+                                <option key={i} value={i}>{d.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name *</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.name} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, name: e.target.value }))}
+                              placeholder="e.g. Jane Doe"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Company (Optional)</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.company} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, company: e.target.value }))}
+                              placeholder="e.g. Acme Corp"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Street Address *</label>
+                          <input 
+                            type="text" 
+                            value={quickShipShippingAddress.street1} 
+                            onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street1: e.target.value }))}
+                            placeholder="123 Main St"
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none mb-2"
+                          />
+                          <input 
+                            type="text" 
+                            value={quickShipShippingAddress.street2} 
+                            onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street2: e.target.value }))}
+                            placeholder="Apt, Suite, Unit (optional)"
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="col-span-1">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.city} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, city: e.target.value }))}
+                              placeholder="City"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.state} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                              placeholder="ST"
+                              maxLength={3}
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs uppercase focus:border-brand-primary outline-none font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">ZIP *</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.zip} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, zip: e.target.value }))}
+                              placeholder="ZIP"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.phone} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
+                              placeholder="(555) 000-0000"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Delivery Notes</label>
+                            <input 
+                              type="text" 
+                              value={quickShipShippingAddress.notes} 
+                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, notes: e.target.value }))}
+                              placeholder="e.g. Leave at reception"
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-neutral-50/60 p-3.5 rounded-xl border border-dashed border-brand-border text-xs text-brand-secondary flex items-start gap-2.5">
+                        <MapPin size={16} className="text-neutral-400 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-brand-primary">Ships to Order Destination</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {order.shippingAddress?.street1 ? (
+                              `${order.shippingAddress.name ? order.shippingAddress.name + ' • ' : ''}${order.shippingAddress.street1}, ${order.shippingAddress.city || ''}, ${order.shippingAddress.state || ''} ${order.shippingAddress.zip || ''}`
+                            ) : (
+                              'Using customer / primary order address on file.'
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-4 pt-3 border-t border-brand-border/60">
+                <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center py-3 bg-white">Cancel</PillButton>
+                <PillButton variant="filled" className="flex-1 justify-center bg-black text-white hover:bg-neutral-800 py-3 shadow-lg shadow-black/10" onClick={handleSaveQuickShip}>
+                  {totalUnits > 0 ? `Submit Shipment (${totalUnits} Units)` : 'Submit Shipment'}
+                </PillButton>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {isTeamModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsTeamModalOpen(false)}>
@@ -9034,6 +9400,16 @@ export function OrderDetail() {
           onClose={() => setTrackingBoxId(null)}
         />
       )}
+
+      <TransferOrderModal
+        isOpen={isTransferCustomerModalOpen}
+        onClose={() => setIsTransferCustomerModalOpen(false)}
+        order={order}
+        currentCustomer={customer}
+        onTransferred={(newCustomer) => {
+          setLiveCustomer(newCustomer);
+        }}
+      />
 
       <PalletPickOptimizerModal
         isOpen={isPalletOptimizerOpen}
