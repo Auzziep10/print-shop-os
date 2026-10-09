@@ -1677,6 +1677,8 @@ export function OrderDetail() {
     notes: ''
   });
   const [quickShipSaveDestination, setQuickShipSaveDestination] = useState<boolean>(false);
+  const [quickShipTargetMode, setQuickShipTargetMode] = useState<'new' | 'existing'>('new');
+  const [quickShipTargetBoxId, setQuickShipTargetBoxId] = useState<string>('');
   const [itemSaveDestination, setItemSaveDestination] = useState<boolean>(false);
 
   const [liveCustomer, setLiveCustomer] = useState<any>(null);
@@ -2386,6 +2388,13 @@ export function OrderDetail() {
      if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
      setQuickShipBoxName(nextName);
 
+     setQuickShipTargetMode('new');
+     if (liveBoxes.length > 0) {
+        setQuickShipTargetBoxId(liveBoxes[0].id);
+     } else {
+        setQuickShipTargetBoxId('');
+     }
+
      const hasItemCustom = Boolean(item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1));
      setQuickShipHasCustomShipping(hasItemCustom);
      setQuickShipShippingAddress(hasItemCustom ? {
@@ -2428,16 +2437,74 @@ export function OrderDetail() {
      const orderDoc = await getDoc(doc(db, 'orders', id));
      const liveBoxes = orderDoc.data()?.boxes || [];
 
+     const packedSizes: Record<string, number> = {};
+     Object.entries(quickShipSizes).forEach(([s, q]) => {
+        if (q > 0) packedSizes[s] = q;
+     });
+
+     // Case 1: Merge into an existing box
+     if (quickShipTargetMode === 'existing' && quickShipTargetBoxId) {
+        const targetBoxIndex = liveBoxes.findIndex((b: any) => b.id === quickShipTargetBoxId);
+        if (targetBoxIndex === -1) {
+           alert("Selected target box was not found.");
+           return;
+        }
+
+        const targetBox = liveBoxes[targetBoxIndex];
+        const existingBoxItems = [...(targetBox.items || [])];
+        const matchIdx = existingBoxItems.findIndex((bi: any) => String(bi.id) === String(quickShipItem.id));
+
+        if (matchIdx >= 0) {
+           const bItem = existingBoxItems[matchIdx];
+           const newSizes = { ...(bItem.sizes || {}) };
+           Object.entries(packedSizes).forEach(([s, q]) => {
+              newSizes[s] = (newSizes[s] || 0) + q;
+           });
+           const newTotalQty = Object.values(newSizes).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0);
+           existingBoxItems[matchIdx] = { ...bItem, sizes: newSizes, qty: newTotalQty };
+        } else {
+           existingBoxItems.push({
+              id: quickShipItem.id,
+              style: quickShipItem.style || 'Custom Garment',
+              color: quickShipItem.color || '',
+              gender: quickShipItem.gender || '',
+              image: quickShipItem.image || '',
+              itemNum: quickShipItem.itemNum || '',
+              itemStyle: quickShipItem.itemStyle || '',
+              sizes: packedSizes,
+              qty: totalQty
+           });
+        }
+
+        const updatedBox = { ...targetBox, items: existingBoxItems };
+        const updatedBoxes = [...liveBoxes];
+        updatedBoxes[targetBoxIndex] = updatedBox;
+
+        const sizeBreakdown = Object.entries(packedSizes).map(([s, q]) => `${q}x ${s}`).join(', ');
+        const activity = {
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: `Added ${totalQty}x ${quickShipItem.style} (${sizeBreakdown}) to ${targetBox.name}`,
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           timestamp: new Date().toISOString()
+        };
+
+        await setDoc(doc(db, 'orders', id), {
+           boxes: updatedBoxes,
+           activities: [activity, ...(order.activities || [])]
+        }, { merge: true });
+
+        setQuickShipItem(null);
+        return;
+     }
+
+     // Case 2: Create a new box
+
      let nextName = `Box ${(liveBoxes.length || 0) + 1}`;
      const boxIds = liveBoxes.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
      if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
 
      const boxFinalName = quickShipBoxName.trim() || nextName;
-
-     const packedSizes: Record<string, number> = {};
-     Object.entries(quickShipSizes).forEach(([s, q]) => {
-        if (q > 0) packedSizes[s] = q;
-     });
 
      const isCustom = quickShipHasCustomShipping && Boolean(quickShipShippingAddress.name || quickShipShippingAddress.street1 || quickShipShippingAddress.city);
 
@@ -2707,6 +2774,22 @@ export function OrderDetail() {
        );
        activityMessage = `Canceled timer on size ${size} for ${item.style}`;
     } else if (action === 'add_to_box' && boxId) {
+        let addQty = qty;
+        if (qty > 1) {
+            const targetBoxName = updatedBoxes.find((b: any) => b.id === boxId)?.name || 'this box';
+            const input = window.prompt(`How many ${item.style || 'items'} (${size}) to add to ${targetBoxName}? (Max: ${qty})`, '1');
+            if (input === null) {
+                setContextMenu(null);
+                return;
+            }
+            const parsed = parseInt(input);
+            if (isNaN(parsed) || parsed <= 0) {
+                setContextMenu(null);
+                return;
+            }
+            addQty = Math.min(parsed, qty);
+        }
+
         const targetBoxIndex = updatedBoxes.findIndex((b: any) => b.id === boxId);
         if (targetBoxIndex >= 0) {
             const box = updatedBoxes[targetBoxIndex];
@@ -2715,18 +2798,18 @@ export function OrderDetail() {
             
             if (matchIdx >= 0) {
                 const bItem = existingBoxItems[matchIdx];
-                const newSizes = { ...(bItem.sizes || {}), [size]: (bItem.sizes?.[size] || 0) + qty };
+                const newSizes = { ...(bItem.sizes || {}), [size]: (bItem.sizes?.[size] || 0) + addQty };
                 const newTotalQty = Object.values(newSizes).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0);
                 existingBoxItems[matchIdx] = { ...bItem, sizes: newSizes, qty: newTotalQty };
             } else {
                 existingBoxItems.push({
                    id: item.id, style: item.style || 'Custom Garment', color: item.color || '', gender: item.gender || '',
                    image: item.image || '', itemNum: item.itemNum || '',
-                   sizes: { [size]: qty }, qty: qty
+                   sizes: { [size]: addQty }, qty: addQty
                 });
             }
             updatedBoxes[targetBoxIndex] = { ...box, items: existingBoxItems };
-            activityMessage = `Added ${qty}x ${size} to ${box.name}`;
+            activityMessage = `Added ${addQty}x ${size} of ${item.style} to ${box.name}`;
         }
     }
 
@@ -9678,228 +9761,336 @@ export function OrderDetail() {
 
                 {/* Shipment Details & Destination */}
                 <div className="pt-4 border-t border-brand-border/60 space-y-4">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Shipment Name / Box Label</label>
-                    <input 
-                      type="text" 
-                      value={quickShipBoxName} 
-                      onChange={e => setQuickShipBoxName(e.target.value)} 
-                      placeholder="e.g. Box 1, West Coast Drop, Suite 200" 
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:border-brand-primary outline-none" 
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2.5">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input 
-                          type="checkbox"
-                          checked={quickShipHasCustomShipping}
-                          onChange={e => setQuickShipHasCustomShipping(e.target.checked)}
-                          className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
-                        />
-                        <span className="text-xs font-bold text-brand-primary flex items-center gap-1.5">
-                          <MapPin size={14} className={quickShipHasCustomShipping ? "text-blue-600" : "text-neutral-400"} />
-                          Ship to a separate location / address
-                        </span>
-                      </label>
-
-                      {quickShipHasCustomShipping && (
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            const ordAddr = order.shippingAddress || {};
-                            setQuickShipShippingAddress({
-                              name: ordAddr.name || order.customerName || '',
-                              company: ordAddr.company || '',
-                              street1: ordAddr.street1 || '',
-                              street2: ordAddr.street2 || '',
-                              city: ordAddr.city || '',
-                              state: ordAddr.state || '',
-                              zip: ordAddr.zip || '',
-                              country: ordAddr.country || 'US',
-                              phone: ordAddr.phone || '',
-                              notes: ''
-                            });
-                          }}
-                          className="text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:text-black flex items-center gap-1 bg-neutral-100 hover:bg-neutral-200 px-2 py-1 rounded-md transition-colors"
-                          title="Fill with main order shipping address"
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary">
+                      2. Package Target
+                    </span>
+                    {(order.boxes || []).length > 0 && (
+                      <div className="inline-flex rounded-xl bg-neutral-100 p-0.5 border border-brand-border/60">
+                        <button
+                          type="button"
+                          onClick={() => setQuickShipTargetMode('new')}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                            quickShipTargetMode === 'new'
+                              ? 'bg-white text-black shadow-xs'
+                              : 'text-neutral-500 hover:text-black'
+                          }`}
                         >
-                          <Copy size={11} /> Copy Order Address
+                          + Create New Box
                         </button>
-                      )}
-                    </div>
-
-                    {quickShipHasCustomShipping ? (
-                      <div className="bg-neutral-50/70 p-4 rounded-2xl border border-brand-border/80 space-y-3">
-                        {savedDestinations.length > 0 && (
-                          <div className="pb-3 border-b border-brand-border/60">
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Select from existing order locations</label>
-                            <select 
-                              onChange={(e) => {
-                                const idx = parseInt(e.target.value);
-                                if (!isNaN(idx) && savedDestinations[idx]) {
-                                  const sel = savedDestinations[idx].address;
-                                  setQuickShipShippingAddress({
-                                    name: sel.name || '',
-                                    company: sel.company || '',
-                                    street1: sel.street1 || '',
-                                    street2: sel.street2 || '',
-                                    city: sel.city || '',
-                                    state: sel.state || '',
-                                    zip: sel.zip || '',
-                                    country: sel.country || 'US',
-                                    phone: sel.phone || '',
-                                    notes: sel.notes || ''
-                                  });
-                                }
-                              }}
-                              defaultValue=""
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
-                            >
-                              <option value="">-- Choose a location already used in this order --</option>
-                              {savedDestinations.map((d, i) => (
-                                <option key={i} value={i}>{d.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name *</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.name} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, name: e.target.value }))}
-                              placeholder="e.g. Jane Doe"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Company (Optional)</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.company} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, company: e.target.value }))}
-                              placeholder="e.g. Acme Corp"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Street Address *</label>
-                          <input 
-                            type="text" 
-                            value={quickShipShippingAddress.street1} 
-                            onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street1: e.target.value }))}
-                            placeholder="123 Main St"
-                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none mb-2"
-                          />
-                          <input 
-                            type="text" 
-                            value={quickShipShippingAddress.street2} 
-                            onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street2: e.target.value }))}
-                            placeholder="Apt, Suite, Unit (optional)"
-                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="col-span-1">
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.city} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, city: e.target.value }))}
-                              placeholder="City"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.state} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
-                              placeholder="ST"
-                              maxLength={3}
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs uppercase focus:border-brand-primary outline-none font-bold"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">ZIP *</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.zip} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, zip: e.target.value }))}
-                              placeholder="ZIP"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 pt-1">
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.phone} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
-                              placeholder="(555) 000-0000"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Delivery Notes</label>
-                            <input 
-                              type="text" 
-                              value={quickShipShippingAddress.notes} 
-                              onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, notes: e.target.value }))}
-                              placeholder="e.g. Leave at reception"
-                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="pt-1">
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input 
-                              type="checkbox"
-                              checked={quickShipSaveDestination}
-                              onChange={e => setQuickShipSaveDestination(e.target.checked)}
-                              className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
-                            />
-                            <span className="text-[11px] font-semibold text-brand-secondary">
-                              Save this destination to order profile for future shipments
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-neutral-50/60 p-3.5 rounded-xl border border-dashed border-brand-border text-xs text-brand-secondary flex items-start gap-2.5">
-                        <MapPin size={16} className="text-neutral-400 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-brand-primary">Ships to Order Destination</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
-                            {order.shippingAddress?.street1 ? (
-                              `${order.shippingAddress.name ? order.shippingAddress.name + ' • ' : ''}${order.shippingAddress.street1}, ${order.shippingAddress.city || ''}, ${order.shippingAddress.state || ''} ${order.shippingAddress.zip || ''}`
-                            ) : (
-                              'Using customer / primary order address on file.'
-                            )}
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickShipTargetMode('existing');
+                            if (!quickShipTargetBoxId && (order.boxes || []).length > 0) {
+                              setQuickShipTargetBoxId(order.boxes[0].id);
+                            }
+                          }}
+                          className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                            quickShipTargetMode === 'existing'
+                              ? 'bg-black text-white shadow-xs'
+                              : 'text-neutral-500 hover:text-black'
+                          }`}
+                        >
+                          <Box size={13} />
+                          Add to Existing Box ({order.boxes.length})
+                        </button>
                       </div>
                     )}
                   </div>
+
+                  {quickShipTargetMode === 'existing' && (order.boxes || []).length > 0 ? (
+                    <div className="bg-neutral-50 p-4 rounded-2xl border border-brand-border/80 space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                          Select Existing Package / Box
+                        </label>
+                        <select
+                          value={quickShipTargetBoxId}
+                          onChange={(e) => setQuickShipTargetBoxId(e.target.value)}
+                          className="w-full bg-white border border-brand-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:outline-none focus:border-black cursor-pointer shadow-xs"
+                        >
+                          {(order.boxes || []).map((b: any) => {
+                            const bItemsCount = (b.items || []).reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0);
+                            const bDest = b.shippingAddress?.street1 
+                              ? `${b.shippingAddress.name ? b.shippingAddress.name + ' • ' : ''}${b.shippingAddress.city || b.shippingAddress.street1}`
+                              : 'Primary Order Address';
+                            return (
+                              <option key={b.id} value={b.id}>
+                                📦 {b.name} ({bItemsCount} items currently) — {bDest}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {(() => {
+                        const targetBox = (order.boxes || []).find((b: any) => b.id === (quickShipTargetBoxId || (order.boxes || [])[0]?.id));
+                        if (!targetBox) return null;
+                        const bItemsCount = (targetBox.items || []).reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0);
+                        const bDest = targetBox.shippingAddress?.street1 
+                          ? `${targetBox.shippingAddress.name ? targetBox.shippingAddress.name + ' • ' : ''}${targetBox.shippingAddress.street1}, ${targetBox.shippingAddress.city || ''} ${targetBox.shippingAddress.state || ''}`
+                          : (order.shippingAddress?.street1 ? `${order.shippingAddress.name ? order.shippingAddress.name + ' • ' : ''}${order.shippingAddress.street1}, ${order.shippingAddress.city || ''} ${order.shippingAddress.state || ''}` : 'Primary Order Address');
+
+                        return (
+                          <div className="bg-white p-3.5 rounded-xl border border-brand-border/70 text-xs text-neutral-700 space-y-1.5 shadow-2xs">
+                            <div className="flex items-center justify-between font-bold text-neutral-900">
+                              <span className="flex items-center gap-1.5"><Box size={14} className="text-brand-primary" /> {targetBox.name}</span>
+                              <span className="text-[11px] font-semibold text-neutral-700 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
+                                {bItemsCount} items currently inside
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-neutral-500 flex items-start gap-1">
+                              <MapPin size={12} className="text-neutral-400 shrink-0 mt-0.5" />
+                              <span className="truncate">Destination: {bDest}</span>
+                            </div>
+                            {targetBox.items && targetBox.items.length > 0 && (
+                              <div className="pt-2 border-t border-neutral-100 text-[10px] text-neutral-600">
+                                <span className="font-bold text-neutral-700">Currently in this box: </span>
+                                {targetBox.items.map((bi: any, i: number) => {
+                                  const sizeTxt = bi.sizes ? Object.entries(bi.sizes).map(([s, q]) => `${q}x ${s}`).join(', ') : `${bi.qty} units`;
+                                  return (
+                                    <span key={bi.id || i}>
+                                      {i > 0 ? ' • ' : ''}{bi.style || 'Garment'} ({sizeTxt})
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Shipment Name / Box Label</label>
+                        <input 
+                          type="text" 
+                          value={quickShipBoxName} 
+                          onChange={e => setQuickShipBoxName(e.target.value)} 
+                          placeholder="e.g. Box 1, West Coast Drop, Suite 200" 
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:border-brand-primary outline-none" 
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2.5">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input 
+                              type="checkbox"
+                              checked={quickShipHasCustomShipping}
+                              onChange={e => setQuickShipHasCustomShipping(e.target.checked)}
+                              className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                            />
+                            <span className="text-xs font-bold text-brand-primary flex items-center gap-1.5">
+                              <MapPin size={14} className={quickShipHasCustomShipping ? "text-blue-600" : "text-neutral-400"} />
+                              Ship to a separate location / address
+                            </span>
+                          </label>
+
+                          {quickShipHasCustomShipping && (
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                const ordAddr = order.shippingAddress || {};
+                                setQuickShipShippingAddress({
+                                  name: ordAddr.name || order.customerName || '',
+                                  company: ordAddr.company || '',
+                                  street1: ordAddr.street1 || '',
+                                  street2: ordAddr.street2 || '',
+                                  city: ordAddr.city || '',
+                                  state: ordAddr.state || '',
+                                  zip: ordAddr.zip || '',
+                                  country: ordAddr.country || 'US',
+                                  phone: ordAddr.phone || '',
+                                  notes: ''
+                                });
+                              }}
+                              className="text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:text-black flex items-center gap-1 bg-neutral-100 hover:bg-neutral-200 px-2 py-1 rounded-md transition-colors"
+                              title="Fill with main order shipping address"
+                            >
+                              <Copy size={11} /> Copy Order Address
+                            </button>
+                          )}
+                        </div>
+
+                        {quickShipHasCustomShipping ? (
+                          <div className="bg-neutral-50/70 p-4 rounded-2xl border border-brand-border/80 space-y-3">
+                            {savedDestinations.length > 0 && (
+                              <div className="pb-3 border-b border-brand-border/60">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Select from existing order locations</label>
+                                <select 
+                                  onChange={(e) => {
+                                    const idx = parseInt(e.target.value);
+                                    if (!isNaN(idx) && savedDestinations[idx]) {
+                                      const sel = savedDestinations[idx].address;
+                                      setQuickShipShippingAddress({
+                                        name: sel.name || '',
+                                        company: sel.company || '',
+                                        street1: sel.street1 || '',
+                                        street2: sel.street2 || '',
+                                        city: sel.city || '',
+                                        state: sel.state || '',
+                                        zip: sel.zip || '',
+                                        country: sel.country || 'US',
+                                        phone: sel.phone || '',
+                                        notes: sel.notes || ''
+                                      });
+                                    }
+                                  }}
+                                  defaultValue=""
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                                >
+                                  <option value="">-- Choose a location already used in this order --</option>
+                                  {savedDestinations.map((d, i) => (
+                                    <option key={i} value={i}>{d.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name *</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.name} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, name: e.target.value }))}
+                                  placeholder="e.g. Jane Doe"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Company (Optional)</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.company} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, company: e.target.value }))}
+                                  placeholder="e.g. Acme Corp"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Street Address *</label>
+                              <input 
+                                type="text" 
+                                value={quickShipShippingAddress.street1} 
+                                onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street1: e.target.value }))}
+                                placeholder="123 Main St"
+                                className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none mb-2"
+                              />
+                              <input 
+                                type="text" 
+                                value={quickShipShippingAddress.street2} 
+                                onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, street2: e.target.value }))}
+                                placeholder="Apt, Suite, Unit (optional)"
+                                className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="col-span-1">
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.city} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, city: e.target.value }))}
+                                  placeholder="City"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.state} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
+                                  placeholder="ST"
+                                  maxLength={3}
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs uppercase focus:border-brand-primary outline-none font-bold"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">ZIP *</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.zip} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, zip: e.target.value }))}
+                                  placeholder="ZIP"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.phone} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
+                                  placeholder="(555) 000-0000"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Delivery Notes</label>
+                                <input 
+                                  type="text" 
+                                  value={quickShipShippingAddress.notes} 
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, notes: e.target.value }))}
+                                  placeholder="e.g. Leave at reception"
+                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="pt-1">
+                              <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input 
+                                  type="checkbox"
+                                  checked={quickShipSaveDestination}
+                                  onChange={e => setQuickShipSaveDestination(e.target.checked)}
+                                  className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer accent-black"
+                                />
+                                <span className="text-[11px] font-semibold text-brand-secondary">
+                                  Save this destination to order profile for future shipments
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-neutral-50/60 p-3.5 rounded-xl border border-dashed border-brand-border text-xs text-brand-secondary flex items-start gap-2.5">
+                            <MapPin size={16} className="text-neutral-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold text-brand-primary">Ships to Order Destination</p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                {order.shippingAddress?.street1 ? (
+                                  `${order.shippingAddress.name ? order.shippingAddress.name + ' • ' : ''}${order.shippingAddress.street1}, ${order.shippingAddress.city || ''}, ${order.shippingAddress.state || ''} ${order.shippingAddress.zip || ''}`
+                                ) : (
+                                  'Using customer / primary order address on file.'
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               
               <div className="flex gap-4 pt-3 border-t border-brand-border/60">
                 <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center py-3 bg-white">Cancel</PillButton>
                 <PillButton variant="filled" className="flex-1 justify-center bg-black text-white hover:bg-neutral-800 py-3 shadow-lg shadow-black/10" onClick={handleSaveQuickShip}>
-                  {totalUnits > 0 ? `Submit Shipment (${totalUnits} Units)` : 'Submit Shipment'}
+                  {totalUnits > 0 
+                    ? (quickShipTargetMode === 'existing' 
+                        ? `Add ${totalUnits} ${totalUnits === 1 ? 'Unit' : 'Units'} to Box` 
+                        : `Submit Shipment (${totalUnits} Units)`)
+                    : (quickShipTargetMode === 'existing' ? 'Add to Box' : 'Submit Shipment')}
                 </PillButton>
               </div>
             </div>
