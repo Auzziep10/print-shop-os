@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, ArrowLeftRight } from 'lucide-react';
-import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -34,7 +33,6 @@ export function OrdersList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'calendar';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
-  const [transferringOrder, setTransferringOrder] = useState<any | null>(null);
 
   const displayedOrders = nonTempOrders.filter(order => {
     // 1. Tab filter
@@ -197,7 +195,7 @@ export function OrdersList() {
         <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
         <div className="min-w-[1000px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px_60px] p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary border-b border-brand-border bg-brand-bg/60">
+          <div className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px] p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary border-b border-brand-border bg-brand-bg/60">
             <div className="px-2">Order ID</div>
             <div>Customer</div>
             <div>Title</div>
@@ -205,7 +203,6 @@ export function OrdersList() {
             <div className="text-right">Items</div>
             <div className="text-right">{hasPermission('viewPricing') ? 'Total Price' : ''}</div>
             <div className="text-right pr-4">Due Date</div>
-            <div></div>
           </div>
           
           {/* Table Body */}
@@ -271,7 +268,7 @@ export function OrdersList() {
                 <div 
                   key={order.id} 
                   onClick={() => navigate(`/orders/${order.id}`)}
-                  className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
+                  className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
                 >
                   <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
                   <div className="font-serif text-lg text-brand-primary truncate pr-4">{customerName}</div>
@@ -308,32 +305,12 @@ export function OrdersList() {
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">
                     {formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}
                   </div>
-                  <div className="flex justify-end" onClick={e => e.stopPropagation()}>
-                     <button 
-                       type="button"
-                       onClick={() => setTransferringOrder(order)}
-                       className="p-1.5 text-brand-secondary hover:text-black hover:bg-white rounded-lg transition-colors border border-transparent hover:border-brand-border flex items-center gap-1"
-                       title="Transfer order to another customer"
-                     >
-                       <ArrowLeftRight size={15} />
-                     </button>
-                  </div>
                 </div>
               );
             })}
           </div>
         </div>
       </div>
-      )}
-
-      {transferringOrder && (
-        <TransferOrderModal
-          isOpen={Boolean(transferringOrder)}
-          onClose={() => setTransferringOrder(null)}
-          order={transferringOrder}
-          currentCustomer={transferringOrder.customerId ? liveCustomers[transferringOrder.customerId] : null}
-          onTransferred={() => setTransferringOrder(null)}
-        />
       )}
     </div>
   );

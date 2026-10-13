@@ -4520,15 +4520,6 @@ export function OrderDetail() {
                         >
                           {customer.company}
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => setIsTransferCustomerModalOpen(true)}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-full border border-neutral-200 transition-all shadow-2xs hover:shadow-xs cursor-pointer shrink-0"
-                          title="Transfer order to another customer"
-                        >
-                          <ArrowLeftRight size={12} className="text-black" />
-                          <span>Transfer Customer</span>
-                        </button>
                       </div>
                       {(customer.contactName || customer.email || customer.phone) && (
                         <div className="text-xs text-brand-secondary flex flex-wrap gap-x-4 gap-y-1 mt-1">
@@ -4547,18 +4538,7 @@ export function OrderDetail() {
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
-                      <button
-                        type="button"
-                        onClick={() => setIsTransferCustomerModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200 px-3 py-1 rounded-full border border-neutral-200 transition-all shadow-2xs hover:shadow-xs cursor-pointer shrink-0"
-                        title="Assign or transfer order to a customer"
-                      >
-                        <ArrowLeftRight size={12} className="text-black" />
-                        <span>Transfer / Assign Customer</span>
-                      </button>
-                    </div>
+                    <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
                   )}
                 </div>
                 <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
