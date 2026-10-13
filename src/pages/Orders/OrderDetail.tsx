@@ -5,6 +5,7 @@ import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
+import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
 import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
@@ -1795,6 +1796,7 @@ export function OrderDetail() {
   const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [isTransferCustomerModalOpen, setIsTransferCustomerModalOpen] = useState(false);
+  const [transferSizesTarget, setTransferSizesTarget] = useState<{ itemId: string, size?: string | null } | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
@@ -4998,6 +5000,18 @@ export function OrderDetail() {
                                         title="Quick pack remaining quantities into a shipment"
                                       >
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
+                                      </button>
+                                      )}
+                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
+                                      <button 
+                                        onClick={(e) => {
+                                           e.stopPropagation();
+                                           setTransferSizesTarget({ itemId: item.id, size: null });
+                                        }}
+                                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                        title="Move one or more sizes into another order for this customer"
+                                      >
+                                        <ArrowLeftRight size={12} strokeWidth={3} /> <span>Transfer Sizes</span>
                                       </button>
                                       )}
                                       {itemExpenses.length > 0 && (
@@ -10148,6 +10162,15 @@ export function OrderDetail() {
         }}
       />
 
+      <TransferSizesModal
+        isOpen={!!transferSizesTarget}
+        onClose={() => setTransferSizesTarget(null)}
+        sourceOrder={order}
+        item={transferSizesTarget ? (order.items || []).find((i: any) => i.id === transferSizesTarget.itemId) : null}
+        initialSize={transferSizesTarget?.size}
+        orders={orders}
+      />
+
       <PalletPickOptimizerModal
         isOpen={isPalletOptimizerOpen}
         onClose={() => setIsPalletOptimizerOpen(false)}
@@ -10265,6 +10288,17 @@ export function OrderDetail() {
                (!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size])) && (
                <div className="my-1 border-t border-brand-border/30"></div>
             )}
+
+            <button 
+              onClick={() => {
+                setTransferSizesTarget({ itemId: contextMenu.item.id, size: contextMenu.size });
+                setContextMenu(null);
+              }}
+              className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <ArrowLeftRight size={14} /> Transfer to Another Order
+            </button>
+            <div className="my-1 border-t border-brand-border/30"></div>
 
             <div className="px-3 py-2 text-[10px] font-bold uppercase text-brand-secondary tracking-widest bg-white sticky top-9 z-10 border-b border-brand-border/30 mb-1">Add to Package</div>
             
