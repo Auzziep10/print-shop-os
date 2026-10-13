@@ -8,8 +8,8 @@ import {
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import {
-  AXC_GARMENTS_COLLECTION, AXC_LIVE_URL, AXC_STORAGE_FOLDER, DEFAULT_HANG, DEFAULT_NECK, emptyGarment, neckPath,
-  type AxcCloseup, type AxcGarment, type AxcHang, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
+  AXC_BRANDS, AXC_GARMENTS_COLLECTION, AXC_STORAGE_FOLDER, DEFAULT_HANG, DEFAULT_NECK, emptyGarment, neckPath,
+  type AxcBrandId, type AxcCloseup, type AxcGarment, type AxcHang, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
 } from './artistCollabTypes';
 
 const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
@@ -351,6 +351,17 @@ function GarmentEditor({
   return (
     <div className="rounded-xl border border-brand-border bg-brand-bg/50 p-5">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label className={tokens.typography.label}>Collection</label>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {AXC_BRANDS.map(b => (
+              <button key={b.id} type="button" onClick={() => set('brand', b.id)}
+                className={`rounded-full border px-3 py-1 text-xs ${(g.brand || 'inktheory') === b.id ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border text-brand-primary hover:border-brand-primary'}`}>
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <label className={tokens.typography.label}>Garment name</label>
           <input className={tokens.components.input + ' mt-1.5 bg-white'} value={g.name} onChange={e => set('name', e.target.value)} placeholder="Saints After Dark Tee" />
@@ -436,16 +447,19 @@ function GarmentEditor({
 /* ================================================================== */
 
 export function ArtistCollabTab() {
-  const [garments, setGarments] = useState<AxcGarment[]>([]);
+  const [allGarments, setAllGarments] = useState<AxcGarment[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);   // 'new' for a fresh garment
   const [saving, setSaving] = useState(false);
+  const [brand, setBrand] = useState<AxcBrandId>('inktheory');
+  const brandInfo = AXC_BRANDS.find(b => b.id === brand) || AXC_BRANDS[0];
+  const garments = allGarments.filter(g => (g.brand || 'inktheory') === brand);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, AXC_GARMENTS_COLLECTION), snap => {
       const rows = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<AxcGarment, 'id'>) }));
       rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      setGarments(rows);
+      setAllGarments(rows);
       setLoading(false);
     }, () => setLoading(false));
     return () => unsub();
@@ -484,17 +498,30 @@ export function ArtistCollabTab() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className={tokens.typography.h3}>Artist×Collab garments</h3>
-          <p className={tokens.typography.bodyMuted}>What hangs on the rail at the end of the Artist×Collab story. Changes go live immediately.</p>
+          <p className={tokens.typography.bodyMuted}>What hangs on the rail at the end of each client's Artist×Collab story. Changes go live immediately.</p>
         </div>
         <div className="flex items-center gap-2">
-          <a href={AXC_LIVE_URL} target="_blank" rel="noreferrer"
+          <a href={brandInfo.liveUrl} target="_blank" rel="noreferrer"
              className="inline-flex items-center gap-1.5 rounded-full border border-brand-border px-4 py-2 text-xs text-brand-primary transition-colors hover:border-brand-primary">
-            <ExternalLink size={12} /> View live
+            <ExternalLink size={12} /> View {brandInfo.label} live
           </a>
           <PillButton variant="filled" onClick={() => setEditingId('new')} disabled={editingId === 'new'}>
             <Plus size={14} className="mr-2" /> Add garment
           </PillButton>
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {AXC_BRANDS.map(b => {
+          const n = allGarments.filter(g => (g.brand || 'inktheory') === b.id).length;
+          return (
+            <button key={b.id} type="button" onClick={() => { setBrand(b.id); setEditingId(null); }}
+              className={`rounded-full border px-4 py-1.5 text-sm ${brand === b.id ? 'border-brand-primary bg-brand-primary text-white' : 'border-brand-border text-brand-primary hover:border-brand-primary'}`}>
+              {b.label} <span className={brand === b.id ? 'opacity-70' : 'text-brand-secondary'}>· {n}</span>
+            </button>
+          );
+        })}
+        <span className="ml-1 text-xs text-brand-secondary">Story: <a className="underline" href={brandInfo.storyUrl} target="_blank" rel="noreferrer">{brandInfo.storyUrl}</a></span>
       </div>
 
       <div className="mb-5 rounded-lg border border-brand-border bg-brand-bg/60 px-4 py-3 text-xs text-brand-secondary">
@@ -503,7 +530,7 @@ export function ArtistCollabTab() {
 
       {editingId === 'new' && (
         <div className="mb-6">
-          <GarmentEditor initial={emptyGarment(garments.length)} folderKey={`new_${Date.now()}`} onSave={save} onCancel={() => setEditingId(null)} saving={saving} />
+          <GarmentEditor initial={emptyGarment(garments.length, brand)} folderKey={`new_${Date.now()}`} onSave={save} onCancel={() => setEditingId(null)} saving={saving} />
         </div>
       )}
 
@@ -511,7 +538,7 @@ export function ArtistCollabTab() {
         <div className="flex justify-center py-12 text-brand-secondary"><Loader2 className="animate-spin" size={20} /></div>
       ) : garments.length === 0 && editingId !== 'new' ? (
         <div className="rounded-xl border border-dashed border-brand-border py-12 text-center text-sm text-brand-secondary">
-          No garments yet. Add the first one and it will appear on the rail.
+          No {brandInfo.label} garments yet. Add the first one and it will appear on that rail.
         </div>
       ) : (
         <div className="space-y-3">

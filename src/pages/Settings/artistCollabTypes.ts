@@ -5,6 +5,13 @@ export const AXC_GARMENTS_COLLECTION = 'axc_garments';
 export const AXC_STORAGE_FOLDER = 'axc_media';
 export const AXC_LIVE_URL = '/artistxcollab/c/collection';
 
+/** Each client collection: garments carry a `brand`, and each brand has its own story + viewer routes. */
+export type AxcBrandId = 'inktheory' | 'incolor';
+export const AXC_BRANDS: { id: AxcBrandId; label: string; storyUrl: string; liveUrl: string }[] = [
+  { id: 'inktheory', label: 'Ink Theory', storyUrl: '/artistxcollab/c', liveUrl: '/artistxcollab/c/collection' },
+  { id: 'incolor', label: 'Incolor', storyUrl: '/artistxcollab/incolor', liveUrl: '/artistxcollab/incolor/collection' },
+];
+
 export interface AxcImage {
   url: string;
   width: number;
@@ -69,6 +76,7 @@ export interface AxcSpec {
 
 export interface AxcGarment {
   id: string;
+  brand?: AxcBrandId;   // which client collection this garment belongs to (missing = inktheory)
   name: string;
   artist: string;
   story: string;
@@ -96,8 +104,9 @@ export const DEFAULT_SPECS: AxcSpec[] = [
   { label: 'Care', value: '' },
 ];
 
-export function emptyGarment(sortOrder: number): Omit<AxcGarment, 'id'> {
+export function emptyGarment(sortOrder: number, brand: AxcBrandId = 'inktheory'): Omit<AxcGarment, 'id'> {
   return {
+    brand,
     name: '',
     artist: '',
     story: '',

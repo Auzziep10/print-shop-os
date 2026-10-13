@@ -36,6 +36,22 @@
       "destination": "/artistxcollab/c/collection/index.html"
     },
     {
+      "source": "/artistxcollab/incolor",
+      "destination": "/artistxcollab/incolor/index.html"
+    },
+    {
+      "source": "/artistxcollab/incolor/",
+      "destination": "/artistxcollab/incolor/index.html"
+    },
+    {
+      "source": "/artistxcollab/incolor/collection",
+      "destination": "/artistxcollab/incolor/collection/index.html"
+    },
+    {
+      "source": "/artistxcollab/incolor/collection/",
+      "destination": "/artistxcollab/incolor/collection/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

@@ -43,7 +43,8 @@
       var app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(cfg);
       var snap = await fsMod.getDocs(fsMod.collection(fsMod.getFirestore(app), 'axc_garments'));
       var rows = []; snap.forEach(function(d){ var v = d.data(); v.id = d.id; rows.push(v); });
-      rows = rows.filter(function(r){ return r.active; }).sort(function(a, b){ return (a.sortOrder||0) - (b.sortOrder||0); });
+      var brand = window.AXC_BRAND || 'inktheory';
+      rows = rows.filter(function(r){ return r.active && (r.brand || 'inktheory') === brand; }).sort(function(a, b){ return (a.sortOrder||0) - (b.sortOrder||0); });
       return rows;
     })().catch(function(){ return null; });
     return Promise.race([fetchIt, timeout]);
@@ -85,7 +86,9 @@
   }
 
   loadLive().then(function(live){
-    var list = (live && live.length) ? live : (base.garments || []);
+    // the built-in sample set only stands in for the Ink Theory page; other brands start empty
+    var sample = (window.AXC_BRAND || 'inktheory') === 'inktheory' ? (base.garments || []) : [];
+    var list = (live && live.length) ? live : sample;
     var garments = list.map(normalize).filter(Boolean);
     init(garments, !!(live && live.length));
   });
