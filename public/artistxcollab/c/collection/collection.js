@@ -128,8 +128,9 @@
       var hanger = g.layout === 'garment' ? '<img class="hanger" src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false">' : '';
       // the hanger lives inside the flip so it turns with the garment; the cord stays put on the ceiling
       el.innerHTML = '<div class="cord"></div><div class="swing"><div class="flip">' + hanger +
-        '<img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false">' +
-        (g.back ? '<img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false">' : '') +
+        // each face sits in a padded box that owns the drop shadow, so the shadow is never clipped to the image's bounds on a 3D layer
+        '<div class="face f"><img class="hero f" src="'+g.front.url+'" alt="'+(g.name||'')+'" draggable="false"></div>' +
+        (g.back ? '<div class="face b"><img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false"></div>' : '') +
         (g.neck && g.layout === 'garment' ? '<div class="neck f" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         (g.back && g.neckBack && g.layout === 'garment' ? '<div class="neck b" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         '</div></div>';
@@ -139,6 +140,12 @@
     dots.innerHTML = garments.map(function(){ return '<i></i>'; }).join('');
     var dotEls = Array.prototype.slice.call(dots.children);
 
+    var FACE_PAD = 96;   // room for the drop shadow (18px offset + ~3 sigma of a 22px blur) around every face
+    function setFace(img, l, t, w, h){
+      var box = img.parentNode;
+      box.style.left = (l - FACE_PAD)+'px'; box.style.top = (t - FACE_PAD)+'px'; box.style.width = (w + 2*FACE_PAD)+'px'; box.style.height = (h + 2*FACE_PAD)+'px';
+      img.style.left = FACE_PAD+'px'; img.style.top = FACE_PAD+'px'; img.style.width = w+'px'; img.style.height = h+'px';
+    }
     function fitAll(){
       var W = stage.clientWidth, H = stage.clientHeight;
       var fit = fitRoom();
@@ -157,7 +164,7 @@
           var placeFace = function(img, face, hang, neck, nk, mirrored){
             var fw = baseW * hang.scale, fh = face.height * (fw / face.width);
             var fl = (W - fw)/2, ft = hookTop + 55 * hu + hang.dy * fw;
-            img.style.left = fl+'px'; img.style.top = ft+'px'; img.style.width = fw+'px'; img.style.height = fh+'px';
+            setFace(img, fl, ft, fw, fh);
             if(nk && neck){
               var nw = 2*neck.rx*fw, nh = 2*neck.ry*fh, nl = fl + (neck.cx - neck.rx) * fw, nt = ft + (neck.cy - neck.ry) * fh;
               if(mirrored) nl = W - (nl + nw);   // the flip mirrors the back about the centre line
@@ -179,9 +186,7 @@
           rw = iw*s; rh = ih*s;
           left = (W-rw)/2; top = (H-rh)/2 + (data.garmentShiftY || 0) * rh; hookTop = top + 0.34*rh;
         }
-        if(g.layout !== 'garment') Array.prototype.forEach.call(els[i].querySelectorAll('.hero'), function(img){
-          img.style.left = left+'px'; img.style.top = top+'px'; img.style.width = rw+'px'; img.style.height = rh+'px';
-        });
+        if(g.layout !== 'garment') Array.prototype.forEach.call(els[i].querySelectorAll('.hero'), function(img){ setFace(img, left, top, rw, rh); });
         var flip = els[i].querySelector('.flip'); flip.style.transformOrigin = (W/2)+'px 50%';
         els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+hookTop+'px';
         var cord = els[i].querySelector('.cord'); cord.style.left = (W/2)+'px'; cord.style.height = (hookTop + 3)+'px';
@@ -234,6 +239,9 @@
       els[cur].querySelector('.flip').classList.remove('back');
       var tb = $('turnBtn'); if(tb) tb.addEventListener('click', function(){
         var f = els[cur].querySelector('.flip'); f.classList.toggle('back'); tb.classList.toggle('on', f.classList.contains('back'));
+        // when the turn settles, nudge the layer so the browser repaints the face cleanly (a stale raster can leave a hard shadow edge)
+        var done = function(e){ if(e && e.target !== f) return; f.removeEventListener('transitionend', done); sway(0.02, false); requestAnimationFrame(function(){ sway(0, false); }); };
+        f.addEventListener('transitionend', done); setTimeout(done, 1000);
       });
     }
 
