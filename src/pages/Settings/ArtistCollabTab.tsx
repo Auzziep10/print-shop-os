@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import {
   ArrowDown, ArrowUp, Edit2, ExternalLink, Eye, EyeOff, Loader2, Plus, Save, Trash2, Upload, X,
@@ -24,68 +24,99 @@ function GarmentSilhouette({ className = '' }: { className?: string }) {
   );
 }
 
-function readImageSize(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
+const MAX_EDGE = 2048;   // phones cap GPU textures near 4096px; 2048 on the long side is plenty for a full-screen garment
+
+/** Decode any browser-readable image into a canvas no larger than MAX_EDGE on its long side. */
+async function decodeScaled(file: File): Promise<{ canvas: HTMLCanvasElement; width: number; height: number }> {
+  let bitmap: ImageBitmap | HTMLImageElement;
+  try {
+    bitmap = await createImageBitmap(file);                       // efficient path, handles huge files without a full-size canvas
+  } catch {
     const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
-    img.src = url;
-  });
+    try {
+      bitmap = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('Could not read this image. Use a PNG or WebP exported from your design tool.')); i.src = url;
+      });
+    } finally { URL.revokeObjectURL(url); }
+  }
+  const w = 'naturalWidth' in bitmap ? bitmap.naturalWidth : bitmap.width;
+  const h = 'naturalHeight' in bitmap ? bitmap.naturalHeight : bitmap.height;
+  if (!w || !h) throw new Error('Could not read this image. Use a PNG or WebP exported from your design tool.');
+  const k = Math.min(1, MAX_EDGE / Math.max(w, h));
+  const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(w * k)); canvas.height = Math.max(1, Math.round(h * k));
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  if ('close' in bitmap) bitmap.close();
+  return { canvas, width: canvas.width, height: canvas.height };
 }
 
 /**
- * Crop a transparent cutout to its opaque bounding box (plus a hair of padding) so the viewer
- * can hang every garment by its top edge and scale it by its real width. Files without
- * transparency, or already tight, come back unchanged.
+ * Garment cutout: scale down, confirm it has a transparent background, scrub near-transparent haze,
+ * crop to the opaque bounds (plus a hair of padding) and hand back a PNG.
  */
-async function trimTransparent(file: File): Promise<File> {
-  if (!/png|webp/i.test(file.type)) return file;
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error('Could not read image')); i.src = url;
-    });
-    const w = img.naturalWidth, h = img.naturalHeight;
-    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return file;
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, w, h);
-    const px = data.data;
-    let minX = w, minY = h, maxX = -1, maxY = -1, scrubbed = 0;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4 + 3;
-        if (px[i] <= 24) { if (px[i]) { px[i] = 0; scrubbed++; } continue; }   // haze left by background removal: drop it, or the shadow shows it as a band
-        if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
-      }
+async function prepareGarment(file: File): Promise<File> {
+  const { canvas, width: w, height: h } = await decodeScaled(file);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const data = ctx.getImageData(0, 0, w, h);
+  const px = data.data;
+  let minX = w, minY = h, maxX = -1, maxY = -1, transparent = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4 + 3;
+      if (px[i] <= 24) { transparent++; px[i] = 0; continue; }   // haze left by background removal shows up as a band under the shadow
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
     }
-    if (maxX < 0) return file;                                   // fully transparent — leave it alone
-    if (scrubbed) ctx.putImageData(data, 0, 0);
-    const pad = 2;
-    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
-    const cw = maxX - minX + 1, ch = maxY - minY + 1;
-    // Phones cap GPU textures around 4096px: anything bigger gets re-tiled and shows seams/bands under the hem,
-    // and a 20-megapixel PNG is slow to load anyway. 2048 on the long side is plenty for a full-screen garment.
-    const MAX = 2048, k = Math.min(1, MAX / Math.max(cw, ch));
-    if (cw >= w - 4 && ch >= h - 4 && !scrubbed && k === 1) return file;    // already tight, clean and sane
-    const out = document.createElement('canvas'); out.width = Math.round(cw * k); out.height = Math.round(ch * k);
-    const octx = out.getContext('2d')!; octx.imageSmoothingQuality = 'high';
-    octx.drawImage(canvas, minX, minY, cw, ch, 0, 0, out.width, out.height);
-    const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'));
-    if (!blob) return file;
-    return new File([blob], file.name.replace(/\.(webp|png)$/i, '') + '.png', { type: 'image/png' });
-  } finally { URL.revokeObjectURL(url); }
+  }
+  if (transparent < w * h * 0.02) {
+    throw new Error('This image has no transparent background, so it would hang as a rectangle. Export the garment as a PNG or WebP with the background removed (not white).');
+  }
+  if (maxX < 0) throw new Error('This image is fully transparent.');
+  ctx.putImageData(data, 0, 0);
+  const pad = 2;
+  minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad); maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
+  const cw = maxX - minX + 1, ch = maxY - minY + 1;
+  const out = document.createElement('canvas'); out.width = cw; out.height = ch;
+  out.getContext('2d')!.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
+  const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('Could not encode the image.');
+  return new File([blob], file.name.replace(/\.[a-z0-9]+$/i, '') + '.png', { type: 'image/png' });
 }
 
-async function uploadAxcImage(file: File, folder: string): Promise<AxcImage> {
-  const { width, height } = await readImageSize(file);
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `${AXC_STORAGE_FOLDER}/${folder}/${Date.now()}_${safeName}`;
-  const snap = await uploadBytes(ref(storage, path), file);
-  const url = await getDownloadURL(snap.ref);
-  return { url, width, height, path };
+/** Closeup photo: just scale down (JPEG for opaque photos, PNG when the file has transparency). */
+async function prepareCloseup(file: File): Promise<File> {
+  const { canvas, width: w, height: h } = await decodeScaled(file);
+  const px = canvas.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, w, h).data;
+  let hasAlpha = false;
+  for (let i = 3; i < px.length; i += 4 * 97) { if (px[i] < 250) { hasAlpha = true; break; } }
+  const type = hasAlpha ? 'image/png' : 'image/jpeg';
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, type, 0.9));
+  if (!blob) throw new Error('Could not encode the image.');
+  return new File([blob], file.name.replace(/\.[a-z0-9]+$/i, '') + (hasAlpha ? '.png' : '.jpg'), { type });
+}
+
+/** Chunked, resumable upload (survives a dropped connection better than one big request), with progress 0..100. */
+function uploadAxcImage(file: File, folder: string, onProgress?: (pct: number) => void): Promise<AxcImage> {
+  return new Promise<AxcImage>((resolve, reject) => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${AXC_STORAGE_FOLDER}/${folder}/${Date.now()}_${safeName}`;
+    const task = uploadBytesResumable(ref(storage, path), file, { contentType: file.type, cacheControl: 'public,max-age=31536000,immutable' });
+    task.on('state_changed',
+      snap => onProgress?.(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
+      err => {
+        const code = (err as { code?: string }).code || '';
+        reject(new Error(code === 'storage/unauthorized' ? 'Upload refused: check the Storage rules for axc_media.' :
+          code === 'storage/retry-limit-exceeded' ? 'Upload kept failing. Check your internet connection and try again.' :
+          `Upload failed (${code || err.message}).`));
+      },
+      async () => {
+        try {
+          const url = await getDownloadURL(task.snapshot.ref);
+          const { width, height } = await createImageBitmap(file).then(b => { const r = { width: b.width, height: b.height }; b.close(); return r; });
+          resolve({ url, width, height, path });
+        } catch (e) { reject(e instanceof Error ? e : new Error('Upload finished but the file could not be read back.')); }
+      });
+  });
 }
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -273,6 +304,7 @@ function GarmentEditor({
 }) {
   const [g, setG] = useState<Omit<AxcGarment, 'id'>>(initial);
   const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const frontInput = useRef<HTMLInputElement>(null);
   const backInput = useRef<HTMLInputElement>(null);
@@ -282,10 +314,13 @@ function GarmentEditor({
 
   const pickSide = async (side: 'front' | 'back', file: File | undefined) => {
     if (!file) return;
-    setBusy(side); setError(null);
-    try { set(side, await uploadAxcImage(await trimTransparent(file), `${folderKey}/${side}`)); }
+    setBusy(side); setError(null); setProgress(null);
+    try {
+      const prepared = await prepareGarment(file);
+      set(side, await uploadAxcImage(prepared, `${folderKey}/${side}`, setProgress));
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
-    finally { setBusy(null); }
+    finally { setBusy(null); setProgress(null); }
   };
 
   const addCloseups = async (files: FileList | null) => {
@@ -294,12 +329,12 @@ function GarmentEditor({
     try {
       const added: AxcCloseup[] = [];
       for (const file of Array.from(files)) {
-        const image = await uploadAxcImage(file, `${folderKey}/closeups`);
+        const image = await uploadAxcImage(await prepareCloseup(file), `${folderKey}/closeups`, setProgress);
         added.push({ id: newId(), label: `Closeup ${g.closeups.length + added.length + 1}`, image });
       }
       set('closeups', [...g.closeups, ...added]);
     } catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
-    finally { setBusy(null); if (closeupInput.current) closeupInput.current.value = ''; }
+    finally { setBusy(null); setProgress(null); if (closeupInput.current) closeupInput.current.value = ''; }
   };
 
   const updateCloseup = (id: string, patch: Partial<AxcCloseup>) =>
@@ -325,7 +360,11 @@ function GarmentEditor({
             {img
               ? <img src={img.url} alt="" className="absolute inset-0 h-full w-full object-contain p-2" />
               : <div className="absolute inset-0 grid place-items-center text-brand-secondary/60"><div className="text-center"><GarmentSilhouette className="mx-auto h-14 w-14" /><div className="mt-1 text-[10px] uppercase tracking-wider">No image</div></div></div>}
-            {busy === side && <div className="absolute inset-0 grid place-items-center bg-black/40 text-white"><Loader2 size={16} className="animate-spin" /></div>}
+            {busy === side && (
+              <div className="absolute inset-0 grid place-items-center bg-black/45 text-white">
+                <div className="text-center"><Loader2 size={16} className="mx-auto animate-spin" /><div className="mt-1 text-[11px] tabular-nums">{progress == null ? 'Preparing…' : `${progress}%`}</div></div>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <button type="button" onClick={() => input.current?.click()} disabled={!!busy}
@@ -416,7 +455,7 @@ function GarmentEditor({
             <button type="button" onClick={() => closeupInput.current?.click()} disabled={!!busy}
               className="inline-flex items-center gap-2 rounded-lg border border-dashed border-brand-border px-4 py-3 text-xs text-brand-secondary transition-colors hover:border-brand-primary hover:text-brand-primary disabled:opacity-50">
               {busy === 'closeups' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-              {busy === 'closeups' ? 'Uploading…' : 'Add closeup images (you can select several)'}
+              {busy === 'closeups' ? (progress == null ? 'Preparing…' : `Uploading… ${progress}%`) : 'Add closeup images (you can select several)'}
             </button>
             <input ref={closeupInput} type="file" accept="image/*" multiple className="hidden" onChange={e => addCloseups(e.target.files)} />
           </div>
