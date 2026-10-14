@@ -36,7 +36,6 @@ const parsePrice = (p: any) => {
   const n = parseFloat((p ?? '0').toString().replace(/[^0-9.]/g, ''));
   return isNaN(n) ? 0 : n;
 };
-const norm = (v: any) => (v || '').toString().trim().toLowerCase();
 
 /** Per-size status keys stored as string arrays on a line item */
 const SIZE_LIST_KEYS = ['completedSizes', 'orderedSizes', 'receivedSizes', 'returnedSizes'] as const;
@@ -126,18 +125,14 @@ export function TransferSizesModal({
     [customerOrders, targetOrderId]
   );
 
-  // An existing line item in the target order that represents the same garment
+  // An existing line item in the target order that came from this exact source line item.
+  // We intentionally do NOT match on title/style/color — different garments can share a name.
   const matchingTargetItem = useMemo(() => {
-    if (!targetOrder) return null;
+    if (!targetOrder || !item?.id) return null;
     return (targetOrder.items || []).find((ti: any) =>
-      (item?.id && ti.transferredFromItemId === item.id) ||
-      (norm(ti.style) === norm(item?.style) &&
-        norm(ti.color) === norm(item?.color) &&
-        norm(ti.itemNum) === norm(item?.itemNum) &&
-        norm(ti.title) === norm(item?.title) &&
-        ti.itemType === item?.itemType)
+      ti.transferredFromItemId === item.id && ti.transferredFromOrderId === sourceOrder?.id
     ) || null;
-  }, [targetOrder, item]);
+  }, [targetOrder, item, sourceOrder]);
 
   const selectedEntries = Object.entries(transferQtys).filter(([, q]) => q > 0);
   const totalTransfer = selectedEntries.reduce((a, [, q]) => a + q, 0);
@@ -513,7 +508,7 @@ export function TransferSizesModal({
                   />
                   <div className="text-xs">
                     <span className="font-bold text-neutral-900 block">
-                      Merge into the matching line item already on this order
+                      Add to the "{matchingTargetItem.title || matchingTargetItem.style || 'Garment'}" line previously transferred from this item
                     </span>
                     <span className="text-[11px] text-neutral-500 block mt-0.5">
                       Uncheck to add as a separate line item instead.
