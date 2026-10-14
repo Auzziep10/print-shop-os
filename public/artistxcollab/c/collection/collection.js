@@ -229,7 +229,7 @@
     var modelMode = false, modeEl = $('mode');
     function setMode(m){
       modelMode = !!m && !!garments[cur].model;
-      stage.classList.toggle('model-mode', modelMode);
+      $('app').classList.toggle('model-mode', modelMode);   // on the app wrapper so the footer (a sibling of the stage) follows too
       Array.prototype.forEach.call(modeEl.querySelectorAll('button'), function(b){ b.classList.toggle('on', (b.dataset.m === 'model') === modelMode); });
       sideFor = -1; buildSide(garments[cur]);
     }

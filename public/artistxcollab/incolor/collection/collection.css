@@ -75,13 +75,16 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .mshadow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(6px);background:radial-gradient(ellipse at center, rgba(0,0,0,.42) 0%, rgba(0,0,0,.16) 40%, rgba(0,0,0,0) 70%);}
 .mshadow.wide{filter:blur(14px);background:radial-gradient(ellipse at center, rgba(0,0,0,.22) 0%, rgba(0,0,0,.08) 45%, rgba(0,0,0,0) 72%);}
 .mcast{position:absolute;pointer-events:none;filter:brightness(0) blur(16px) opacity(.32);transform-origin:50% 100%;transform:skewX(-4deg);}
-.mrefl{position:absolute;pointer-events:none;transform:scaleY(-1);opacity:.28;filter:blur(1.5px) saturate(.8);
+.mrefl{position:absolute;pointer-events:none;transform:scaleY(-1);opacity:.36;filter:blur(1.5px) saturate(.8);
   }   /* mask set per garment in pixels (see collection.js) */
 .mrefl img{position:absolute;max-width:none;}
 .mcast img{position:absolute;max-width:none;}
 .swing,.cord{transition:opacity .35s ease;}
 .model-mode .g .swing,.model-mode .g .cord{opacity:0;}
 .model-mode .g .model{opacity:1;}
+/* in Model view the floor must stay clear: only the pill (and dots) remain at the bottom edge */
+.model-mode .foot .name-strip,.model-mode .foot .hint{display:none;}
+.model-mode .foot{bottom:calc(env(safe-area-inset-bottom,0px) + 14px);gap:10px;}
 .mode{pointer-events:auto;display:flex;padding:3px;border:1px solid rgba(255,255,255,.75);border-radius:999px;background:rgba(0,0,0,.28);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
 .mode button{border:0;background:transparent;color:#fff;font-family:var(--sans);font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:9px 16px;border-radius:999px;cursor:pointer;transition:background .25s ease,color .25s ease;}
 .mode button.on{background:#fff;color:#141210;}
