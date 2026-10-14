@@ -8,8 +8,9 @@
   // Live garments come from Firestore (Settings → Artist×Collab). The sample set in
   // collection-data.js is used until the first garment is published, or if the read fails.
   function imgOf(m){ return (m && m.url) ? { url: m.url, width: m.width || 1000, height: m.height || 2000, anchor: m.anchor || null } : null; }
-  function modelHangOf(h){ h = h || {}; var sh = h.shadow || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), reflection: (h.reflection == null ? 1 : +h.reflection),
-    shadow: { strength: (sh.strength == null ? 1 : +sh.strength), dx: +(sh.dx || 0), dy: +(sh.dy || 0), size: +(sh.size || 1) } }; }
+  function modelHangOf(h){ h = h || {}; var sh = h.shadow || {}, rf = h.refl || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), reflection: (h.reflection == null ? 1 : +h.reflection),
+    shadow: { strength: (sh.strength == null ? 1 : +sh.strength), dx: +(sh.dx || 0), dy: +(sh.dy || 0), size: +(sh.size || 1) },
+    refl: { dx: +(rf.dx || 0), dy: +(rf.dy || 0), length: +(rf.length || 1) } }; }
   function hangOf(h){ h = h || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), hangerScale: +(h.hangerScale || 1) }; }
   function neckOf(n){ return (n && n.rx > 0 && n.ry > 0) ? { cx: +n.cx, cy: +n.cy, rx: +n.rx, ry: +n.ry, shape: n.shape || 'oval', color: n.color || '#000000', strength: (n.strength == null ? 0.26 : +n.strength) } : null; }
   function normalize(g){
@@ -217,9 +218,10 @@
           shB.style.left = (W/2 - bw2/2 + sx)+'px'; shB.style.top = (sole - bh2*0.45 + sy)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
           shB.style.background = 'radial-gradient(ellipse at center, rgba(0,0,0,'+aB+') 0%, rgba(0,0,0,'+(aB*0.36)+') 45%, rgba(0,0,0,0) 72%)';
           // floor reflection: the figure mirrored so its soles meet the sole line, fading out over the first fifth
-          var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, mLeft, sole - (1 - an.bottom) * mh, mw, mh);
+          var rf = g.modelHang.refl;
+          var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, mLeft + rf.dx * mw, sole - (1 - an.bottom) * mh + rf.dy * mh, mw, mh);
           var r0 = FACE_PAD + (1 - an.bottom) * mh;
-          var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+r0+'px, rgba(0,0,0,.9) '+r0+'px, rgba(0,0,0,.25) '+(r0 + mh*0.07)+'px, rgba(0,0,0,0) '+(r0 + mh*0.22)+'px)';
+          var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+r0+'px, rgba(0,0,0,.9) '+r0+'px, rgba(0,0,0,.25) '+(r0 + mh*0.07*rf.length)+'px, rgba(0,0,0,0) '+(r0 + mh*0.22*rf.length)+'px)';
           rimg.parentNode.style.webkitMaskImage = rmask; rimg.parentNode.style.maskImage = rmask; rimg.parentNode.style.opacity = 0.36 * g.modelHang.reflection;
           // cast shadow on the wall: the silhouette, offset down-left of the light and squashed a little
           setFace(els[i].querySelector('img.mimg.cast'), mLeft - mw*0.10, mTop + mh*0.03, mw*1.02, mh*0.97);

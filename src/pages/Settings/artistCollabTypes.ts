@@ -47,7 +47,9 @@ export const DEFAULT_HANG: AxcHang = { dy: 0, scale: 1, hangerScale: 1 };
 
 /** Model view: the model stands on the room floor; dy shifts (fraction of model height), scale resizes. */
 export interface AxcModelShadow { strength: number; dx: number; dy: number; size: number }   // floor shadow: opacity multiplier, offsets (fractions of model width/height), size multiplier
-export interface AxcModelHang { dy: number; scale: number; shadow?: AxcModelShadow; reflection?: number }
+export interface AxcModelReflection { dx: number; dy: number; length: number }   // offsets (fractions of model width/height) and fade length multiplier
+export interface AxcModelHang { dy: number; scale: number; shadow?: AxcModelShadow; reflection?: number; refl?: AxcModelReflection }
+export const DEFAULT_MODEL_REFLECTION: AxcModelReflection = { dx: 0, dy: 0, length: 1 };
 export const DEFAULT_MODEL_SHADOW: AxcModelShadow = { strength: 1, dx: 0, dy: 0, size: 1 };
 export const DEFAULT_MODEL_HANG: AxcModelHang = { dy: 0, scale: 1, shadow: { ...DEFAULT_MODEL_SHADOW }, reflection: 1 };
 
