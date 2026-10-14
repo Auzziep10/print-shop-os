@@ -5,15 +5,35 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+function detectCarrier(carrier: string, trackingNumber: string): 'UPS' | 'FEDEX' | 'USPS' | 'DHL' | null {
+  // Normalize carrier names, including EasyPost codes like "UPSDAP", "UPSSurePost",
+  // "FedExDefault", "FedExSmartPost", "DHLExpress", "DHLeCommerce", etc.
+  const c = (carrier || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (c.includes('USPS') || c.includes('POSTAL') || c.includes('STAMPS')) return 'USPS';
+  if (c.includes('UPS')) return 'UPS';
+  if (c.includes('FEDEX') || c.includes('FEDERALEXPRESS')) return 'FEDEX';
+  if (c.includes('DHL')) return 'DHL';
+
+  // Fall back to inferring from the tracking number format
+  const n = trackingNumber.replace(/\s+/g, '').toUpperCase();
+  if (/^1Z[0-9A-Z]{16}$/.test(n)) return 'UPS';
+  if (/^(94|93|92|95|82)\d{18,20}$/.test(n) || /^[A-Z]{2}\d{9}US$/.test(n)) return 'USPS';
+  if (/^(\d{12}|\d{15}|\d{20}|\d{22})$/.test(n)) return 'FEDEX';
+  if (/^\d{10,11}$/.test(n)) return 'DHL';
+  return null;
+}
+
 export function getTrackingLink(carrier?: string, trackingNumber?: string) {
-  if (!carrier || !trackingNumber) return null;
-  const num = encodeURIComponent(trackingNumber.trim());
-  switch (carrier.toUpperCase()) {
+  if (!trackingNumber) return null;
+  const raw = trackingNumber.trim();
+  const num = encodeURIComponent(raw);
+  switch (detectCarrier(carrier || '', raw)) {
     case 'UPS': return `https://www.ups.com/track?tracknum=${num}`;
     case 'FEDEX': return `https://www.fedex.com/fedextrack/?trknbr=${num}`;
     case 'USPS': return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${num}`;
     case 'DHL': return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${num}`;
-    default: return `https://duckduckgo.com/?q=${encodeURIComponent(carrier)}+tracking+${num}`;
+    // Universal tracker that auto-detects the carrier and shows the shipment directly
+    default: return `https://t.17track.net/en#nums=${num}`;
   }
 }
 
