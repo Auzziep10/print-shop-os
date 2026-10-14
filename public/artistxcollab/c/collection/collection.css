@@ -72,8 +72,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .model{position:absolute;inset:0;opacity:0;transition:opacity .45s ease;pointer-events:none;}
 .mflip{position:absolute;inset:0;transform:perspective(1800px) rotateY(0deg);transition:transform .8s cubic-bezier(.4,.05,.2,1);}
 .mflip.back{transform:perspective(1800px) rotateY(180deg);}
-.mshadow{position:absolute;border-radius:50%;background:radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%);pointer-events:none;}
-.mshadow.wide{background:radial-gradient(ellipse at center, rgba(0,0,0,.28) 0%, rgba(0,0,0,.1) 45%, rgba(0,0,0,0) 72%);}
+.mshadow{position:absolute;border-radius:50%;pointer-events:none;filter:blur(6px);background:radial-gradient(ellipse at center, rgba(0,0,0,.42) 0%, rgba(0,0,0,.16) 40%, rgba(0,0,0,0) 70%);}
+.mshadow.wide{filter:blur(14px);background:radial-gradient(ellipse at center, rgba(0,0,0,.22) 0%, rgba(0,0,0,.08) 45%, rgba(0,0,0,0) 72%);}
 .mcast{position:absolute;pointer-events:none;filter:brightness(0) blur(16px) opacity(.32);transform-origin:50% 100%;transform:skewX(-4deg);}
 .mrefl{position:absolute;pointer-events:none;transform:scaleY(-1);opacity:.28;filter:blur(1.5px) saturate(.8);
   }   /* mask set per garment in pixels (see collection.js) */

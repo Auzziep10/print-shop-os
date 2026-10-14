@@ -7,7 +7,7 @@
   // ---------------------------------------------------------------- data
   // Live garments come from Firestore (Settings → Artist×Collab). The sample set in
   // collection-data.js is used until the first garment is published, or if the read fails.
-  function imgOf(m){ return (m && m.url) ? { url: m.url, width: m.width || 1000, height: m.height || 2000 } : null; }
+  function imgOf(m){ return (m && m.url) ? { url: m.url, width: m.width || 1000, height: m.height || 2000, anchor: m.anchor || null } : null; }
   function hangOf(h){ h = h || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), hangerScale: +(h.hangerScale || 1) }; }
   function neckOf(n){ return (n && n.rx > 0 && n.ry > 0) ? { cx: +n.cx, cy: +n.cy, rx: +n.rx, ry: +n.ry, shape: n.shape || 'oval', color: n.color || '#000000', strength: (n.strength == null ? 0.26 : +n.strength) } : null; }
   function normalize(g){
@@ -196,24 +196,26 @@
         }
         if(g.layout !== 'garment') Array.prototype.forEach.call(els[i].querySelectorAll('.hero'), function(img){ setFace(img, left, top, rw, rh); });
         if(g.model){
-          // the model stands on the floor: feet at modelFeetY of the room, height = modelHeight of the room, per-garment size/shift on top
+          // the model stands on the floor: the SOLID soles (anchor measured at upload) land on the sole line; files without an anchor use their bottom edge
           var mh = (data.modelHeight || 0.56) * roomH * g.modelHang.scale, mw = g.model.width * (mh / g.model.height);
-          var feet = roomTop + (data.modelFeetY || 0.86) * roomH + g.modelHang.dy * mh;
-          setFace(els[i].querySelector('img.mimg.f'), (W - mw)/2, feet - mh, mw, mh);
+          var an = g.model.anchor || { cx: 0.5, bottom: 1, top: 0 };
+          var sole = roomTop + (data.modelFeetY || 0.86) * roomH + g.modelHang.dy * mh;
+          var mTop = sole - an.bottom * mh, mLeft = W/2 - an.cx * mw;
+          setFace(els[i].querySelector('img.mimg.f'), mLeft, mTop, mw, mh);
           var mb = els[i].querySelector('img.mimg.b');
-          if(mb){ var bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, (W - bw)/2, feet - mh, bw, mh); }
-          // grounding: a tight dark contact shadow under the feet plus a broader soft pool, both centred just below the feet line
-          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 0.56, ah = mw * 0.07;
-          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (feet - ah*0.35)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
-          var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 0.95, bh2 = mw * 0.2;
-          shB.style.left = (W/2 - bw2/2)+'px'; shB.style.top = (feet - bh2*0.5 + mh*0.01)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
-          // floor reflection: the model mirrored in place below the feet (the wrapper is flipped, so the shoes meet the shoes)
-          var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, (W - mw)/2, feet + mh*0.004, mw, mh);
-          // the wrapper is padded, so write the fade in pixels: solid at the soles, gone about a fifth of the way down the mirrored figure
-          var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+FACE_PAD+'px, rgba(0,0,0,.95) '+FACE_PAD+'px, rgba(0,0,0,.3) '+(FACE_PAD + mh*0.07)+'px, rgba(0,0,0,0) '+(FACE_PAD + mh*0.22)+'px)';
+          if(mb){ var anb = g.modelBack.anchor || an, bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, W/2 - anb.cx * bw, sole - anb.bottom * mh, bw, mh); }
+          // grounding: one wide, feathered pool centred on the sole line (its top half hides behind the shoes and the reflection)
+          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 1.2, ah = mw * 0.24;
+          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (sole - ah*0.42)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
+          var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 1.9, bh2 = mw * 0.4;
+          shB.style.left = (W/2 - bw2/2)+'px'; shB.style.top = (sole - bh2*0.45)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
+          // floor reflection: the figure mirrored so its soles meet the sole line, fading out over the first fifth
+          var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, mLeft, sole - (1 - an.bottom) * mh, mw, mh);
+          var r0 = FACE_PAD + (1 - an.bottom) * mh;
+          var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+r0+'px, rgba(0,0,0,.9) '+r0+'px, rgba(0,0,0,.25) '+(r0 + mh*0.07)+'px, rgba(0,0,0,0) '+(r0 + mh*0.22)+'px)';
           rimg.parentNode.style.webkitMaskImage = rmask; rimg.parentNode.style.maskImage = rmask;
           // cast shadow on the wall: the silhouette, offset down-left of the light and squashed a little
-          setFace(els[i].querySelector('img.mimg.cast'), (W - mw)/2 - mw*0.10, feet - mh*0.97, mw*1.02, mh*0.97);
+          setFace(els[i].querySelector('img.mimg.cast'), mLeft - mw*0.10, mTop + mh*0.03, mw*1.02, mh*0.97);
           els[i].querySelector('.mflip').style.transformOrigin = (W/2)+'px 50%';
         }
         var flip = els[i].querySelector('.flip'); flip.style.transformOrigin = (W/2)+'px 50%';

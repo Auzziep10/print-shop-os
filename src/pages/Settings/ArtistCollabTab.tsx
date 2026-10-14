@@ -55,17 +55,20 @@ async function decodeScaled(file: File): Promise<{ canvas: HTMLCanvasElement; wi
  * Garment cutout: scale down, confirm it has a transparent background, scrub near-transparent haze,
  * crop to the opaque bounds (plus a hair of padding) and hand back a PNG.
  */
-async function prepareGarment(file: File): Promise<File> {
+type Prepared = { file: File; anchor: { cx: number; bottom: number; top: number } };
+async function prepareGarment(file: File): Promise<Prepared> {
   const { canvas, width: w, height: h } = await decodeScaled(file);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   const data = ctx.getImageData(0, 0, w, h);
   const px = data.data;
   let minX = w, minY = h, maxX = -1, maxY = -1, transparent = 0;
+  let sMinX = w, sMinY = h, sMaxX = -1, sMaxY = -1;   // bounds of the SOLID figure (ignores baked soft shadows / haze)
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4 + 3;
       if (px[i] <= 24) { transparent++; px[i] = 0; continue; }   // haze left by background removal shows up as a band under the shadow
       if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (px[i] > 160) { if (x < sMinX) sMinX = x; if (x > sMaxX) sMaxX = x; if (y < sMinY) sMinY = y; if (y > sMaxY) sMaxY = y; }
     }
   }
   if (transparent < w * h * 0.02) {
@@ -80,7 +83,13 @@ async function prepareGarment(file: File): Promise<File> {
   out.getContext('2d')!.drawImage(canvas, minX, minY, cw, ch, 0, 0, cw, ch);
   const blob = await new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('Could not encode the image.');
-  return new File([blob], file.name.replace(/\.[a-z0-9]+$/i, '') + '.png', { type: 'image/png' });
+  const solid = sMaxX >= 0 ? { sMinX, sMinY, sMaxX, sMaxY } : { sMinX: minX, sMinY: minY, sMaxX: maxX, sMaxY: maxY };
+  const anchor = {
+    cx: ((solid.sMinX + solid.sMaxX) / 2 - minX) / cw,
+    top: (solid.sMinY - minY) / ch,
+    bottom: (solid.sMaxY + 1 - minY) / ch,
+  };
+  return { file: new File([blob], file.name.replace(/\.[a-z0-9]+$/i, '') + '.png', { type: 'image/png' }), anchor };
 }
 
 /** Closeup photo: just scale down (JPEG for opaque photos, PNG when the file has transparency). */
@@ -295,19 +304,22 @@ const ROOM_FEET_Y = 0.86, ROOM_MODEL_H = 0.56;   // same constants as collection
 /** The model standing in the room, placed exactly as the live page does it. Drag up/down to shift. */
 function ModelBoard({ image, hang, onHang }: { image: AxcImage; hang: AxcModelHang; onHang: (h: AxcModelHang) => void }) {
   const H = 560, W = Math.round(H * 852 / 1847);
+  const an = image.anchor || { cx: 0.5, bottom: 1, top: 0 };
   const mh = ROOM_MODEL_H * H * hang.scale, mw = image.width * (mh / image.height);
-  const feet = ROOM_FEET_Y * H + hang.dy * mh;
+  const feet = ROOM_FEET_Y * H + hang.dy * mh;                 // the sole line
+  const top = feet - an.bottom * mh, left = W / 2 - an.cx * mw;   // image box so that the solid feet land on the sole line, centred on the solid figure
+  const reflTop = feet - (1 - an.bottom) * mh;                  // mirrored copy: its (flipped) soles meet the sole line
   const drag = useRef<{ y: number; dy: number } | null>(null);
+  const mask = `linear-gradient(to top, rgba(0,0,0,0) ${(1 - an.bottom) * mh}px, rgba(0,0,0,.9) ${(1 - an.bottom) * mh}px, rgba(0,0,0,.25) ${(1 - an.bottom) * mh + mh * 0.07}px, rgba(0,0,0,0) ${(1 - an.bottom) * mh + mh * 0.22}px)`;
   return (
     <div className="relative shrink-0 select-none overflow-hidden rounded-lg border border-brand-border" style={{ width: W, height: H, cursor: 'grab', touchAction: 'none', backgroundImage: `url(${ROOM_IMG})`, backgroundSize: 'cover' }}
          onPointerDown={e => { if (e.button !== 0) return; drag.current = { y: e.clientY, dy: hang.dy }; e.currentTarget.setPointerCapture(e.pointerId); }}
          onPointerMove={e => { const d = drag.current; if (!d || !(e.buttons & 1)) { drag.current = null; return; } onHang({ ...hang, dy: Math.min(0.2, Math.max(-0.2, d.dy + (e.clientY - d.y) / mh)) }); }}
          onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
-      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.475, top: feet - mw * 0.1 + mh * 0.01, width: mw * 0.95, height: mw * 0.2, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.28) 0%, rgba(0,0,0,.1) 45%, rgba(0,0,0,0) 72%)' }} />
-      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.24, top: feet - mw * 0.0425 + mh * 0.004, width: mw * 0.48, height: mw * 0.085, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%)' }} />
-      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2 - mw * 0.10, top: feet - mh * 0.97, width: mw * 1.02, height: mh * 0.97, filter: 'brightness(0) blur(10px) opacity(.32)', transform: 'skewX(-4deg)', transformOrigin: '50% 100%' }} />
-      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2, top: feet + mh * 0.004, width: mw, height: mh, transform: 'scaleY(-1)', opacity: .28, filter: 'blur(1px)', WebkitMaskImage: `linear-gradient(to top, rgba(0,0,0,.95) 0, rgba(0,0,0,.3) ${mh * 0.07}px, rgba(0,0,0,0) ${mh * 0.22}px)`, maskImage: `linear-gradient(to top, rgba(0,0,0,.95) 0, rgba(0,0,0,.3) ${mh * 0.07}px, rgba(0,0,0,0) ${mh * 0.22}px)` }} />
-      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2, top: feet - mh, width: mw, height: mh }} />
+      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.6, top: feet - mw * 0.09, width: mw * 1.2, height: mw * 0.24, filter: 'blur(6px)', background: 'radial-gradient(ellipse at center, rgba(0,0,0,.42) 0%, rgba(0,0,0,.16) 40%, rgba(0,0,0,0) 70%)' }} />
+      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: left - mw * 0.10, top: top + mh * 0.03, width: mw * 1.02, height: mh * 0.97, filter: 'brightness(0) blur(10px) opacity(.32)', transform: 'skewX(-4deg)', transformOrigin: '50% 100%' }} />
+      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left, top: reflTop, width: mw, height: mh, transform: 'scaleY(-1)', opacity: .26, filter: 'blur(1px)', WebkitMaskImage: mask, maskImage: mask }} />
+      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left, top, width: mw, height: mh }} />
       <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">drag to move up / down</div>
     </div>
   );
@@ -399,7 +411,8 @@ function GarmentEditor({
     setBusy(side); setError(null); setProgress(null);
     try {
       const prepared = await prepareGarment(file);
-      set(side, await uploadAxcImage(prepared, `${folderKey}/${side}`, setProgress));
+      const uploaded = await uploadAxcImage(prepared.file, `${folderKey}/${side}`, setProgress);
+      set(side, { ...uploaded, anchor: prepared.anchor });
     }
     catch (e) { setError(e instanceof Error ? e.message : 'Upload failed'); }
     finally { setBusy(null); setProgress(null); }

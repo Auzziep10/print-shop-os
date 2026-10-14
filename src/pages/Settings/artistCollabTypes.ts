@@ -17,6 +17,7 @@ export interface AxcImage {
   width: number;
   height: number;
   path: string;     // storage path, kept so the file can be cleaned up later
+  anchor?: { cx: number; bottom: number; top: number };   // where the SOLID pixels sit (fractions): soft shadows/haze in the file don't move the feet or collar
 }
 
 export interface AxcCloseup {
