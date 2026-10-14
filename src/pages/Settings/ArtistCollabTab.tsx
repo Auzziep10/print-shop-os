@@ -312,6 +312,7 @@ function ModelBoard({ image, hang, onHang }: { image: AxcImage; hang: AxcModelHa
   const sh: AxcModelShadow = { ...DEFAULT_MODEL_SHADOW, ...(hang.shadow || {}) };
   const refl = hang.reflection ?? 1;
   const pw = mw * 1.2 * sh.size, ph = mw * 0.24 * sh.size, pl = W / 2 - pw / 2 + sh.dx * mw, pt = feet - ph * 0.42 + sh.dy * mh;
+  const aA = Math.min(0.97, 0.42 * sh.strength), aB = Math.min(0.9, 0.22 * sh.strength);   // strength darkens the gradient itself
   const drag = useRef<{ y: number; dy: number } | null>(null);
   const mask = `linear-gradient(to top, rgba(0,0,0,0) ${(1 - an.bottom) * mh}px, rgba(0,0,0,.9) ${(1 - an.bottom) * mh}px, rgba(0,0,0,.25) ${(1 - an.bottom) * mh + mh * 0.07}px, rgba(0,0,0,0) ${(1 - an.bottom) * mh + mh * 0.22}px)`;
   return (
@@ -319,8 +320,8 @@ function ModelBoard({ image, hang, onHang }: { image: AxcImage; hang: AxcModelHa
          onPointerDown={e => { if (e.button !== 0) return; drag.current = { y: e.clientY, dy: hang.dy }; e.currentTarget.setPointerCapture(e.pointerId); }}
          onPointerMove={e => { const d = drag.current; if (!d || !(e.buttons & 1)) { drag.current = null; return; } onHang({ ...hang, dy: Math.min(0.2, Math.max(-0.2, d.dy + (e.clientY - d.y) / mh)) }); }}
          onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
-      <div className="absolute rounded-[50%]" style={{ left: pl - pw * 0.29, top: pt - ph * 0.33, width: pw * 1.58, height: ph * 1.67, opacity: sh.strength, filter: 'blur(14px)', background: 'radial-gradient(ellipse at center, rgba(0,0,0,.22) 0%, rgba(0,0,0,.08) 45%, rgba(0,0,0,0) 72%)' }} />
-      <div className="absolute rounded-[50%]" style={{ left: pl, top: pt, width: pw, height: ph, opacity: sh.strength, filter: 'blur(6px)', background: 'radial-gradient(ellipse at center, rgba(0,0,0,.42) 0%, rgba(0,0,0,.16) 40%, rgba(0,0,0,0) 70%)' }} />
+      <div className="absolute rounded-[50%]" style={{ left: pl - pw * 0.29, top: pt - ph * 0.33, width: pw * 1.58, height: ph * 1.67, filter: 'blur(14px)', background: `radial-gradient(ellipse at center, rgba(0,0,0,${aB}) 0%, rgba(0,0,0,${aB * 0.36}) 45%, rgba(0,0,0,0) 72%)` }} />
+      <div className="absolute rounded-[50%]" style={{ left: pl, top: pt, width: pw, height: ph, filter: 'blur(6px)', background: `radial-gradient(ellipse at center, rgba(0,0,0,${aA}) 0%, rgba(0,0,0,${aA * 0.38}) 40%, rgba(0,0,0,0) 70%)` }} />
       <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: left - mw * 0.10, top: top + mh * 0.03, width: mw * 1.02, height: mh * 0.97, filter: 'brightness(0) blur(10px) opacity(.32)', transform: 'skewX(-4deg)', transformOrigin: '50% 100%' }} />
       <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left, top: reflTop, width: mw, height: mh, transform: 'scaleY(-1)', opacity: .36 * refl, filter: 'blur(1px)', WebkitMaskImage: mask, maskImage: mask }} />
       <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left, top, width: mw, height: mh }} />
@@ -381,7 +382,7 @@ function ModelEditor({ g, busy, progress, onPick, onRemove, onHang }: {
             <RangeRow label="Model size" value={h.scale} min={0.6} max={1.4} step={0.01} format={times} onInput={v => onHang({ ...h, scale: v })} />
             <RangeRow label="Up / down" value={h.dy} min={-0.2} max={0.2} step={0.002} format={pct} onInput={v => onHang({ ...h, dy: v })} />
             <div className="pt-1 text-xs font-semibold uppercase tracking-wider text-brand-primary">Floor shadow</div>
-            <RangeRow label="Strength" value={sh.strength} min={0} max={2} step={0.02} format={times} onInput={v => onHang({ ...h, shadow: { ...sh, strength: v } })} />
+            <RangeRow label="Strength" value={sh.strength} min={0} max={2.4} step={0.02} format={times} onInput={v => onHang({ ...h, shadow: { ...sh, strength: v } })} />
             <RangeRow label="Size" value={sh.size} min={0.4} max={2} step={0.02} format={times} onInput={v => onHang({ ...h, shadow: { ...sh, size: v } })} />
             <RangeRow label="Up / down" value={sh.dy} min={-0.08} max={0.08} step={0.001} format={pct} onInput={v => onHang({ ...h, shadow: { ...sh, dy: v } })} />
             <RangeRow label="Left / right" value={sh.dx} min={-0.4} max={0.4} step={0.005} format={pct} onInput={v => onHang({ ...h, shadow: { ...sh, dx: v } })} />

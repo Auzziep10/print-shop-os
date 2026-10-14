@@ -208,10 +208,14 @@
           if(mb){ var anb = g.modelBack.anchor || an, bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, W/2 - anb.cx * bw, sole - anb.bottom * mh, bw, mh); }
           // grounding: one wide, feathered pool centred on the sole line (its top half hides behind the shoes and the reflection)
           var sh = g.modelHang.shadow, sx = sh.dx * mw, sy = sh.dy * mh;
+          // strength darkens the gradient itself (an opacity multiplier would cap at the default darkness)
+          var aA = Math.min(0.97, 0.42 * sh.strength), aB = Math.min(0.9, 0.22 * sh.strength);
           var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 1.2 * sh.size, ah = mw * 0.24 * sh.size;
-          shA.style.left = (W/2 - aw/2 + sx)+'px'; shA.style.top = (sole - ah*0.42 + sy)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px'; shA.style.opacity = sh.strength;
+          shA.style.left = (W/2 - aw/2 + sx)+'px'; shA.style.top = (sole - ah*0.42 + sy)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
+          shA.style.background = 'radial-gradient(ellipse at center, rgba(0,0,0,'+aA+') 0%, rgba(0,0,0,'+(aA*0.38)+') 40%, rgba(0,0,0,0) 70%)';
           var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 1.9 * sh.size, bh2 = mw * 0.4 * sh.size;
-          shB.style.left = (W/2 - bw2/2 + sx)+'px'; shB.style.top = (sole - bh2*0.45 + sy)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px'; shB.style.opacity = sh.strength;
+          shB.style.left = (W/2 - bw2/2 + sx)+'px'; shB.style.top = (sole - bh2*0.45 + sy)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
+          shB.style.background = 'radial-gradient(ellipse at center, rgba(0,0,0,'+aB+') 0%, rgba(0,0,0,'+(aB*0.36)+') 45%, rgba(0,0,0,0) 72%)';
           // floor reflection: the figure mirrored so its soles meet the sole line, fading out over the first fifth
           var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, mLeft, sole - (1 - an.bottom) * mh, mw, mh);
           var r0 = FACE_PAD + (1 - an.bottom) * mh;
