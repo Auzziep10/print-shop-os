@@ -10,6 +10,8 @@ window.AXC_COLLECTION = {
   hangerImage: "/artistxcollab/img/garments/hanger.png",   // the hanger lifted from the original render (170x130 on the 806px reference canvas)
   hookY: 0.34,           // where the hanger hook hangs, as a fraction of the room height (just under the sign)
   garmentWidth: 0.32,    // every garment is scaled to this width, as a fraction of the room height
+  modelFeetY: 0.86,      // where a model's feet land (fraction of room height; the wall/floor seam is at 0.78, feet sit a little in front of it)
+  modelHeight: 0.56,     // a model's height as a fraction of the room height
   garments: [
     {
       id: "sb-saints-after-dark",

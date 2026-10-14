@@ -44,6 +44,10 @@ export interface AxcHang {
 }
 export const DEFAULT_HANG: AxcHang = { dy: 0, scale: 1, hangerScale: 1 };
 
+/** Model view: the model stands on the room floor; dy shifts (fraction of model height), scale resizes. */
+export interface AxcModelHang { dy: number; scale: number }
+export const DEFAULT_MODEL_HANG: AxcModelHang = { dy: 0, scale: 1 };
+
 export const DEFAULT_NECK: AxcNeck = { cx: 0.5, cy: 0.05, rx: 0.085, ry: 0.03, shape: 'oval', color: '#000000', strength: 0.26 };
 
 /** Outline of the neck opening as an SVG path in pixels, for a w×h box. Kept identical in the viewer (collection.js). */
@@ -87,7 +91,10 @@ export interface AxcGarment {
   neck?: AxcNeck | null;           // optional collar hole; when set the hanger is drawn through it
   hang?: AxcHang | null;           // optional manual hanging adjustments (front)
   neckBack?: AxcNeck | null;       // collar opening on the BACK image
-  hangBack?: AxcHang | null;       // hanging adjustments for the back (falls back to the front's)   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
+  hangBack?: AxcHang | null;       // hanging adjustments for the back (falls back to the front's)
+  model?: AxcImage | null;         // optional model cutout (full length, transparent) → Garment / Model switch on the live page
+  modelBack?: AxcImage | null;     // optional back view of the model
+  modelHang?: AxcModelHang | null; // placement tweaks for the model   // 'garment' (default) = tight cutout; 'canvas' = legacy full 920×2000 plate with hanger baked in
   closeups: AxcCloseup[];
   active: boolean;
   sortOrder: number;
@@ -118,6 +125,9 @@ export function emptyGarment(sortOrder: number, brand: AxcBrandId = 'inktheory')
     hang: null,
     neckBack: null,
     hangBack: null,
+    model: null,
+    modelBack: null,
+    modelHang: null,
     closeups: [],
     active: false,
     sortOrder,

@@ -8,8 +8,8 @@ import {
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import {
-  AXC_BRANDS, AXC_GARMENTS_COLLECTION, AXC_STORAGE_FOLDER, DEFAULT_HANG, DEFAULT_NECK, emptyGarment, neckPath,
-  type AxcBrandId, type AxcCloseup, type AxcGarment, type AxcHang, type AxcImage, type AxcNeck, type AxcNeckShape, type AxcSpec,
+  AXC_BRANDS, AXC_GARMENTS_COLLECTION, AXC_STORAGE_FOLDER, DEFAULT_HANG, DEFAULT_MODEL_HANG, DEFAULT_NECK, emptyGarment, neckPath,
+  type AxcBrandId, type AxcCloseup, type AxcGarment, type AxcHang, type AxcImage, type AxcModelHang, type AxcNeck, type AxcNeckShape, type AxcSpec,
 } from './artistCollabTypes';
 
 const TILE = 'bg-[#e9e6e1] bg-[linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%),linear-gradient(45deg,#dedad4_25%,transparent_25%,transparent_75%,#dedad4_75%)] bg-[length:14px_14px] [background-position:0_0,7px_7px]';
@@ -289,6 +289,85 @@ function HangEditor({ title, intro, front, neck, hang, onNeck, onHang, copyFrom 
   );
 }
 
+const ROOM_IMG = '/artistxcollab/img/garments/room.webp';
+const ROOM_FEET_Y = 0.86, ROOM_MODEL_H = 0.56;   // same constants as collection-data.js
+
+/** The model standing in the room, placed exactly as the live page does it. Drag up/down to shift. */
+function ModelBoard({ image, hang, onHang }: { image: AxcImage; hang: AxcModelHang; onHang: (h: AxcModelHang) => void }) {
+  const H = 560, W = Math.round(H * 852 / 1847);
+  const mh = ROOM_MODEL_H * H * hang.scale, mw = image.width * (mh / image.height);
+  const feet = ROOM_FEET_Y * H + hang.dy * mh;
+  const drag = useRef<{ y: number; dy: number } | null>(null);
+  return (
+    <div className="relative shrink-0 select-none overflow-hidden rounded-lg border border-brand-border" style={{ width: W, height: H, cursor: 'grab', touchAction: 'none', backgroundImage: `url(${ROOM_IMG})`, backgroundSize: 'cover' }}
+         onPointerDown={e => { if (e.button !== 0) return; drag.current = { y: e.clientY, dy: hang.dy }; e.currentTarget.setPointerCapture(e.pointerId); }}
+         onPointerMove={e => { const d = drag.current; if (!d || !(e.buttons & 1)) { drag.current = null; return; } onHang({ ...hang, dy: Math.min(0.2, Math.max(-0.2, d.dy + (e.clientY - d.y) / mh)) }); }}
+         onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
+      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.31, top: feet - mw * 0.14 * 0.55, width: mw * 0.62, height: mw * 0.14, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.5) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,0) 72%)' }} />
+      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2, top: feet - mh, width: mw, height: mh }} />
+      <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">drag to move up / down</div>
+    </div>
+  );
+}
+
+function ModelEditor({ g, busy, progress, onPick, onRemove, onHang }: {
+  g: Omit<AxcGarment, 'id'>; busy: string | null; progress: number | null;
+  onPick: (side: 'model' | 'modelBack', file: File | undefined) => void; onRemove: (side: 'model' | 'modelBack') => void; onHang: (h: AxcModelHang | null) => void;
+}) {
+  const h: AxcModelHang = { ...DEFAULT_MODEL_HANG, ...(g.modelHang || {}) };
+  const inputs = { model: useRef<HTMLInputElement>(null), modelBack: useRef<HTMLInputElement>(null) };
+  const Slot = ({ side, label }: { side: 'model' | 'modelBack'; label: string }) => {
+    const img = g[side];
+    return (
+      <div>
+        <label className={tokens.typography.label}>{label}</label>
+        <div className="mt-2 flex items-start gap-3">
+          <div className={`relative h-40 w-24 shrink-0 overflow-hidden rounded-lg border border-brand-border ${TILE}`}>
+            {img ? <img src={img.url} alt="" className="absolute inset-0 h-full w-full object-contain p-1" /> : <div className="absolute inset-0 grid place-items-center text-[10px] uppercase tracking-wider text-brand-secondary/60">No image</div>}
+            {busy === side && (
+              <div className="absolute inset-0 grid place-items-center bg-black/45 text-white">
+                <div className="text-center"><Loader2 size={16} className="mx-auto animate-spin" /><div className="mt-1 text-[11px] tabular-nums">{progress == null ? 'Preparing…' : `${progress}%`}</div></div>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={() => inputs[side].current?.click()} disabled={!!busy}
+              className="inline-flex items-center gap-2 rounded-full border border-brand-border px-3 py-1.5 text-xs text-brand-primary transition-colors hover:border-brand-primary disabled:opacity-50">
+              <Upload size={12} /> {img ? 'Replace' : 'Upload'}
+            </button>
+            {img && <span className="text-[11px] text-brand-secondary">{img.width}×{img.height}px</span>}
+            {img && <button type="button" onClick={() => onRemove(side)} className="text-left text-[11px] text-red-600 hover:underline">Remove</button>}
+            <input ref={inputs[side]} type="file" accept="image/png,image/webp" className="hidden" onChange={e => onPick(side, e.target.files?.[0])} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="md:col-span-2 rounded-lg border border-brand-border bg-white/60 p-4">
+      <label className={tokens.typography.label}>Model view (optional)</label>
+      <p className="mt-1 text-[11px] text-brand-secondary">
+        Adds a Garment / Model switch under the name on the live page. Upload the model on their own: full length, feet included,
+        transparent background, no room. The page stands them on the floor of the same room and adds the contact shadow.
+      </p>
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Slot side="model" label="Model — front" />
+        <Slot side="modelBack" label="Model — back (optional, enables Turn)" />
+      </div>
+      {g.model && (
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+          <ModelBoard image={g.model} hang={h} onHang={onHang} />
+          <div className="flex-1 space-y-3 pt-1 pr-3">
+            <RangeRow label="Model size" value={h.scale} min={0.6} max={1.4} step={0.01} format={times} onInput={v => onHang({ ...h, scale: v })} />
+            <RangeRow label="Up / down" value={h.dy} min={-0.2} max={0.2} step={0.002} format={pct} onInput={v => onHang({ ...h, dy: v })} />
+            <button type="button" onClick={() => onHang(null)} className="text-xs text-brand-secondary hover:text-brand-primary">Reset</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* Garment editor                                                      */
 /* ================================================================== */
@@ -312,7 +391,7 @@ function GarmentEditor({
 
   const set = <K extends keyof Omit<AxcGarment, 'id'>>(k: K, v: Omit<AxcGarment, 'id'>[K]) => setG(prev => ({ ...prev, [k]: v }));
 
-  const pickSide = async (side: 'front' | 'back', file: File | undefined) => {
+  const pickSide = async (side: 'front' | 'back' | 'model' | 'modelBack', file: File | undefined) => {
     if (!file) return;
     setBusy(side); setError(null); setProgress(null);
     try {
@@ -423,6 +502,7 @@ function GarmentEditor({
             copyFrom={{ label: 'Copy settings from front', neck: g.neck, hang: g.hang }}
             intro="Shown after the Turn button. The back neck usually sits higher and narrower than the front, so it gets its own placement and opening. Until you change anything here, the back uses the front's hanging settings." />
         )}
+        <ModelEditor g={g} busy={busy} progress={progress} onPick={pickSide} onRemove={side => set(side, null)} onHang={h => set('modelHang', h)} />
 
         <div className="md:col-span-2">
           <label className={tokens.typography.label}>Garment makeup</label>
@@ -590,7 +670,7 @@ export function ArtistCollabTab() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-brand-primary">{g.name || 'Untitled garment'}</div>
                   <div className="truncate text-xs text-brand-secondary">
-                    {g.artist || '—'} · {g.closeups?.length || 0} closeup{(g.closeups?.length || 0) === 1 ? '' : 's'}{g.back ? ' · front + back' : ' · front only'}
+                    {g.artist || '—'} · {g.closeups?.length || 0} closeup{(g.closeups?.length || 0) === 1 ? '' : 's'}{g.back ? ' · front + back' : ' · front only'}{g.model ? ' · model' : ''}
                     {!g.active && ' · hidden'}
                   </div>
                 </div>

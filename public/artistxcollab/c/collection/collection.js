@@ -7,6 +7,7 @@
   // ---------------------------------------------------------------- data
   // Live garments come from Firestore (Settings → Artist×Collab). The sample set in
   // collection-data.js is used until the first garment is published, or if the read fails.
+  function imgOf(m){ return (m && m.url) ? { url: m.url, width: m.width || 1000, height: m.height || 2000 } : null; }
   function hangOf(h){ h = h || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), hangerScale: +(h.hangerScale || 1) }; }
   function neckOf(n){ return (n && n.rx > 0 && n.ry > 0) ? { cx: +n.cx, cy: +n.cy, rx: +n.rx, ry: +n.ry, shape: n.shape || 'oval', color: n.color || '#000000', strength: (n.strength == null ? 0.26 : +n.strength) } : null; }
   function normalize(g){
@@ -16,6 +17,7 @@
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
       layout: g.layout === 'canvas' ? 'canvas' : 'garment',
       hang: hangOf(g.hang), hangBack: hangOf(g.hangBack || g.hang),
+      model: imgOf(g.model), modelBack: imgOf(g.modelBack), modelHang: hangOf(g.modelHang),
       neck: neckOf(g.neck), neckBack: neckOf(g.neckBack),
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
@@ -133,7 +135,11 @@
         (g.back ? '<div class="face b"><img class="hero b" src="'+g.back.url+'" alt="'+(g.name||'')+' — back" draggable="false"></div>' : '') +
         (g.neck && g.layout === 'garment' ? '<div class="neck f" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         (g.back && g.neckBack && g.layout === 'garment' ? '<div class="neck b" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
-        '</div></div>';
+        '</div></div>' +
+        (g.model ? '<div class="model" aria-hidden="true"><i class="mshadow"></i><div class="mflip">' +
+          '<div class="face f"><img class="mimg f" src="'+g.model.url+'" alt="" draggable="false"></div>' +
+          (g.modelBack ? '<div class="face b"><img class="mimg b" src="'+g.modelBack.url+'" alt="" draggable="false"></div>' : '') +
+          '</div></div>' : '');
       stage.appendChild(el);
       return el;
     });
@@ -187,6 +193,17 @@
           left = (W-rw)/2; top = (H-rh)/2 + (data.garmentShiftY || 0) * rh; hookTop = top + 0.34*rh;
         }
         if(g.layout !== 'garment') Array.prototype.forEach.call(els[i].querySelectorAll('.hero'), function(img){ setFace(img, left, top, rw, rh); });
+        if(g.model){
+          // the model stands on the floor: feet at modelFeetY of the room, height = modelHeight of the room, per-garment size/shift on top
+          var mh = (data.modelHeight || 0.56) * roomH * g.modelHang.scale, mw = g.model.width * (mh / g.model.height);
+          var feet = roomTop + (data.modelFeetY || 0.86) * roomH + g.modelHang.dy * mh;
+          setFace(els[i].querySelector('img.mimg.f'), (W - mw)/2, feet - mh, mw, mh);
+          var mb = els[i].querySelector('img.mimg.b');
+          if(mb){ var bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, (W - bw)/2, feet - mh, bw, mh); }
+          var sh = els[i].querySelector('.mshadow'), sw = mw * 0.62, shh = mw * 0.14;
+          sh.style.left = (W/2 - sw/2)+'px'; sh.style.top = (feet - shh*0.55)+'px'; sh.style.width = sw+'px'; sh.style.height = shh+'px';
+          els[i].querySelector('.mflip').style.transformOrigin = (W/2)+'px 50%';
+        }
         var flip = els[i].querySelector('.flip'); flip.style.transformOrigin = (W/2)+'px 50%';
         els[i].querySelector('.swing').style.transformOrigin = (W/2)+'px '+hookTop+'px';
         var cord = els[i].querySelector('.cord'); cord.style.left = (W/2)+'px'; cord.style.height = (hookTop + 3)+'px';
@@ -194,6 +211,15 @@
     }
 
     var cur = 0, W = stage.clientWidth;
+    // Garment | Model view (the pill under the name; only offered when the garment has a model upload)
+    var modelMode = false, modeEl = $('mode');
+    function setMode(m){
+      modelMode = !!m && !!garments[cur].model;
+      stage.classList.toggle('model-mode', modelMode);
+      Array.prototype.forEach.call(modeEl.querySelectorAll('button'), function(b){ b.classList.toggle('on', (b.dataset.m === 'model') === modelMode); });
+      sideFor = -1; buildSide(garments[cur]);
+    }
+    modeEl.addEventListener('click', function(e){ var b = e.target.closest('button'); if(b) setMode(b.dataset.m === 'model'); });
     function place(el, pos, dx){
       var t = pos + (dx ? dx/W : 0);
       el.style.transform = 'translateX('+(t * 100)+'%)';
@@ -220,6 +246,8 @@
       $('stripName').textContent = g.name; $('stripArtist').textContent = g.artist;
       $('gName').textContent = g.name; $('gArtist').textContent = g.artist; $('gStory').textContent = g.story;
       $('specs').innerHTML = g.specs.map(function(s){ return '<dt>'+s[0]+'</dt><dd>'+s[1]+'</dd>'; }).join('');
+      modeEl.hidden = !g.model;
+      if(modelMode && !g.model) setMode(false);
       buildSide(g);
     }
     function go(n, dur){ cur = Math.max(0, Math.min(garments.length-1, n)); render(0, !reduced, dur); }
@@ -231,14 +259,15 @@
       var html = g.closeups.map(function(c, k){
         return '<button type="button" class="cu" data-k="'+k+'" aria-label="'+c.label+' closeup"><i></i><span>'+c.label+'</span></button>';
       }).join('');
-      if(g.back){
-        html += '<button type="button" class="cu turn" id="turnBtn" aria-label="Turn garment around"><i><svg viewBox="0 0 24 24"><path d="M9 6l-4 4 4 4M15 6l4 4-4 4"/></svg></i><span>Turn</span></button>';
+      if(modelMode ? g.modelBack : g.back){
+        html += '<button type="button" class="cu turn" id="turnBtn" aria-label="Turn around"><i><svg viewBox="0 0 24 24"><path d="M9 6l-4 4 4 4M15 6l4 4-4 4"/></svg></i><span>Turn</span></button>';
       }
       side.innerHTML = html;
       side.hidden = !html;
       els[cur].querySelector('.flip').classList.remove('back');
+      var mf = els[cur].querySelector('.mflip'); if(mf) mf.classList.remove('back');
       var tb = $('turnBtn'); if(tb) tb.addEventListener('click', function(){
-        var f = els[cur].querySelector('.flip'); f.classList.toggle('back'); tb.classList.toggle('on', f.classList.contains('back'));
+        var f = els[cur].querySelector(modelMode ? '.mflip' : '.flip'); f.classList.toggle('back'); tb.classList.toggle('on', f.classList.contains('back'));
         // when the turn settles, nudge the layer so the browser repaints the face cleanly (a stale raster can leave a hard shadow edge)
         var done = function(e){ if(e && e.target !== f) return; f.removeEventListener('transitionend', done); sway(0.02, false); requestAnimationFrame(function(){ sway(0, false); }); };
         f.addEventListener('transitionend', done); setTimeout(done, 1000);
