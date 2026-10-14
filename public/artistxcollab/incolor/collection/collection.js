@@ -138,6 +138,7 @@
         '</div></div>' +
         (g.model ? '<div class="model" aria-hidden="true"><i class="mshadow wide"></i><i class="mshadow"></i><div class="mflip">' +
           '<div class="mcast"><img class="mimg cast" src="'+g.model.url+'" alt="" draggable="false"></div>' +   // the model's silhouette, blurred, thrown onto the wall by the spotlight (upper right)
+          '<div class="mrefl"><img class="mimg refl" src="'+g.model.url+'" alt="" draggable="false"></div>' +   // faint mirror image in the glossy floor: this is what makes the feet read as touching
           '<div class="face f"><img class="mimg f" src="'+g.model.url+'" alt="" draggable="false"></div>' +
           (g.modelBack ? '<div class="face b"><img class="mimg b" src="'+g.modelBack.url+'" alt="" draggable="false"></div>' : '') +
           '</div></div>' : '');
@@ -202,10 +203,15 @@
           var mb = els[i].querySelector('img.mimg.b');
           if(mb){ var bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, (W - bw)/2, feet - mh, bw, mh); }
           // grounding: a tight dark contact shadow under the feet plus a broader soft pool, both centred just below the feet line
-          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 0.48, ah = mw * 0.085;
-          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (feet - ah*0.5 + mh*0.004)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
+          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 0.56, ah = mw * 0.07;
+          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (feet - ah*0.35)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
           var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 0.95, bh2 = mw * 0.2;
           shB.style.left = (W/2 - bw2/2)+'px'; shB.style.top = (feet - bh2*0.5 + mh*0.01)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
+          // floor reflection: the model mirrored in place below the feet (the wrapper is flipped, so the shoes meet the shoes)
+          var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, (W - mw)/2, feet + mh*0.004, mw, mh);
+          // the wrapper is padded, so write the fade in pixels: solid at the soles, gone about a fifth of the way down the mirrored figure
+          var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+FACE_PAD+'px, rgba(0,0,0,.95) '+FACE_PAD+'px, rgba(0,0,0,.3) '+(FACE_PAD + mh*0.07)+'px, rgba(0,0,0,0) '+(FACE_PAD + mh*0.22)+'px)';
+          rimg.parentNode.style.webkitMaskImage = rmask; rimg.parentNode.style.maskImage = rmask;
           // cast shadow on the wall: the silhouette, offset down-left of the light and squashed a little
           setFace(els[i].querySelector('img.mimg.cast'), (W - mw)/2 - mw*0.10, feet - mh*0.97, mw*1.02, mh*0.97);
           els[i].querySelector('.mflip').style.transformOrigin = (W/2)+'px 50%';

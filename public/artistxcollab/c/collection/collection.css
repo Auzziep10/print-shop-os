@@ -75,6 +75,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .mshadow{position:absolute;border-radius:50%;background:radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%);pointer-events:none;}
 .mshadow.wide{background:radial-gradient(ellipse at center, rgba(0,0,0,.28) 0%, rgba(0,0,0,.1) 45%, rgba(0,0,0,0) 72%);}
 .mcast{position:absolute;pointer-events:none;filter:brightness(0) blur(16px) opacity(.32);transform-origin:50% 100%;transform:skewX(-4deg);}
+.mrefl{position:absolute;pointer-events:none;transform:scaleY(-1);opacity:.28;filter:blur(1.5px) saturate(.8);
+  }   /* mask set per garment in pixels (see collection.js) */
+.mrefl img{position:absolute;max-width:none;}
 .mcast img{position:absolute;max-width:none;}
 .swing,.cord{transition:opacity .35s ease;}
 .model-mode .g .swing,.model-mode .g .cord{opacity:0;}
