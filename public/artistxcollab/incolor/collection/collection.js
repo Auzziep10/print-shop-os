@@ -8,6 +8,8 @@
   // Live garments come from Firestore (Settings → Artist×Collab). The sample set in
   // collection-data.js is used until the first garment is published, or if the read fails.
   function imgOf(m){ return (m && m.url) ? { url: m.url, width: m.width || 1000, height: m.height || 2000, anchor: m.anchor || null } : null; }
+  function modelHangOf(h){ h = h || {}; var sh = h.shadow || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), reflection: (h.reflection == null ? 1 : +h.reflection),
+    shadow: { strength: (sh.strength == null ? 1 : +sh.strength), dx: +(sh.dx || 0), dy: +(sh.dy || 0), size: +(sh.size || 1) } }; }
   function hangOf(h){ h = h || {}; return { dy: +(h.dy || 0), scale: +(h.scale || 1), hangerScale: +(h.hangerScale || 1) }; }
   function neckOf(n){ return (n && n.rx > 0 && n.ry > 0) ? { cx: +n.cx, cy: +n.cy, rx: +n.rx, ry: +n.ry, shape: n.shape || 'oval', color: n.color || '#000000', strength: (n.strength == null ? 0.26 : +n.strength) } : null; }
   function normalize(g){
@@ -17,7 +19,7 @@
       id: g.id, name: g.name || '', artist: g.artist || '', story: g.story || '',
       layout: g.layout === 'canvas' ? 'canvas' : 'garment',
       hang: hangOf(g.hang), hangBack: hangOf(g.hangBack || g.hang),
-      model: imgOf(g.model), modelBack: imgOf(g.modelBack), modelHang: hangOf(g.modelHang),
+      model: imgOf(g.model), modelBack: imgOf(g.modelBack), modelHang: modelHangOf(g.modelHang),
       neck: neckOf(g.neck), neckBack: neckOf(g.neckBack),
       specs: (g.specs || []).map(function(s){ return Array.isArray(s) ? s : [s.label, s.value]; }).filter(function(s){ return s[0] || s[1]; }),
       front: { url: front.url, width: front.width || 920, height: front.height || 2000 },
@@ -205,15 +207,16 @@
           var mb = els[i].querySelector('img.mimg.b');
           if(mb){ var anb = g.modelBack.anchor || an, bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, W/2 - anb.cx * bw, sole - anb.bottom * mh, bw, mh); }
           // grounding: one wide, feathered pool centred on the sole line (its top half hides behind the shoes and the reflection)
-          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 1.2, ah = mw * 0.24;
-          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (sole - ah*0.42)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
-          var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 1.9, bh2 = mw * 0.4;
-          shB.style.left = (W/2 - bw2/2)+'px'; shB.style.top = (sole - bh2*0.45)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
+          var sh = g.modelHang.shadow, sx = sh.dx * mw, sy = sh.dy * mh;
+          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 1.2 * sh.size, ah = mw * 0.24 * sh.size;
+          shA.style.left = (W/2 - aw/2 + sx)+'px'; shA.style.top = (sole - ah*0.42 + sy)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px'; shA.style.opacity = sh.strength;
+          var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 1.9 * sh.size, bh2 = mw * 0.4 * sh.size;
+          shB.style.left = (W/2 - bw2/2 + sx)+'px'; shB.style.top = (sole - bh2*0.45 + sy)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px'; shB.style.opacity = sh.strength;
           // floor reflection: the figure mirrored so its soles meet the sole line, fading out over the first fifth
           var rimg = els[i].querySelector('img.mimg.refl'); setFace(rimg, mLeft, sole - (1 - an.bottom) * mh, mw, mh);
           var r0 = FACE_PAD + (1 - an.bottom) * mh;
           var rmask = 'linear-gradient(to top, rgba(0,0,0,0) '+r0+'px, rgba(0,0,0,.9) '+r0+'px, rgba(0,0,0,.25) '+(r0 + mh*0.07)+'px, rgba(0,0,0,0) '+(r0 + mh*0.22)+'px)';
-          rimg.parentNode.style.webkitMaskImage = rmask; rimg.parentNode.style.maskImage = rmask;
+          rimg.parentNode.style.webkitMaskImage = rmask; rimg.parentNode.style.maskImage = rmask; rimg.parentNode.style.opacity = 0.36 * g.modelHang.reflection;
           // cast shadow on the wall: the silhouette, offset down-left of the light and squashed a little
           setFace(els[i].querySelector('img.mimg.cast'), mLeft - mw*0.10, mTop + mh*0.03, mw*1.02, mh*0.97);
           els[i].querySelector('.mflip').style.transformOrigin = (W/2)+'px 50%';

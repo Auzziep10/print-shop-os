@@ -46,8 +46,10 @@ export interface AxcHang {
 export const DEFAULT_HANG: AxcHang = { dy: 0, scale: 1, hangerScale: 1 };
 
 /** Model view: the model stands on the room floor; dy shifts (fraction of model height), scale resizes. */
-export interface AxcModelHang { dy: number; scale: number }
-export const DEFAULT_MODEL_HANG: AxcModelHang = { dy: 0, scale: 1 };
+export interface AxcModelShadow { strength: number; dx: number; dy: number; size: number }   // floor shadow: opacity multiplier, offsets (fractions of model width/height), size multiplier
+export interface AxcModelHang { dy: number; scale: number; shadow?: AxcModelShadow; reflection?: number }
+export const DEFAULT_MODEL_SHADOW: AxcModelShadow = { strength: 1, dx: 0, dy: 0, size: 1 };
+export const DEFAULT_MODEL_HANG: AxcModelHang = { dy: 0, scale: 1, shadow: { ...DEFAULT_MODEL_SHADOW }, reflection: 1 };
 
 export const DEFAULT_NECK: AxcNeck = { cx: 0.5, cy: 0.05, rx: 0.085, ry: 0.03, shape: 'oval', color: '#000000', strength: 0.26 };
 
