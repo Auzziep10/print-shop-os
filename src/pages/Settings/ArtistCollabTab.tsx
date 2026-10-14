@@ -303,7 +303,9 @@ function ModelBoard({ image, hang, onHang }: { image: AxcImage; hang: AxcModelHa
          onPointerDown={e => { if (e.button !== 0) return; drag.current = { y: e.clientY, dy: hang.dy }; e.currentTarget.setPointerCapture(e.pointerId); }}
          onPointerMove={e => { const d = drag.current; if (!d || !(e.buttons & 1)) { drag.current = null; return; } onHang({ ...hang, dy: Math.min(0.2, Math.max(-0.2, d.dy + (e.clientY - d.y) / mh)) }); }}
          onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
-      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.31, top: feet - mw * 0.14 * 0.55, width: mw * 0.62, height: mw * 0.14, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.5) 0%, rgba(0,0,0,.18) 45%, rgba(0,0,0,0) 72%)' }} />
+      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.475, top: feet - mw * 0.1 + mh * 0.01, width: mw * 0.95, height: mw * 0.2, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.28) 0%, rgba(0,0,0,.1) 45%, rgba(0,0,0,0) 72%)' }} />
+      <div className="absolute rounded-[50%]" style={{ left: W / 2 - mw * 0.24, top: feet - mw * 0.0425 + mh * 0.004, width: mw * 0.48, height: mw * 0.085, background: 'radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%)' }} />
+      <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2 - mw * 0.10, top: feet - mh * 0.97, width: mw * 1.02, height: mh * 0.97, filter: 'brightness(0) blur(10px) opacity(.32)', transform: 'skewX(-4deg)', transformOrigin: '50% 100%' }} />
       <img src={image.url} alt="" draggable={false} className="absolute max-w-none" style={{ left: (W - mw) / 2, top: feet - mh, width: mw, height: mh }} />
       <div className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/50 px-2 py-1 text-[10px] uppercase tracking-wider text-white">drag to move up / down</div>
     </div>

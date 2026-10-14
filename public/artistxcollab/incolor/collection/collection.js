@@ -45,7 +45,7 @@
       var app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(cfg);
       var snap = await fsMod.getDocs(fsMod.collection(fsMod.getFirestore(app), 'axc_garments'));
       var rows = []; snap.forEach(function(d){ var v = d.data(); v.id = d.id; rows.push(v); });
-      var brand = window.AXC_BRAND || 'inktheory';
+      var brand = window.AXC_BRAND || new URLSearchParams(location.search).get('brand') || 'inktheory';   // ?brand= for local previews
       rows = rows.filter(function(r){ return r.active && (r.brand || 'inktheory') === brand; }).sort(function(a, b){ return (a.sortOrder||0) - (b.sortOrder||0); });
       return rows;
     })().catch(function(){ return null; });
@@ -136,7 +136,8 @@
         (g.neck && g.layout === 'garment' ? '<div class="neck f" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         (g.back && g.neckBack && g.layout === 'garment' ? '<div class="neck b" aria-hidden="true"><img src="'+(data.hangerImage || '/artistxcollab/img/garments/hanger.png')+'" alt="" draggable="false"><i></i></div>' : '') +
         '</div></div>' +
-        (g.model ? '<div class="model" aria-hidden="true"><i class="mshadow"></i><div class="mflip">' +
+        (g.model ? '<div class="model" aria-hidden="true"><i class="mshadow wide"></i><i class="mshadow"></i><div class="mflip">' +
+          '<div class="mcast"><img class="mimg cast" src="'+g.model.url+'" alt="" draggable="false"></div>' +   // the model's silhouette, blurred, thrown onto the wall by the spotlight (upper right)
           '<div class="face f"><img class="mimg f" src="'+g.model.url+'" alt="" draggable="false"></div>' +
           (g.modelBack ? '<div class="face b"><img class="mimg b" src="'+g.modelBack.url+'" alt="" draggable="false"></div>' : '') +
           '</div></div>' : '');
@@ -200,8 +201,13 @@
           setFace(els[i].querySelector('img.mimg.f'), (W - mw)/2, feet - mh, mw, mh);
           var mb = els[i].querySelector('img.mimg.b');
           if(mb){ var bw = g.modelBack.width * (mh / g.modelBack.height); setFace(mb, (W - bw)/2, feet - mh, bw, mh); }
-          var sh = els[i].querySelector('.mshadow'), sw = mw * 0.62, shh = mw * 0.14;
-          sh.style.left = (W/2 - sw/2)+'px'; sh.style.top = (feet - shh*0.55)+'px'; sh.style.width = sw+'px'; sh.style.height = shh+'px';
+          // grounding: a tight dark contact shadow under the feet plus a broader soft pool, both centred just below the feet line
+          var shA = els[i].querySelector('.mshadow:not(.wide)'), aw = mw * 0.48, ah = mw * 0.085;
+          shA.style.left = (W/2 - aw/2)+'px'; shA.style.top = (feet - ah*0.5 + mh*0.004)+'px'; shA.style.width = aw+'px'; shA.style.height = ah+'px';
+          var shB = els[i].querySelector('.mshadow.wide'), bw2 = mw * 0.95, bh2 = mw * 0.2;
+          shB.style.left = (W/2 - bw2/2)+'px'; shB.style.top = (feet - bh2*0.5 + mh*0.01)+'px'; shB.style.width = bw2+'px'; shB.style.height = bh2+'px';
+          // cast shadow on the wall: the silhouette, offset down-left of the light and squashed a little
+          setFace(els[i].querySelector('img.mimg.cast'), (W - mw)/2 - mw*0.10, feet - mh*0.97, mw*1.02, mh*0.97);
           els[i].querySelector('.mflip').style.transformOrigin = (W/2)+'px 50%';
         }
         var flip = els[i].querySelector('.flip'); flip.style.transformOrigin = (W/2)+'px 50%';
