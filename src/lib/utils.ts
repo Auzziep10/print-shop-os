@@ -38,6 +38,13 @@ export function getTrackingLink(carrier?: string, trackingNumber?: string) {
   }
 }
 
+export function formatCarrierName(carrier?: string, trackingNumber?: string): string {
+  const detected = detectCarrier(carrier || '', (trackingNumber || '').trim());
+  if (detected === 'FEDEX') return 'FedEx';
+  if (detected) return detected;
+  return carrier || 'Carrier';
+}
+
 export function normalizeUser(rawUser: string, allUsersList: any[] = []): string {
   if (!rawUser) return 'Unknown';
     

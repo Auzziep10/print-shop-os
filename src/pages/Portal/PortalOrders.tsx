@@ -6,7 +6,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
 import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
-import { getTrackingLink } from '../../lib/utils';
+import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import { getGarmentAvailableSizes, sortGarmentSizes, isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
@@ -1347,6 +1347,20 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                       <p className="text-[10px] text-brand-secondary font-medium tracking-wide flex gap-1 items-center">
                                         <Printer size={10} /> {box.items?.reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0) || 0} ITEMS TOTAL
                                       </p>
+                                      {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                                        <a
+                                          href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          onClick={e => e.stopPropagation()}
+                                          title={`Click to track ${formatCarrierName(box.trackingCarrier, box.trackingNumber)} package ${box.trackingNumber}`}
+                                          className="text-[10px] font-bold uppercase text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white transition-all px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 border border-blue-200 hover:border-blue-600 shadow-2xs hover:shadow mt-1.5 group/track"
+                                        >
+                                          <Truck size={10} className="shrink-0" />
+                                          <span>{formatCarrierName(box.trackingCarrier, box.trackingNumber)}: <span className="underline decoration-blue-400 group-hover/track:decoration-white font-mono">{box.trackingNumber}</span></span>
+                                          <ExternalLink size={10} strokeWidth={2.5} className="shrink-0 opacity-80 group-hover/track:opacity-100" />
+                                        </a>
+                                      )}
                                     </div>
                                   </div>
                                   
@@ -1372,10 +1386,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                   </div>
                                   
                                   <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-                                    <div className="flex flex-col gap-1.5 min-w-[100px]">
+                                    <div className="flex flex-col gap-1.5 min-w-[115px]">
                                       {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
-                                        <a href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center">
-                                          <Truck size={12} /> Track
+                                        <a href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-700 hover:text-white transition-all whitespace-nowrap bg-blue-50 hover:bg-blue-600 px-3 py-1.5 rounded-full border border-blue-200 hover:border-blue-600 w-full text-center shadow-2xs">
+                                          <Truck size={12} /> Track Box <ExternalLink size={10} strokeWidth={2.5} />
                                         </a>
                                       )}
                                       <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
@@ -1480,8 +1494,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                               </span>
                                             )}
                                             {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
-                                              <a href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] font-bold uppercase text-brand-secondary bg-neutral-100 hover:bg-neutral-200 hover:text-black transition-colors px-2 py-0.5 rounded-sm flex items-center gap-1 border border-brand-border mt-0.5">
-                                                <Truck size={10} /> Track {box.trackingCarrier}: {box.trackingNumber}
+                                              <a
+                                                href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={e => e.stopPropagation()}
+                                                title={`Click to track ${formatCarrierName(box.trackingCarrier, box.trackingNumber)} package ${box.trackingNumber}`}
+                                                className="text-[10px] font-bold uppercase text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white transition-all px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-blue-200 hover:border-blue-600 shadow-2xs hover:shadow mt-0.5 group/track"
+                                              >
+                                                <Truck size={11} className="shrink-0" />
+                                                <span>Track {formatCarrierName(box.trackingCarrier, box.trackingNumber)}: <span className="underline decoration-blue-400 group-hover/track:decoration-white font-mono">{box.trackingNumber}</span></span>
+                                                <ExternalLink size={10} strokeWidth={2.5} className="shrink-0 opacity-80 group-hover/track:opacity-100" />
                                               </a>
                                             )}
                                             {box.trackingCarrier === 'Pickup' && (
@@ -1491,8 +1514,21 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                             )}
                                           </div>
                                         </div>
-                                        <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 mt-2 sm:mt-0 hover:bg-neutral-50 hover:text-black hover:border-black transition-colors flex flex-row items-center gap-2">
-                                           View Slip <ExternalLink size={12} strokeWidth={2.5} />
+                                        <div className="flex items-center gap-2 shrink-0 mt-2 sm:mt-0">
+                                          {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                                            <a
+                                              href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="text-[10px] text-blue-700 font-bold uppercase tracking-widest bg-blue-50 shadow-sm border border-blue-200 px-4 py-2.5 rounded-full shrink-0 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all flex flex-row items-center gap-1.5"
+                                            >
+                                              <Truck size={12} /> Track Box <ExternalLink size={11} strokeWidth={2.5} />
+                                            </a>
+                                          )}
+                                          <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 hover:bg-neutral-50 hover:text-black hover:border-black transition-colors flex flex-row items-center gap-2">
+                                             View Slip <ExternalLink size={12} strokeWidth={2.5} />
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
@@ -1528,7 +1564,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                        }}
                        className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
                      >
-                       Track {order.trackingCarrier}
+                       Track {formatCarrierName(order.trackingCarrier, order.trackingNumber)}
                      </button>
                    );
                  } else if (boxesWithTracking.length === 1) {

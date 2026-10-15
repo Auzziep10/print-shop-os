@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
 import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
+import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import type { BoxLabelPreset } from '../../types/boxLabel';
 
 type DraftBox = {
@@ -953,9 +954,22 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                                <Edit3 size={12} className="opacity-0 group-hover/rename:opacity-50 transition-opacity" />
                             </span>
                             {(box.trackingNumber || box.trackingCarrier) && (
-                              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
-                                <Truck size={10} /> {(box.trackingCarrier && box.trackingCarrier !== 'Pickup') ? box.trackingCarrier : (box.trackingCarrier || 'Tracked')}
-                              </span>
+                              box.trackingNumber && box.trackingCarrier !== 'Pickup' ? (
+                                <a
+                                  href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  title="Click to track this box on the carrier's website"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 transition-colors shadow-2xs"
+                                >
+                                  <Truck size={10} /> Track {formatCarrierName(box.trackingCarrier, box.trackingNumber)} <ExternalLink size={9} />
+                                </a>
+                              ) : (
+                                <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
+                                  <Truck size={10} /> {(box.trackingCarrier && box.trackingCarrier !== 'Pickup') ? formatCarrierName(box.trackingCarrier, box.trackingNumber) : (box.trackingCarrier || 'Tracked')}
+                                </span>
+                              )
                             )}
                           </h3>
                           <p className="text-xs text-brand-secondary font-medium tracking-wide flex items-center gap-2">
@@ -978,6 +992,21 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                               </div>
                             );
                           })()}
+                          {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                            <a
+                              href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              title="Click to track this box on the carrier's website"
+                              className="group/track inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded-full border border-blue-200 hover:border-blue-600 mt-1.5 transition-all shadow-2xs cursor-pointer"
+                            >
+                              <Truck size={11} className="shrink-0" />
+                              <span>Track {formatCarrierName(box.trackingCarrier, box.trackingNumber)}:</span>
+                              <span className="underline decoration-blue-400 group-hover/track:decoration-white underline-offset-2 font-mono">{box.trackingNumber}</span>
+                              <ExternalLink size={10} className="shrink-0 opacity-75 group-hover/track:opacity-100" />
+                            </a>
+                          )}
                        </div>
                      </div>
                      
@@ -1014,6 +1043,17 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                            <QRCode value={publicUrl} size={48} />
                          </div>
                          <div className="flex flex-col gap-2 min-w-[140px]">
+                           {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                             <a
+                               href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'}
+                               target="_blank"
+                               rel="noreferrer"
+                               onClick={e => e.stopPropagation()}
+                               className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-700 hover:text-white bg-blue-50 hover:bg-blue-600 transition-colors w-full h-[32px] rounded-full border border-blue-200 hover:border-blue-600 shadow-2xs"
+                             >
+                               <Truck size={12} /> Track Box <ExternalLink size={10} />
+                             </a>
+                           )}
                            <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box)}>
                              <Printer size={14} className="mr-1.5" /> Print QR Label
                            </PillButton>
