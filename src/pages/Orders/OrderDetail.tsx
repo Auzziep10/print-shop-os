@@ -1084,6 +1084,7 @@ export function OrderDetail() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [editForm, setEditForm] = useState({ 
     title: '', date: '', statusIndex: 0,
+    paymentStatus: 'unpaid',
     trackingCarrier: '', trackingNumber: '',
     fulfillmentType: '',
     discountCode: '',
@@ -2341,16 +2342,20 @@ export function OrderDetail() {
          return labels[newIndex] || 'Unknown';
       })();
 
+      const shouldResetPaid = newIndex <= 3 && order.paymentStatus === 'paid';
       const activity = {
         id: `act-${Date.now()}`,
         type: 'status_change',
-        message: `Status updated to ${newStatusLabel}`,
+        message: shouldResetPaid
+          ? `Status updated to ${newStatusLabel} (marked as Unpaid)`
+          : `Status updated to ${newStatusLabel}`,
         user: user?.email || 'Team Member',
         timestamp: new Date().toISOString()
       };
 
       await setDoc(doc(db, 'orders', id), {
         statusIndex: newIndex,
+        ...(shouldResetPaid ? { paymentStatus: 'unpaid', paymentDate: null } : {}),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -2360,6 +2365,30 @@ export function OrderDetail() {
       sendOrderStatusEmail(id, newIndex);
     } catch(err) {
       console.error(err);
+    }
+  };
+
+  const handleMarkUnpaid = async () => {
+    if (!id || !order) return;
+    if (!window.confirm('Mark this order as Unpaid and reopen it for payment?')) return;
+    try {
+      const nextStatusIndex = (typeof order.statusIndex === 'number' && order.statusIndex >= 4) ? 2 : (order.statusIndex ?? 2);
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'status_change',
+        message: 'Order marked as Unpaid and reopened for quote/payment updates.',
+        user: user?.email || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'orders', id), {
+        paymentStatus: 'unpaid',
+        paymentDate: null,
+        statusIndex: nextStatusIndex,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+    } catch (err) {
+      console.error('Failed to mark order unpaid:', err);
+      alert('Failed to mark order as unpaid.');
     }
   };
 
@@ -4060,6 +4089,7 @@ export function OrderDetail() {
         title: order.title || '',
         date: formatForDateInput(order.targetCompletionDate || order.date || ''),
         statusIndex: order.statusIndex || 0,
+        paymentStatus: order.paymentStatus || 'unpaid',
         trackingCarrier: order.trackingCarrier || '',
         trackingNumber: order.trackingNumber || '',
         fulfillmentType: order.fulfillmentType || '',
@@ -4247,11 +4277,18 @@ export function OrderDetail() {
         notes: primaryDest.notes || ''
       };
 
+      const nextPaymentStatus = (editForm as any).paymentStatus || (editForm.statusIndex <= 3 ? 'unpaid' : (order.paymentStatus || 'unpaid'));
+      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount);
+
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
         targetCompletionDate: editForm.date,
         statusIndex: editForm.statusIndex,
+        paymentStatus: nextPaymentStatus,
+        ...(nextPaymentStatus !== 'paid' ? { paymentDate: null } : {}),
+        total: updatedTotal,
+        calculatedTotal: updatedTotal,
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
@@ -4606,9 +4643,16 @@ export function OrderDetail() {
                        <StatusBadge status={badgeStatus} />
                        
                        {order.paymentStatus === 'paid' && (
-                         <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                           <Check size={12} strokeWidth={3} /> Paid
-                         </div>
+                         <button
+                           type="button"
+                           onClick={handleMarkUnpaid}
+                           title="Click to mark as Unpaid and reopen quote for payment"
+                           className="bg-emerald-100 hover:bg-red-100 border border-emerald-200 hover:border-red-200 text-emerald-700 hover:text-red-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer group/paid"
+                         >
+                           <Check size={12} strokeWidth={3} className="group-hover/paid:hidden" />
+                           <span className="group-hover/paid:hidden">Paid</span>
+                           <span className="hidden group-hover/paid:inline">Mark Unpaid</span>
+                         </button>
                        )}
                        
                        {order.items?.some((item: any) => item.itemType === 'gang_sheet') && (() => {
@@ -7390,7 +7434,7 @@ export function OrderDetail() {
                 <div>
                   <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-blue-500 rounded-full"></div> Pipeline & Legacy Tracking</h4>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
                         <select 
@@ -7407,7 +7451,14 @@ export function OrderDetail() {
                         <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
                         <select 
                           value={editForm.statusIndex.toString()}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
+                          onChange={(e) => {
+                            const nextIdx = parseInt(e.target.value);
+                            setEditForm(prev => ({
+                              ...prev,
+                              statusIndex: nextIdx,
+                              ...(nextIdx <= 3 ? { paymentStatus: 'unpaid' } : {})
+                            }));
+                          }}
                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                         >
                           {(() => {
@@ -7426,6 +7477,17 @@ export function OrderDetail() {
                               </>
                             );
                           })()}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Payment Status</label>
+                        <select
+                          value={(editForm as any).paymentStatus || 'unpaid'}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        >
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
                         </select>
                       </div>
                     </div>
