@@ -6,6 +6,7 @@ import { doc, updateDoc, arrayUnion, getDoc, deleteDoc, query, collection, where
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, getValidAccountDiscount, getValidAccountShippingDiscount, type AppliedDiscount } from '../../lib/discountUtils';
+import { isDiscountItem } from '../../lib/garmentUtils';
 import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
@@ -58,7 +59,7 @@ const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any
           const styleLower = (item.style || '').toLowerCase();
           const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
           const isTax = styleLower.includes('tax');
-          return !isShipping && !isTax;
+          return !isShipping && !isTax && !isDiscountItem(item);
         });
 
         if (selectedShipping) {
@@ -740,6 +741,7 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
   const regularItems: any[] = [];
 
   order.items?.forEach((item: any) => {
+    if (isDiscountItem(item)) return;
     const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
     const price = parseFloat(priceStr) || 0;
     
@@ -846,7 +848,7 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
         const styleLower = (item.style || '').toLowerCase();
         const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
         const isTax = styleLower.includes('sales tax') || (item.id && item.id.toString().startsWith('tax-'));
-        const isDiscount = styleLower.startsWith('discount') || (item.id && item.id.toString().startsWith('discount-'));
+        const isDiscount = isDiscountItem(item) || styleLower.startsWith('discount') || (item.id && item.id.toString().startsWith('discount-'));
         return !isShipping && !isTax && !isDiscount;
       });
 

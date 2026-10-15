@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
 import { 
   DollarSign, 
   ShoppingBag, 
@@ -120,6 +121,7 @@ export function OrderReportsPanel({ liveCustomers = {} }: { liveCustomers?: Reco
 
       // Calculate total item count
       const itemCount = o.items?.reduce((acc: number, i: any) => {
+        if (isDiscountItem(i) || isNonGarmentItem(i)) return acc;
         const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
         return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 1));
       }, 0) || 0;
@@ -136,7 +138,8 @@ export function OrderReportsPanel({ liveCustomers = {} }: { liveCustomers?: Reco
       }
 
       if (payoutAmount === 0 && o.items) {
-        payoutAmount = o.items.reduce((acc: number, i: any) => {
+        let lineItemsDiscountTotal = 0;
+        const rawSum = o.items.reduce((acc: number, i: any) => {
           const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
           const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : 1);
           let safePrice = 0;
@@ -144,10 +147,22 @@ export function OrderReportsPanel({ liveCustomers = {} }: { liveCustomers?: Reco
             const p = parseFloat(i.price.toString().replace(/[^0-9.]/g, ''));
             if (!isNaN(p)) safePrice = p;
           }
-          if (safePrice > 0) return acc + (safeQty * safePrice);
-          const tot = parseFloat((i.total || '$0').toString().replace(/[^0-9.]/g, ''));
-          return acc + (isNaN(tot) ? 0 : tot);
+          let itemVal = 0;
+          if (safePrice > 0) {
+            itemVal = safeQty * safePrice;
+          } else {
+            const tot = parseFloat((i.total || '$0').toString().replace(/[^0-9.]/g, ''));
+            itemVal = isNaN(tot) ? 0 : tot;
+          }
+          if (isDiscountItem(i)) {
+            lineItemsDiscountTotal += Math.abs(itemVal);
+            return acc;
+          }
+          return acc + itemVal;
         }, 0);
+        const explicitDiscountAmt = Math.abs(parseFloat(o.discountAmount || 0) || 0) + Math.abs(parseFloat(o.shippingDiscountAmount || 0) || 0);
+        const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
+        payoutAmount = Math.max(0, rawSum - discountAmt);
       }
 
       const placedDateFormatted = placedDate 

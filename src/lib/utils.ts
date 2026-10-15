@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { isDiscountItem } from './garmentUtils';
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -124,24 +125,34 @@ export function calculateOrderFinalTotal(order: any): number {
 
   // 2. Compute from line items and discounts
   if (order.items && Array.isArray(order.items)) {
+    let lineItemsDiscountTotal = 0;
     const rawItemsTotal = order.items.reduce((acc: number, i: any) => {
       const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
       const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
 
       let safePriceNum = 0;
       if (i.price !== undefined && i.price !== null) {
-        const pString = i.price.toString().replace(/[^0-9.-]/g, '');
+        const pString = i.price.toString().replace(/[^0-9.]/g, '');
         if (pString !== '') safePriceNum = parseFloat(pString);
       }
 
-      if (safeQty > 0 && safePriceNum !== 0) {
-        return acc + (safeQty * safePriceNum);
+      let itemVal = 0;
+      if (safeQty > 0 && safePriceNum > 0) {
+        itemVal = safeQty * safePriceNum;
+      } else {
+        const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
+        itemVal = parseFloat(priceMatch) || 0;
       }
-      const priceMatch = (i.total || '$0').toString().replace(/[^0-9.-]/g, '');
-      return acc + (parseFloat(priceMatch) || 0);
+
+      if (isDiscountItem(i)) {
+        lineItemsDiscountTotal += Math.abs(itemVal);
+        return acc;
+      }
+      return acc + itemVal;
     }, 0);
 
-    const discountAmt = parseFloat(order.discountAmount || 0) || 0;
+    const explicitDiscountAmt = Math.abs(parseFloat(order.discountAmount || 0) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount || 0) || 0);
+    const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
     return Math.max(0, rawItemsTotal - discountAmt);
   }
 

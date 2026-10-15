@@ -14,6 +14,7 @@ import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
 import { OrderReportsPanel } from './OrderReportsPanel';
 import { formatDisplayDate } from '../../lib/utils';
+import { isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
@@ -211,10 +212,15 @@ export function OrdersList() {
               
               // Calculate dynamic sums from the line items array
               const totalItems = order.items?.reduce((acc: number, i: any) => {
+                const styleLower = (i.style || '').toLowerCase();
+                const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping';
+                const isTax = styleLower.includes('tax');
+                if (isShipping || isTax || isDiscountItem(i) || isNonGarmentItem(i)) return acc;
                 const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
                 return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 0));
               }, 0) || 0;
 
+              let lineItemsDiscountTotal = 0;
               const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
                 const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
                 const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
@@ -225,14 +231,23 @@ export function OrdersList() {
                   if (pString !== '') safePriceNum = parseFloat(pString);
                 }
 
+                let itemVal = 0;
                 if (safeQty > 0 && safePriceNum > 0) {
-                  return acc + (safeQty * safePriceNum);
+                  itemVal = safeQty * safePriceNum;
+                } else {
+                  const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
+                  itemVal = parseFloat(priceMatch) || 0;
                 }
-                const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
-                return acc + (parseFloat(priceMatch) || 0);
+
+                if (isDiscountItem(i)) {
+                  lineItemsDiscountTotal += Math.abs(itemVal);
+                  return acc;
+                }
+                return acc + itemVal;
               }, 0) || 0;
 
-              const discountAmt = parseFloat(order.discountAmount || 0);
+              const explicitDiscountAmt = Math.abs(parseFloat(order.discountAmount || 0) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount || 0) || 0);
+              const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
               const finalOrderTotal = Math.max(0, totalPriceRaw - discountAmt);
               // Format price beautifully
               const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);

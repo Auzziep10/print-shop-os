@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
+import { isDiscountItem } from '../../lib/garmentUtils';
 
 export function InvoiceView() {
   const { orderId } = useParams();
@@ -155,6 +156,7 @@ export function InvoiceView() {
 
   // Calculate items subtotal
   let itemsSubtotal = 0;
+  let lineItemsDiscountTotal = 0;
   order.items?.forEach((item: any) => {
     const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
     const price = parseFloat(priceStr) || 0;
@@ -166,6 +168,10 @@ export function InvoiceView() {
       qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
     }
     
+    if (isDiscountItem(item)) {
+      lineItemsDiscountTotal += Math.abs(price * qty);
+      return;
+    }
     itemsSubtotal += price * qty;
   });
 
@@ -173,7 +179,8 @@ export function InvoiceView() {
   const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
   const shippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
   const taxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
-  const discountAmount = parseFloat(String(order.discountAmount || 0));
+  const explicitDiscount = Math.abs(parseFloat(String(order.discountAmount || 0)) || 0);
+  const discountAmount = Math.max(explicitDiscount, lineItemsDiscountTotal);
   const grandTotal = Math.max(0, itemsSubtotal - discountAmount) + shippingFee + taxAmount;
 
   const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
@@ -406,7 +413,7 @@ export function InvoiceView() {
 
                   {/* Table Rows: Order Items */}
                   <div className="flex flex-col gap-4 py-4 border-b border-neutral-100">
-                    {order.items?.map((item: any, idx: number) => {
+                    {order.items?.filter((item: any) => !isDiscountItem(item)).map((item: any, idx: number) => {
                        const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
                        const price = parseFloat(priceStr) || 0;
                        let qty = 0;

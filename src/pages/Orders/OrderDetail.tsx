@@ -1564,6 +1564,27 @@ export function OrderDetail() {
     if (!order?.id) return;
     setIsSavingOrderInvoice(true);
     try {
+      const parsedInvDiscountAmount = Math.abs(parseFloat(String((orderInvoiceForm as any).discountAmount)) || 0);
+      const parsedInvDiscountCode = (orderInvoiceForm as any).discountCode ? String((orderInvoiceForm as any).discountCode).toUpperCase().trim() : '';
+      let updatedItems = order.items;
+      if (Array.isArray(order.items) && order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
+        if (parsedInvDiscountAmount > 0) {
+          updatedItems = order.items.map((i: any) => {
+            if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
+              return {
+                ...i,
+                style: `Discount${parsedInvDiscountCode ? ` (${parsedInvDiscountCode})` : ''}`,
+                price: -parsedInvDiscountAmount,
+                total: -parsedInvDiscountAmount
+              };
+            }
+            return i;
+          });
+        } else {
+          updatedItems = order.items.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+        }
+      }
+
       await updateDoc(doc(db, 'orders', order.id), {
         invoiceSettings: orderInvoiceForm,
         accountManager: (orderInvoiceForm as any).accountManager || '',
@@ -1575,8 +1596,9 @@ export function OrderDetail() {
         dueDate: orderInvoiceForm.dueDate,
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
         taxAmount: parseFloat(String(orderInvoiceForm.taxAmount)) || 0,
-        discountCode: (orderInvoiceForm as any).discountCode ? String((orderInvoiceForm as any).discountCode).toUpperCase().trim() : '',
-        discountAmount: parseFloat(String((orderInvoiceForm as any).discountAmount)) || 0,
+        discountCode: parsedInvDiscountCode,
+        discountAmount: parsedInvDiscountAmount,
+        ...(updatedItems ? { items: updatedItems } : {}),
         stripePaymentUrl: orderInvoiceForm.stripePaymentUrl,
         updatedAt: new Date().toISOString()
       });
@@ -3798,13 +3820,19 @@ export function OrderDetail() {
       if (!orderData) throw new Error("Order not found");
 
       // Calculate new qty 
-      const finalQty = editItemObj.itemType === 'service' 
-        ? (editItemObj.qty || 1) 
+      const isDisc = isDiscountItem(editItemObj);
+      const sizeSum = editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+      const finalQty = (editItemObj.itemType === 'service' || isDisc || isNonGarmentItem(editItemObj))
+        ? (parseInt(editItemObj.qty) || 1) 
         : (editItemObj.itemType === 'gang_sheet'
            ? (editItemObj.quantity || 1)
-           : (editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0));
-      const numericPrice = parseFloat((editItemObj.price || '0').toString().replace(/[^0-9.]/g, ''));
-      const lineTotal = `$${(finalQty * numericPrice).toFixed(2)}`;
+           : (sizeSum > 0 ? sizeSum : (parseInt(editItemObj.qty) || 0)));
+      const rawPriceStr = (editItemObj.price || '0').toString().trim();
+      const isNegPrice = rawPriceStr.startsWith('-') || rawPriceStr.includes('-$') || isDisc;
+      const numericPriceAbs = parseFloat(rawPriceStr.replace(/[^0-9.]/g, '')) || 0;
+      const numericPrice = isNegPrice ? -Math.abs(numericPriceAbs) : numericPriceAbs;
+      const calcLineTotal = finalQty * numericPrice;
+      const lineTotal = calcLineTotal < 0 ? `-$${Math.abs(calcLineTotal).toFixed(2)}` : `$${calcLineTotal.toFixed(2)}`;
 
       const finalItem = {
         ...editItemObj,
@@ -4184,7 +4212,26 @@ export function OrderDetail() {
     setIsSaving(true);
     try {
       const statusChanged = editForm.statusIndex !== order.statusIndex;
-      const parsedDiscountAmount = parseFloat(editForm.discountAmount) || 0;
+      const parsedDiscountAmount = Math.abs(parseFloat(editForm.discountAmount) || 0);
+      const parsedDiscountCode = editForm.discountCode.toUpperCase().trim();
+      let updatedItems = order.items;
+      if (Array.isArray(order.items) && order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
+        if (parsedDiscountAmount > 0) {
+          updatedItems = order.items.map((i: any) => {
+            if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
+              return {
+                ...i,
+                style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
+                price: -parsedDiscountAmount,
+                total: -parsedDiscountAmount
+              };
+            }
+            return i;
+          });
+        } else {
+          updatedItems = order.items.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+        }
+      }
       
       const primaryDest = editForm.shippingDestinations?.[0] || editForm.shippingAddress;
       const finalShippingAddress = {
@@ -4208,10 +4255,11 @@ export function OrderDetail() {
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
-        discountCode: editForm.discountCode.toUpperCase().trim(),
+        discountCode: parsedDiscountCode,
         discountType: (editForm as any).discountType || (editForm.discountCode.includes('50') ? 'percent' : 'fixed'),
         discountValue: parseFloat((editForm as any).discountValue) || (editForm.discountCode.includes('50') ? 50 : 0),
         discountAmount: parsedDiscountAmount,
+        ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling
@@ -4340,7 +4388,7 @@ export function OrderDetail() {
     const styleLower = (item.style || '').toLowerCase();
     const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
     const isTax = styleLower.includes('tax');
-    return !isShipping && !isTax;
+    return !isShipping && !isTax && !isDiscountItem(item) && !isNonGarmentItem(item);
   });
 
   const totalItems = garmentItems.reduce((acc: number, i: any) => {
@@ -4348,6 +4396,7 @@ export function OrderDetail() {
     return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 0));
   }, 0) || 0;
 
+  let lineItemsDiscountTotal = 0;
   const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
     const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
     const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
@@ -4358,14 +4407,23 @@ export function OrderDetail() {
       if (pString !== '') safePriceNum = parseFloat(pString);
     }
 
+    let itemVal = 0;
     if (safeQty > 0 && safePriceNum > 0) {
-      return acc + (safeQty * safePriceNum);
+      itemVal = safeQty * safePriceNum;
+    } else {
+      const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
+      itemVal = parseFloat(priceMatch) || 0;
     }
-    const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
-    return acc + (parseFloat(priceMatch) || 0);
+
+    if (isDiscountItem(i)) {
+      lineItemsDiscountTotal += Math.abs(itemVal);
+      return acc;
+    }
+    return acc + itemVal;
   }, 0) || 0;
 
-  const rawDiscountAmount = parseFloat(order.discountAmount) || 0;
+  const explicitDiscountAmount = Math.abs(parseFloat(order.discountAmount) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount) || 0);
+  const rawDiscountAmount = Math.max(explicitDiscountAmount, lineItemsDiscountTotal);
   const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
   const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
@@ -5310,12 +5368,16 @@ export function OrderDetail() {
                               }
 
                               let safeTotalStr = '-';
-                              if (safeQty > 0 && safePriceNum > 0) {
+                              if (safeQty > 0 && safePriceNum !== 0) {
                                   const calcTot = safeQty * safePriceNum;
                                   safeTotalStr = calcTot < 0 ? `-$${Math.abs(calcTot).toFixed(2)}` : `$${calcTot.toFixed(2)}`;
                               } else if (item.total && item.total !== '-') {
-                                  let tString = item.total.toString().replace(/[^0-9.]/g, '');
-                                  if (tString !== '' && !isNaN(parseFloat(tString))) { safeTotalStr = `$${parseFloat(tString).toFixed(2)}`; }
+                                  const tRaw = item.total.toString().trim();
+                                  const isNegTotal = tRaw.startsWith('-') || tRaw.includes('-$') || isDisc;
+                                  let tString = tRaw.replace(/[^0-9.]/g, '');
+                                  if (tString !== '' && !isNaN(parseFloat(tString))) {
+                                    safeTotalStr = isNegTotal ? `-$${parseFloat(tString).toFixed(2)}` : `$${parseFloat(tString).toFixed(2)}`;
+                                  }
                               }
 
                               return (
