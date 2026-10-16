@@ -1,9 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Search, Check, Loader2, AlertCircle, ArrowRightLeft, Box, Package } from 'lucide-react';
+import { X, Search, Check, Loader2, AlertCircle, ArrowRightLeft, Box, Package, Plus } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
 import { db } from '../../lib/firebase';
-import { doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+
+const NEW_ORDER_TARGET_ID = '__NEW_ORDER__';
+
+/** Recursively strip undefined values before writing to Firestore */
+function stripUndefined(val: any): any {
+  if (Array.isArray(val)) return val.map(stripUndefined);
+  if (val && typeof val === 'object' && Object.prototype.toString.call(val) === '[object Object]') {
+    const out: Record<string, any> = {};
+    Object.entries(val).forEach(([k, v]) => {
+      if (v !== undefined) out[k] = stripUndefined(v);
+    });
+    return out;
+  }
+  return val;
+}
 
 interface TransferSizesModalProps {
   isOpen: boolean;
@@ -54,12 +69,13 @@ export function TransferSizesModal({
   const { userData, user } = useAuth();
   const [transferQtys, setTransferQtys] = useState<Record<string, number>>({});
   const [targetOrderId, setTargetOrderId] = useState<string | null>(null);
+  const [newOrderTitle, setNewOrderTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [mergeIntoExisting, setMergeIntoExisting] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Quantity of each size already packed into shipments on the source order (cannot be moved)
+  // Quantity of each size currently packed into shipments on the source order
   const boxedQtyBySize = useMemo(() => {
     const map: Record<string, number> = {};
     (sourceOrder?.boxes || []).forEach((box: any) => {
@@ -76,7 +92,7 @@ export function TransferSizesModal({
       .map(([size, q]) => {
         const qty = toInt(q);
         const boxed = boxedQtyBySize[size] || 0;
-        return { size, qty, boxed, available: Math.max(0, qty - boxed) };
+        return { size, qty, boxed, available: qty };
       })
       .filter(r => r.qty > 0)
       .sort((a, b) => sortSizes(a.size, b.size));
@@ -86,14 +102,18 @@ export function TransferSizesModal({
     if (!isOpen) {
       setTransferQtys({});
       setTargetOrderId(null);
+      setNewOrderTitle('');
       setSearchQuery('');
       setMergeIntoExisting(true);
       setError(null);
       return;
     }
+    setNewOrderTitle(sourceOrder?.title || 'Untitled Order');
     if (initialSize) {
       const row = sizeRows.find(r => r.size === initialSize);
       if (row && row.available > 0) setTransferQtys({ [initialSize]: row.available });
+    } else if (sizeRows.length === 1 && sizeRows[0].available > 0) {
+      setTransferQtys({ [sizeRows[0].size]: sizeRows[0].available });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialSize]);
@@ -120,9 +140,11 @@ export function TransferSizesModal({
     );
   }, [customerOrders, searchQuery]);
 
+  const isNewOrderTarget = targetOrderId === NEW_ORDER_TARGET_ID;
+
   const targetOrder = useMemo(
-    () => customerOrders.find(o => o.id === targetOrderId) || null,
-    [customerOrders, targetOrderId]
+    () => (isNewOrderTarget ? null : customerOrders.find(o => o.id === targetOrderId) || null),
+    [customerOrders, targetOrderId, isNewOrderTarget]
   );
 
   // An existing line item in the target order that came from this exact source line item.
@@ -159,7 +181,7 @@ export function TransferSizesModal({
   };
 
   const handleConfirm = async () => {
-    if (!sourceOrder?.id || !targetOrder || !item || totalTransfer <= 0) return;
+    if (!sourceOrder?.id || (!targetOrder && !isNewOrderTarget) || !item || totalTransfer <= 0) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -207,6 +229,32 @@ export function TransferSizesModal({
         ? (sourceOrder.items || []).filter((i: any) => i.id !== item.id)
         : (sourceOrder.items || []).map((i: any) => (i.id === item.id ? updatedSourceItem : i));
 
+      // If any transferred units were packed in sourceOrder.boxes, unpack the excess
+      let updatedSourceBoxes = sourceOrder.boxes;
+      if (Array.isArray(sourceOrder.boxes) && sourceOrder.boxes.length > 0) {
+        const remainingAllowedBySize: Record<string, number> = { ...newSourceSizes };
+        updatedSourceBoxes = sourceOrder.boxes.map((box: any) => {
+          if (!Array.isArray(box.items)) return box;
+          const nextBoxItems = box.items
+            .map((bi: any) => {
+              if (String(bi.id) !== String(item.id)) return bi;
+              const nextBiSizes: Record<string, number> = {};
+              Object.entries(bi.sizes || {}).forEach(([s, q]) => {
+                const boxedQ = toInt(q);
+                const allowed = Math.max(0, toInt(remainingAllowedBySize[s]));
+                const keep = Math.min(boxedQ, allowed);
+                remainingAllowedBySize[s] = allowed - keep;
+                if (keep > 0) nextBiSizes[s] = keep;
+              });
+              const nextBiQty = sumSizes(nextBiSizes);
+              if (nextBiQty <= 0) return null;
+              return { ...bi, sizes: nextBiSizes, qty: nextBiQty };
+            })
+            .filter(Boolean);
+          return { ...box, items: nextBoxItems };
+        });
+      }
+
       // ---------- Target item ----------
       const carriedStatus = (base: any) => {
         const out: any = {};
@@ -222,6 +270,122 @@ export function TransferSizesModal({
         return out;
       };
 
+      const buildFreshTransferredItem = () => {
+        const newSizes: Record<string, number> = {};
+        Object.keys(item.sizes || {}).forEach(s => { newSizes[s] = 0; });
+        selectedEntries.forEach(([s, q]) => { newSizes[s] = q; });
+
+        const { id: _oldId, ...rest } = item;
+        void _oldId;
+        return {
+          ...rest,
+          ...carriedStatus(null),
+          id: `item-${now}-${Math.random().toString(36).slice(2, 7)}`,
+          sizes: newSizes,
+          qty: totalTransfer,
+          total: `$${(totalTransfer * price).toFixed(2)}`,
+          transferredFromOrderId: sourceOrder.id,
+          transferredFromItemId: item.id
+        };
+      };
+
+      const sourceLabel = sourceOrder.portalId || sourceOrder.id;
+      const batch = writeBatch(db);
+
+      if (isNewOrderTarget) {
+        const today = new Date();
+        const yy = String(today.getFullYear()).slice(-2);
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const prefix = `${yy}${mm}${dd}-`;
+        let maxCount = 0;
+        (orders || []).forEach((o: any) => {
+          if (o?.portalId && String(o.portalId).startsWith(prefix)) {
+            const suffix = String(o.portalId).split('-')[1];
+            const n = parseInt(suffix, 10);
+            if (!isNaN(n) && n > maxCount) maxCount = n;
+          }
+        });
+        const newPortalId = `${prefix}${maxCount + 1}`;
+        const newOrderRef = doc(collection(db, 'orders'));
+        const finalTitle = (newOrderTitle || '').trim() || sourceOrder.title || 'Untitled Order';
+        const newItem = buildFreshTransferredItem();
+        const newOrderTotal = Math.round(totalTransfer * price * 100) / 100;
+
+        const sourceActivity = {
+          id: `act-${now}`,
+          type: 'system',
+          message: `Transferred ${sizeSummary} of ${garmentName} to new order #${newPortalId} ("${finalTitle}")${removeSourceItem ? ' (line item removed)' : ''}`,
+          user: adminName,
+          timestamp: new Date().toISOString()
+        };
+        const targetActivity = {
+          id: `act-${now + 1}`,
+          type: 'system',
+          message: `Created order by transferring ${sizeSummary} of ${garmentName} from order ${sourceLabel}${sourceOrder.title ? ` ("${sourceOrder.title}")` : ''}`,
+          user: adminName,
+          timestamp: new Date().toISOString()
+        };
+
+        // Copy order-level fields from sourceOrder without copying other garments, boxes, or old tracking/history
+        const {
+          id: _srcId,
+          portalId: _srcPortalId,
+          items: _srcItems,
+          boxes: _srcBoxes,
+          activities: _srcActivities,
+          createdAt: _srcCreatedAt,
+          updatedAt: _srcUpdatedAt,
+          tracking: _srcTracking,
+          trackingNumber: _srcTrackingNumber,
+          trackingCarrier: _srcTrackingCarrier,
+          labelUrl: _srcLabelUrl,
+          shipmentId: _srcShipmentId,
+          rateId: _srcRateId,
+          paymentDate: _srcPaymentDate,
+          stripeSessionId: _srcStripeSessionId,
+          stripePaymentIntentId: _srcStripePaymentIntentId,
+          hasUnreadCustomerUpdate: _srcUnreadUpdate,
+          hasUnreadWebLead: _srcUnreadLead,
+          ...duplicatedOrderInfo
+        } = sourceOrder;
+        void _srcId; void _srcPortalId; void _srcItems; void _srcBoxes; void _srcActivities;
+        void _srcCreatedAt; void _srcUpdatedAt; void _srcTracking; void _srcTrackingNumber;
+        void _srcTrackingCarrier; void _srcLabelUrl; void _srcShipmentId; void _srcRateId;
+        void _srcPaymentDate; void _srcStripeSessionId; void _srcStripePaymentIntentId;
+        void _srcUnreadUpdate; void _srcUnreadLead;
+
+        const newOrderPayload = stripUndefined({
+          ...duplicatedOrderInfo,
+          id: newOrderRef.id,
+          portalId: newPortalId,
+          title: finalTitle,
+          items: [newItem],
+          boxes: [],
+          tracking: { carrier: '', number: '', url: '' },
+          trackingCarrier: '',
+          trackingNumber: '',
+          total: newOrderTotal,
+          calculatedTotal: newOrderTotal,
+          totalAmount: newOrderTotal,
+          activities: [targetActivity],
+          createdAt: new Date().toISOString()
+        });
+
+        batch.set(doc(db, 'orders', sourceOrder.id), stripUndefined({
+          items: updatedSourceItems,
+          ...(Array.isArray(updatedSourceBoxes) ? { boxes: updatedSourceBoxes } : {}),
+          activities: [sourceActivity, ...(sourceOrder.activities || [])]
+        }), { merge: true });
+        batch.set(newOrderRef, newOrderPayload);
+        await batch.commit();
+
+        onTransferred?.(newOrderRef.id);
+        onClose();
+        return;
+      }
+
+      // ---------- Existing Target Order ----------
       let updatedTargetItems: any[];
       const useMerge = mergeIntoExisting && !!matchingTargetItem;
 
@@ -240,28 +404,11 @@ export function TransferSizesModal({
         };
         updatedTargetItems = (targetOrder.items || []).map((ti: any) => (ti.id === mt.id ? mergedItem : ti));
       } else {
-        // Keep the same size columns as the source (zeros for non-transferred sizes)
-        const newSizes: Record<string, number> = {};
-        Object.keys(item.sizes || {}).forEach(s => { newSizes[s] = 0; });
-        selectedEntries.forEach(([s, q]) => { newSizes[s] = q; });
-
-        const { id: _oldId, ...rest } = item;
-        void _oldId;
-        const newItem = {
-          ...rest,
-          ...carriedStatus(null),
-          id: `item-${now}-${Math.random().toString(36).slice(2, 7)}`,
-          sizes: newSizes,
-          qty: totalTransfer,
-          total: `$${(totalTransfer * price).toFixed(2)}`,
-          transferredFromOrderId: sourceOrder.id,
-          transferredFromItemId: item.id
-        };
+        const newItem = buildFreshTransferredItem();
         updatedTargetItems = [...(targetOrder.items || []), newItem];
       }
 
       // ---------- Activities ----------
-      const sourceLabel = sourceOrder.portalId || sourceOrder.id;
       const targetLabel = targetOrder.portalId || targetOrder.id;
 
       const sourceActivity = {
@@ -279,15 +426,15 @@ export function TransferSizesModal({
         timestamp: new Date().toISOString()
       };
 
-      const batch = writeBatch(db);
-      batch.set(doc(db, 'orders', sourceOrder.id), {
+      batch.set(doc(db, 'orders', sourceOrder.id), stripUndefined({
         items: updatedSourceItems,
+        ...(Array.isArray(updatedSourceBoxes) ? { boxes: updatedSourceBoxes } : {}),
         activities: [sourceActivity, ...(sourceOrder.activities || [])]
-      }, { merge: true });
-      batch.set(doc(db, 'orders', targetOrder.id), {
+      }), { merge: true });
+      batch.set(doc(db, 'orders', targetOrder.id), stripUndefined({
         items: updatedTargetItems,
         activities: [targetActivity, ...(targetOrder.activities || [])]
-      }, { merge: true });
+      }), { merge: true });
       await batch.commit();
 
       onTransferred?.(targetOrder.id);
@@ -377,7 +524,7 @@ export function TransferSizesModal({
                             ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50'
                             : 'border-neutral-200 bg-white hover:border-neutral-400'
                       }`}
-                      title={row.boxed > 0 ? `${row.boxed} already packed in shipments and cannot be moved` : undefined}
+                      title={row.boxed > 0 ? `${row.boxed} packed in a box on this order (will be unpacked if transferred)` : undefined}
                     >
                       <button
                         type="button"
@@ -423,15 +570,64 @@ export function TransferSizesModal({
               2. Choose Destination Order
             </label>
 
-            {!sourceOrder?.customerId ? (
-              <div className="p-4 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl">
-                This order isn't linked to a customer profile, so there are no other orders to transfer into.
-              </div>
-            ) : customerOrders.length === 0 ? (
-              <div className="p-4 text-xs text-neutral-500 border border-dashed border-neutral-300 rounded-2xl text-center">
-                {customerName} has no other orders. Create a new order for them first, then transfer sizes into it.
-              </div>
-            ) : (
+            {/* Option: Create New Order duplicating current order info */}
+            <div
+              className={`mb-2.5 rounded-2xl border transition-all overflow-hidden ${
+                isNewOrderTarget
+                  ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/70'
+                  : 'border-brand-border bg-white hover:border-neutral-400'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setTargetOrderId(NEW_ORDER_TARGET_ID)}
+                className="w-full text-left p-3.5 flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      isNewOrderTarget ? 'bg-blue-600 text-white' : 'bg-neutral-100 text-neutral-700'
+                    }`}
+                  >
+                    <Plus size={16} strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold text-sm truncate ${isNewOrderTarget ? 'text-blue-900' : 'text-neutral-900'}`}>
+                        New Order (Duplicate Current Order Info)
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-0.5 truncate">
+                      Copies customer, shipping address &amp; order details — without duplicating other garments
+                    </p>
+                  </div>
+                </div>
+                {isNewOrderTarget ? (
+                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                    <Check size={14} strokeWidth={3} />
+                  </div>
+                ) : (
+                  <div className="w-5 h-5 rounded-full border border-neutral-300 shrink-0" />
+                )}
+              </button>
+
+              {isNewOrderTarget && (
+                <div className="px-3.5 pb-3.5 pt-1 border-t border-blue-200/60 bg-white/70">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1">
+                    New Order Title
+                  </label>
+                  <input
+                    type="text"
+                    value={newOrderTitle}
+                    onChange={e => setNewOrderTitle(e.target.value)}
+                    placeholder={sourceOrder?.title || 'Order title...'}
+                    className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm font-semibold focus:border-blue-600 outline-none transition-all"
+                  />
+                </div>
+              )}
+            </div>
+
+            {customerOrders.length > 0 && (
               <>
                 {customerOrders.length > 5 && (
                   <div className="relative mb-2">
@@ -440,12 +636,12 @@ export function TransferSizesModal({
                       type="text"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Search by order title, number, or status..."
+                      placeholder="Search existing orders by title, number, or status..."
                       className="w-full bg-brand-bg/50 border border-brand-border rounded-xl pl-9 pr-3 py-2 text-sm font-semibold focus:border-black focus:bg-white outline-none transition-all placeholder:font-normal placeholder:text-neutral-400"
                     />
                   </div>
                 )}
-                <div className="border border-brand-border rounded-2xl overflow-hidden bg-neutral-50/50 max-h-[220px] overflow-y-auto custom-scrollbar divide-y divide-brand-border/40">
+                <div className="border border-brand-border rounded-2xl overflow-hidden bg-neutral-50/50 max-h-[200px] overflow-y-auto custom-scrollbar divide-y divide-brand-border/40">
                   {filteredOrders.length === 0 ? (
                     <div className="p-6 text-center text-xs text-neutral-500">No orders match "{searchQuery}".</div>
                   ) : (
@@ -494,11 +690,11 @@ export function TransferSizesModal({
           </div>
 
           {/* Summary */}
-          {targetOrder && totalTransfer > 0 && (
+          {(targetOrder || isNewOrderTarget) && totalTransfer > 0 && (
             <div className="p-4 bg-neutral-50 rounded-2xl border border-brand-border/80 space-y-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary block">Summary</span>
 
-              {matchingTargetItem && (
+              {!isNewOrderTarget && matchingTargetItem && (
                 <label className="flex items-start gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -519,16 +715,30 @@ export function TransferSizesModal({
 
               <ul className="text-xs text-neutral-700 space-y-1 bg-white p-3 rounded-xl border border-neutral-200/60">
                 <li>
-                  Moving <strong>{totalTransfer}</strong> pc{totalTransfer === 1 ? '' : 's'} (
-                  {selectedEntries.sort(([a], [b]) => sortSizes(a, b)).map(([s, q]) => `${q}x ${s}`).join(', ')})
-                  {' '}to <strong>{targetOrder.title || 'Untitled Order'}</strong>.
+                  {isNewOrderTarget ? (
+                    <>
+                      Creating new order <strong>{(newOrderTitle || '').trim() || sourceOrder?.title || 'Untitled Order'}</strong> with this order's details and moving{' '}
+                      <strong>{totalTransfer}</strong> pc{totalTransfer === 1 ? '' : 's'} (
+                      {selectedEntries.sort(([a], [b]) => sortSizes(a, b)).map(([s, q]) => `${q}x ${s}`).join(', ')}) into it.
+                    </>
+                  ) : (
+                    <>
+                      Moving <strong>{totalTransfer}</strong> pc{totalTransfer === 1 ? '' : 's'} (
+                      {selectedEntries.sort(([a], [b]) => sortSizes(a, b)).map(([s, q]) => `${q}x ${s}`).join(', ')})
+                      {' '}to <strong>{targetOrder?.title || 'Untitled Order'}</strong>.
+                    </>
+                  )}
                 </li>
                 <li>
                   {remainingAfter > 0
                     ? <>This order will keep <strong>{remainingAfter}</strong> pc{remainingAfter === 1 ? '' : 's'} of this garment.</>
                     : <span className="text-amber-700 font-semibold">All pieces are moving — this line item will be removed from the current order.</span>}
                 </li>
-                <li className="text-neutral-500">Line totals are recalculated on both orders using the item's unit price.</li>
+                <li className="text-neutral-500">
+                  {isNewOrderTarget
+                    ? 'Only this garment is placed in the new order; other garments stay on the current order.'
+                    : "Line totals are recalculated on both orders using the item's unit price."}
+                </li>
               </ul>
             </div>
           )}
@@ -548,7 +758,7 @@ export function TransferSizesModal({
             variant="filled"
             onClick={handleConfirm}
             className="flex-1 justify-center py-3 text-white bg-black hover:bg-neutral-800 disabled:opacity-50"
-            disabled={!targetOrder || totalTransfer <= 0 || isSubmitting}
+            disabled={(!targetOrder && !isNewOrderTarget) || totalTransfer <= 0 || isSubmitting}
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
@@ -563,3 +773,4 @@ export function TransferSizesModal({
     </div>
   );
 }
+
