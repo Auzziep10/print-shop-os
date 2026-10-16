@@ -152,9 +152,6 @@ export function ddpOptions() {
 export function validateToAddress(to: any): string | null {
   if (!to || !to.street1 || !to.city) return 'Incomplete destination address (street and city are required).';
   if (isInternationalAddress(to)) {
-    if (!to.phone || String(to.phone).replace(/\D/g, '').length < 6) {
-      return 'International shipments require a recipient phone number.';
-    }
     return null;
   }
   if (!to.state || !to.zip) return 'Incomplete destination address (state and ZIP are required for US addresses).';

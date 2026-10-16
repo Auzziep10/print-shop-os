@@ -1094,7 +1094,8 @@ export function OrderDetail() {
     discountAmount: '',
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     shippingDestinations: [] as any[],
-    thirdPartyBilling: { account: '', zip: '' }
+    thirdPartyBilling: { account: '', zip: '' },
+    personalInfo: { isIndividual: false, gender: '', size: '' }
   });
   const [activeDestIndex, setActiveDestIndex] = useState(0);
 
@@ -1204,10 +1205,6 @@ export function OrderDetail() {
       setRatesError(quoteIsInternational
         ? "Please enter at least a street address and city to calculate international rates."
         : "Please enter a complete shipping address (street, city, state, zip) to calculate rates.");
-      return;
-    }
-    if (quoteIsInternational && !(quoteAddress?.phone || '').replace(/\D/g, '')) {
-      setRatesError("International shipments require a recipient phone number.");
       return;
     }
     
@@ -2574,10 +2571,6 @@ export function OrderDetail() {
      if (isCustom && isInternationalCountry(quickShipShippingAddress.country)) {
        if (!quickShipShippingAddress.street1 || !quickShipShippingAddress.city) {
          alert('International shipments need at least a street address and city.');
-         return;
-       }
-       if (!(quickShipShippingAddress.phone || '').replace(/\D/g, '')) {
-         alert('International shipments require a recipient phone number (carriers and customs need it).');
          return;
        }
      }
@@ -4120,7 +4113,12 @@ export function OrderDetail() {
         discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
         shippingAddress: primaryAddress,
         shippingDestinations: initialDestinations,
-        thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
+        thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' },
+        personalInfo: {
+          isIndividual: Boolean(order.personalInfo?.isIndividual),
+          gender: order.personalInfo?.gender || order.personalInfo?.sex || '',
+          size: order.personalInfo?.size || ''
+        }
       });
       setActiveDestIndex(0);
     }
@@ -4258,8 +4256,25 @@ export function OrderDetail() {
     setActiveDestIndex(editForm.shippingDestinations?.length || 0);
   };
 
+  const validatePersonalInfo = () => {
+    const p = editForm.personalInfo;
+    if (p?.isIndividual && (!p.gender || !p.size)) {
+      alert('This order is marked as an Individual — please select a Gender and Size before saving.');
+      return false;
+    }
+    return true;
+  };
+
+  const getPersonalInfoToSave = () => {
+    const p = editForm.personalInfo;
+    return p?.isIndividual
+      ? { isIndividual: true, gender: p.gender, size: p.size }
+      : { isIndividual: false, gender: '', size: '' };
+  };
+
   const handleSaveEdit = async () => {
     if (!id || !order) return;
+    if (!validatePersonalInfo()) return;
     setIsSaving(true);
     try {
       const statusChanged = editForm.statusIndex !== order.statusIndex;
@@ -4320,7 +4335,8 @@ export function OrderDetail() {
         ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
-        thirdPartyBilling: editForm.thirdPartyBilling
+        thirdPartyBilling: editForm.thirdPartyBilling,
+        personalInfo: getPersonalInfoToSave()
       }, { merge: true });
       setIsEditDialogOpen(false);
 
@@ -4367,6 +4383,7 @@ export function OrderDetail() {
 
   const handleApproveAndSave = async () => {
     if (!id || !order) return;
+    if (!validatePersonalInfo()) return;
     setIsSaving(true);
     try {
       const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && liveCustomer?.fulfillmentType === 'Kitting');
@@ -4408,6 +4425,7 @@ export function OrderDetail() {
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling,
+        personalInfo: getPersonalInfoToSave(),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -4615,17 +4633,33 @@ export function OrderDetail() {
                       </button>
                     </div>
                   ) : (
+                    <div className="flex items-center gap-3 flex-wrap mb-2">
                     <h1 
                       onClick={() => {
                         setTempTitle(order.title || 'Untitled Order');
                         setIsEditingTitle(true);
                       }}
-                      className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-2 group"
+                      className="font-serif text-4xl text-brand-primary line-clamp-2 md:line-clamp-none leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-2 group"
                       title="Click to edit order name"
                     >
                       {order.title || 'Untitled Order'}
                       <Edit3 size={18} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </h1>
+                    {((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
+                      <div className="flex items-center gap-1.5" title="Individual info (admin only)">
+                        {(order.personalInfo?.gender || order.personalInfo?.sex) && (
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-pink-50 text-pink-700 border border-pink-200">
+                            {order.personalInfo.gender || order.personalInfo.sex}
+                          </span>
+                        )}
+                        {order.personalInfo?.size && (
+                          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-800 border border-neutral-300">
+                            Size {order.personalInfo.size}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    </div>
                   )}
                   {order.customerId ? (
                     <div className="flex flex-col gap-1">
@@ -7345,8 +7379,69 @@ export function OrderDetail() {
               {/* Left Column: Core Order Info */}
               <div className="flex flex-col gap-6">
                 <div>
-                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details</h4>
+                  <div className="mb-4 pb-2 border-b border-brand-border flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
+                    </h4>
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editForm.personalInfo?.isIndividual)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEditForm(prev => ({
+                            ...prev,
+                            personalInfo: {
+                              ...prev.personalInfo,
+                              isIndividual: checked
+                            }
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-brand-primary">Individual?</span>
+                    </label>
+                  </div>
+
                   <div className="space-y-4">
+                    {editForm.personalInfo?.isIndividual && (
+                      <div className="p-4 bg-pink-50/40 rounded-xl border border-pink-200/80 space-y-3">
+                        <p className="text-[11px] text-pink-900 font-semibold">
+                          🔒 Admin only — not shown on customer profile. Displayed next to the order title.
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Gender *</label>
+                            <select
+                              required
+                              value={editForm.personalInfo?.gender || ''}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, gender: e.target.value } }))}
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary focus:outline-none transition-colors font-semibold"
+                            >
+                              <option value="">Select gender...</option>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Unisex">Unisex</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Size *</label>
+                            <select
+                              required
+                              value={editForm.personalInfo?.size || ''}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, size: e.target.value } }))}
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary focus:outline-none transition-colors font-semibold"
+                            >
+                              <option value="">Select size...</option>
+                              {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'].map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
                       <input 
@@ -7738,7 +7833,7 @@ export function OrderDetail() {
                         </select>
                         {isInternationalCountry(currentDest.country) && (
                           <p className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md px-2 py-1 mt-1.5 font-semibold">
-                            🌎 International shipment — customs form is generated automatically and duties/taxes are billed to us (DDP). Recipient phone is required.
+                            🌎 International shipment — customs form is generated automatically and duties/taxes are billed to us (DDP). Recipient phone recommended.
                           </p>
                         )}
                       </div>
@@ -7781,7 +7876,7 @@ export function OrderDetail() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                            {isInternationalCountry(currentDest.country) ? 'Phone *' : 'Phone (Optional)'}
+                            Phone (Optional)
                           </label>
                           <input 
                             type="text" placeholder={isInternationalCountry(currentDest.country) ? 'Phone incl. country code' : 'Phone'} autoComplete="tel"
@@ -9706,7 +9801,7 @@ export function OrderDetail() {
 
                                   <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
                                     <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
-                                      {isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Phone *' : 'Phone (Optional)'}
+                                      Phone (Optional)
                                     </label>
                                     <input 
                                       type="text"
@@ -10219,7 +10314,7 @@ export function OrderDetail() {
                               </select>
                               {isInternationalCountry(quickShipShippingAddress.country) && (
                                 <p className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md px-2 py-1 mt-1.5 font-semibold">
-                                  🌎 International — customs form is generated automatically and duties are billed to us (DDP). Recipient phone is required.
+                                  🌎 International — customs form is generated automatically and duties are billed to us (DDP). Recipient phone recommended.
                                 </p>
                               )}
                             </div>
@@ -10265,7 +10360,7 @@ export function OrderDetail() {
                             <div className="grid grid-cols-2 gap-3 pt-1">
                               <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                                  {isInternationalCountry(quickShipShippingAddress.country) ? 'Phone *' : 'Phone'}
+                                  Phone
                                 </label>
                                 <input 
                                   type="text" 

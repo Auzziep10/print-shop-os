@@ -205,10 +205,6 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     if (!form.address.street1 || !form.address.city || (!intl && (!form.address.state || !form.address.zip))) {
       return;
     }
-    if (intl && !(form.address.phone || '').replace(/\D/g, '')) {
-      setRatesError('International shipments require a recipient phone number.');
-      return;
-    }
     setIsFetchingRates(true);
     setRatesError('');
     try {
@@ -1239,7 +1235,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                                <option key={c.code} value={c.code}>{c.name}</option>
                              ))}
                            </select>
-                           <input type="text" autoComplete="tel" value={shippingForm.address.phone || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, phone: e.target.value}}))} placeholder={isInternationalCountry(shippingForm.address.country) ? 'Phone * (incl. country code)' : 'Phone (Optional)'} className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                           <input type="text" autoComplete="tel" value={shippingForm.address.phone || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, phone: e.target.value}}))} placeholder={isInternationalCountry(shippingForm.address.country) ? 'Phone (Optional, incl. country code)' : 'Phone (Optional)'} className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
                         </div>
                         {isInternationalCountry(shippingForm.address.country) && (
                           <p className="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 font-medium leading-snug">

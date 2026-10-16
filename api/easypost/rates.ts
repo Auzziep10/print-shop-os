@@ -183,7 +183,7 @@ export default async function handler(req: Request) {
         state: to_address.state || '',
         zip: to_address.zip || '',
         country: normalizeCountry(to_address.country),
-        phone: to_address.phone || '555-555-5555',
+        phone: to_address.phone || from_address.phone || '555-555-5555',
         email: to_address.email || undefined
       },
       from_address,
