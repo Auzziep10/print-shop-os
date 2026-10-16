@@ -17,7 +17,8 @@ export function BusinessTab() {
     city: '',
     state: '',
     zip: '',
-    country: 'US'
+    country: 'US',
+    customsSigner: ''
   });
 
   useEffect(() => {
@@ -89,6 +90,16 @@ export function BusinessTab() {
               onChange={(e) => setSettings(prev => ({ ...prev, phone: e.target.value }))}
               className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
               placeholder="e.g. 555-555-5555"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Customs Signer (International Shipments)</label>
+            <input 
+              type="text" 
+              value={settings.customsSigner || ''}
+              onChange={(e) => setSettings(prev => ({ ...prev, customsSigner: e.target.value }))}
+              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+              placeholder="Full name of the person certifying customs forms, e.g. Jane Smith"
             />
           </div>
         </div>

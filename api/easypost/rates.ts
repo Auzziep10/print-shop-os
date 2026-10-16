@@ -1,3 +1,5 @@
+import { buildCustomsInfo, ddpOptions, isInternationalAddress, normalizeCountry, validateToAddress } from '../_lib/easypostCustoms';
+
 export const config = {
   runtime: 'edge',
 };
@@ -121,9 +123,11 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'EasyPost API key is not defined in environment variables. Please add EASYPOST_TEST_KEY or EASYPOST_PROD_KEY.' }), { status: 500 });
     }
 
-    if (!to_address || !to_address.street1 || !to_address.city || !to_address.state || !to_address.zip) {
-      return new Response(JSON.stringify({ error: 'Incomplete destination address for shipping rate calculation.' }), { status: 400 });
+    const addressError = validateToAddress(to_address);
+    if (addressError) {
+      return new Response(JSON.stringify({ error: addressError }), { status: 400 });
     }
+    const isInternational = isInternationalAddress(to_address);
 
     // Default origin address (INKTHEORY HQ)
     const default_from_address = {
@@ -176,10 +180,11 @@ export default async function handler(req: Request) {
         street1: to_address.street1,
         street2: to_address.street2 || '',
         city: to_address.city,
-        state: to_address.state,
-        zip: to_address.zip,
-        country: to_address.country || 'US',
-        phone: to_address.phone || '555-555-5555'
+        state: to_address.state || '',
+        zip: to_address.zip || '',
+        country: normalizeCountry(to_address.country),
+        phone: to_address.phone || '555-555-5555',
+        email: to_address.email || undefined
       },
       from_address,
       parcel: parcelDims,
@@ -188,6 +193,15 @@ export default async function handler(req: Request) {
         label_size: '4x6'
       }
     };
+
+    if (isInternational) {
+      try {
+        shipmentPayload.customs_info = buildCustomsInfo(items, parcelDims.weight, fromAddressOverride, boxCount);
+      } catch (customsErr: any) {
+        return new Response(JSON.stringify({ error: customsErr.message }), { status: 400 });
+      }
+      Object.assign(shipmentPayload.options, ddpOptions());
+    }
 
     if (thirdPartyAccount) {
       shipmentPayload.options.payment = {
@@ -246,7 +260,8 @@ export default async function handler(req: Request) {
       shipmentId: shipmentData.id,
       parcel: parcelDims,
       boxes: boxCount,
-      handlingFeeApplied: markup
+      handlingFeeApplied: markup,
+      international: isInternational
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

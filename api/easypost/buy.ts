@@ -1,3 +1,5 @@
+import { buildCustomsInfo, ddpOptions, isInternationalAddress, normalizeCountry, validateToAddress } from '../_lib/easypostCustoms';
+
 export const config = {
   runtime: 'edge', // Edge functions are faster for proxying
 };
@@ -53,7 +55,8 @@ export default async function handler(req: Request) {
       preferredCarrier,
       preferredService,
       carrier,
-      service
+      service,
+      items = []
     } = body;
 
     const apiKey = (isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY)?.trim() || '';
@@ -123,6 +126,11 @@ export default async function handler(req: Request) {
 
     // 2. If direct buy didn't happen, create the shipment to get rates from EasyPost
     if (!buyData) {
+      const addressError = validateToAddress(to_address);
+      if (addressError) {
+        return new Response(JSON.stringify({ error: addressError }), { status: 400 });
+      }
+
       const shipmentPayload: any = {
         to_address: {
           name: to_address.name || to_address.company || 'Customer',
@@ -130,10 +138,11 @@ export default async function handler(req: Request) {
           street1: to_address.street1,
           street2: to_address.street2 || '',
           city: to_address.city,
-          state: to_address.state,
-          zip: to_address.zip,
-          country: to_address.country || 'US',
-          phone: to_address.phone || '555-555-5555'
+          state: to_address.state || '',
+          zip: to_address.zip || '',
+          country: normalizeCountry(to_address.country),
+          phone: to_address.phone || '555-555-5555',
+          email: to_address.email || undefined
         },
         from_address,
         parcel,
@@ -142,6 +151,15 @@ export default async function handler(req: Request) {
           label_size: '4x6'
         }
       };
+
+      if (isInternationalAddress(to_address)) {
+        try {
+          shipmentPayload.customs_info = buildCustomsInfo(items, Number(parcel?.weight) || 16, fromAddressOverride);
+        } catch (customsErr: any) {
+          return new Response(JSON.stringify({ error: customsErr.message }), { status: 400 });
+        }
+        Object.assign(shipmentPayload.options, ddpOptions());
+      }
 
       // Third party billing injection
       if (thirdPartyAccount) {
@@ -226,7 +244,10 @@ export default async function handler(req: Request) {
        labelUrl: buyData.postage_label.label_url,
        carrier: chosenRate?.carrier || 'Carrier',
        service: chosenRate?.service || 'Delivery',
-       cost: chosenRate?.rate || '0.00'
+       cost: chosenRate?.rate || '0.00',
+       forms: (buyData.forms || [])
+         .filter((f: any) => f?.form_url)
+         .map((f: any) => ({ type: f.form_type, url: f.form_url }))
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

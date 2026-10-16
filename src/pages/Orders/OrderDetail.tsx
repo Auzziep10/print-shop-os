@@ -18,6 +18,7 @@ import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { getTrackingLink, formatCarrierName, normalizeUser, formatDisplayDate } from '../../lib/utils';
+import { SHIPPING_COUNTRIES, isInternationalCountry, normalizeCountryCode } from '../../lib/countries';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
@@ -1196,8 +1197,17 @@ export function OrderDetail() {
   }, [isEditDialogOpen]);
 
   const handleFetchShippingRates = async () => {
-    if (!editForm.shippingAddress.street1 || !editForm.shippingAddress.city || !editForm.shippingAddress.state || !editForm.shippingAddress.zip) {
-      setRatesError("Please enter a complete shipping address (street, city, state, zip) to calculate rates.");
+    // Quote the destination currently being edited (falls back to the primary address)
+    const quoteAddress: any = currentDest || editForm.shippingAddress;
+    const quoteIsInternational = isInternationalCountry(quoteAddress?.country);
+    if (!quoteAddress?.street1 || !quoteAddress?.city || (!quoteIsInternational && (!quoteAddress?.state || !quoteAddress?.zip))) {
+      setRatesError(quoteIsInternational
+        ? "Please enter at least a street address and city to calculate international rates."
+        : "Please enter a complete shipping address (street, city, state, zip) to calculate rates.");
+      return;
+    }
+    if (quoteIsInternational && !(quoteAddress?.phone || '').replace(/\D/g, '')) {
+      setRatesError("International shipments require a recipient phone number.");
       return;
     }
     
@@ -1210,7 +1220,7 @@ export function OrderDetail() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to_address: editForm.shippingAddress,
+          to_address: { ...quoteAddress, country: normalizeCountryCode(quoteAddress?.country) },
           items: order.items || [],
           totalQty: totalItems,
           isTest: false
@@ -7700,6 +7710,28 @@ export function OrderDetail() {
                         />
                       </div>
 
+                      <div className="mb-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Country *</label>
+                        <select
+                          autoComplete="country"
+                          value={normalizeCountryCode(currentDest.country)}
+                          onChange={e => updateCurrentDest({ country: e.target.value })}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none font-semibold"
+                        >
+                          {!SHIPPING_COUNTRIES.some(c => c.code === normalizeCountryCode(currentDest.country)) && (
+                            <option value={normalizeCountryCode(currentDest.country)}>{normalizeCountryCode(currentDest.country)}</option>
+                          )}
+                          {SHIPPING_COUNTRIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.name}</option>
+                          ))}
+                        </select>
+                        {isInternationalCountry(currentDest.country) && (
+                          <p className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md px-2 py-1 mt-1.5 font-semibold">
+                            🌎 International shipment — customs form is generated automatically and duties/taxes are billed to us (DDP). Recipient phone is required.
+                          </p>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-12 gap-2 mb-2">
                         <div className="col-span-5">
                           <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
@@ -7711,18 +7743,23 @@ export function OrderDetail() {
                           />
                         </div>
                         <div className="col-span-3">
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                            {isInternationalCountry(currentDest.country) ? 'Region' : 'State *'}
+                          </label>
                           <input 
-                            type="text" placeholder="ST" autoComplete="address-level1"
+                            type="text" placeholder={isInternationalCountry(currentDest.country) ? 'Region / Province' : 'ST'} autoComplete="address-level1"
                             value={currentDest.state || ''} 
-                            onChange={e => updateCurrentDest({ state: e.target.value.toUpperCase() })}
-                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none uppercase font-bold" maxLength={3} 
+                            onChange={e => updateCurrentDest({ state: isInternationalCountry(currentDest.country) ? e.target.value : e.target.value.toUpperCase() })}
+                            className={`w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none ${isInternationalCountry(currentDest.country) ? '' : 'uppercase font-bold'}`}
+                            maxLength={isInternationalCountry(currentDest.country) ? 40 : 3} 
                           />
                         </div>
                         <div className="col-span-4">
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Zip *</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                            {isInternationalCountry(currentDest.country) ? 'Postal Code' : 'Zip *'}
+                          </label>
                           <input 
-                            type="text" placeholder="Zip" autoComplete="postal-code"
+                            type="text" placeholder={isInternationalCountry(currentDest.country) ? 'Postal Code' : 'Zip'} autoComplete="postal-code"
                             value={currentDest.zip || ''} 
                             onChange={e => updateCurrentDest({ zip: e.target.value })}
                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 
@@ -7732,9 +7769,11 @@ export function OrderDetail() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone (Optional)</label>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                            {isInternationalCountry(currentDest.country) ? 'Phone *' : 'Phone (Optional)'}
+                          </label>
                           <input 
-                            type="text" placeholder="Phone"
+                            type="text" placeholder={isInternationalCountry(currentDest.country) ? 'Phone incl. country code' : 'Phone'} autoComplete="tel"
                             value={currentDest.phone || ''} 
                             onChange={e => updateCurrentDest({ phone: e.target.value })}
                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none" 

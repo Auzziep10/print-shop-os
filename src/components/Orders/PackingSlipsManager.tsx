@@ -10,6 +10,7 @@ import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
 import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import type { BoxLabelPreset } from '../../types/boxLabel';
+import { SHIPPING_COUNTRIES, isInternationalCountry, normalizeCountryCode } from '../../lib/countries';
 
 type DraftBox = {
   id: string;
@@ -56,7 +57,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
 
   const [shippingForm, setShippingForm] = useState({
      length: 12, width: 12, height: 12, weightOz: 16, isTest: false, thirdPartyAccount: '', thirdPartyZip: '',
-     address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' }
+     address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '' }
   });
 
   // Dynamic live courier rates state
@@ -183,8 +184,29 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     return true;
   };
 
-  const fetchRatesForForm = async (form: typeof shippingForm) => {
-    if (!form.address.street1 || !form.address.city || !form.address.state || !form.address.zip) {
+  // Line items packed in a box, enriched with order pricing for customs declarations
+  const getBoxCustomsItems = (box: any) => {
+    return (box?.items || []).map((bi: any) => {
+      const orderItem = order.items?.find((it: any) => String(it.id) === String(bi.id)) || {};
+      return {
+        id: bi.id,
+        style: bi.style || orderItem.style || '',
+        itemNum: bi.itemNum || orderItem.itemNum || '',
+        itemType: orderItem.itemType,
+        sizes: bi.sizes || {},
+        qty: bi.qty || 0,
+        price: orderItem.price ?? orderItem.msrp ?? undefined
+      };
+    });
+  };
+
+  const fetchRatesForForm = async (form: typeof shippingForm, box: any = shippingLabelBox) => {
+    const intl = isInternationalCountry(form.address.country);
+    if (!form.address.street1 || !form.address.city || (!intl && (!form.address.state || !form.address.zip))) {
+      return;
+    }
+    if (intl && !(form.address.phone || '').replace(/\D/g, '')) {
+      setRatesError('International shipments require a recipient phone number.');
       return;
     }
     setIsFetchingRates(true);
@@ -194,7 +216,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to_address: form.address,
+          to_address: { ...form.address, country: normalizeCountryCode(form.address.country) },
+          items: getBoxCustomsItems(box),
           parcel: {
             length: Number(form.length) || 12,
             width: Number(form.width) || 12,
@@ -267,16 +290,21 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       isTest: false,
       thirdPartyAccount: defaultProfile.thirdPartyAccount || order.thirdPartyBilling?.account || '',
       thirdPartyZip: defaultProfile.thirdPartyZip || order.thirdPartyBilling?.zip || '',
-      address: {
-        name: customAddress?.name || defaultAddress.name || orderAddress.name || customer.name || customer.company || order.companyName || '',
-        company: customAddress?.company || defaultAddress.company || orderAddress.company || customer.company || order.companyName || '',
-        street1: customAddress?.street1 || defaultAddress.street1 || orderAddress.street1 || customer.street1 || '',
-        street2: customAddress?.street2 || defaultAddress.street2 || orderAddress.street2 || customer.street2 || '',
-        city: customAddress?.city || defaultAddress.city || orderAddress.city || customer.city || '',
-        state: customAddress?.state || defaultAddress.state || orderAddress.state || customer.state || '',
-        zip: customAddress?.zip || defaultAddress.zip || orderAddress.zip || customer.zip || '',
-        country: customAddress?.country || defaultAddress.country || orderAddress.country || customer.country || 'US'
-      }
+      address: (() => {
+        // Use one complete address source so fields (e.g. a US state/ZIP) never mix into a foreign address
+        const src: any = [customAddress, defaultAddress, orderAddress, customer].find((a: any) => a?.street1) || {};
+        return {
+          name: src.name || customAddress?.name || defaultAddress.name || orderAddress.name || customer.name || customer.company || order.companyName || '',
+          company: src.company || customAddress?.company || defaultAddress.company || orderAddress.company || customer.company || order.companyName || '',
+          street1: src.street1 || '',
+          street2: src.street2 || '',
+          city: src.city || '',
+          state: src.state || '',
+          zip: src.zip || '',
+          country: normalizeCountryCode(src.country || 'US'),
+          phone: src.phone || customAddress?.phone || orderAddress.phone || customer.phone || ''
+        };
+      })()
     };
     
     setShippingForm(newForm);
@@ -287,7 +315,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     setRatesError('');
 
     // Fetch initial rates for this package
-    fetchRatesForForm(newForm);
+    fetchRatesForForm(newForm, box);
   };
 
   const handleBuyShippingLabel = async () => {
@@ -313,8 +341,10 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           city: shippingForm.address.city,
           state: shippingForm.address.state,
           zip: shippingForm.address.zip,
-          country: shippingForm.address.country
+          country: normalizeCountryCode(shippingForm.address.country),
+          phone: shippingForm.address.phone
         },
+        items: getBoxCustomsItems(boxObj),
         parcel: {
           length: Number(shippingForm.length) || 12,
           width: Number(shippingForm.width) || 12,
@@ -347,7 +377,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
             trackingCarrier: data.carrier, 
             trackingService: data.service,
             labelUrl: data.labelUrl,
-            shippingCost: data.cost
+            shippingCost: data.cost,
+            customsForms: Array.isArray(data.forms) ? data.forms : []
           };
         }
         return b;
@@ -384,7 +415,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     try {
       const updatedBoxes = order.boxes.map((b: any) => {
         if (b.id === boxId) {
-          const { labelUrl, trackingNumber, trackingCarrier, easyPostShipmentId, ...rest } = b;
+          const { labelUrl, trackingNumber, trackingCarrier, easyPostShipmentId, customsForms, ...rest } = b;
           return rest;
         }
         return b;
@@ -1066,6 +1097,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                              <Sparkles size={12} className="text-amber-400" /> Thank You Card
                            </button>
                            {box.labelUrl ? (
+                              <>
                               <div className="flex w-full">
                                 <button onClick={() => window.open(box.labelUrl, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors h-[32px] rounded-l-full border border-r-0 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
                                   <Printer size={12} /> Courier Label
@@ -1074,6 +1106,17 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                                   <Trash2 size={12} />
                                 </button>
                               </div>
+                              {Array.isArray(box.customsForms) && box.customsForms.map((f: any, fi: number) => (
+                                <button
+                                  key={fi}
+                                  onClick={(e) => { e.stopPropagation(); window.open(f.url, '_blank'); }}
+                                  className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200"
+                                  title="Print and attach to the package (international customs)"
+                                >
+                                  <Printer size={12} /> {(f.type || 'Customs Form').replace(/_/g, ' ')}
+                                </button>
+                              ))}
+                              </>
                            ) : (
                               <button onClick={(e) => { e.stopPropagation(); handleOpenShippingLabel(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
                                 <Package size={12} /> Buy Shipping Label
@@ -1172,11 +1215,37 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                            <input type="text" autoComplete="organization" value={shippingForm.address.company || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, company: e.target.value}}))} placeholder="Company (Optional)" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
                         </div>
                         <input type="text" autoComplete="address-line1" value={shippingForm.address.street1 || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, street1: e.target.value}}))} placeholder="Street Address" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        <input type="text" autoComplete="address-line2" value={shippingForm.address.street2 || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, street2: e.target.value}}))} placeholder="Apt, Suite, Unit (Optional)" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
                         <div className="flex gap-2">
                            <input type="text" autoComplete="address-level2" value={shippingForm.address.city || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, city: e.target.value}}))} placeholder="City" className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                           <input type="text" autoComplete="address-level1" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="State" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} />
-                           <input type="text" autoComplete="postal-code" value={shippingForm.address.zip || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, zip: e.target.value}}))} placeholder="Zip" className="w-[30%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                           {isInternationalCountry(shippingForm.address.country) ? (
+                             <input type="text" autoComplete="address-level1" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="Region" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" maxLength={40} />
+                           ) : (
+                             <input type="text" autoComplete="address-level1" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="State" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} />
+                           )}
+                           <input type="text" autoComplete="postal-code" value={shippingForm.address.zip || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, zip: e.target.value}}))} placeholder={isInternationalCountry(shippingForm.address.country) ? 'Postal Code' : 'Zip'} className="w-[30%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
                         </div>
+                        <div className="flex gap-2">
+                           <select
+                             autoComplete="country"
+                             value={normalizeCountryCode(shippingForm.address.country)}
+                             onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, country: e.target.value}}))}
+                             className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none"
+                           >
+                             {!SHIPPING_COUNTRIES.some(c => c.code === normalizeCountryCode(shippingForm.address.country)) && (
+                               <option value={normalizeCountryCode(shippingForm.address.country)}>{normalizeCountryCode(shippingForm.address.country)}</option>
+                             )}
+                             {SHIPPING_COUNTRIES.map(c => (
+                               <option key={c.code} value={c.code}>{c.name}</option>
+                             ))}
+                           </select>
+                           <input type="text" autoComplete="tel" value={shippingForm.address.phone || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, phone: e.target.value}}))} placeholder={isInternationalCountry(shippingForm.address.country) ? 'Phone * (incl. country code)' : 'Phone (Optional)'} className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        </div>
+                        {isInternationalCountry(shippingForm.address.country) && (
+                          <p className="text-[11px] text-indigo-800 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 font-medium leading-snug">
+                            🌎 International: customs declaration is built from this box's items (one tariff code per garment type) and duties/taxes are billed to us (DDP). Print the customs form with the label after purchase. Click <strong>Recalculate Rates</strong> after changing the address.
+                          </p>
+                        )}
                      </div>
                   </div>
                   
