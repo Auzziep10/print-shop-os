@@ -158,7 +158,7 @@ export default async function handler(req: Request) {
         } catch (customsErr: any) {
           return new Response(JSON.stringify({ error: customsErr.message }), { status: 400 });
         }
-        Object.assign(shipmentPayload.options, ddpOptions());
+        Object.assign(shipmentPayload.options, ddpOptions(shipmentPayload.customs_info));
       }
 
       // Third party billing injection

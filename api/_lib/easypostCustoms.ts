@@ -126,10 +126,11 @@ export function buildCustomsInfo(items: any[], parcelWeightOz: number, fromAddre
   }
 
   const signer = (fromAddress?.customsSigner || fromAddress?.contactName || fromAddress?.companyName || fromAddress?.company || 'INKTHEORY').toString().trim();
+  const summary = (customs_items.map(ci => ci.description).filter(Boolean).join(', ') || 'Printed cotton apparel').slice(0, 50);
 
   return {
     contents_type: 'merchandise',
-    contents_explanation: '',
+    contents_explanation: summary,
     customs_certify: true,
     customs_signer: signer,
     non_delivery_option: 'return',
@@ -140,11 +141,17 @@ export function buildCustomsInfo(items: any[], parcelWeightOz: number, fromAddre
   };
 }
 
-/** Shipment options so duties & taxes are billed to the sender (DDP). */
-export function ddpOptions() {
+/** Shipment options so duties & taxes are billed to the sender (DDP) and package merchandise description is set. */
+export function ddpOptions(customsInfo?: any) {
+  const items = customsInfo?.customs_items || [];
+  const rawDesc =
+    items.map((ci: any) => ci.description).filter(Boolean).join(', ') ||
+    customsInfo?.contents_explanation ||
+    'Printed cotton apparel';
   return {
     incoterm: 'DDP',
     delivered_duty_paid: true,
+    content_description: String(rawDesc).slice(0, 35).trim(),
   };
 }
 
