@@ -2571,6 +2571,17 @@ export function OrderDetail() {
 
      const isCustom = quickShipHasCustomShipping && Boolean(quickShipShippingAddress.name || quickShipShippingAddress.street1 || quickShipShippingAddress.city);
 
+     if (isCustom && isInternationalCountry(quickShipShippingAddress.country)) {
+       if (!quickShipShippingAddress.street1 || !quickShipShippingAddress.city) {
+         alert('International shipments need at least a street address and city.');
+         return;
+       }
+       if (!(quickShipShippingAddress.phone || '').replace(/\D/g, '')) {
+         alert('International shipments require a recipient phone number (carriers and customs need it).');
+         return;
+       }
+     }
+
      const newBox = {
         id: `box-${Date.now()}`,
         name: boxFinalName,
@@ -9625,6 +9636,26 @@ export function OrderDetail() {
                                   />
                                 </div>
 
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Country *</label>
+                                  <select
+                                    autoComplete="country"
+                                    value={normalizeCountryCode(editItemObj.shippingAddress?.country)}
+                                    onChange={(e) => setEditItemObj({
+                                      ...editItemObj,
+                                      shippingAddress: { ...editItemObj.shippingAddress, country: e.target.value }
+                                    })}
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                  >
+                                    {!SHIPPING_COUNTRIES.some(c => c.code === normalizeCountryCode(editItemObj.shippingAddress?.country)) && (
+                                      <option value={normalizeCountryCode(editItemObj.shippingAddress?.country)}>{normalizeCountryCode(editItemObj.shippingAddress?.country)}</option>
+                                    )}
+                                    {SHIPPING_COUNTRIES.map(c => (
+                                      <option key={c.code} value={c.code}>{c.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:col-span-2">
                                   <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
                                     <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">City *</label>
@@ -9641,22 +9672,26 @@ export function OrderDetail() {
                                   </div>
 
                                   <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">State *</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                                      {isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Region' : 'State *'}
+                                    </label>
                                     <input 
                                       type="text"
                                       value={editItemObj.shippingAddress?.state || ''}
                                       onChange={(e) => setEditItemObj({
                                         ...editItemObj,
-                                        shippingAddress: { ...editItemObj.shippingAddress, state: e.target.value.toUpperCase() }
+                                        shippingAddress: { ...editItemObj.shippingAddress, state: isInternationalCountry(editItemObj.shippingAddress?.country) ? e.target.value : e.target.value.toUpperCase() }
                                       })}
-                                      placeholder="e.g. CA"
-                                      maxLength={2}
-                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all uppercase"
+                                      placeholder={isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Region' : 'e.g. CA'}
+                                      maxLength={isInternationalCountry(editItemObj.shippingAddress?.country) ? 40 : 2}
+                                      className={`w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all ${isInternationalCountry(editItemObj.shippingAddress?.country) ? '' : 'uppercase'}`}
                                     />
                                   </div>
 
                                   <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">ZIP *</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                                      {isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Postal Code' : 'ZIP *'}
+                                    </label>
                                     <input 
                                       type="text"
                                       value={editItemObj.shippingAddress?.zip || ''}
@@ -9664,13 +9699,15 @@ export function OrderDetail() {
                                         ...editItemObj,
                                         shippingAddress: { ...editItemObj.shippingAddress, zip: e.target.value }
                                       })}
-                                      placeholder="ZIP"
+                                      placeholder={isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Postal Code' : 'ZIP'}
                                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
                                     />
                                   </div>
 
                                   <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
-                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Phone (Optional)</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                                      {isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Phone *' : 'Phone (Optional)'}
+                                    </label>
                                     <input 
                                       type="text"
                                       value={editItemObj.shippingAddress?.phone || ''}
@@ -9678,7 +9715,7 @@ export function OrderDetail() {
                                         ...editItemObj,
                                         shippingAddress: { ...editItemObj.shippingAddress, phone: e.target.value }
                                       })}
-                                      placeholder="Phone"
+                                      placeholder={isInternationalCountry(editItemObj.shippingAddress?.country) ? 'Incl. country code' : 'Phone'}
                                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
                                     />
                                   </div>
@@ -10165,6 +10202,28 @@ export function OrderDetail() {
                               />
                             </div>
 
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Country *</label>
+                              <select
+                                autoComplete="country"
+                                value={normalizeCountryCode(quickShipShippingAddress.country)}
+                                onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, country: e.target.value }))}
+                                className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-semibold focus:border-brand-primary outline-none"
+                              >
+                                {!SHIPPING_COUNTRIES.some(c => c.code === normalizeCountryCode(quickShipShippingAddress.country)) && (
+                                  <option value={normalizeCountryCode(quickShipShippingAddress.country)}>{normalizeCountryCode(quickShipShippingAddress.country)}</option>
+                                )}
+                                {SHIPPING_COUNTRIES.map(c => (
+                                  <option key={c.code} value={c.code}>{c.name}</option>
+                                ))}
+                              </select>
+                              {isInternationalCountry(quickShipShippingAddress.country) && (
+                                <p className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-md px-2 py-1 mt-1.5 font-semibold">
+                                  🌎 International — customs form is generated automatically and duties are billed to us (DDP). Recipient phone is required.
+                                </p>
+                              )}
+                            </div>
+
                             <div className="grid grid-cols-3 gap-2">
                               <div className="col-span-1">
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City *</label>
@@ -10177,23 +10236,27 @@ export function OrderDetail() {
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State *</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                                  {isInternationalCountry(quickShipShippingAddress.country) ? 'Region' : 'State *'}
+                                </label>
                                 <input 
                                   type="text" 
                                   value={quickShipShippingAddress.state} 
-                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, state: e.target.value.toUpperCase() }))}
-                                  placeholder="ST"
-                                  maxLength={3}
-                                  className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs uppercase focus:border-brand-primary outline-none font-bold"
+                                  onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, state: isInternationalCountry(prev.country) ? e.target.value : e.target.value.toUpperCase() }))}
+                                  placeholder={isInternationalCountry(quickShipShippingAddress.country) ? 'Region / Province' : 'ST'}
+                                  maxLength={isInternationalCountry(quickShipShippingAddress.country) ? 40 : 3}
+                                  className={`w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none ${isInternationalCountry(quickShipShippingAddress.country) ? '' : 'uppercase font-bold'}`}
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">ZIP *</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                                  {isInternationalCountry(quickShipShippingAddress.country) ? 'Postal Code' : 'ZIP *'}
+                                </label>
                                 <input 
                                   type="text" 
                                   value={quickShipShippingAddress.zip} 
                                   onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, zip: e.target.value }))}
-                                  placeholder="ZIP"
+                                  placeholder={isInternationalCountry(quickShipShippingAddress.country) ? 'Postal Code' : 'ZIP'}
                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
                                 />
                               </div>
@@ -10201,12 +10264,14 @@ export function OrderDetail() {
 
                             <div className="grid grid-cols-2 gap-3 pt-1">
                               <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                                  {isInternationalCountry(quickShipShippingAddress.country) ? 'Phone *' : 'Phone'}
+                                </label>
                                 <input 
                                   type="text" 
                                   value={quickShipShippingAddress.phone} 
                                   onChange={e => setQuickShipShippingAddress(prev => ({ ...prev, phone: e.target.value }))}
-                                  placeholder="(555) 000-0000"
+                                  placeholder={isInternationalCountry(quickShipShippingAddress.country) ? 'Phone incl. country code' : '(555) 000-0000'}
                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs focus:border-brand-primary outline-none"
                                 />
                               </div>
