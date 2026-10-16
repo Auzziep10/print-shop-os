@@ -1095,7 +1095,8 @@ export function OrderDetail() {
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     shippingDestinations: [] as any[],
     thirdPartyBilling: { account: '', zip: '' },
-    personalInfo: { isIndividual: false, gender: '', size: '' }
+    personalInfo: { isIndividual: false, gender: '', size: '' },
+    highPriority: false
   });
   const [activeDestIndex, setActiveDestIndex] = useState(0);
 
@@ -4118,7 +4119,8 @@ export function OrderDetail() {
           isIndividual: Boolean(order.personalInfo?.isIndividual),
           gender: order.personalInfo?.gender || order.personalInfo?.sex || '',
           size: order.personalInfo?.size || ''
-        }
+        },
+        highPriority: Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high')
       });
       setActiveDestIndex(0);
     }
@@ -4336,7 +4338,9 @@ export function OrderDetail() {
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling,
-        personalInfo: getPersonalInfoToSave()
+        personalInfo: getPersonalInfoToSave(),
+        highPriority: Boolean(editForm.highPriority),
+        priority: editForm.highPriority ? 'rush' : 'normal'
       }, { merge: true });
       setIsEditDialogOpen(false);
 
@@ -4349,6 +4353,29 @@ export function OrderDetail() {
       // Fallback update could go here if using local state array, but we have onSnapshot so it's live!
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleHighPriority = async () => {
+    if (!id || !order) return;
+    const currentlyHigh = Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high');
+    const nextVal = !currentlyHigh;
+    const adminName = userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member';
+    const activity = {
+      id: `act-${Date.now()}`,
+      type: 'system',
+      message: nextVal ? 'Marked order as High Priority' : 'Removed High Priority from order',
+      user: adminName,
+      timestamp: new Date().toISOString()
+    };
+    try {
+      await setDoc(doc(db, 'orders', id), {
+        highPriority: nextVal,
+        priority: nextVal ? 'rush' : 'normal',
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error toggling high priority:', err);
     }
   };
 
@@ -4426,6 +4453,8 @@ export function OrderDetail() {
         shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling,
         personalInfo: getPersonalInfoToSave(),
+        highPriority: Boolean(editForm.highPriority),
+        priority: editForm.highPriority ? 'rush' : 'normal',
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -4532,6 +4561,8 @@ export function OrderDetail() {
         break;
   }
 
+  const isHighPriority = Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high');
+
   return (
     <div className={tokens.layout.container}>
       {/* Top Breadcrumb & Actions */}
@@ -4544,6 +4575,19 @@ export function OrderDetail() {
           Back
         </button>
         <div className="flex items-center gap-4">
+          <PillButton
+            variant="outline"
+            onClick={handleToggleHighPriority}
+            className={`gap-2 transition-all ${
+              isHighPriority
+                ? 'border-red-600 bg-red-600 text-white hover:bg-red-700 hover:border-red-700 shadow-sm'
+                : 'border-red-200 text-red-700 bg-red-50/70 hover:bg-red-600 hover:text-white hover:border-red-600'
+            }`}
+            title={isHighPriority ? 'Click to remove High Priority' : 'Click to mark order as High Priority'}
+          >
+            <TriangleAlert size={16} />
+            {isHighPriority ? 'High Priority ✓' : 'High Priority'}
+          </PillButton>
           <PillButton variant="outline" className="gap-2" onClick={() => window.open(`/invoice/${order.id}`, '_blank')}>
             <DollarSign size={16} />
             Invoice
@@ -4600,7 +4644,7 @@ export function OrderDetail() {
           )}
 
           {/* Header */}
-          <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
+          <div className={`bg-white p-8 rounded-card border shadow-sm ${isHighPriority ? 'border-red-300 ring-1 ring-red-100' : 'border-brand-border'}`}>
             <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">
                 <div>
                   {isEditingTitle ? (
@@ -4645,6 +4689,12 @@ export function OrderDetail() {
                       {order.title || 'Untitled Order'}
                       <Edit3 size={18} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </h1>
+                    {isHighPriority && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                        <TriangleAlert size={11} />
+                        High Priority
+                      </span>
+                    )}
                     {((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
                       <div className="flex flex-col leading-tight border-l border-brand-border pl-3 py-0.5" title="Individual info (admin only)">
                         {(order.personalInfo?.gender || order.personalInfo?.sex) && (
@@ -7379,28 +7429,42 @@ export function OrderDetail() {
               {/* Left Column: Core Order Info */}
               <div className="flex flex-col gap-6">
                 <div>
-                  <div className="mb-4 pb-2 border-b border-brand-border flex items-center justify-between gap-3">
+                  <div className="mb-4 pb-2 border-b border-brand-border flex items-center justify-between gap-3 flex-wrap">
                     <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
                       <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                     </h4>
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(editForm.personalInfo?.isIndividual)}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setEditForm(prev => ({
-                            ...prev,
-                            personalInfo: {
-                              ...prev.personalInfo,
-                              isIndividual: checked
-                            }
-                          }));
-                        }}
-                        className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
-                      />
-                      <span className="text-xs font-bold text-brand-primary">Individual?</span>
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editForm.highPriority)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setEditForm(prev => ({ ...prev, highPriority: checked }));
+                          }}
+                          className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
+                        />
+                        <span className="text-xs font-bold text-red-700">High Priority</span>
+                      </label>
+                      <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editForm.personalInfo?.isIndividual)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setEditForm(prev => ({
+                              ...prev,
+                              personalInfo: {
+                                ...prev.personalInfo,
+                                isIndividual: checked
+                              }
+                            }));
+                          }}
+                          className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-brand-primary">Individual?</span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="space-y-4">

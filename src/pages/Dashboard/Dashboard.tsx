@@ -684,6 +684,51 @@ export function Dashboard() {
     }
   };
 
+  const highPriorityOrders = useMemo(() => {
+    return orders.filter(
+      (o: any) =>
+        (o.highPriority || o.priority === 'rush' || o.priority === 'high') &&
+        !o.isProjectGroup &&
+        o.customerId !== 'Shopify Temporary'
+    );
+  }, [orders]);
+
+  const getOrderStatusLabel = (statusIndex?: number) => {
+    switch (statusIndex) {
+      case 0: return 'New Quote';
+      case 1: return 'Pending Approval';
+      case 2: return 'Quote Prepared';
+      case 3: return 'New Order';
+      case 4: return 'Sourcing';
+      case 5: return 'Garments Ordered';
+      case 6: return 'In Production';
+      case 7: return 'Shipped / Inventory';
+      case 8: return 'Received / Live';
+      default: return 'New Quote';
+    }
+  };
+
+  const handleRemoveHighPriority = async (e: React.MouseEvent, orderObj: any) => {
+    e.stopPropagation();
+    const adminName = userData?.name || userData?.email?.split('@')[0] || 'Team Member';
+    const activity = {
+      id: `act-${Date.now()}`,
+      type: 'system',
+      message: 'Removed High Priority from order',
+      user: adminName,
+      timestamp: new Date().toISOString()
+    };
+    try {
+      await updateDoc(doc(db, 'orders', orderObj.id), {
+        highPriority: false,
+        priority: 'normal',
+        activities: [activity, ...(orderObj.activities || [])]
+      });
+    } catch (err) {
+      console.error('Failed to remove high priority:', err);
+    }
+  };
+
   const statCards = [
     { label: 'New Quotes', value: newQuoteRequests.length.toString(), trend: newQuoteRequests.length > 0 ? 'Requires attention' : 'All clear' },
     { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
@@ -739,6 +784,80 @@ export function Dashboard() {
           >
             Join & Submit Score
           </button>
+        </div>
+      )}
+
+      {/* High Priority Orders Section (Above Quick Stats & Action Required) */}
+      {highPriorityOrders.length > 0 && (
+        <div className="mt-6 bg-red-50/70 border border-red-200 rounded-card p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <AlertTriangle size={16} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-serif text-xl text-red-950 leading-none">High Priority Orders</h3>
+                  <span className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    {highPriorityOrders.length}
+                  </span>
+                </div>
+                <p className="text-xs text-red-800/80 mt-0.5">Pinned orders requiring priority attention across the shop.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {highPriorityOrders.map((o: any) => {
+              const companyName =
+                customers[o.customerId]?.company ||
+                customers[o.customerId]?.name ||
+                o.customerName ||
+                o.companyName ||
+                o.customerId ||
+                'Customer';
+              const displayId = o.portalId || o.id.substring(0, 8);
+              const dueStr = o.targetCompletionDate || o.date;
+
+              return (
+                <div
+                  key={o.id}
+                  onClick={() => navigate(`/orders/${o.id}`)}
+                  className="bg-white border border-red-200 hover:border-red-500 border-l-4 border-l-red-600 rounded-xl p-4 flex items-start justify-between gap-3 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded">
+                        #{displayId}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded">
+                        {getOrderStatusLabel(o.statusIndex)}
+                      </span>
+                      {dueStr && (
+                        <span className="text-[10px] font-semibold text-neutral-500">
+                          Due {dueStr}
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
+                      {o.title || 'Untitled Order'}
+                    </h4>
+                    <p className="text-xs text-brand-secondary font-medium truncate mt-0.5">
+                      {companyName}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemoveHighPriority(e, o)}
+                    title="Remove High Priority"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
       
