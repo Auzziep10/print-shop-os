@@ -111,6 +111,7 @@ export function buildCustomsInfo(items: any[], parcelWeightOz: number, fromAddre
 
   const customs_items = rawLines.map(l => ({
     description: l.cls.description,
+    code: l.cls.key.toUpperCase(),
     quantity: l.qty,
     value: Math.round(l.value * 100) / 100,
     currency: 'USD',
@@ -144,7 +145,6 @@ export function ddpOptions() {
   return {
     incoterm: 'DDP',
     delivered_duty_paid: true,
-    duty_payment: { type: 'SENDER' },
   };
 }
 

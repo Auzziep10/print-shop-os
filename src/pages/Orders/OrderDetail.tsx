@@ -4646,14 +4646,14 @@ export function OrderDetail() {
                       <Edit3 size={18} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                     </h1>
                     {((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
-                      <div className="flex items-center gap-1.5" title="Individual info (admin only)">
+                      <div className="flex flex-col leading-tight border-l border-brand-border pl-3 py-0.5" title="Individual info (admin only)">
                         {(order.personalInfo?.gender || order.personalInfo?.sex) && (
-                          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-pink-50 text-pink-700 border border-pink-200">
+                          <span className="text-[11px] font-bold uppercase tracking-widest text-brand-primary">
                             {order.personalInfo.gender || order.personalInfo.sex}
                           </span>
                         )}
                         {order.personalInfo?.size && (
-                          <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-800 border border-neutral-300">
+                          <span className="text-[11px] font-semibold uppercase tracking-widest text-brand-secondary">
                             Size {order.personalInfo.size}
                           </span>
                         )}
