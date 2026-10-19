@@ -76,8 +76,9 @@ export function CustomerDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
-  const [noteText, setNoteText] = useState("Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look.");
+  const [noteText, setNoteText] = useState('');
 
   // New Order State
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
@@ -1310,6 +1311,7 @@ export function CustomerDetail() {
         if (d.exists()) {
           const data = d.data();
           setLiveCustomerData(data);
+          setNoteText(data.brandingNotes !== undefined ? data.brandingNotes : (data.notes || ''));
           setSuggestedItems(data.suggestedItems || []);
           setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
@@ -1454,6 +1456,31 @@ export function CustomerDetail() {
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // Reset input so identical file can be picked again
+  };
+
+  const handleSaveBrandingNotes = async () => {
+    if (!id) {
+      setIsEditingNote(false);
+      return;
+    }
+    setSavingNote(true);
+    try {
+      await setDoc(doc(db, 'customers', id), {
+        brandingNotes: noteText,
+        notes: noteText
+      }, { merge: true });
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        brandingNotes: noteText,
+        notes: noteText
+      }));
+      setIsEditingNote(false);
+    } catch (err) {
+      console.error('Failed to save branding notes:', err);
+      alert('Failed to save branding notes.');
+    } finally {
+      setSavingNote(false);
+    }
   };
 
   const handleToggleCustomerHighPriority = async () => {
@@ -1987,12 +2014,24 @@ export function CustomerDetail() {
                            value={noteText}
                            onChange={e => setNoteText(e.target.value)}
                            className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
+                           placeholder="Add internal branding notes..."
                            autoFocus
+                           disabled={savingNote}
                            onKeyDown={(e) => {
-                             if (e.key === 'Enter') setIsEditingNote(false);
+                             if (e.key === 'Enter') handleSaveBrandingNotes();
+                             if (e.key === 'Escape') {
+                               setNoteText(liveCustomerData?.brandingNotes !== undefined ? liveCustomerData.brandingNotes : (liveCustomerData?.notes || ''));
+                               setIsEditingNote(false);
+                             }
                            }}
                          />
-                         <button onClick={() => setIsEditingNote(false)} className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10">Save</button>
+                         <button
+                           onClick={handleSaveBrandingNotes}
+                           disabled={savingNote}
+                           className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50"
+                         >
+                           {savingNote ? 'Saving...' : 'Save'}
+                         </button>
                       </div>
                     ) : (
                       <p className="text-brand-primary text-[15px] leading-relaxed pl-1 max-w-4xl">{noteText || 'No internal branding notes added.'}</p>
