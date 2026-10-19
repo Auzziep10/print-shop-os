@@ -1606,6 +1606,8 @@ export function OrderDetail() {
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
         taxAmount: parseFloat(String(orderInvoiceForm.taxAmount)) || 0,
         discountCode: parsedInvDiscountCode,
+        discountType: 'fixed',
+        discountValue: parsedInvDiscountAmount,
         discountAmount: parsedInvDiscountAmount,
         ...(updatedItems ? { items: updatedItems } : {}),
         stripePaymentUrl: orderInvoiceForm.stripePaymentUrl,
@@ -4109,8 +4111,8 @@ export function OrderDetail() {
         trackingNumber: order.trackingNumber || '',
         fulfillmentType: order.fulfillmentType || '',
         discountCode: order.discountCode || '',
-        discountType: (editForm as any).discountType || order.discountType || (order.discountCode?.includes('50') ? 'percent' : ''),
-        discountValue: (editForm as any).discountValue || (order.discountValue !== undefined && order.discountValue !== null ? String(order.discountValue) : (order.discountCode?.includes('50') ? '50' : '')),
+        discountType: order.discountType || 'fixed',
+        discountValue: order.discountValue !== undefined && order.discountValue !== null ? String(order.discountValue) : (order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : ''),
         discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
         shippingAddress: primaryAddress,
         shippingDestinations: initialDestinations,
@@ -4331,8 +4333,8 @@ export function OrderDetail() {
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
         discountCode: parsedDiscountCode,
-        discountType: (editForm as any).discountType || (editForm.discountCode.includes('50') ? 'percent' : 'fixed'),
-        discountValue: parseFloat((editForm as any).discountValue) || (editForm.discountCode.includes('50') ? 50 : 0),
+        discountType: (editForm as any).discountType || 'fixed',
+        discountValue: parseFloat((editForm as any).discountValue) || parsedDiscountAmount,
         discountAmount: parsedDiscountAmount,
         ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
@@ -4427,6 +4429,28 @@ export function OrderDetail() {
         timestamp: new Date().toISOString()
       };
 
+      const parsedDiscountAmount = Math.abs(parseFloat(editForm.discountAmount) || 0);
+      const parsedDiscountCode = editForm.discountCode.toUpperCase().trim();
+      let updatedItems = order.items;
+      if (Array.isArray(order.items) && order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
+        if (parsedDiscountAmount > 0) {
+          updatedItems = order.items.map((i: any) => {
+            if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
+              return {
+                ...i,
+                style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
+                price: -parsedDiscountAmount,
+                total: -parsedDiscountAmount
+              };
+            }
+            return i;
+          });
+        } else {
+          updatedItems = order.items.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+        }
+      }
+      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount);
+
       const primaryDest = editForm.shippingDestinations?.[0] || editForm.shippingAddress;
       const finalShippingAddress = {
         name: primaryDest.name || '',
@@ -4446,9 +4470,16 @@ export function OrderDetail() {
         date: editForm.date,
         targetCompletionDate: editForm.date,
         statusIndex: 3,
+        total: updatedTotal,
+        calculatedTotal: updatedTotal,
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
         fulfillmentType: editForm.fulfillmentType,
+        discountCode: parsedDiscountCode,
+        discountType: (editForm as any).discountType || 'fixed',
+        discountValue: parseFloat((editForm as any).discountValue) || parsedDiscountAmount,
+        discountAmount: parsedDiscountAmount,
+        ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
         thirdPartyBilling: editForm.thirdPartyBilling,
@@ -7611,7 +7642,7 @@ export function OrderDetail() {
                           step="0.01"
                           min="0"
                           value={editForm.discountAmount}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, discountAmount: e.target.value }))}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, discountAmount: e.target.value, discountType: 'fixed', discountValue: e.target.value }))}
                           className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-bold text-brand-primary focus:border-brand-primary focus:outline-none"
                           placeholder="0.00"
                         />

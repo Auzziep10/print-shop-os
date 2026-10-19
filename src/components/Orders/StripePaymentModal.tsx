@@ -296,41 +296,78 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
   const [isCustomerTaxExempt, setIsCustomerTaxExempt] = useState<boolean>(false);
   const [selectedDeliveryOption, setSelectedDeliveryOption] = useState<string>(order.deliveryOption || 'Shipping');
 
-  // Discount code (managed in Settings → Discount Codes). Pre-applied if the
-  // order already carries one (e.g. entered on the public storefront checkout).
-  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(
-    order.discountAmount > 0 || (order.discountCode && order.discountCode.trim())
-      ? {
-          code: order.discountCode || 'DISCOUNT',
-          type: order.discountType || 'fixed',
-          value: parseFloat(order.discountAmount || order.discountValue || 0),
-          target: 'items'
+  const getInitialOrderDiscount = (ord: any): AppliedDiscount | null => {
+    const explicitAmt = Math.abs(parseFloat(ord?.discountAmount) || 0);
+    let lineItemDiscAmt = 0;
+    let lineItemDiscCode = '';
+    if (Array.isArray(ord?.items)) {
+      ord.items.forEach((item: any) => {
+        if (isDiscountItem(item) && !String(item.style || '').toLowerCase().includes('shipping')) {
+          const pStr = String(item.price ?? item.total ?? '0').replace(/[^0-9.]/g, '');
+          const val = parseFloat(pStr) || 0;
+          const qty = parseInt(item.qty || 1) || 1;
+          lineItemDiscAmt += val * qty;
+          const match = String(item.style || '').match(/\(([^)]+)\)/);
+          if (match && match[1] && !lineItemDiscCode) lineItemDiscCode = match[1].trim();
         }
-      : null
-  );
+      });
+    }
+    const effectiveDollarDiscount = explicitAmt > 0 ? explicitAmt : lineItemDiscAmt;
+    if (effectiveDollarDiscount > 0) {
+      return {
+        code: (ord?.discountCode && String(ord.discountCode).trim()) || lineItemDiscCode || 'DISCOUNT',
+        type: 'fixed',
+        value: effectiveDollarDiscount,
+        target: 'items'
+      };
+    }
+    const parsedVal = Math.abs(parseFloat(ord?.discountValue) || 0);
+    if (parsedVal > 0 && ord?.discountCode && String(ord.discountCode).trim()) {
+      return {
+        code: String(ord.discountCode).trim(),
+        type: ord?.discountType === 'percent' ? 'percent' : 'fixed',
+        value: parsedVal,
+        target: 'items'
+      };
+    }
+    return null;
+  };
+
+  const getInitialOrderShippingDiscount = (ord: any): AppliedDiscount | null => {
+    const explicitShipAmt = Math.abs(parseFloat(ord?.shippingDiscountAmount) || 0);
+    if (explicitShipAmt > 0) {
+      return {
+        code: (ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) || 'SHIPPING-DISCOUNT',
+        type: ord?.shippingDiscountType === 'free_shipping' ? 'free_shipping' : 'fixed',
+        value: explicitShipAmt,
+        target: 'shipping'
+      };
+    }
+    const parsedVal = Math.abs(parseFloat(ord?.shippingDiscountValue) || 0);
+    if ((parsedVal > 0 || ord?.shippingDiscountType === 'free_shipping') && ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) {
+      return {
+        code: String(ord.shippingDiscountCode).trim(),
+        type: ord?.shippingDiscountType || 'fixed',
+        value: parsedVal,
+        target: 'shipping'
+      };
+    }
+    return null;
+  };
+
+  // Discount code (managed in Settings → Discount Codes). Pre-applied if the
+  // order already carries one (e.g. entered on the public storefront checkout or Admin).
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(() => getInitialOrderDiscount(order));
 
   // Dedicated Shipping Discount code (e.g. Free shipping or $ off shipping)
-  const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(
-    order.shippingDiscountAmount > 0 || (order.shippingDiscountCode && order.shippingDiscountCode.trim())
-      ? {
-          code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
-          type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
-          value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
-          target: 'shipping'
-        }
-      : null
-  );
+  const [appliedShippingDiscount, setAppliedShippingDiscount] = useState<AppliedDiscount | null>(() => getInitialOrderShippingDiscount(order));
 
   const [customerData, setCustomerData] = useState<any>(initialCustomer || order.customer || null);
 
   useEffect(() => {
-    if (order.discountAmount > 0 || (order.discountCode && order.discountCode.trim())) {
-      setAppliedDiscount({
-        code: order.discountCode || 'DISCOUNT',
-        type: order.discountType || 'fixed',
-        value: parseFloat(order.discountAmount || order.discountValue || 0),
-        target: 'items'
-      });
+    const ordDiscount = getInitialOrderDiscount(order);
+    if (ordDiscount) {
+      setAppliedDiscount(ordDiscount);
     } else {
       const targetCustomer = customerData || initialCustomer || order.customer;
       if (targetCustomer?.accountDiscount) {
@@ -344,16 +381,12 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
         setAppliedDiscount(null);
       }
     }
-  }, [order.discountAmount, order.discountCode, order.discountType, order.discountValue, customerData, initialCustomer]);
+  }, [order.discountAmount, order.discountCode, order.discountType, order.discountValue, order.items, customerData, initialCustomer]);
 
   useEffect(() => {
-    if (order.shippingDiscountAmount > 0 || (order.shippingDiscountCode && order.shippingDiscountCode.trim())) {
-      setAppliedShippingDiscount({
-        code: order.shippingDiscountCode || 'SHIPPING-DISCOUNT',
-        type: order.shippingDiscountType || (order.shippingDiscountAmount >= (order.shipping || order.shippingCost || 1) ? 'free_shipping' : 'fixed'),
-        value: parseFloat(order.shippingDiscountAmount || order.shippingDiscountValue || 0),
-        target: 'shipping'
-      });
+    const ordShippingDiscount = getInitialOrderShippingDiscount(order);
+    if (ordShippingDiscount) {
+      setAppliedShippingDiscount(ordShippingDiscount);
     } else {
       const targetCustomer = customerData || initialCustomer || order.customer;
       const accShippingDiscount = getValidAccountShippingDiscount(targetCustomer);
@@ -830,7 +863,9 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
   }, [order.id, hasShippingAddress, order.items, effectiveShippingAmount, isCustomerTaxExempt, appliedDiscount, effectiveShippingAddress]);
 
   const finalTaxAmount = isCustomerTaxExempt ? 0 : (calculatedTax !== null ? calculatedTax : taxAmount);
-  const discountAmount = discountAmountFor(appliedDiscount, itemsSubtotal);
+  const discountAmount = appliedDiscount?.type === 'fixed'
+    ? Math.min(itemsSubtotal + finalTaxAmount + effectiveShippingAmount, Math.max(0, Number(appliedDiscount.value) || 0))
+    : discountAmountFor(appliedDiscount, itemsSubtotal);
   const finalTotal = Math.max(0, itemsSubtotal - discountAmount + finalTaxAmount + effectiveShippingAmount);
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
