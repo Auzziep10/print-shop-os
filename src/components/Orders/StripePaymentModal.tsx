@@ -334,17 +334,25 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
   };
 
   const getInitialOrderShippingDiscount = (ord: any): AppliedDiscount | null => {
+    if (ord?.freeShipping || ord?.shippingDiscountType === 'free_shipping') {
+      return {
+        code: (ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) || 'FREE SHIPPING',
+        type: 'free_shipping',
+        value: 100,
+        target: 'shipping'
+      };
+    }
     const explicitShipAmt = Math.abs(parseFloat(ord?.shippingDiscountAmount) || 0);
     if (explicitShipAmt > 0) {
       return {
         code: (ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) || 'SHIPPING-DISCOUNT',
-        type: ord?.shippingDiscountType === 'free_shipping' ? 'free_shipping' : 'fixed',
+        type: 'fixed',
         value: explicitShipAmt,
         target: 'shipping'
       };
     }
     const parsedVal = Math.abs(parseFloat(ord?.shippingDiscountValue) || 0);
-    if ((parsedVal > 0 || ord?.shippingDiscountType === 'free_shipping') && ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) {
+    if (parsedVal > 0 && ord?.shippingDiscountCode && String(ord.shippingDiscountCode).trim()) {
       return {
         code: String(ord.shippingDiscountCode).trim(),
         type: ord?.shippingDiscountType || 'fixed',
@@ -396,7 +404,7 @@ export function StripePaymentModal({ order, customer: initialCustomer, onClose, 
         setAppliedShippingDiscount(null);
       }
     }
-  }, [order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue, customerData, initialCustomer]);
+  }, [order.freeShipping, order.shippingDiscountAmount, order.shippingDiscountCode, order.shippingDiscountType, order.shippingDiscountValue, customerData, initialCustomer]);
 
   const [discountInput, setDiscountInput] = useState('');
   const [discountError, setDiscountError] = useState('');

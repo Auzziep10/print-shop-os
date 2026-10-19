@@ -1092,6 +1092,7 @@ export function OrderDetail() {
     discountType: '',
     discountValue: '',
     discountAmount: '',
+    freeShipping: false,
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     shippingDestinations: [] as any[],
     thirdPartyBilling: { account: '', zip: '' },
@@ -4114,6 +4115,7 @@ export function OrderDetail() {
         discountType: order.discountType || 'fixed',
         discountValue: order.discountValue !== undefined && order.discountValue !== null ? String(order.discountValue) : (order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : ''),
         discountAmount: order.discountAmount !== undefined && order.discountAmount !== null ? String(order.discountAmount) : '',
+        freeShipping: Boolean(order.freeShipping || order.shippingDiscountType === 'free_shipping'),
         shippingAddress: primaryAddress,
         shippingDestinations: initialDestinations,
         thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' },
@@ -4284,22 +4286,28 @@ export function OrderDetail() {
       const statusChanged = editForm.statusIndex !== order.statusIndex;
       const parsedDiscountAmount = Math.abs(parseFloat(editForm.discountAmount) || 0);
       const parsedDiscountCode = editForm.discountCode.toUpperCase().trim();
+      const effectiveShipDiscAmt = editForm.freeShipping ? orderShippingAmount : 0;
       let updatedItems = order.items;
-      if (Array.isArray(order.items) && order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
-        if (parsedDiscountAmount > 0) {
-          updatedItems = order.items.map((i: any) => {
-            if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
-              return {
-                ...i,
-                style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
-                price: -parsedDiscountAmount,
-                total: -parsedDiscountAmount
-              };
-            }
-            return i;
-          });
-        } else {
-          updatedItems = order.items.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+      if (Array.isArray(order.items)) {
+        if (order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
+          if (parsedDiscountAmount > 0) {
+            updatedItems = updatedItems.map((i: any) => {
+              if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
+                return {
+                  ...i,
+                  style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
+                  price: -parsedDiscountAmount,
+                  total: -parsedDiscountAmount
+                };
+              }
+              return i;
+            });
+          } else {
+            updatedItems = updatedItems.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+          }
+        }
+        if (!editForm.freeShipping) {
+          updatedItems = updatedItems.filter((i: any) => !(isDiscountItem(i) && String(i.style || '').toLowerCase().includes('shipping')));
         }
       }
       
@@ -4318,7 +4326,7 @@ export function OrderDetail() {
       };
 
       const nextPaymentStatus = (editForm as any).paymentStatus || (editForm.statusIndex <= 3 ? 'unpaid' : (order.paymentStatus || 'unpaid'));
-      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount);
+      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount - effectiveShipDiscAmt);
 
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
@@ -4336,6 +4344,11 @@ export function OrderDetail() {
         discountType: (editForm as any).discountType || 'fixed',
         discountValue: parseFloat((editForm as any).discountValue) || parsedDiscountAmount,
         discountAmount: parsedDiscountAmount,
+        freeShipping: Boolean(editForm.freeShipping),
+        shippingDiscountCode: editForm.freeShipping ? (order.shippingDiscountCode || 'FREE SHIPPING') : '',
+        shippingDiscountType: editForm.freeShipping ? 'free_shipping' : '',
+        shippingDiscountValue: editForm.freeShipping ? 100 : 0,
+        shippingDiscountAmount: effectiveShipDiscAmt,
         ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
@@ -4431,25 +4444,31 @@ export function OrderDetail() {
 
       const parsedDiscountAmount = Math.abs(parseFloat(editForm.discountAmount) || 0);
       const parsedDiscountCode = editForm.discountCode.toUpperCase().trim();
+      const effectiveShipDiscAmt = editForm.freeShipping ? orderShippingAmount : 0;
       let updatedItems = order.items;
-      if (Array.isArray(order.items) && order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
-        if (parsedDiscountAmount > 0) {
-          updatedItems = order.items.map((i: any) => {
-            if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
-              return {
-                ...i,
-                style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
-                price: -parsedDiscountAmount,
-                total: -parsedDiscountAmount
-              };
-            }
-            return i;
-          });
-        } else {
-          updatedItems = order.items.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+      if (Array.isArray(order.items)) {
+        if (order.items.some((i: any) => isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping'))) {
+          if (parsedDiscountAmount > 0) {
+            updatedItems = updatedItems.map((i: any) => {
+              if (isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')) {
+                return {
+                  ...i,
+                  style: `Discount${parsedDiscountCode ? ` (${parsedDiscountCode})` : ''}`,
+                  price: -parsedDiscountAmount,
+                  total: -parsedDiscountAmount
+                };
+              }
+              return i;
+            });
+          } else {
+            updatedItems = updatedItems.filter((i: any) => !(isDiscountItem(i) && !String(i.style || '').toLowerCase().includes('shipping')));
+          }
+        }
+        if (!editForm.freeShipping) {
+          updatedItems = updatedItems.filter((i: any) => !(isDiscountItem(i) && String(i.style || '').toLowerCase().includes('shipping')));
         }
       }
-      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount);
+      const updatedTotal = Math.max(0, totalPriceRaw - parsedDiscountAmount - effectiveShipDiscAmt);
 
       const primaryDest = editForm.shippingDestinations?.[0] || editForm.shippingAddress;
       const finalShippingAddress = {
@@ -4479,6 +4498,11 @@ export function OrderDetail() {
         discountType: (editForm as any).discountType || 'fixed',
         discountValue: parseFloat((editForm as any).discountValue) || parsedDiscountAmount,
         discountAmount: parsedDiscountAmount,
+        freeShipping: Boolean(editForm.freeShipping),
+        shippingDiscountCode: editForm.freeShipping ? (order.shippingDiscountCode || 'FREE SHIPPING') : '',
+        shippingDiscountType: editForm.freeShipping ? 'free_shipping' : '',
+        shippingDiscountValue: editForm.freeShipping ? 100 : 0,
+        shippingDiscountAmount: effectiveShipDiscAmt,
         ...(updatedItems ? { items: updatedItems } : {}),
         shippingAddress: finalShippingAddress,
         shippingDestinations: editForm.shippingDestinations || [],
@@ -4533,6 +4557,7 @@ export function OrderDetail() {
   }, 0) || 0;
 
   let lineItemsDiscountTotal = 0;
+  let shippingLineItemsTotal = 0;
   const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
     const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
     const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
@@ -4555,10 +4580,19 @@ export function OrderDetail() {
       lineItemsDiscountTotal += Math.abs(itemVal);
       return acc;
     }
+    const styleLower = (i.style || '').toLowerCase();
+    if (styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping') {
+      shippingLineItemsTotal += itemVal;
+    }
     return acc + itemVal;
   }, 0) || 0;
 
-  const explicitDiscountAmount = Math.abs(parseFloat(order.discountAmount) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount) || 0);
+  const orderShippingAmount = shippingLineItemsTotal || parseFloat(String(order.shipping || order.shippingCost || 0).replace(/[^0-9.]/g, '')) || 0;
+  const isOrderFreeShipping = Boolean(order.freeShipping || order.shippingDiscountType === 'free_shipping');
+  const effectiveShippingDiscountAmount = isOrderFreeShipping
+    ? Math.max(orderShippingAmount, Math.abs(parseFloat(order.shippingDiscountAmount) || 0))
+    : Math.abs(parseFloat(order.shippingDiscountAmount) || 0);
+  const explicitDiscountAmount = Math.abs(parseFloat(order.discountAmount) || 0) + effectiveShippingDiscountAmount;
   const rawDiscountAmount = Math.max(explicitDiscountAmount, lineItemsDiscountTotal);
   const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
@@ -4902,13 +4936,20 @@ export function OrderDetail() {
                     title="Click to edit discount code / amount"
                   >
                     <Tag size={14} />
-                    <span>{rawDiscountAmount > 0 ? `-${discountFormatted}` : (order.discountCode || 'None')}</span>
+                    <span>{rawDiscountAmount > 0 ? `-${discountFormatted}` : (isOrderFreeShipping ? 'Free Shipping' : (order.discountCode || 'None'))}</span>
                   </button>
-                  {order.discountCode && (
-                    <span className="text-[10px] uppercase font-extrabold tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md inline-block mt-0.5">
-                      {order.discountCode}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {order.discountCode && (
+                      <span className="text-[10px] uppercase font-extrabold tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md inline-block">
+                        {order.discountCode}
+                      </span>
+                    )}
+                    {isOrderFreeShipping && (
+                      <span className="text-[10px] uppercase font-extrabold tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                        <Truck size={10} /> Free Shipping
+                      </span>
+                    )}
+                  </div>
                </div>
                {hasPermission('viewPricing') && (
                  <div>
@@ -7614,14 +7655,22 @@ export function OrderDetail() {
                               const res = await validateDiscountCode(editForm.discountCode);
                               if (res.ok) {
                                 const d = res.discount;
-                                let amt = d.type === 'percent' ? Math.round(totalPriceRaw * (d.value / 100) * 100) / 100 : d.value;
-                                setEditForm(prev => ({
-                                  ...prev,
-                                  discountCode: d.code,
-                                  discountType: d.type,
-                                  discountValue: d.value.toString(),
-                                  discountAmount: amt.toString()
-                                }));
+                                if (d.type === 'free_shipping') {
+                                  setEditForm(prev => ({
+                                    ...prev,
+                                    freeShipping: true
+                                  }));
+                                } else {
+                                  const itemsSub = Math.max(0, totalPriceRaw - orderShippingAmount);
+                                  let amt = d.type === 'percent' ? Math.round(itemsSub * (d.value / 100) * 100) / 100 : d.value;
+                                  setEditForm(prev => ({
+                                    ...prev,
+                                    discountCode: d.code,
+                                    discountType: d.type,
+                                    discountValue: d.value.toString(),
+                                    discountAmount: amt.toString()
+                                  }));
+                                }
                               } else {
                                 alert(`Invalid discount code: ${res.error}`);
                               }
@@ -7648,11 +7697,42 @@ export function OrderDetail() {
                         />
                       </div>
                     </div>
-                    {parseFloat(editForm.discountAmount) > 0 && (
-                      <div className="text-xs font-semibold text-emerald-800 flex items-center justify-between pt-1 border-t border-emerald-200/60">
+
+                    {/* Free Shipping Toggle */}
+                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between gap-3">
+                      <label
+                        onClick={() => setEditForm(prev => ({ ...prev, freeShipping: !prev.freeShipping }))}
+                        className="flex items-center gap-2.5 cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editForm.freeShipping)}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, freeShipping: e.target.checked }))}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-brand-primary flex items-center gap-1.5">
+                            <Truck size={13} className="text-emerald-600" />
+                            Free Shipping for this Order
+                          </span>
+                          <span className="text-[11px] text-brand-secondary font-medium">
+                            Waives shipping charges on this order & at customer checkout
+                          </span>
+                        </div>
+                      </label>
+                      {editForm.freeShipping && (
+                        <span className="text-[11px] font-bold uppercase tracking-wider bg-emerald-600 text-white px-2.5 py-1 rounded-full shrink-0">
+                          {orderShippingAmount > 0 ? `-$${orderShippingAmount.toFixed(2)} Shipping` : 'Free Shipping Active'}
+                        </span>
+                      )}
+                    </div>
+
+                    {(parseFloat(editForm.discountAmount) > 0 || editForm.freeShipping) && (
+                      <div className="text-xs font-semibold text-emerald-800 flex items-center justify-between pt-2 border-t border-emerald-200/60">
                         <span>New Order Total:</span>
                         <span className="font-mono font-bold text-sm">
-                          ${Math.max(0, totalPriceRaw - (parseFloat(editForm.discountAmount) || 0)).toFixed(2)}
+                          ${Math.max(0, totalPriceRaw - (parseFloat(editForm.discountAmount) || 0) - (editForm.freeShipping ? orderShippingAmount : 0)).toFixed(2)}
                         </span>
                       </div>
                     )}
