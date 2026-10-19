@@ -10,7 +10,7 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2 } from 'lucide-react';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
@@ -381,15 +381,21 @@ export function Dashboard() {
   }, [userData]);
 
   useEffect(() => {
-    getDocs(collection(db, 'customers')).then(snap => {
-      const obj: Record<string,any> = {};
-      snap.forEach(d => { obj[d.id] = d.data(); });
-      setCustomers(obj);
-    }).catch(e => console.error(e));
+    const unsubCustomers = onSnapshot(
+      collection(db, 'customers'),
+      (snap) => {
+        const obj: Record<string, any> = {};
+        snap.forEach(d => { obj[d.id] = d.data(); });
+        setCustomers(obj);
+      },
+      (e) => console.error(e)
+    );
 
     getDocs(collection(db, 'users')).then(snap => {
       setAllUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(e => console.error(e));
+
+    return () => unsubCustomers();
   }, []);
 
   useEffect(() => {
@@ -693,6 +699,13 @@ export function Dashboard() {
     );
   }, [orders]);
 
+  const highPriorityCustomers = useMemo(() => {
+    return Object.entries(customers)
+      .filter(([, c]) => Boolean(c?.highPriority))
+      .map(([id, c]) => ({ id, ...c }))
+      .sort((a: any, b: any) => (a.company || a.name || '').localeCompare(b.company || b.name || ''));
+  }, [customers]);
+
   const getOrderStatusLabel = (statusIndex?: number) => {
     switch (statusIndex) {
       case 0: return 'New Quote';
@@ -726,6 +739,17 @@ export function Dashboard() {
       });
     } catch (err) {
       console.error('Failed to remove high priority:', err);
+    }
+  };
+
+  const handleRemoveCustomerHighPriority = async (e: React.MouseEvent, custId: string) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'customers', custId), {
+        highPriority: false
+      });
+    } catch (err) {
+      console.error('Failed to remove customer high priority:', err);
     }
   };
 
@@ -787,8 +811,8 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* High Priority Orders Section (Above Quick Stats & Action Required) */}
-      {highPriorityOrders.length > 0 && (
+      {/* High Priority Orders & Customers Section (Above Quick Stats & Action Required) */}
+      {(highPriorityOrders.length > 0 || highPriorityCustomers.length > 0) && (
         <div className="mt-6 bg-red-50/70 border border-red-200 rounded-card p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3 mb-3.5">
             <div className="flex items-center gap-2.5">
@@ -797,17 +821,73 @@ export function Dashboard() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="font-serif text-xl text-red-950 leading-none">High Priority Orders</h3>
+                  <h3 className="font-serif text-xl text-red-950 leading-none">High Priority</h3>
                   <span className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    {highPriorityOrders.length}
+                    {highPriorityOrders.length + highPriorityCustomers.length}
                   </span>
                 </div>
-                <p className="text-xs text-red-800/80 mt-0.5">Pinned orders requiring priority attention across the shop.</p>
+                <p className="text-xs text-red-800/80 mt-0.5">Pinned customers and orders requiring priority attention across the shop.</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {highPriorityCustomers.map((c: any) => {
+              const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
+              const activeCustOrders = orders.filter(
+                (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
+              );
+
+              return (
+                <div
+                  key={`cust-${c.id}`}
+                  onClick={() => navigate(`/customers/${c.id}`)}
+                  className="bg-white border border-red-200 hover:border-red-500 border-l-4 border-l-red-600 rounded-xl p-4 flex items-start justify-between gap-3 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    {c.croppedLogo || c.logo ? (
+                      <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-1">
+                        <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                        <Building2 size={18} />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-600 text-white rounded">
+                          Customer
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded">
+                          {c.type || 'B2C'}
+                        </span>
+                        {activeCustOrders.length > 0 && (
+                          <span className="text-[10px] font-semibold text-red-700">
+                            {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
+                        {companyName}
+                      </h4>
+                      <p className="text-xs text-brand-secondary font-medium truncate mt-0.5">
+                        {c.contactName || c.email || c.location || 'View Customer Profile'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
+                    title="Remove High Priority from Customer"
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              );
+            })}
+
             {highPriorityOrders.map((o: any) => {
               const companyName =
                 customers[o.customerId]?.company ||
@@ -828,7 +908,7 @@ export function Dashboard() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded">
-                        #{displayId}
+                        Order #{displayId}
                       </span>
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded">
                         {getOrderStatusLabel(o.statusIndex)}

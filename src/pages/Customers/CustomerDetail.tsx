@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle } from 'lucide-react';
 
 export interface ColorVariation {
   id: string;
@@ -109,6 +109,7 @@ export function CustomerDetail() {
     shippingState: '',
     shippingZip: '',
     type: 'B2C',
+    highPriority: false,
     net30Terms: true,
     fulfillmentType: 'Standard',
     disableRack: false,
@@ -1373,6 +1374,7 @@ export function CustomerDetail() {
             shippingState: data.shippingState || '',
             shippingZip: data.shippingZip || '',
             type: data.type || 'B2C',
+            highPriority: Boolean(data.highPriority),
             net30Terms: data.net30Terms ?? true,
             fulfillmentType: data.fulfillmentType ?? 'Standard',
             disableRack: data.disableRack ?? false,
@@ -1454,6 +1456,27 @@ export function CustomerDetail() {
     e.target.value = ''; // Reset input so identical file can be picked again
   };
 
+  const handleToggleCustomerHighPriority = async () => {
+    if (!id) return;
+    const isCurrentlyHighPriority = Boolean(liveCustomerData?.highPriority);
+    const nextHighPriority = !isCurrentlyHighPriority;
+    try {
+      await setDoc(doc(db, 'customers', id), {
+        highPriority: nextHighPriority
+      }, { merge: true });
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        highPriority: nextHighPriority
+      }));
+      setEditCompanyForm(prev => ({
+        ...prev,
+        highPriority: nextHighPriority
+      }));
+    } catch (err) {
+      console.error('Failed to toggle customer high priority:', err);
+    }
+  };
+
   const handleSaveCompany = async () => {
     if (!id) return;
     setSavingCompany(true);
@@ -1468,6 +1491,7 @@ export function CustomerDetail() {
         shippingState: editCompanyForm.shippingState,
         shippingZip: editCompanyForm.shippingZip,
         type: editCompanyForm.type,
+        highPriority: Boolean(editCompanyForm.highPriority),
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
@@ -1490,6 +1514,7 @@ export function CustomerDetail() {
         phone: editCompanyForm.phone,
         location: editCompanyForm.location,
         type: editCompanyForm.type,
+        highPriority: Boolean(editCompanyForm.highPriority),
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
@@ -1706,6 +1731,19 @@ export function CustomerDetail() {
           Back to Customers
         </button>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleToggleCustomerHighPriority}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+              liveCustomerData?.highPriority
+                ? 'bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-xs'
+                : 'bg-white text-brand-primary border-brand-border hover:border-red-500 hover:text-red-600'
+            }`}
+            title={liveCustomerData?.highPriority ? 'Remove High Priority from Customer' : 'Mark Customer as High Priority'}
+          >
+            <AlertTriangle size={14} />
+            {liveCustomerData?.highPriority ? 'High Priority' : 'Mark High Priority'}
+          </button>
           <PillButton 
             variant="outline" 
             className="gap-2"
@@ -1756,6 +1794,7 @@ export function CustomerDetail() {
                 shippingState: liveCustomerData.shippingState || prev.shippingState,
                 shippingZip: liveCustomerData.shippingZip || prev.shippingZip,
                 type: liveCustomerData.type || prev.type,
+                highPriority: Boolean(liveCustomerData.highPriority),
                 net30Terms: liveCustomerData.net30Terms ?? prev.net30Terms,
                 fulfillmentType: liveCustomerData.fulfillmentType ?? prev.fulfillmentType,
                 disableRack: liveCustomerData.disableRack ?? prev.disableRack,
@@ -1830,6 +1869,11 @@ export function CustomerDetail() {
                   <span className="flex items-center gap-1.5"><Mail size={14} /> {editCompanyForm.email}</span>
                </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {(liveCustomerData?.highPriority || customer?.highPriority) && (
+                    <span className="text-[10px] bg-red-600 text-white px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                      <AlertTriangle size={11} /> High Priority
+                    </span>
+                  )}
                   <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
                   {isOnline() ? (
                     <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
@@ -3182,6 +3226,23 @@ export function CustomerDetail() {
                     </select>
                  </div>
                   <div className="col-span-2 flex flex-col gap-2.5 pt-2 pl-2 mb-2">
+                    <div className={`flex items-center gap-3 p-2.5 -ml-2 rounded-xl border transition-colors ${
+                      editCompanyForm.highPriority
+                        ? 'bg-red-50 border-red-300'
+                        : 'bg-brand-bg/50 border-brand-border/60'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        id="highPriorityCustomer"
+                        checked={Boolean(editCompanyForm.highPriority)}
+                        onChange={e => setEditCompanyForm({ ...editCompanyForm, highPriority: e.target.checked })}
+                        className="w-4 h-4 accent-red-600 cursor-pointer"
+                      />
+                      <label htmlFor="highPriorityCustomer" className="text-xs font-bold text-red-700 uppercase tracking-widest cursor-pointer mt-0.5 flex items-center gap-1.5">
+                        <AlertTriangle size={14} className="text-red-600" />
+                        HIGH PRIORITY CUSTOMER (PIN TO DASHBOARD)
+                      </label>
+                    </div>
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>

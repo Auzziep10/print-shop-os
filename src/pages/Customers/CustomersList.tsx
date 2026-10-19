@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge } from 'lucide-react';
+import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge, AlertTriangle } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
@@ -86,6 +86,7 @@ export function CustomersList() {
         company: companyString,
         contact: liveData.contactName || liveData.email || 'N/A', 
         type: liveData.type || 'B2C',
+        highPriority: Boolean(liveData.highPriority),
         ordersToDate,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
@@ -98,7 +99,10 @@ export function CustomersList() {
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
                    c.id.toLowerCase().includes(search.toLowerCase()))
-      .sort((a, b) => a.company.localeCompare(b.company));
+      .sort((a, b) => {
+        if (a.highPriority !== b.highPriority) return a.highPriority ? -1 : 1;
+        return a.company.localeCompare(b.company);
+      });
   }, [liveCustomers, orders, search]);
 
   const isOnline = (cust: any) => {
@@ -213,6 +217,11 @@ export function CustomersList() {
                       <span className="truncate">{customer.company}</span>
                     ) : (
                       <span className="text-brand-secondary italic text-sm">Individual</span>
+                    )}
+                    {customer.highPriority && (
+                      <span className="bg-red-600 text-white text-[10px] font-sans font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-xs" title="High Priority Customer">
+                        <AlertTriangle size={10} /> HIGH PRIORITY
+                      </span>
                     )}
                     {isOnline(customer) && (
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] shrink-0 animate-pulse" title="Online now" />
