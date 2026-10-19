@@ -87,6 +87,7 @@ export function CustomersList() {
         contact: liveData.contactName || liveData.email || 'N/A', 
         type: liveData.type || 'B2C',
         highPriority: Boolean(liveData.highPriority),
+        highPriorityRank: typeof liveData.highPriorityRank === 'number' ? liveData.highPriorityRank : 9999,
         ordersToDate,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
@@ -101,6 +102,9 @@ export function CustomersList() {
                    c.id.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         if (a.highPriority !== b.highPriority) return a.highPriority ? -1 : 1;
+        if (a.highPriority && b.highPriority && a.highPriorityRank !== b.highPriorityRank) {
+          return a.highPriorityRank - b.highPriorityRank;
+        }
         return a.company.localeCompare(b.company);
       });
   }, [liveCustomers, orders, search]);

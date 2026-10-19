@@ -7,10 +7,10 @@ import { TimelinePlanner } from '../Team/TimelinePlanner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, chronoDb, chronoAuth } from '../../lib/firebase';
-import { collection, query, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, getDocs, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2 } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight } from 'lucide-react';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
@@ -690,6 +690,10 @@ export function Dashboard() {
     }
   };
 
+  const [draggedPriorityKey, setDraggedPriorityKey] = useState<string | null>(null);
+  const [dragOverPriorityKey, setDragOverPriorityKey] = useState<string | null>(null);
+  const [localPriorityOrder, setLocalPriorityOrder] = useState<string[] | null>(null);
+
   const highPriorityOrders = useMemo(() => {
     return orders.filter(
       (o: any) =>
@@ -705,6 +709,91 @@ export function Dashboard() {
       .map(([id, c]) => ({ id, ...c }))
       .sort((a: any, b: any) => (a.company || a.name || '').localeCompare(b.company || b.name || ''));
   }, [customers]);
+
+  const highPriorityItems = useMemo(() => {
+    const items: Array<{
+      key: string;
+      itemType: 'customer' | 'order';
+      id: string;
+      rank: number;
+      label: string;
+      data: any;
+    }> = [
+      ...highPriorityCustomers.map((c: any) => ({
+        key: `cust-${c.id}`,
+        itemType: 'customer' as const,
+        id: c.id,
+        rank: typeof c.highPriorityRank === 'number' ? c.highPriorityRank : 9999,
+        label: (c.company && c.company !== '-' ? c.company : c.contactName || c.name || c.email || 'Customer').toLowerCase(),
+        data: c
+      })),
+      ...highPriorityOrders.map((o: any) => ({
+        key: `order-${o.id}`,
+        itemType: 'order' as const,
+        id: o.id,
+        rank: typeof o.highPriorityRank === 'number' ? o.highPriorityRank : 9999,
+        label: (o.title || 'Untitled Order').toLowerCase(),
+        data: o
+      }))
+    ];
+
+    items.sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      if (a.itemType !== b.itemType) return a.itemType === 'customer' ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    });
+
+    if (localPriorityOrder && localPriorityOrder.length > 0) {
+      const orderIndexMap = new Map(localPriorityOrder.map((k, idx) => [k, idx]));
+      items.sort((a, b) => {
+        const idxA = orderIndexMap.has(a.key) ? orderIndexMap.get(a.key)! : 99999;
+        const idxB = orderIndexMap.has(b.key) ? orderIndexMap.get(b.key)! : 99999;
+        return idxA - idxB;
+      });
+    }
+
+    return items;
+  }, [highPriorityCustomers, highPriorityOrders, localPriorityOrder]);
+
+  const handleDropPriorityItem = async (targetKey: string) => {
+    if (!draggedPriorityKey || draggedPriorityKey === targetKey) {
+      setDraggedPriorityKey(null);
+      setDragOverPriorityKey(null);
+      return;
+    }
+
+    const currentKeys = highPriorityItems.map(i => i.key);
+    const fromIdx = currentKeys.indexOf(draggedPriorityKey);
+    const toIdx = currentKeys.indexOf(targetKey);
+
+    if (fromIdx === -1 || toIdx === -1) {
+      setDraggedPriorityKey(null);
+      setDragOverPriorityKey(null);
+      return;
+    }
+
+    const reorderedItems = [...highPriorityItems];
+    const [moved] = reorderedItems.splice(fromIdx, 1);
+    reorderedItems.splice(toIdx, 0, moved);
+
+    setLocalPriorityOrder(reorderedItems.map(i => i.key));
+    setDraggedPriorityKey(null);
+    setDragOverPriorityKey(null);
+
+    try {
+      const batch = writeBatch(db);
+      reorderedItems.forEach((item, index) => {
+        const collectionName = item.itemType === 'customer' ? 'customers' : 'orders';
+        batch.update(doc(db, collectionName, item.id), {
+          highPriorityRank: index
+        });
+      });
+      await batch.commit();
+      setLocalPriorityOrder(null);
+    } catch (err) {
+      console.error('Failed to save high priority rank order:', err);
+    }
+  };
 
   const getOrderStatusLabel = (statusIndex?: number) => {
     switch (statusIndex) {
@@ -812,9 +901,9 @@ export function Dashboard() {
       )}
 
       {/* High Priority Orders & Customers Section (Above Quick Stats & Action Required) */}
-      {(highPriorityOrders.length > 0 || highPriorityCustomers.length > 0) && (
-        <div className="mt-6 bg-red-50/70 border border-red-200 rounded-card p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3 mb-3.5">
+      {highPriorityItems.length > 0 && (
+        <div className="mt-6 bg-red-50/70 border border-red-200 rounded-card p-4 sm:p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                 <AlertTriangle size={16} />
@@ -823,72 +912,130 @@ export function Dashboard() {
                 <div className="flex items-center gap-2">
                   <h3 className="font-serif text-xl text-red-950 leading-none">High Priority</h3>
                   <span className="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    {highPriorityOrders.length + highPriorityCustomers.length}
+                    {highPriorityItems.length}
                   </span>
                 </div>
-                <p className="text-xs text-red-800/80 mt-0.5">Pinned customers and orders requiring priority attention across the shop.</p>
+                <p className="text-xs text-red-800/80 mt-0.5">
+                  Drag rows to reorder priority across the shop.
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {highPriorityCustomers.map((c: any) => {
-              const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
-              const activeCustOrders = orders.filter(
-                (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
-              );
+          <div className="bg-white border border-red-200 rounded-xl divide-y divide-red-100 overflow-hidden shadow-xs">
+            {highPriorityItems.map((entry, idx) => {
+              const isDragging = draggedPriorityKey === entry.key;
+              const isDragOver = dragOverPriorityKey === entry.key && draggedPriorityKey !== entry.key;
 
-              return (
-                <div
-                  key={`cust-${c.id}`}
-                  onClick={() => navigate(`/customers/${c.id}`)}
-                  className="bg-white border border-red-200 hover:border-red-500 border-l-4 border-l-red-600 rounded-xl p-4 flex items-start justify-between gap-3 shadow-xs hover:shadow-md transition-all cursor-pointer group"
-                >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    {c.croppedLogo || c.logo ? (
-                      <div className="w-10 h-10 rounded-lg border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-1">
-                        <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
+              if (entry.itemType === 'customer') {
+                const c = entry.data;
+                const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
+                const activeCustOrders = orders.filter(
+                  (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
+                );
+                const subtext = c.contactName || c.email || c.location || '';
+
+                return (
+                  <div
+                    key={entry.key}
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedPriorityKey(entry.key);
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', entry.key);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dragOverPriorityKey !== entry.key) {
+                        setDragOverPriorityKey(entry.key);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverPriorityKey === entry.key) {
+                        setDragOverPriorityKey(null);
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDropPriorityItem(entry.key);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedPriorityKey(null);
+                      setDragOverPriorityKey(null);
+                    }}
+                    onClick={() => navigate(`/customers/${c.id}`)}
+                    className={`px-3.5 py-2.5 flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
+                      isDragging
+                        ? 'opacity-40 bg-red-50'
+                        : isDragOver
+                          ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
+                          : 'hover:bg-red-50/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className="flex items-center gap-1.5 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
+                        title="Drag to reorder"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GripVertical size={15} />
+                        <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center">
+                          {idx + 1}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
-                        <Building2 size={18} />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-600 text-white rounded">
+
+                      {c.croppedLogo || c.logo ? (
+                        <div className="w-7 h-7 rounded-md border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-0.5">
+                          <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                          <Building2 size={14} />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                        <span className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
+                          {companyName}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-600 text-white rounded shrink-0">
                           Customer
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
                           {c.type || 'B2C'}
                         </span>
                         {activeCustOrders.length > 0 && (
-                          <span className="text-[10px] font-semibold text-red-700">
+                          <span className="text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded shrink-0">
                             {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
                           </span>
                         )}
+                        {subtext && (
+                          <span className="hidden md:inline text-xs text-brand-secondary truncate">
+                            • {subtext}
+                          </span>
+                        )}
                       </div>
-                      <h4 className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
-                        {companyName}
-                      </h4>
-                      <p className="text-xs text-brand-secondary font-medium truncate mt-0.5">
-                        {c.contactName || c.email || c.location || 'View Customer Profile'}
-                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
+                        Profile <ChevronRight size={13} />
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
+                        title="Remove High Priority from Customer"
+                        className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
-                    title="Remove High Priority from Customer"
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              );
-            })}
+                );
+              }
 
-            {highPriorityOrders.map((o: any) => {
+              const o = entry.data;
               const companyName =
                 customers[o.customerId]?.company ||
                 customers[o.customerId]?.name ||
@@ -901,39 +1048,92 @@ export function Dashboard() {
 
               return (
                 <div
-                  key={o.id}
+                  key={entry.key}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedPriorityKey(entry.key);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', entry.key);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverPriorityKey !== entry.key) {
+                      setDragOverPriorityKey(entry.key);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverPriorityKey === entry.key) {
+                      setDragOverPriorityKey(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDropPriorityItem(entry.key);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedPriorityKey(null);
+                    setDragOverPriorityKey(null);
+                  }}
                   onClick={() => navigate(`/orders/${o.id}`)}
-                  className="bg-white border border-red-200 hover:border-red-500 border-l-4 border-l-red-600 rounded-xl p-4 flex items-start justify-between gap-3 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+                  className={`px-3.5 py-2.5 flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
+                    isDragging
+                      ? 'opacity-40 bg-red-50'
+                      : isDragOver
+                        ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
+                        : 'hover:bg-red-50/40'
+                  }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div
+                      className="flex items-center gap-1.5 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
+                      title="Drag to reorder"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <GripVertical size={15} />
+                      <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center">
+                        {idx + 1}
+                      </span>
+                    </div>
+
+                    <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                      <Package size={14} />
+                    </div>
+
+                    <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+                      <span className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
+                        {o.title || 'Untitled Order'}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded shrink-0">
                         Order #{displayId}
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
                         {getOrderStatusLabel(o.statusIndex)}
                       </span>
                       {dueStr && (
-                        <span className="text-[10px] font-semibold text-neutral-500">
+                        <span className="text-[10px] font-semibold text-neutral-500 shrink-0">
                           Due {dueStr}
                         </span>
                       )}
+                      <span className="hidden md:inline text-xs text-brand-secondary truncate">
+                        • {companyName}
+                      </span>
                     </div>
-                    <h4 className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
-                      {o.title || 'Untitled Order'}
-                    </h4>
-                    <p className="text-xs text-brand-secondary font-medium truncate mt-0.5">
-                      {companyName}
-                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => handleRemoveHighPriority(e, o)}
-                    title="Remove High Priority"
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                  >
-                    <X size={14} />
-                  </button>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
+                      Order <ChevronRight size={13} />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveHighPriority(e, o)}
+                      title="Remove High Priority"
+                      className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
