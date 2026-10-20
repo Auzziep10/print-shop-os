@@ -103,7 +103,7 @@ const drawGraphtecRegistrationMarks = (
     const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
     const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
     const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
-    const padding = 0.03 * BASE_DPI; // 9px (approx 0.75 mm padding for the white background squares, bounded inside 1.0" margin)
+    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch padding around registration marks for the white horizontal strips)
 
     const xLeft = margin;
     const xRight = width - margin;
@@ -112,35 +112,19 @@ const drawGraphtecRegistrationMarks = (
 
     if (drawBackground) {
         ctx.fillStyle = 'white';
-        
-        // Cap white boxes so they stay within the outer 1.0" margin band (xLeft + markLength = 300px, xRight - markLength = width - 300px)
-        // 1. Top-Left White Background
-        const tlX = Math.max(0, xLeft - padding);
-        const tlY = Math.max(0, yTop - padding);
-        const tlW = Math.min(xLeft + markLength, width) - tlX;
-        const tlH = Math.min(yTop + markLength, height) - tlY;
-        ctx.fillRect(tlX, tlY, tlW, tlH);
 
-        // 2. Top-Right White Background
-        const trX = Math.max(0, xRight - markLength);
-        const trY = Math.max(0, yTop - padding);
-        const trW = Math.min(xRight + padding, width) - trX;
-        const trH = Math.min(yTop + markLength, height) - trY;
-        ctx.fillRect(trX, trY, trW, trH);
+        const stripX = Math.max(0, xLeft - padding);
+        const stripW = Math.min(width, xRight + padding) - stripX;
 
-        // 3. Bottom-Left White Background
-        const blX = Math.max(0, xLeft - padding);
-        const blY = Math.max(0, yBottom - markLength);
-        const blW = Math.min(xLeft + markLength, width) - blX;
-        const blH = Math.min(yBottom + padding, height) - blY;
-        ctx.fillRect(blX, blY, blW, blH);
+        // 1. Top Horizontal White Strip (connects top-left and top-right registration marks all the way across)
+        const topStripY = Math.max(0, yTop - padding);
+        const topStripH = Math.min(height, yTop + markLength + padding) - topStripY;
+        ctx.fillRect(stripX, topStripY, stripW, topStripH);
 
-        // 4. Bottom-Right White Background
-        const brX = Math.max(0, xRight - markLength);
-        const brY = Math.max(0, yBottom - markLength);
-        const brW = Math.min(xRight + padding, width) - brX;
-        const brH = Math.min(yBottom + padding, height) - brY;
-        ctx.fillRect(brX, brY, brW, brH);
+        // 2. Bottom Horizontal White Strip (connects bottom-left and bottom-right registration marks all the way across)
+        const bottomStripY = Math.max(0, yBottom - markLength - padding);
+        const bottomStripH = Math.min(height, yBottom + padding) - bottomStripY;
+        ctx.fillRect(stripX, bottomStripY, stripW, bottomStripH);
     }
 
     ctx.fillStyle = 'black';
@@ -785,7 +769,7 @@ const generateFinalSheetsForPrintAndCut = async (
         }));
 
         const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
-        const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
+        const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP + (0.25 * BASE_DPI);
 
         // 1. Create PRINT Canvas
         const printCanvas = document.createElement('canvas');
@@ -921,7 +905,7 @@ const generateFinalSheetsForPrintAndCut = async (
         drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
 
         const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
-            const headerY = 1.0 * BASE_DPI;
+            const headerY = 1.25 * BASE_DPI;
             if (isCut) {
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
@@ -3387,7 +3371,7 @@ export function OrderDetail() {
 
       const totalRows = Math.ceil(placements.length / tagsPerRow);
       const sheetContentHeight = totalRows > 0 ? (totalRows * 1210 + 605) : 0;
-      const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX;
+      const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX + (0.25 * BASE_DPI);
 
       const printCanvas = document.createElement('canvas');
       printCanvas.width = finalCanvasWidth;
@@ -3428,7 +3412,7 @@ export function OrderDetail() {
       drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
 
       const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
-        const headerY = 1.0 * BASE_DPI;
+        const headerY = 1.25 * BASE_DPI;
         if (isCut) {
           ctx.fillStyle = 'white';
           ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
