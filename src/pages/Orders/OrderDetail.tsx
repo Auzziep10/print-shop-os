@@ -8988,7 +8988,7 @@ export function OrderDetail() {
             <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
               
               {/* Left Column: Images (4 cols) */}
-              {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+              {(!editItemObj.itemType || editItemObj.itemType === 'garment' || editItemObj.itemType === 'service') && (
                 <div className="lg:col-span-4 flex flex-col gap-6">
                    <div className="flex items-center justify-between pointer-events-none">
                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Item Imagery</label>
@@ -8997,10 +8997,23 @@ export function OrderDetail() {
                      
                      {/* Main Mockup */}
                      <div className="flex flex-col gap-3">
-                       <span className="text-xs font-semibold text-brand-primary flex items-center gap-2"><ImageIcon size={14}/> Main Mockup</span>
-                       <div className="w-full aspect-square bg-brand-bg border border-brand-border rounded-lg flex items-center justify-center overflow-hidden">
+                       <span className="text-xs font-semibold text-brand-primary flex items-center gap-2"><ImageIcon size={14}/> {editItemObj.itemType === 'service' ? 'Service / Item Image' : 'Main Mockup'}</span>
+                       <div className="w-full aspect-square bg-brand-bg border border-brand-border rounded-lg flex items-center justify-center overflow-hidden relative group">
                          {editItemObj.image ? (
-                           <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image, alt: "Main mockup", item: editItemObj, itemStyle: editItemObj.style })} />
+                           <>
+                             <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image, alt: "Main mockup", item: editItemObj, itemStyle: editItemObj.style })} />
+                             <button
+                               type="button"
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setEditItemObj({ ...editItemObj, image: '' });
+                               }}
+                               className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-md cursor-pointer"
+                               title="Remove image"
+                             >
+                               <Trash2 size={12} />
+                             </button>
+                           </>
                          ) : (
                            <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
                              <ImageIcon size={32} />
@@ -9010,9 +9023,10 @@ export function OrderDetail() {
                        </div>                        <div className="flex flex-col sm:flex-row gap-2">
                           <label className="flex-1 cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
                             {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                            {isUploadingMain ? 'Uploading...' : 'Upload Mockup'}
+                            {isUploadingMain ? 'Uploading...' : (editItemObj.itemType === 'service' ? 'Upload Image' : 'Upload Mockup')}
                             <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
                           </label>
+                          {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                           <button
                             type="button"
                             onClick={async () => {
@@ -9185,6 +9199,7 @@ export function OrderDetail() {
                             <Sparkles size={16} className="text-white animate-pulse" />
                             <span>Mockup Creator</span>
                           </button>
+                          )}
                         </div>
                      </div>
                      
@@ -9411,7 +9426,7 @@ export function OrderDetail() {
 
                {/* Right Column: Data Fields & Sizing */}
                <div className={
-                  (!editItemObj.itemType || editItemObj.itemType === 'garment') 
+                  (!editItemObj.itemType || editItemObj.itemType === 'garment' || editItemObj.itemType === 'service') 
                     ? "lg:col-span-8 flex flex-col gap-8" 
                     : (editItemObj.itemType === 'gang_sheet')
                       ? (editItemObj.sheetSizeName === 'Single Design Transfer' ? "lg:col-span-12 flex flex-col gap-8" : "lg:col-span-8 flex flex-col gap-8")

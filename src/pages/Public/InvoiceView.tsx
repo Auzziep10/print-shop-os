@@ -13,6 +13,7 @@ export function InvoiceView() {
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [autoShippingFee, setAutoShippingFee] = useState<number | null>(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -49,25 +50,6 @@ export function InvoiceView() {
 
     return () => unsub();
   }, [orderId]);
-
-  if (loading) {
-     return (
-       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-400">
-         <Loader2 className="animate-spin" size={32} />
-         <p className="font-semibold uppercase tracking-widest text-xs">Retrieving Invoice...</p>
-       </div>
-     );
-  }
-
-  if (!order) {
-     return (
-       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-500">
-         <h2 className="text-2xl font-serif">Invoice Not Found</h2>
-       </div>
-     );
-  }
-
-  const [autoShippingFee, setAutoShippingFee] = useState<number | null>(null);
 
   useEffect(() => {
     if (!order) return;
@@ -151,6 +133,23 @@ export function InvoiceView() {
 
     fetchInvoiceShipping();
   }, [order, customer]);
+
+  if (loading) {
+     return (
+       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-400">
+         <Loader2 className="animate-spin" size={32} />
+         <p className="font-semibold uppercase tracking-widest text-xs">Retrieving Invoice...</p>
+       </div>
+     );
+  }
+
+  if (!order) {
+     return (
+       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-500">
+         <h2 className="text-2xl font-serif">Invoice Not Found</h2>
+       </div>
+     );
+  }
 
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
