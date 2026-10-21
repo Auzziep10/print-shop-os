@@ -146,6 +146,77 @@ const drawGraphtecRegistrationMarks = (
     ctx.fillRect(xRight - thickness, yBottom - markLength, thickness, markLength);
 };
 
+// Builds line segments for a dotted/dashed rectangle outline with a configurable number of dots per edge
+const getDottedRectSegments = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    dotsPerLine: number
+): Array<[number, number, number, number]> => {
+    const n = Math.max(1, Math.round(dotsPerLine || 1));
+    const edges: Array<[number, number, number, number]> = [
+        [x, y, x + w, y],         // Top edge
+        [x + w, y, x + w, y + h], // Right edge
+        [x + w, y + h, x, y + h], // Bottom edge
+        [x, y + h, x, y]          // Left edge
+    ];
+    if (n <= 1) {
+        return edges;
+    }
+    const segments: Array<[number, number, number, number]> = [];
+    const totalSubdivisions = 2 * n - 1;
+    for (const [x1, y1, x2, y2] of edges) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        for (let i = 0; i < n; i++) {
+            const tStart = (2 * i) / totalSubdivisions;
+            const tEnd = (2 * i + 1) / totalSubdivisions;
+            segments.push([
+                x1 + dx * tStart,
+                y1 + dy * tStart,
+                x1 + dx * tEnd,
+                y1 + dy * tEnd
+            ]);
+        }
+    }
+    return segments;
+};
+
+const strokeDottedRectCanvas = (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    dotsPerLine: number
+) => {
+    const segments = getDottedRectSegments(x, y, w, h, dotsPerLine);
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of segments) {
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+};
+
+const buildDottedRectSvgPath = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    dotsPerLine: number,
+    strokeWidth: number = 6,
+    transformAttr: string = ''
+): string => {
+    const segments = getDottedRectSegments(x, y, w, h, dotsPerLine);
+    const d = segments
+        .map(([x1, y1, x2, y2]) => `M ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)}`)
+        .join(' ');
+    const transformStr = transformAttr ? ` transform="${transformAttr}"` : '';
+    return `<path d="${d}" fill="none" stroke="black" stroke-width="${strokeWidth}"${transformStr} />`;
+};
+
 // Calculates a safe padding margin around an artwork that prevents it from overlapping adjacent cut lines
 const calculateSafePadding = (
     currentArt: any,
@@ -419,6 +490,7 @@ const generateFinalSheetsForPrintAndCut = async (
     orderId: string,
     customerName: string,
     shippingAddress: any,
+    dotsPerCutLine: number = 12,
 ): Promise<FinalSheetOutput[]> => {
     const HEADER_HEIGHT_INCHES = 1;
     const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
@@ -826,11 +898,13 @@ const generateFinalSheetsForPrintAndCut = async (
                     cutCtx.strokeStyle = 'black';
                     cutCtx.lineWidth = 6;
                     const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
-                    cutCtx.strokeRect(
+                    strokeDottedRectCanvas(
+                        cutCtx,
                         printX - paddingPx,
                         printY - paddingPx,
                         p.wPx + (2 * paddingPx),
-                        p.hPx + (2 * paddingPx)
+                        p.hPx + (2 * paddingPx),
+                        dotsPerCutLine
                     );
                 }
             });
@@ -877,17 +951,19 @@ const generateFinalSheetsForPrintAndCut = async (
 
                         const wPx = art.width * BASE_DPI + (2 * safePadding);
                         const hPx = art.height * BASE_DPI + (2 * safePadding);
-                        cutCtx.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+                        strokeDottedRectCanvas(cutCtx, -wPx / 2, -hPx / 2, wPx, hPx, dotsPerCutLine);
 
                         cutCtx.restore();
                     });
                 } else {
                     const contentMargin = 0.25 * BASE_DPI;
-                    cutCtx.strokeRect(
+                    strokeDottedRectCanvas(
+                        cutCtx,
                         MARGIN_PX + contentMargin,
                         yOffset + contentMargin,
                         (designWidthInches * BASE_DPI) - (contentMargin * 2),
-                        ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
+                        ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2),
+                        dotsPerCutLine
                     );
                 }
             }
@@ -982,7 +1058,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     const printY = p.y + yOffset;
                     const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
                     
-                    svgContent += `  <rect x="${printX - paddingPx}" y="${printY - paddingPx}" width="${artW + (2 * paddingPx)}" height="${artH + (2 * paddingPx)}" fill="none" stroke="black" stroke-width="6" />\n`;
+                    svgContent += `  ${buildDottedRectSvgPath(printX - paddingPx, printY - paddingPx, artW + (2 * paddingPx), artH + (2 * paddingPx), dotsPerCutLine, 6)}\n`;
                 });
             } else {
                 const sheetArtworks = (orderItem.artworks || []).filter(
@@ -1001,7 +1077,7 @@ const generateFinalSheetsForPrintAndCut = async (
                         const hPx = art.height * BASE_DPI + (2 * safePadding);
 
                         svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${art.rotation || 0})">\n`;
-                        svgContent += `    <rect x="${-wPx / 2}" y="${-hPx / 2}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" />\n`;
+                        svgContent += `    ${buildDottedRectSvgPath(-wPx / 2, -hPx / 2, wPx, hPx, dotsPerCutLine, 6)}\n`;
                         svgContent += `  </g>\n`;
                     });
                 } else {
@@ -1010,7 +1086,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     const rectY = yOffset + contentMargin;
                     const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
                     const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
-                    svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
+                    svgContent += `  ${buildDottedRectSvgPath(rectX, rectY, rectW, rectH, dotsPerCutLine, 6)}\n`;
                 }
             }
         }
@@ -1808,6 +1884,10 @@ export function OrderDetail() {
   const [isZipping, setIsZipping] = useState(false);
   const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
   const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
+  const [cutLineDots, setCutLineDots] = useState<number>(() => {
+    const saved = Number(localStorage.getItem('defaultCutLineDots'));
+    return saved > 0 ? saved : 12;
+  });
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
@@ -3195,11 +3275,13 @@ export function OrderDetail() {
         quantity: 1,
       };
 
+      localStorage.setItem('defaultCutLineDots', String(cutLineDots));
       const sheets = await generateFinalSheetsForPrintAndCut(
         syntheticItem,
         order.id,
         order.customerName || 'Customer',
-        order.shippingAddress || null
+        order.shippingAddress || null,
+        cutLineDots
       );
 
       const uploadedSheets: Array<{
@@ -3238,6 +3320,7 @@ export function OrderDetail() {
         masterSheetHeight: totalHeight,
         masterSheets: uploadedSheets,
         masterReadyToPrint: true,
+        cutLineDots,
       });
 
       if (uploadedSheets.length > 1) {
@@ -3471,10 +3554,18 @@ export function OrderDetail() {
       svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
       svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
 
+      localStorage.setItem('defaultCutLineDots', String(cutLineDots));
+      cutCtx.strokeStyle = 'black';
+      cutCtx.lineWidth = 4;
       placements.forEach(p => {
         const cx = p.x + tagDim / 2;
         const cy = p.y + tagDim / 2;
-        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" rx="30" ry="30" fill="none" stroke="black" stroke-width="4" transform="rotate(45, ${cx}, ${cy})" />\n`;
+        cutCtx.save();
+        cutCtx.translate(cx, cy);
+        cutCtx.rotate((45 * Math.PI) / 180);
+        strokeDottedRectCanvas(cutCtx, -tagDim / 2, -tagDim / 2, tagDim, tagDim, cutLineDots);
+        cutCtx.restore();
+        svgContent += `  ${buildDottedRectSvgPath(p.x, p.y, tagDim, tagDim, cutLineDots, 4, `rotate(45, ${cx}, ${cy})`)}\n`;
       });
       svgContent += `</svg>`;
 
@@ -5866,6 +5957,43 @@ export function OrderDetail() {
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
                 </div>
                 <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 bg-neutral-100 border border-brand-border rounded-full px-3 py-1" title="Number of dotted cut segments per side of each cut outline (1 = solid line)">
+                    <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">Dots / Cut Line:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.max(1, cutLineDots - 1);
+                        setCutLineDots(next);
+                        localStorage.setItem('defaultCutLineDots', String(next));
+                      }}
+                      className="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={cutLineDots}
+                      onChange={(e) => {
+                        const val = Math.max(1, Math.min(100, parseInt(e.target.value) || 1));
+                        setCutLineDots(val);
+                        localStorage.setItem('defaultCutLineDots', String(val));
+                      }}
+                      className="w-11 text-center bg-white border border-neutral-300 rounded-md py-0.5 text-xs font-extrabold text-neutral-900 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = Math.min(100, cutLineDots + 1);
+                        setCutLineDots(next);
+                        localStorage.setItem('defaultCutLineDots', String(next));
+                      }}
+                      className="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={handleGenerateCombinedOrderGangSheet}
@@ -6355,6 +6483,47 @@ export function OrderDetail() {
                             </select>
                           </div>
                         )}
+
+                        {/* Cut Line Dots Adjuster */}
+                        <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
+                          <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Dots Per Cut Line:</span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = Math.max(1, cutLineDots - 1);
+                                setCutLineDots(next);
+                                localStorage.setItem('defaultCutLineDots', String(next));
+                              }}
+                              className="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={cutLineDots}
+                              onChange={(e) => {
+                                const val = Math.max(1, Math.min(100, parseInt(e.target.value) || 1));
+                                setCutLineDots(val);
+                                localStorage.setItem('defaultCutLineDots', String(val));
+                              }}
+                              className="w-12 text-center bg-neutral-950 border border-neutral-800 rounded-md py-1 text-xs font-bold text-white focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = Math.min(100, cutLineDots + 1);
+                                setCutLineDots(next);
+                                localStorage.setItem('defaultCutLineDots', String(next));
+                              }}
+                              className="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
 
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">
