@@ -8896,7 +8896,8 @@ export function OrderDetail() {
                     {[
                       { key: 'showClientInfo', label: 'Client / Billing Info' },
                       { key: 'showShippingAddress', label: 'Shipping Address' },
-                      { key: 'showOrderMeta', label: 'Order / Company / # Block' },
+                      { key: 'showIssueDate', label: 'Issued Date (Left Col)' },
+                      { key: 'showOrderMeta', label: 'Estimate/Invoice # (Left Col)' },
                       { key: 'showComplimentaryServices', label: 'Services & QC List' },
                       { key: 'showTotals', label: 'Totals & Amount Due' },
                       { key: 'showDisclaimer', label: 'Legal Footer Disclaimer' },

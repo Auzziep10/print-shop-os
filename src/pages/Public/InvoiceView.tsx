@@ -359,12 +359,14 @@ export function InvoiceView() {
             {/* Left Column (34% on Desktop, Full Width on Mobile) */}
             <div className="w-full md:w-[34%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
               {/* Category Tag & Issue Date / Due Date / PO */}
-              {(invSettings.showCategoryTag !== false || invSettings.showDueDate !== false || invSettings.showPoNumber !== false || invSettings.showOrderMeta !== false) && (
+              {(invSettings.showIssueDate !== false || (invSettings.showCategoryTag !== false && invSettings.categoryTag) || invSettings.showDueDate !== false || (invSettings.showPoNumber !== false && order.poNumber) || invSettings.showOrderMeta !== false) && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-col gap-x-4 gap-y-2 pb-4 md:pb-0 border-b md:border-b-0 border-black/10">
-                  <div>
-                    <span className="text-neutral-400">ISSUED: </span>
-                    <span className="text-neutral-800 font-semibold">{issueDate}</span>
-                  </div>
+                  {invSettings.showIssueDate !== false && (
+                    <div>
+                      <span className="text-neutral-400">ISSUED: </span>
+                      <span className="text-neutral-800 font-semibold">{issueDate}</span>
+                    </div>
+                  )}
                   {invSettings.showCategoryTag !== false && invSettings.categoryTag && (
                     <div className="col-span-2 sm:col-span-1">
                       <span className="text-neutral-400">CATEGORY: </span>
