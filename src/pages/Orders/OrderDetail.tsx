@@ -1623,8 +1623,16 @@ export function OrderDetail() {
           showPayButton: true,
           payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
           payButtonUrl: "https://stripe.com",
+          servicesHeading: "SERVICES & QUALITY CONTROL",
           ...custSettings,
-          ...(order.invoiceSettings || {})
+          ...(order.invoiceSettings || {}),
+          customServices: order.invoiceSettings?.customServices || order.customServices || custSettings.customServices || [
+            { name: 'Collection Design', qty: 1, price: 0 },
+            { name: 'Artwork Preparation', qty: 1, price: 0 },
+            { name: 'Pantone Color Matching', qty: 1, price: 0 },
+            { name: 'Production Management', qty: 1, price: 0 },
+            { name: 'Quality Control', qty: 1, price: 0 }
+          ]
         };
         setOrderInvoiceForm(merged);
       };
@@ -1659,6 +1667,7 @@ export function OrderDetail() {
 
       await updateDoc(doc(db, 'orders', order.id), {
         invoiceSettings: orderInvoiceForm,
+        customServices: Array.isArray((orderInvoiceForm as any).customServices) ? (orderInvoiceForm as any).customServices : [],
         accountManager: (orderInvoiceForm as any).accountManager || '',
         accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
         accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
@@ -8880,6 +8889,117 @@ export function OrderDetail() {
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Services & Quality Control List Editor */}
+              <div className="space-y-3 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Services & Quality Control Items</h4>
+                  <button
+                    type="button"
+                    onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showComplimentaryServices: (orderInvoiceForm as any).showComplimentaryServices === false ? true : false } as any)}
+                    title={(orderInvoiceForm as any).showComplimentaryServices !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showComplimentaryServices !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showComplimentaryServices !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+
+                {(orderInvoiceForm as any).showComplimentaryServices !== false && (
+                  <>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Section Heading
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).servicesHeading ?? 'SERVICES & QUALITY CONTROL'}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, servicesHeading: e.target.value } as any)}
+                        placeholder="SERVICES & QUALITY CONTROL"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary uppercase"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-12 gap-2 text-[9px] font-bold text-neutral-400 uppercase tracking-wider px-1">
+                        <div className="col-span-7">Service Name</div>
+                        <div className="col-span-2 text-center">Qty</div>
+                        <div className="col-span-2 text-right">Price ($)</div>
+                        <div className="col-span-1"></div>
+                      </div>
+
+                      {(((orderInvoiceForm as any).customServices as any[]) || []).map((srv: any, sIdx: number) => (
+                        <div key={sIdx} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7">
+                            <input
+                              type="text"
+                              value={srv.name || ''}
+                              onChange={(e) => {
+                                const next = [...(((orderInvoiceForm as any).customServices as any[]) || [])];
+                                next[sIdx] = { ...next[sIdx], name: e.target.value };
+                                setOrderInvoiceForm({ ...orderInvoiceForm, customServices: next } as any);
+                              }}
+                              placeholder="Service name..."
+                              className="w-full bg-white border border-neutral-300 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={srv.qty ?? 1}
+                              onChange={(e) => {
+                                const next = [...(((orderInvoiceForm as any).customServices as any[]) || [])];
+                                next[sIdx] = { ...next[sIdx], qty: parseInt(e.target.value) || 1 };
+                                setOrderInvoiceForm({ ...orderInvoiceForm, customServices: next } as any);
+                              }}
+                              className="w-full bg-white border border-neutral-300 rounded-lg px-1.5 py-1.5 text-xs font-medium text-center text-brand-primary focus:outline-none focus:border-brand-primary"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={srv.price ?? 0}
+                              onChange={(e) => {
+                                const next = [...(((orderInvoiceForm as any).customServices as any[]) || [])];
+                                next[sIdx] = { ...next[sIdx], price: parseFloat(e.target.value) || 0 };
+                                setOrderInvoiceForm({ ...orderInvoiceForm, customServices: next } as any);
+                              }}
+                              className="w-full bg-white border border-neutral-300 rounded-lg px-1.5 py-1.5 text-xs font-medium text-right text-brand-primary focus:outline-none focus:border-brand-primary"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = (((orderInvoiceForm as any).customServices as any[]) || []).filter((_: any, i: number) => i !== sIdx);
+                                setOrderInvoiceForm({ ...orderInvoiceForm, customServices: next } as any);
+                              }}
+                              title="Remove service"
+                              className="p-1 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = [...(((orderInvoiceForm as any).customServices as any[]) || []), { name: '', qty: 1, price: 0 }];
+                          setOrderInvoiceForm({ ...orderInvoiceForm, customServices: next } as any);
+                        }}
+                        className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-primary hover:underline cursor-pointer"
+                      >
+                        <Plus size={13} /> Add Service Item
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Wire Info */}

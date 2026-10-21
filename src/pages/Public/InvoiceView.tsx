@@ -171,6 +171,23 @@ export function InvoiceView() {
     payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
   };
 
+  const invSettings: any = {
+    ...defaultInvoiceSettings,
+    ...(customer?.invoiceSettings || {}),
+    ...(order?.invoiceSettings || {})
+  };
+
+  // Standard complimentary service deliverables
+  const defaultServices = [
+    { name: 'Collection Design', qty: 1, price: 0 },
+    { name: 'Artwork Preparation', qty: 1, price: 0 },
+    { name: 'Pantone Color Matching', qty: 1, price: 0 },
+    { name: 'Production Management', qty: 1, price: 0 },
+    { name: 'Quality Control', qty: 1, price: 0 }
+  ];
+
+  const customServices = invSettings.customServices || order.customServices || (order.includeStandardDeliverables !== false ? defaultServices : []);
+
   // Calculate items subtotal
   let itemsSubtotal = 0;
   let lineItemsDiscountTotal = 0;
@@ -192,11 +209,13 @@ export function InvoiceView() {
     itemsSubtotal += price * qty;
   });
 
-  const invSettings: any = {
-    ...defaultInvoiceSettings,
-    ...(customer?.invoiceSettings || {}),
-    ...(order?.invoiceSettings || {})
-  };
+  if (invSettings.showComplimentaryServices !== false && Array.isArray(customServices)) {
+    customServices.forEach((srv: any) => {
+      const sPrice = parseFloat(srv.price || 0) || 0;
+      const sQty = parseInt(srv.qty || 1) || 1;
+      itemsSubtotal += sPrice * sQty;
+    });
+  }
 
   // Calculate shipping, tax & discounts (respecting visibility toggles)
   const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
@@ -222,17 +241,6 @@ export function InvoiceView() {
   const clientName = cust.contactName || cust.name || order.shippingAddress?.name || 'CLIENT';
   const companyName = cust.company || order.shippingAddress?.company || 'COMPANY';
   const clientPhone = cust.phone || order.shippingAddress?.phone;
-
-  // Standard complimentary service deliverables
-  const defaultServices = [
-    { name: 'Collection Design', price: 0 },
-    { name: 'Artwork Preparation', price: 0 },
-    { name: 'Pantone Color Matching', price: 0 },
-    { name: 'Production Management', price: 0 },
-    { name: 'Quality Control', price: 0 }
-  ];
-
-  const customServices = order.customServices || (order.includeStandardDeliverables !== false ? defaultServices : []);
 
   const isEstimate = String(invSettings.documentType || order.documentType || '').toLowerCase() === 'estimate';
   const statementOfWorkText = isEstimate && invSettings.statementOfWork === defaultInvoiceSettings.statementOfWork
@@ -283,7 +291,12 @@ export function InvoiceView() {
         <div className="flex-1 p-12 md:p-16 flex flex-col relative">
            {/* Top Header */}
            <div className="flex justify-between items-start mb-6">
-              <span className="text-neutral-400 italic text-lg font-serif mt-1">{invSettings.showSubtitle !== false ? invSettings.subtitle : ''}</span>
+              <div className="flex flex-col items-start gap-2">
+                <img src="/inktheory-logo-black.png" alt="INKTHEORY Logo" className="h-6 md:h-7 object-contain" />
+                {invSettings.showSubtitle !== false && invSettings.subtitle && (
+                  <span className="text-neutral-400 italic text-lg font-serif">{invSettings.subtitle}</span>
+                )}
+              </div>
               <div className="flex flex-col items-end">
                 <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>{isEstimate ? 'ESTIMATE' : 'INVOICE'}</span>
                 <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase mt-1"># {order.portalId || order.id.slice(0, 8)}</span>
@@ -466,9 +479,10 @@ export function InvoiceView() {
                   {/* Table Rows: Standard Complimentary Services */}
                   {invSettings.showComplimentaryServices !== false && customServices && customServices.length > 0 && (
                     <div className="flex flex-col gap-2.5 py-4 border-b border-neutral-100">
-                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">SERVICES & QUALITY CONTROL</p>
+                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">{invSettings.servicesHeading || 'SERVICES & QUALITY CONTROL'}</p>
                       {customServices.map((srv: any, sIdx: number) => {
-                        const priceVal = parseFloat(srv.price || 0);
+                        const qtyVal = parseInt(srv.qty || 1) || 1;
+                        const priceVal = (parseFloat(srv.price || 0) || 0) * qtyVal;
                         const priceFormatted = priceVal === 0 ? '$0.00' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
 
                         return (
@@ -477,7 +491,7 @@ export function InvoiceView() {
                               {srv.name}
                             </div>
                             <div className="w-1/6 text-center text-neutral-400 text-[10px]">
-                              1
+                              {qtyVal}
                             </div>
                             <div className="w-1/3 text-right font-bold text-neutral-600 text-[10px]">
                               {priceFormatted}
