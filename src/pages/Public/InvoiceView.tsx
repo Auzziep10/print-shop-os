@@ -231,6 +231,11 @@ export function InvoiceView() {
     ...(order?.invoiceSettings || {})
   };
 
+  const isEstimate = String(invSettings.documentType || order.documentType || '').toLowerCase() === 'estimate';
+  const statementOfWorkText = isEstimate && invSettings.statementOfWork === defaultInvoiceSettings.statementOfWork
+    ? invSettings.statementOfWork.replace(/^This invoice/i, 'This estimate')
+    : invSettings.statementOfWork;
+
   const accountManagerName = invSettings.accountManager || order.accountManager || cust.accountManager || order.assignedTo;
   const accountManagerEmail = invSettings.accountManagerEmail || order.accountManagerEmail || cust.accountManagerEmail;
   const accountManagerPhone = invSettings.accountManagerPhone || order.accountManagerPhone || cust.accountManagerPhone;
@@ -275,7 +280,7 @@ export function InvoiceView() {
            <div className="flex justify-between items-start mb-6">
               <span className="text-neutral-400 italic text-lg font-serif mt-1">{invSettings.subtitle}</span>
               <div className="flex flex-col items-end">
-                <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>INVOICE</span>
+                <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>{isEstimate ? 'ESTIMATE' : 'INVOICE'}</span>
                 <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase mt-1"># {order.portalId || order.id.slice(0, 8)}</span>
               </div>
            </div>
@@ -367,16 +372,16 @@ export function InvoiceView() {
                      <p>{companyName}</p>
                    </div>
                    <div>
-                     <p className="text-neutral-500 text-[9px]">INVOICE #</p>
+                     <p className="text-neutral-500 text-[9px]">{isEstimate ? 'ESTIMATE #' : 'INVOICE #'}</p>
                      <p>{order.portalId || order.id.slice(0, 8)}</p>
                    </div>
                 </div>
 
                 <div className="mt-4 flex flex-col gap-5 text-[10px] text-neutral-500 leading-relaxed max-w-[220px]">
-                   {invSettings.statementOfWork && (
+                   {statementOfWorkText && (
                      <div>
                        <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
-                       <p className="whitespace-pre-line">{invSettings.statementOfWork}</p>
+                       <p className="whitespace-pre-line">{statementOfWorkText}</p>
                      </div>
                    )}
                    {invSettings.feeSchedule && (

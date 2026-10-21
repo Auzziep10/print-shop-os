@@ -1164,6 +1164,7 @@ export function OrderDetail() {
   const [isInvoiceEditorOpen, setIsInvoiceEditorOpen] = useState(false);
   const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
   const [orderInvoiceForm, setOrderInvoiceForm] = useState({
+    documentType: 'invoice' as 'invoice' | 'estimate',
     poNumber: '',
     dueDate: '',
     shippingFee: 0,
@@ -1594,6 +1595,7 @@ export function OrderDetail() {
           }
         }
         const merged = {
+          documentType: (order.invoiceSettings?.documentType || custSettings.documentType || 'invoice') as 'invoice' | 'estimate',
           accountManager: order.accountManager || custSettings.accountManager || order.invoiceSettings?.accountManager || '',
           accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
           accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
@@ -8402,7 +8404,37 @@ export function OrderDetail() {
             <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto max-h-[75vh] custom-scrollbar flex-1 bg-white">
               {/* Header & Taglines */}
               <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Branding & Taglines</h4>
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Branding & Taglines</h4>
+                  <div className="flex bg-neutral-200/80 p-1 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({
+                        ...orderInvoiceForm,
+                        documentType: 'invoice',
+                        statementOfWork: orderInvoiceForm.statementOfWork === "This estimate represents the agreed upon deliverables and services as outlined in the project scope."
+                          ? "This invoice represents the agreed upon deliverables and services as outlined in the project scope."
+                          : orderInvoiceForm.statementOfWork
+                      })}
+                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${(orderInvoiceForm as any).documentType !== 'estimate' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                    >
+                      Invoice
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({
+                        ...orderInvoiceForm,
+                        documentType: 'estimate',
+                        statementOfWork: orderInvoiceForm.statementOfWork === "This invoice represents the agreed upon deliverables and services as outlined in the project scope."
+                          ? "This estimate represents the agreed upon deliverables and services as outlined in the project scope."
+                          : orderInvoiceForm.statementOfWork
+                      })}
+                      className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${(orderInvoiceForm as any).documentType === 'estimate' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                    >
+                      Estimate
+                    </button>
+                  </div>
+                </div>
                 
                 <div>
                   <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
