@@ -273,27 +273,42 @@ export function InvoiceView() {
     order.shippingAddress.city !== cust.shippingCity
   );
 
+  const renderDisclaimerParts = () => {
+    const rawText = invSettings.disclaimerText || defaultDisclaimerText;
+    const resolvedText = !isEstimate && rawText === defaultDisclaimerText
+      ? rawText.replace(/\*\*ESTIMATE TERMS & CONDITIONS\*\*/g, '**INVOICE TERMS & CONDITIONS**').replace(/THIS ESTIMATE/g, 'THIS INVOICE')
+      : rawText;
+    const parts = String(resolvedText).split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, pIdx) =>
+      part.startsWith('**') && part.endsWith('**') ? (
+        <span key={pIdx} className="font-semibold text-neutral-700">{part}</span>
+      ) : (
+        <span key={pIdx}>{part}</span>
+      )
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-[#f5f5f4] flex justify-center py-8 md:py-12 px-4 font-sans text-neutral-900 w-full overflow-x-auto">
-      <div className="w-full max-w-[940px] min-w-[760px] bg-white min-h-[1180px] px-12 md:px-14 pt-12 pb-10 flex flex-col justify-between shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
+    <div className="min-h-screen bg-white md:bg-[#f5f5f4] flex justify-center py-0 md:py-12 px-0 md:px-4 font-sans text-neutral-900 w-full overflow-x-hidden">
+      <div className="w-full max-w-[940px] bg-white min-h-screen md:min-h-[1180px] px-5 sm:px-8 md:px-14 pt-7 sm:pt-10 md:pt-12 pb-8 md:pb-10 flex flex-col justify-between md:shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
         <div>
           {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
-          <div className="flex justify-between items-start mb-10">
+          <div className="flex justify-between items-start gap-4 mb-8 md:mb-10">
             <img
               src="/inktheory-logo-black.png"
               alt="INKTHEORY"
-              className="w-[70%] max-w-[580px] object-contain object-left select-none"
+              className="w-[74%] sm:w-[70%] max-w-[580px] object-contain object-left select-none"
             />
 
-            <div className="flex items-start gap-1.5 text-neutral-500 select-none pt-0.5">
+            <div className="flex items-start gap-1 sm:gap-1.5 text-neutral-500 select-none pt-0.5 shrink-0">
               <span
-                className="text-[13px] font-normal tracking-[0.14em] uppercase leading-none"
+                className="text-[11px] sm:text-[12px] md:text-[13px] font-normal tracking-[0.14em] uppercase leading-none"
                 style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
               >
                 {isEstimate ? 'ESTIMATE' : 'INVOICE'}
               </span>
               <span
-                className="text-[11px] font-normal tracking-[0.14em] uppercase leading-none"
+                className="text-[9.5px] sm:text-[10.5px] md:text-[11px] font-normal tracking-[0.14em] uppercase leading-none"
                 style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
               >
                 {order.portalId || order.id.slice(0, 8)}
@@ -302,23 +317,23 @@ export function InvoiceView() {
           </div>
 
           {/* Project Header & Account Manager Block (Top-Left under Logo) */}
-          <div className="mb-12">
-            <p className="text-[11px] font-bold tracking-[0.04em] text-neutral-900 uppercase">
+          <div className="mb-8 md:mb-12">
+            <p className="text-[11px] font-bold tracking-[0.04em] text-neutral-900 uppercase leading-snug">
               {companyName} {order.title ? `· ${order.title}` : ''}
             </p>
 
             {invSettings.showAccountManager !== false && (
-              <div className="mt-4 flex flex-col gap-0.5 text-[10.5px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45]">
+              <div className="mt-3 md:mt-4 flex flex-col gap-0.5 text-[10.5px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45] break-words">
                 {(accountManagerName || (clientName && clientName !== 'CLIENT')) && (
                   <p>{accountManagerName || clientName}</p>
                 )}
                 {(accountManagerEmail || cust.email) && (
-                  <p>{accountManagerEmail || cust.email}</p>
+                  <p className="break-all">{accountManagerEmail || cust.email}</p>
                 )}
                 {invSettings.showAdditionalEmails !== false && allClientEmails
                   .filter((e: string) => e.toLowerCase() !== String(accountManagerEmail || cust.email || '').toLowerCase())
                   .map((emailStr: string, eIdx: number) => (
-                    <p key={eIdx}>{emailStr}</p>
+                    <p key={eIdx} className="break-all">{emailStr}</p>
                   ))}
                 {(accountManagerPhone || clientPhone) && (
                   <p>{accountManagerPhone || clientPhone}</p>
@@ -340,18 +355,18 @@ export function InvoiceView() {
           </div>
 
           {/* Main Body: Left Meta/Terms Column + Offset Right Deliverables Column */}
-          <div className="flex gap-12 items-start">
-            {/* Left Column (34%) */}
-            <div className="w-[34%] flex flex-col gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
+            {/* Left Column (34% on Desktop, Full Width on Mobile) */}
+            <div className="w-full md:w-[34%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
               {/* Category Tag & Issue Date / Due Date / PO */}
               {(invSettings.showCategoryTag !== false || invSettings.showDueDate !== false || invSettings.showPoNumber !== false || invSettings.showOrderMeta !== false) && (
-                <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-col gap-x-4 gap-y-2 pb-4 md:pb-0 border-b md:border-b-0 border-black/10">
                   <div>
                     <span className="text-neutral-400">ISSUED: </span>
                     <span className="text-neutral-800 font-semibold">{issueDate}</span>
                   </div>
                   {invSettings.showCategoryTag !== false && invSettings.categoryTag && (
-                    <div>
+                    <div className="col-span-2 sm:col-span-1">
                       <span className="text-neutral-400">CATEGORY: </span>
                       <span className="text-neutral-800 font-semibold">{invSettings.categoryTag}</span>
                     </div>
@@ -410,38 +425,25 @@ export function InvoiceView() {
                 </div>
               )}
 
-              {/* Vertical Terms & Conditions Disclaimer on Left Margin */}
+              {/* Vertical Terms & Conditions Disclaimer on Left Margin (Desktop) */}
               {invSettings.showDisclaimer !== false && (
                 <div
-                  className="h-[640px] text-[7.5px] leading-[1.65] tracking-[0.04em] text-neutral-500 uppercase select-none self-start"
+                  className="hidden md:block h-[640px] text-[7.5px] leading-[1.65] tracking-[0.04em] text-neutral-500 uppercase select-none self-start"
                   style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
                 >
-                  {(() => {
-                    const rawText = invSettings.disclaimerText || defaultDisclaimerText;
-                    const resolvedText = !isEstimate && rawText === defaultDisclaimerText
-                      ? rawText.replace(/\*\*ESTIMATE TERMS & CONDITIONS\*\*/g, '**INVOICE TERMS & CONDITIONS**').replace(/THIS ESTIMATE/g, 'THIS INVOICE')
-                      : rawText;
-                    const parts = String(resolvedText).split(/(\*\*[^*]+\*\*)/g);
-                    return parts.map((part, pIdx) =>
-                      part.startsWith('**') && part.endsWith('**') ? (
-                        <span key={pIdx} className="font-semibold text-neutral-700">{part}</span>
-                      ) : (
-                        <span key={pIdx}>{part}</span>
-                      )
-                    );
-                  })()}
+                  {renderDisclaimerParts()}
                 </div>
               )}
             </div>
 
-            {/* Right Column: Deliverables & Totals (66%) */}
-            <div className="w-[66%] flex flex-col">
-              <h3 className="text-[10.5px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-5">
+            {/* Right Column: Deliverables & Totals (66% on Desktop, Full Width on Mobile) */}
+            <div className="w-full md:w-[66%] flex flex-col">
+              <h3 className="text-[10.5px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-4 md:mb-5">
                 DELIVERABLES
               </h3>
 
               {/* Deliverables Rows */}
-              <div className="flex flex-col gap-7">
+              <div className="flex flex-col gap-5 md:gap-7">
                 {order.items?.filter((item: any) => !isDiscountItem(item)).map((item: any, idx: number) => {
                   const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
                   const price = parseFloat(priceStr) || 0;
@@ -457,20 +459,20 @@ export function InvoiceView() {
 
                   return (
                     <div key={idx} className="flex w-full items-start text-[11px] leading-snug">
-                      <div className="w-[55%] pr-4 flex flex-col">
-                        <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em]">
+                      <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 flex flex-col">
+                        <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em] break-words">
                           {item.style || 'Custom Item'}
                         </span>
                         {item.color && (
-                          <span className="text-[10px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5">
+                          <span className="text-[10px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5 break-words">
                             {item.color}
                           </span>
                         )}
                       </div>
-                      <div className="w-[15%] text-center font-medium text-neutral-800">
+                      <div className="w-[16%] sm:w-[15%] text-center font-medium text-neutral-800 shrink-0">
                         {qty}
                       </div>
-                      <div className="w-[30%] text-right flex flex-col items-end">
+                      <div className="w-[32%] sm:w-[30%] text-right flex flex-col items-end shrink-0">
                         <span className="font-medium text-neutral-900">{formattedItemTotal}</span>
                         <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.02em] mt-0.5">
                           {formattedPrice}EA
@@ -483,7 +485,7 @@ export function InvoiceView() {
 
               {/* Services & Quality Control List */}
               {invSettings.showComplimentaryServices !== false && customServices && customServices.length > 0 && (
-                <div className="mt-10 pt-6 border-t border-black/10 flex flex-col gap-3">
+                <div className="mt-8 md:mt-10 pt-6 border-t border-black/10 flex flex-col gap-3">
                   <p className="text-[10px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-1">
                     {invSettings.servicesHeading || 'SERVICES & QUALITY CONTROL'}
                   </p>
@@ -494,13 +496,13 @@ export function InvoiceView() {
 
                     return (
                       <div key={sIdx} className="flex w-full items-center text-[10.5px] text-neutral-700 leading-snug">
-                        <div className="w-[55%] pr-4 font-medium uppercase tracking-[0.03em]">
+                        <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 font-medium uppercase tracking-[0.03em] break-words">
                           {srv.name}
                         </div>
-                        <div className="w-[15%] text-center text-neutral-500">
+                        <div className="w-[16%] sm:w-[15%] text-center text-neutral-500 shrink-0">
                           {qtyVal}
                         </div>
-                        <div className="w-[30%] text-right font-medium text-neutral-700">
+                        <div className="w-[32%] sm:w-[30%] text-right font-medium text-neutral-700 shrink-0">
                           {priceFormatted}
                         </div>
                       </div>
@@ -512,11 +514,11 @@ export function InvoiceView() {
               {/* Logistics Fee if present */}
               {order.logisticsFee && (
                 <div className="flex w-full items-center text-[11px] text-neutral-900 leading-snug mt-6 pt-4 border-t border-black/10">
-                  <div className="w-[55%] pr-4 font-semibold uppercase tracking-[0.03em]">
+                  <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 font-semibold uppercase tracking-[0.03em]">
                     Logistics (Kitting & Packaging)
                   </div>
-                  <div className="w-[15%] text-center font-medium">1</div>
-                  <div className="w-[30%] text-right font-medium">
+                  <div className="w-[16%] sm:w-[15%] text-center font-medium shrink-0">1</div>
+                  <div className="w-[32%] sm:w-[30%] text-right font-medium shrink-0">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(order.logisticsFee || 0))}
                   </div>
                 </div>
@@ -524,7 +526,7 @@ export function InvoiceView() {
 
               {/* Subtotal & Totals Breakdown */}
               {invSettings.showTotals !== false && (
-                <div className="mt-10 pt-6 border-t border-black/15 flex flex-col gap-2 text-[10.5px] uppercase tracking-[0.03em]">
+                <div className="mt-8 md:mt-10 pt-6 border-t border-black/15 flex flex-col gap-2 text-[10.5px] uppercase tracking-[0.03em]">
                   <div className="flex justify-between items-center text-neutral-500">
                     <span>Deliverables Subtotal</span>
                     <span className="font-medium text-neutral-900">{formattedItemsSubtotal}</span>
@@ -555,7 +557,7 @@ export function InvoiceView() {
                     <span className="text-[10.5px] font-bold tracking-[0.06em] text-neutral-900 uppercase">
                       {isEstimate ? 'Estimated Total' : 'Total Amount Due'}
                     </span>
-                    <span className="text-2xl font-semibold text-neutral-900 tracking-tight">
+                    <span className="text-xl sm:text-2xl font-semibold text-neutral-900 tracking-tight">
                       {formattedGrandTotal}
                     </span>
                   </div>
@@ -570,7 +572,7 @@ export function InvoiceView() {
                       <p className="text-[10px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-2">
                         WIRE / ACH TRANSFER
                       </p>
-                      <div className="text-[10px] text-neutral-600 uppercase tracking-[0.03em] leading-relaxed grid grid-cols-2 gap-x-6 gap-y-2">
+                      <div className="text-[10px] text-neutral-600 uppercase tracking-[0.03em] leading-relaxed grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
                         <div>
                           <span className="font-semibold text-neutral-900">BANK:</span> {invSettings.wireBankName}<br />
                           <span className="whitespace-pre-line">{invSettings.wireBankAddress}</span>
@@ -595,7 +597,7 @@ export function InvoiceView() {
                         href={invSettings.payButtonUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full py-3.5 bg-neutral-900 text-white text-center text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors block"
+                        className="w-full py-3.5 px-4 bg-neutral-900 text-white text-center text-[10px] sm:text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors block"
                       >
                         {invSettings.payButtonText}
                       </a>
@@ -603,7 +605,7 @@ export function InvoiceView() {
                       <button
                         type="button"
                         onClick={() => setIsPayModalOpen(true)}
-                        className="w-full py-3.5 bg-neutral-900 text-white text-center text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors cursor-pointer"
+                        className="w-full py-3.5 px-4 bg-neutral-900 text-white text-center text-[10px] sm:text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors cursor-pointer"
                       >
                         {invSettings.payButtonText}
                       </button>
@@ -611,18 +613,25 @@ export function InvoiceView() {
                   )}
                 </div>
               )}
+
+              {/* Mobile Terms & Conditions Disclaimer (Horizontal for readability on small screens) */}
+              {invSettings.showDisclaimer !== false && (
+                <div className="md:hidden mt-8 pt-5 border-t border-black/10 text-[8px] leading-[1.6] tracking-[0.04em] text-neutral-500 uppercase">
+                  {renderDisclaimerParts()}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Bottom Center Footer */}
-        <div className="mt-16 pt-8 text-center flex flex-col items-center gap-1.5">
+        <div className="mt-12 md:mt-16 pt-6 md:pt-8 text-center flex flex-col items-center gap-1.5">
           {invSettings.showFooterTagline !== false && invSettings.footerTagline && (
-            <p className="text-[9px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+            <p className="text-[8.5px] sm:text-[9px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
               {invSettings.footerTagline}
             </p>
           )}
-          <p className="text-[9px] tracking-[0.08em] text-neutral-500 uppercase">
+          <p className="text-[8.5px] sm:text-[9px] tracking-[0.08em] text-neutral-500 uppercase">
             INKTHEORY &nbsp;2817 WEST END AVE &nbsp;NASHVILLE &nbsp;TN &nbsp;37203
           </p>
         </div>
