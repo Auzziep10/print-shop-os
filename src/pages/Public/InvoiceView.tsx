@@ -293,22 +293,22 @@ export function InvoiceView() {
       <div className="w-full max-w-[940px] bg-white min-h-screen md:min-h-[1180px] px-5 sm:px-8 md:px-14 pt-7 sm:pt-10 md:pt-12 pb-8 md:pb-10 flex flex-col justify-between md:shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
         <div className="flex-1 flex flex-col">
           {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
-          <div className="relative mb-8 md:mb-10">
+          <div className="flex justify-between items-start gap-3 mb-8 md:mb-10">
             <img
               src="/inktheory-logo-black.png"
               alt="INKTHEORY"
-              className="w-[74%] sm:w-[70%] max-w-[580px] block object-contain object-left select-none"
+              className="w-[80%] sm:w-[70%] max-w-[580px] block object-contain object-left select-none"
             />
 
-            <div className="absolute right-0 top-0 bottom-0 flex items-start gap-1 sm:gap-1.5 text-neutral-500 select-none">
+            <div className="flex items-start gap-1 sm:gap-1.5 text-neutral-500 select-none shrink-0">
               <span
-                className="text-[5px] sm:text-[8.5px] md:text-[11px] font-normal tracking-[0.05em] sm:tracking-[0.1em] md:tracking-[0.12em] uppercase leading-none"
+                className="text-[6px] sm:text-[9px] md:text-[11.5px] font-normal tracking-[0.06em] sm:tracking-[0.1em] md:tracking-[0.12em] uppercase leading-none"
                 style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
               >
                 {isEstimate ? 'ESTIMATE' : 'INVOICE'}
               </span>
               <span
-                className="text-[5px] sm:text-[8px] md:text-[10px] font-normal tracking-[0.05em] sm:tracking-[0.09em] md:tracking-[0.11em] uppercase leading-none"
+                className="text-[6px] sm:text-[8.5px] md:text-[10.5px] font-normal tracking-[0.05em] sm:tracking-[0.09em] md:tracking-[0.11em] uppercase leading-none"
                 style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
               >
                 {order.portalId || order.id.slice(0, 8)}
