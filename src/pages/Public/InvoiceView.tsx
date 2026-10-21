@@ -274,8 +274,8 @@ export function InvoiceView() {
   );
 
   return (
-    <div className="min-h-screen bg-[#DCDCD9] flex justify-center py-8 md:py-12 px-4 font-sans text-neutral-900 w-full overflow-x-auto">
-      <div className="w-full max-w-[940px] min-w-[760px] bg-[#E7E7E5] min-h-[1180px] px-12 md:px-14 pt-12 pb-10 flex flex-col justify-between shadow-[0_20px_60px_rgba(0,0,0,0.08)] relative">
+    <div className="min-h-screen bg-[#f5f5f4] flex justify-center py-8 md:py-12 px-4 font-sans text-neutral-900 w-full overflow-x-auto">
+      <div className="w-full max-w-[940px] min-w-[760px] bg-white min-h-[1180px] px-12 md:px-14 pt-12 pb-10 flex flex-col justify-between shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
         <div>
           {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
           <div className="flex justify-between items-start mb-10">
@@ -301,30 +301,35 @@ export function InvoiceView() {
             </div>
           </div>
 
-          {/* Client & Project Header Block (Top-Left under Logo) */}
+          {/* Project Header & Account Manager Block (Top-Left under Logo) */}
           <div className="mb-12">
-            {invSettings.showSubtitle !== false && invSettings.subtitle && (
-              <p className="text-[10px] tracking-[0.1em] text-neutral-500 uppercase mb-1.5">
-                {invSettings.subtitle}
-              </p>
-            )}
             <p className="text-[11px] font-bold tracking-[0.04em] text-neutral-900 uppercase">
               {companyName} {order.title ? `· ${order.title}` : ''}
             </p>
 
-            {invSettings.showClientInfo !== false && (
+            {invSettings.showAccountManager !== false && (
               <div className="mt-4 flex flex-col gap-0.5 text-[10.5px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45]">
-                {clientName && clientName !== 'CLIENT' && (
-                  <p>{clientName}</p>
+                {(accountManagerName || (clientName && clientName !== 'CLIENT')) && (
+                  <p>{accountManagerName || clientName}</p>
                 )}
-                {invSettings.showAdditionalEmails !== false && allClientEmails.map((emailStr: string, eIdx: number) => (
-                  <p key={eIdx}>{emailStr}</p>
-                ))}
-                {clientPhone && (
-                  <p>{clientPhone}</p>
+                {(accountManagerEmail || cust.email) && (
+                  <p>{accountManagerEmail || cust.email}</p>
                 )}
+                {invSettings.showAdditionalEmails !== false && allClientEmails
+                  .filter((e: string) => e.toLowerCase() !== String(accountManagerEmail || cust.email || '').toLowerCase())
+                  .map((emailStr: string, eIdx: number) => (
+                    <p key={eIdx}>{emailStr}</p>
+                  ))}
+                {(accountManagerPhone || clientPhone) && (
+                  <p>{accountManagerPhone || clientPhone}</p>
+                )}
+              </div>
+            )}
+
+            {invSettings.showClientInfo !== false && (cust.shippingStreet || cust.location) && (
+              <div className="mt-2 flex flex-col gap-0.5 text-[10px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45]">
                 {cust.shippingStreet ? (
-                  <p className="mt-1">
+                  <p>
                     {cust.shippingStreet}, {cust.shippingCity}, {cust.shippingState} {cust.shippingZip}
                   </p>
                 ) : cust.location ? (
@@ -369,16 +374,6 @@ export function InvoiceView() {
                       <span className="text-neutral-800 font-semibold">{order.portalId || order.id.slice(0, 8)}</span>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Account Manager */}
-              {invSettings.showAccountManager !== false && accountManagerName && (
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-neutral-900 font-bold text-[10px] mb-0.5">ACCOUNT MANAGER</p>
-                  <p className="text-neutral-700 font-semibold">{accountManagerName}</p>
-                  {accountManagerEmail && <p>{accountManagerEmail}</p>}
-                  {accountManagerPhone && <p>{accountManagerPhone}</p>}
                 </div>
               )}
 
