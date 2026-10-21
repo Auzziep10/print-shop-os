@@ -8436,10 +8436,23 @@ export function OrderDetail() {
                   </div>
                 </div>
                 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Header Subtitle Tagline
-                  </label>
+                <div className={(orderInvoiceForm as any).showSubtitle === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Header Subtitle Tagline
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showSubtitle: (orderInvoiceForm as any).showSubtitle === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showSubtitle !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showSubtitle !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showSubtitle !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={orderInvoiceForm.subtitle}
@@ -8449,10 +8462,23 @@ export function OrderDetail() {
                   />
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Category Tag (Vertical Bar)
-                  </label>
+                <div className={(orderInvoiceForm as any).showCategoryTag === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Category Tag (Vertical Bar)
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showCategoryTag: (orderInvoiceForm as any).showCategoryTag === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showCategoryTag !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showCategoryTag !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showCategoryTag !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={orderInvoiceForm.categoryTag}
@@ -8462,51 +8488,80 @@ export function OrderDetail() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Manager Name
-                    </label>
-                    <input
-                      type="text"
-                      value={(orderInvoiceForm as any).accountManager || ''}
-                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManager: e.target.value } as any)}
-                      placeholder="e.g. Sarah Jenkins"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
+                <div className={(orderInvoiceForm as any).showAccountManager === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">Account Manager</span>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showAccountManager: (orderInvoiceForm as any).showAccountManager === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showAccountManager !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showAccountManager !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showAccountManager !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
                   </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Name
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).accountManager || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManager: e.target.value } as any)}
+                        placeholder="e.g. Sarah Jenkins"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Manager Email
-                    </label>
-                    <input
-                      type="email"
-                      value={(orderInvoiceForm as any).accountManagerEmail || ''}
-                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerEmail: e.target.value } as any)}
-                      placeholder="e.g. sarah@company.com"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
-                  </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Email
+                      </label>
+                      <input
+                        type="email"
+                        value={(orderInvoiceForm as any).accountManagerEmail || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerEmail: e.target.value } as any)}
+                        placeholder="e.g. sarah@company.com"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Manager Phone
-                    </label>
-                    <input
-                      type="text"
-                      value={(orderInvoiceForm as any).accountManagerPhone || ''}
-                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerPhone: e.target.value } as any)}
-                      placeholder="e.g. 555-0192"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).accountManagerPhone || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerPhone: e.target.value } as any)}
+                        placeholder="e.g. 555-0192"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Additional Billing / CC Emails
-                  </label>
+                <div className={(orderInvoiceForm as any).showAdditionalEmails === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Additional Billing / CC Emails
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showAdditionalEmails: (orderInvoiceForm as any).showAdditionalEmails === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showAdditionalEmails !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showAdditionalEmails !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showAdditionalEmails !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={(orderInvoiceForm as any).additionalEmails || ''}
@@ -8520,10 +8575,23 @@ export function OrderDetail() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      P.O. Number
-                    </label>
+                  <div className={(orderInvoiceForm as any).showPoNumber === false ? 'opacity-50' : ''}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                        P.O. Number
+                      </label>
+                      
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showPoNumber: (orderInvoiceForm as any).showPoNumber === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showPoNumber !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showPoNumber !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showPoNumber !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                    </div>
                     <input
                       type="text"
                       value={orderInvoiceForm.poNumber}
@@ -8533,10 +8601,23 @@ export function OrderDetail() {
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Payment Due Date
-                    </label>
+                  <div className={(orderInvoiceForm as any).showDueDate === false ? 'opacity-50' : ''}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                        Payment Due Date
+                      </label>
+                      
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showDueDate: (orderInvoiceForm as any).showDueDate === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showDueDate !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showDueDate !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showDueDate !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                    </div>
                     <input
                       type="date"
                       value={orderInvoiceForm.dueDate}
@@ -8547,10 +8628,23 @@ export function OrderDetail() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Freight Fee ($)
-                    </label>
+                  <div className={(orderInvoiceForm as any).showFreight === false ? 'opacity-50' : ''}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                        Freight Fee ($)
+                      </label>
+                      
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showFreight: (orderInvoiceForm as any).showFreight === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showFreight !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showFreight !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showFreight !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                    </div>
                     <input
                       type="number"
                       step="0.01"
@@ -8576,10 +8670,23 @@ export function OrderDetail() {
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Sales Tax ($)
-                    </label>
+                  <div className={(orderInvoiceForm as any).showTax === false ? 'opacity-50' : ''}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                        Sales Tax ($)
+                      </label>
+                      
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showTax: (orderInvoiceForm as any).showTax === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showTax !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showTax !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showTax !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                    </div>
                     <input
                       type="number"
                       step="0.01"
@@ -8592,40 +8699,69 @@ export function OrderDetail() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-neutral-200/60">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Discount Code
-                    </label>
-                    <input
-                      type="text"
-                      value={(orderInvoiceForm as any).discountCode || ''}
-                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountCode: e.target.value.toUpperCase() } as any)}
-                      placeholder="e.g. PROMO10"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary uppercase"
-                    />
+                <div className={`pt-2 border-t border-neutral-200/60 ${(orderInvoiceForm as any).showDiscount === false ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Discount</span>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showDiscount: (orderInvoiceForm as any).showDiscount === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showDiscount !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showDiscount !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showDiscount !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Discount Code
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).discountCode || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountCode: e.target.value.toUpperCase() } as any)}
+                        placeholder="e.g. PROMO10"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary uppercase"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Discount Amount ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={(orderInvoiceForm as any).discountAmount ?? ''}
-                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountAmount: parseFloat(e.target.value) || 0 } as any)}
-                      placeholder="0.00"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Discount Amount ($)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(orderInvoiceForm as any).discountAmount ?? ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, discountAmount: parseFloat(e.target.value) || 0 } as any)}
+                        placeholder="0.00"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Footer Tagline
-                  </label>
+                <div className={(orderInvoiceForm as any).showFooterTagline === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Footer Tagline
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showFooterTagline: (orderInvoiceForm as any).showFooterTagline === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showFooterTagline !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showFooterTagline !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showFooterTagline !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={orderInvoiceForm.footerTagline}
@@ -8640,10 +8776,23 @@ export function OrderDetail() {
               <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
                 <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Statements & Terms</h4>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Statement of Work
-                  </label>
+                <div className={(orderInvoiceForm as any).showStatementOfWork === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Statement of Work
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showStatementOfWork: (orderInvoiceForm as any).showStatementOfWork === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showStatementOfWork !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showStatementOfWork !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showStatementOfWork !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <textarea
                     rows={2}
                     value={orderInvoiceForm.statementOfWork}
@@ -8653,10 +8802,23 @@ export function OrderDetail() {
                   />
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Fee Schedule / Payment Terms
-                  </label>
+                <div className={(orderInvoiceForm as any).showFeeSchedule === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Fee Schedule / Payment Terms
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showFeeSchedule: (orderInvoiceForm as any).showFeeSchedule === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showFeeSchedule !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showFeeSchedule !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showFeeSchedule !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <textarea
                     rows={2}
                     value={orderInvoiceForm.feeSchedule}
@@ -8666,10 +8828,23 @@ export function OrderDetail() {
                   />
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Confidentiality Notice
-                  </label>
+                <div className={(orderInvoiceForm as any).showConfidentiality === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Confidentiality Notice
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showConfidentiality: (orderInvoiceForm as any).showConfidentiality === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showConfidentiality !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showConfidentiality !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showConfidentiality !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
                   <textarea
                     rows={2}
                     value={orderInvoiceForm.confidentiality}
@@ -8678,12 +8853,54 @@ export function OrderDetail() {
                     className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
                   />
                 </div>
+
+                <div className="pt-3 border-t border-neutral-200/60 space-y-2.5">
+                  <h5 className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Additional Section Toggles</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { key: 'showClientInfo', label: 'Client / Billing Info' },
+                      { key: 'showShippingAddress', label: 'Shipping Address' },
+                      { key: 'showOrderMeta', label: 'Order / Company / # Block' },
+                      { key: 'showComplimentaryServices', label: 'Services & QC List' },
+                      { key: 'showTotals', label: 'Totals & Amount Due' },
+                      { key: 'showDisclaimer', label: 'Legal Footer Disclaimer' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-neutral-200/80">
+                        <span className="text-[11px] font-bold text-neutral-700">{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, [key]: (orderInvoiceForm as any)[key] === false ? true : false } as any)}
+                          className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any)[key] !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any)[key] !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Wire Info */}
               <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
+                  
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showWireInfo: (orderInvoiceForm as any).showWireInfo === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showWireInfo !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showWireInfo !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showWireInfo !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                </div>
 
+                {(orderInvoiceForm as any).showWireInfo !== false && (
+                <>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
@@ -8762,6 +8979,8 @@ export function OrderDetail() {
                     />
                   </div>
                 </div>
+                </>
+                )}
               </div>
 
               {/* Payment Link Settings */}

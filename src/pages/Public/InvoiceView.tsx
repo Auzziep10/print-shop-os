@@ -153,6 +153,24 @@ export function InvoiceView() {
 
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
+  const defaultInvoiceSettings = {
+    subtitle: "For your Consideration",
+    categoryTag: "VCG • ADHOC ORDERS",
+    statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+    feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+    confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+    footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+    wireBankName: globalSettings?.wireBankName || "Pinnacle Bank",
+    wireBankAddress: globalSettings?.wireBankAddress || "2300 West End Avenue\nNashville, TN 37203",
+    wireRoutingNumber: globalSettings?.wireRoutingNumber || "XXXXXXXX",
+    wireSwiftCode: globalSettings?.wireSwiftCode || "XXXXXXXX",
+    wireAccountName: globalSettings?.wireAccountName || "Catalyst",
+    wireAccountNumber: globalSettings?.wireAccountNumber || "XXXXXXXX",
+    showPayButton: true,
+    payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+    payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
+  };
+
   // Calculate items subtotal
   let itemsSubtotal = 0;
   let lineItemsDiscountTotal = 0;
@@ -174,12 +192,21 @@ export function InvoiceView() {
     itemsSubtotal += price * qty;
   });
 
-  // Calculate shipping, tax & discounts
+  const invSettings: any = {
+    ...defaultInvoiceSettings,
+    ...(customer?.invoiceSettings || {}),
+    ...(order?.invoiceSettings || {})
+  };
+
+  // Calculate shipping, tax & discounts (respecting visibility toggles)
   const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
-  const shippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
-  const taxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
+  const rawShippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
+  const shippingFee = invSettings.showFreight === false ? 0 : rawShippingFee;
+  const rawTaxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
+  const taxAmount = invSettings.showTax === false ? 0 : rawTaxAmount;
   const explicitDiscount = Math.abs(parseFloat(String(order.discountAmount || 0)) || 0);
-  const discountAmount = Math.max(explicitDiscount, lineItemsDiscountTotal);
+  const rawDiscountAmount = Math.max(explicitDiscount, lineItemsDiscountTotal);
+  const discountAmount = invSettings.showDiscount === false ? 0 : rawDiscountAmount;
   const grandTotal = Math.max(0, itemsSubtotal - discountAmount) + shippingFee + taxAmount;
 
   const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
@@ -206,30 +233,6 @@ export function InvoiceView() {
   ];
 
   const customServices = order.customServices || (order.includeStandardDeliverables !== false ? defaultServices : []);
-
-  const defaultInvoiceSettings = {
-    subtitle: "For your Consideration",
-    categoryTag: "VCG • ADHOC ORDERS",
-    statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
-    feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
-    confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
-    footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
-    wireBankName: globalSettings?.wireBankName || "Pinnacle Bank",
-    wireBankAddress: globalSettings?.wireBankAddress || "2300 West End Avenue\nNashville, TN 37203",
-    wireRoutingNumber: globalSettings?.wireRoutingNumber || "XXXXXXXX",
-    wireSwiftCode: globalSettings?.wireSwiftCode || "XXXXXXXX",
-    wireAccountName: globalSettings?.wireAccountName || "Catalyst",
-    wireAccountNumber: globalSettings?.wireAccountNumber || "XXXXXXXX",
-    showPayButton: true,
-    payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
-    payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
-  };
-
-  const invSettings = {
-    ...defaultInvoiceSettings,
-    ...(customer?.invoiceSettings || {}),
-    ...(order?.invoiceSettings || {})
-  };
 
   const isEstimate = String(invSettings.documentType || order.documentType || '').toLowerCase() === 'estimate';
   const statementOfWorkText = isEstimate && invSettings.statementOfWork === defaultInvoiceSettings.statementOfWork
@@ -266,7 +269,9 @@ export function InvoiceView() {
         <div className="w-[120px] bg-[#f5f3ef] border-r border-neutral-200 flex flex-col justify-between py-10 items-center shrink-0">
           <div className="flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 whitespace-nowrap">ISSUED {issueDate}</span>
-            <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">{invSettings.categoryTag}</span>
+            {invSettings.showCategoryTag !== false && (
+              <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">{invSettings.categoryTag}</span>
+            )}
           </div>
           
           <div className="flex flex-col items-center justify-end pb-2">
@@ -278,7 +283,7 @@ export function InvoiceView() {
         <div className="flex-1 p-12 md:p-16 flex flex-col relative">
            {/* Top Header */}
            <div className="flex justify-between items-start mb-6">
-              <span className="text-neutral-400 italic text-lg font-serif mt-1">{invSettings.subtitle}</span>
+              <span className="text-neutral-400 italic text-lg font-serif mt-1">{invSettings.showSubtitle !== false ? invSettings.subtitle : ''}</span>
               <div className="flex flex-col items-end">
                 <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>{isEstimate ? 'ESTIMATE' : 'INVOICE'}</span>
                 <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase mt-1"># {order.portalId || order.id.slice(0, 8)}</span>
@@ -292,14 +297,18 @@ export function InvoiceView() {
 
            {/* Header Meta Info Bar */}
            <div className="w-full bg-neutral-50 py-2.5 px-6 mb-8 flex justify-between items-center border border-neutral-200/60 text-[10px] font-bold tracking-widest text-neutral-600 uppercase">
-             <div>
-               <span className="text-neutral-400">TERMS / DUE: </span> 
-               <span>{invSettings.feeSchedule || 'DUE UPON RECEIPT'} ({dueDateStr})</span>
-             </div>
-             <div>
-               <span className="text-neutral-400">P.O. #: </span> 
-               <span>{order.poNumber || 'N/A'}</span>
-             </div>
+             {invSettings.showDueDate !== false && (
+               <div>
+                 <span className="text-neutral-400">TERMS / DUE: </span> 
+                 <span>{(invSettings.showFeeSchedule !== false && invSettings.feeSchedule) ? invSettings.feeSchedule : 'DUE UPON RECEIPT'} ({dueDateStr})</span>
+               </div>
+             )}
+             {invSettings.showPoNumber !== false && (
+               <div>
+                 <span className="text-neutral-400">P.O. #: </span> 
+                 <span>{order.poNumber || 'N/A'}</span>
+               </div>
+             )}
              <div>
                <span className="text-neutral-400">ORDER #: </span> 
                <span>{order.portalId || order.id.slice(0, 8)}</span>
@@ -310,7 +319,7 @@ export function InvoiceView() {
              {/* Left Column Data */}
              <div className="w-1/3 flex flex-col gap-6">
                 {/* Account Manager */}
-                {accountManagerName && (
+                {invSettings.showAccountManager !== false && accountManagerName && (
                   <div className="flex flex-col gap-0.5 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pb-3 border-b border-neutral-100">
                     <p className="text-neutral-500 text-[9px]">ACCOUNT MANAGER:</p>
                     <p className="text-xs text-black font-bold">{accountManagerName}</p>
@@ -328,13 +337,14 @@ export function InvoiceView() {
                 )}
 
                 {/* Billing Contact */}
+                {invSettings.showClientInfo !== false && (
                 <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
                    <p className="text-neutral-500">TO (CLIENT):</p>
                    <p className="text-xs text-black">{companyName}</p>
                    {clientName && clientName !== companyName && (
                      <p className="text-neutral-600 font-medium">{clientName}</p>
                    )}
-                   {allClientEmails.map((emailStr: string, eIdx: number) => (
+                   {invSettings.showAdditionalEmails !== false && allClientEmails.map((emailStr: string, eIdx: number) => (
                      <p key={eIdx} className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{emailStr}</p>
                    ))}
                    {clientPhone && (
@@ -350,9 +360,10 @@ export function InvoiceView() {
                      <p className="normal-case text-neutral-500 font-medium tracking-normal">{cust.location}</p>
                    ) : null}
                 </div>
+                )}
 
                 {/* Separate Shipping Address if different */}
-                {hasSeparateShipping && (
+                {invSettings.showShippingAddress !== false && hasSeparateShipping && (
                   <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pt-3 border-t border-neutral-100">
                     <p className="text-neutral-500 text-[9px]">SHIPPING ADDRESS:</p>
                     <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.name}</p>
@@ -362,6 +373,7 @@ export function InvoiceView() {
                   </div>
                 )}
 
+                {invSettings.showOrderMeta !== false && (
                 <div className="flex flex-col gap-3 text-[11px] font-bold tracking-widest text-neutral-800 uppercase pt-2">
                    <div>
                      <p className="text-neutral-500 text-[9px]">ORDER TITLE:</p>
@@ -376,21 +388,22 @@ export function InvoiceView() {
                      <p>{order.portalId || order.id.slice(0, 8)}</p>
                    </div>
                 </div>
+                )}
 
                 <div className="mt-4 flex flex-col gap-5 text-[10px] text-neutral-500 leading-relaxed max-w-[220px]">
-                   {statementOfWorkText && (
+                   {invSettings.showStatementOfWork !== false && statementOfWorkText && (
                      <div>
                        <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
                        <p className="whitespace-pre-line">{statementOfWorkText}</p>
                      </div>
                    )}
-                   {invSettings.feeSchedule && (
+                   {invSettings.showFeeSchedule !== false && invSettings.feeSchedule && (
                      <div>
                        <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">FEE SCHEDULE</p>
                        <p className="whitespace-pre-line">{invSettings.feeSchedule}</p>
                      </div>
                    )}
-                   {invSettings.confidentiality && (
+                   {invSettings.showConfidentiality !== false && invSettings.confidentiality && (
                      <div>
                        <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">CONFIDENTIALITY</p>
                        <p className="whitespace-pre-line">{invSettings.confidentiality}</p>
@@ -398,9 +411,11 @@ export function InvoiceView() {
                    )}
                 </div>
 
-                <div className="mt-auto pt-6">
-                  <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">{invSettings.footerTagline}</p>
-                </div>
+                {invSettings.showFooterTagline !== false && invSettings.footerTagline && (
+                  <div className="mt-auto pt-6">
+                    <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">{invSettings.footerTagline}</p>
+                  </div>
+                )}
              </div>
 
              {/* Right Column Data */}
@@ -449,7 +464,7 @@ export function InvoiceView() {
                   </div>
 
                   {/* Table Rows: Standard Complimentary Services */}
-                  {customServices && customServices.length > 0 && (
+                  {invSettings.showComplimentaryServices !== false && customServices && customServices.length > 0 && (
                     <div className="flex flex-col gap-2.5 py-4 border-b border-neutral-100">
                       <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">SERVICES & QUALITY CONTROL</p>
                       {customServices.map((srv: any, sIdx: number) => {
@@ -488,6 +503,7 @@ export function InvoiceView() {
                 </div>
 
                 {/* Subtotal & Totals Breakdown */}
+                {invSettings.showTotals !== false && (
                 <div className="mt-auto border-t border-neutral-200 pt-4 flex flex-col gap-2 mb-8 text-[11px]">
                    <div className="flex justify-between items-center text-neutral-500">
                      <span>Deliverables Subtotal</span>
@@ -520,9 +536,12 @@ export function InvoiceView() {
                       <span className="text-4xl font-serif text-neutral-900 tracking-tight">{formattedGrandTotal}</span>
                    </div>
                 </div>
+                )}
 
                 {/* Wire Info & Payment */}
+                {(invSettings.showWireInfo !== false || invSettings.showPayButton !== false) && (
                 <div className="bg-[#f5f3ef] rounded-xl p-6 flex flex-col gap-6">
+                   {invSettings.showWireInfo !== false && (
                    <div>
                      <p className="text-[10px] font-bold tracking-widest text-neutral-800 uppercase mb-2">WIRE INFO</p>
                      <div className="text-[11px] text-neutral-600 leading-relaxed grid grid-cols-2 gap-x-4 gap-y-2">
@@ -538,6 +557,7 @@ export function InvoiceView() {
                        </div>
                      </div>
                    </div>
+                   )}
 
                    {invSettings.showPayButton !== false && (
                      order.paymentStatus === 'paid' ? (
@@ -564,11 +584,14 @@ export function InvoiceView() {
                      )
                    )}
                 </div>
+                )}
 
                 {/* Small Legal Protections Disclaimer Footer */}
+                {invSettings.showDisclaimer !== false && (
                 <div className="mt-6 pt-4 border-t border-neutral-100 text-[9px] text-neutral-400 leading-normal italic text-center">
                   Quantities, freight, and applicable taxes are subject to final reconciliation. Custom merchandise is produced specifically for the client and is non-returnable after production is approved and production begins upon required approval and payment.
                 </div>
+                )}
              </div>
            </div>
         </div>
