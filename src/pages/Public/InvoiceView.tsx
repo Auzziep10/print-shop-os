@@ -291,7 +291,7 @@ export function InvoiceView() {
   return (
     <div className="min-h-screen bg-white md:bg-[#f5f5f4] flex justify-center py-0 md:py-12 px-0 md:px-4 font-sans text-neutral-900 w-full overflow-x-hidden">
       <div className="w-full max-w-[940px] bg-white min-h-screen md:min-h-[1180px] px-5 sm:px-8 md:px-14 pt-7 sm:pt-10 md:pt-12 pb-8 md:pb-10 flex flex-col justify-between md:shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
-        <div>
+        <div className="flex-1 flex flex-col">
           {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
           <div className="flex justify-between items-start gap-4 mb-8 md:mb-10">
             <img
@@ -355,7 +355,7 @@ export function InvoiceView() {
           </div>
 
           {/* Main Body: Left Meta/Terms Column + Offset Right Deliverables Column */}
-          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
+          <div className="flex-1 flex flex-col md:flex-row gap-8 md:gap-12 items-start md:items-stretch">
             {/* Left Column (34% on Desktop, Full Width on Mobile) */}
             <div className="w-full md:w-[34%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
               {/* Category Tag & Issue Date / Due Date / PO */}
@@ -428,8 +428,8 @@ export function InvoiceView() {
               {/* Vertical Terms & Conditions Disclaimer on Left Margin (Desktop) */}
               {invSettings.showDisclaimer !== false && (
                 <div
-                  className="hidden md:block h-[640px] text-[7.5px] leading-[1.65] tracking-[0.04em] text-neutral-500 uppercase select-none self-start"
-                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                  className="hidden md:block flex-1 min-h-[540px] text-[7.5px] leading-[1.65] tracking-[0.04em] text-neutral-500 uppercase select-none self-start text-justify"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'justify' }}
                 >
                   {renderDisclaimerParts()}
                 </div>
