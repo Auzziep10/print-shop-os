@@ -1613,6 +1613,7 @@ export function OrderDetail() {
           statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
           feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
           confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+          disclaimerText: "**ESTIMATE TERMS & CONDITIONS** THIS ESTIMATE IS VALID FOR 15 DAYS AND SUBJECT TO PRODUCT AVAILABILITY, FINAL SPECIFICATIONS, AND PRICING CONFIRMATION. PRODUCTION BEGINS ONLY UPON WRITTEN APPROVAL AND SATISFACTION OF APPLICABLE DEPOSIT REQUIREMENTS. CHANGES TO APPROVED ARTWORK, QUANTITIES, SPECIFICATIONS, OR DELIVERY REQUIREMENTS MAY INCUR ADDITIONAL CHARGES WITH CUSTOMER AUTHORIZATION. REASONABLE PRODUCTION VARIATIONS MAY OCCUR WITHIN AGREED TOLERANCES. DELIVERY DATES ARE ESTIMATES UNLESS GUARANTEED IN WRITING. CANCELLATIONS AFTER APPROVAL MAY INCUR DOCUMENTED COSTS. APPROVAL CONSTITUTES ACCEPTANCE OF THESE TERMS.",
           footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
           wireBankName: "Pinnacle Bank",
           wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
@@ -8859,6 +8860,32 @@ export function OrderDetail() {
                     value={orderInvoiceForm.confidentiality}
                     onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, confidentiality: e.target.value })}
                     placeholder="Pricing and terms contained within are confidential..."
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                  />
+                </div>
+
+                <div className={(orderInvoiceForm as any).showDisclaimer === false ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
+                      Terms & Conditions Disclaimer (Vertical Left)
+                    </label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showDisclaimer: (orderInvoiceForm as any).showDisclaimer === false ? true : false } as any)}
+                      title={(orderInvoiceForm as any).showDisclaimer !== false ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showDisclaimer !== false ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showDisclaimer !== false ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={(orderInvoiceForm as any).disclaimerText || ''}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, disclaimerText: e.target.value } as any)}
+                    placeholder="**ESTIMATE TERMS & CONDITIONS** THIS ESTIMATE IS VALID FOR 15 DAYS..."
                     className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
                   />
                 </div>

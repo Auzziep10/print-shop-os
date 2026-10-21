@@ -153,12 +153,15 @@ export function InvoiceView() {
 
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
+  const defaultDisclaimerText = "**ESTIMATE TERMS & CONDITIONS** THIS ESTIMATE IS VALID FOR 15 DAYS AND SUBJECT TO PRODUCT AVAILABILITY, FINAL SPECIFICATIONS, AND PRICING CONFIRMATION. PRODUCTION BEGINS ONLY UPON WRITTEN APPROVAL AND SATISFACTION OF APPLICABLE DEPOSIT REQUIREMENTS. CHANGES TO APPROVED ARTWORK, QUANTITIES, SPECIFICATIONS, OR DELIVERY REQUIREMENTS MAY INCUR ADDITIONAL CHARGES WITH CUSTOMER AUTHORIZATION. REASONABLE PRODUCTION VARIATIONS MAY OCCUR WITHIN AGREED TOLERANCES. DELIVERY DATES ARE ESTIMATES UNLESS GUARANTEED IN WRITING. CANCELLATIONS AFTER APPROVAL MAY INCUR DOCUMENTED COSTS. APPROVAL CONSTITUTES ACCEPTANCE OF THESE TERMS.";
+
   const defaultInvoiceSettings = {
     subtitle: "For your Consideration",
     categoryTag: "VCG • ADHOC ORDERS",
     statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
     feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
     confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+    disclaimerText: defaultDisclaimerText,
     footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
     wireBankName: globalSettings?.wireBankName || "Pinnacle Bank",
     wireBankAddress: globalSettings?.wireBankAddress || "2300 West End Avenue\nNashville, TN 37203",
@@ -271,343 +274,362 @@ export function InvoiceView() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f1efe9] flex justify-center py-10 font-sans text-neutral-900 w-full overflow-x-auto">
-      <div className="w-full max-w-[1000px] flex shadow-2xl rounded-sm overflow-hidden bg-white min-h-[1000px] mx-4 relative min-w-[800px]">
-        {/* Left Sidebar */}
-        <div className="w-[120px] bg-[#f5f3ef] border-r border-neutral-200 flex flex-col justify-between py-10 items-center shrink-0">
-          <div className="flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-            <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 whitespace-nowrap">ISSUED {issueDate}</span>
-            {invSettings.showCategoryTag !== false && (
-              <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">{invSettings.categoryTag}</span>
+    <div className="min-h-screen bg-[#DCDCD9] flex justify-center py-8 md:py-12 px-4 font-sans text-neutral-900 w-full overflow-x-auto">
+      <div className="w-full max-w-[940px] min-w-[760px] bg-[#E7E7E5] min-h-[1180px] px-12 md:px-14 pt-12 pb-10 flex flex-col justify-between shadow-[0_20px_60px_rgba(0,0,0,0.08)] relative">
+        <div>
+          {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
+          <div className="flex justify-between items-start mb-10">
+            <img
+              src="/inktheory-logo-black.png"
+              alt="INKTHEORY"
+              className="w-[70%] max-w-[580px] object-contain object-left select-none"
+            />
+
+            <div className="flex items-start gap-1.5 text-neutral-500 select-none pt-0.5">
+              <span
+                className="text-[13px] font-normal tracking-[0.14em] uppercase leading-none"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+              >
+                {isEstimate ? 'ESTIMATE' : 'INVOICE'}
+              </span>
+              <span
+                className="text-[11px] font-normal tracking-[0.14em] uppercase leading-none"
+                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+              >
+                {order.portalId || order.id.slice(0, 8)}
+              </span>
+            </div>
+          </div>
+
+          {/* Client & Project Header Block (Top-Left under Logo) */}
+          <div className="mb-12">
+            {invSettings.showSubtitle !== false && invSettings.subtitle && (
+              <p className="text-[10px] tracking-[0.1em] text-neutral-500 uppercase mb-1.5">
+                {invSettings.subtitle}
+              </p>
+            )}
+            <p className="text-[11px] font-bold tracking-[0.04em] text-neutral-900 uppercase">
+              {companyName} {order.title ? `· ${order.title}` : ''}
+            </p>
+
+            {invSettings.showClientInfo !== false && (
+              <div className="mt-4 flex flex-col gap-0.5 text-[10.5px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45]">
+                {clientName && clientName !== 'CLIENT' && (
+                  <p>{clientName}</p>
+                )}
+                {invSettings.showAdditionalEmails !== false && allClientEmails.map((emailStr: string, eIdx: number) => (
+                  <p key={eIdx}>{emailStr}</p>
+                ))}
+                {clientPhone && (
+                  <p>{clientPhone}</p>
+                )}
+                {cust.shippingStreet ? (
+                  <p className="mt-1">
+                    {cust.shippingStreet}, {cust.shippingCity}, {cust.shippingState} {cust.shippingZip}
+                  </p>
+                ) : cust.location ? (
+                  <p>{cust.location}</p>
+                ) : null}
+              </div>
             )}
           </div>
-          
-          <div className="flex flex-col items-center justify-end pb-2">
-            <img src="/inktheory-logo-black.png" alt="INKTHEORY Logo" className="w-20 object-contain opacity-90" />
+
+          {/* Main Body: Left Meta/Terms Column + Offset Right Deliverables Column */}
+          <div className="flex gap-12 items-start">
+            {/* Left Column (34%) */}
+            <div className="w-[34%] flex flex-col gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
+              {/* Category Tag & Issue Date / Due Date / PO */}
+              {(invSettings.showCategoryTag !== false || invSettings.showDueDate !== false || invSettings.showPoNumber !== false || invSettings.showOrderMeta !== false) && (
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <span className="text-neutral-400">ISSUED: </span>
+                    <span className="text-neutral-800 font-semibold">{issueDate}</span>
+                  </div>
+                  {invSettings.showCategoryTag !== false && invSettings.categoryTag && (
+                    <div>
+                      <span className="text-neutral-400">CATEGORY: </span>
+                      <span className="text-neutral-800 font-semibold">{invSettings.categoryTag}</span>
+                    </div>
+                  )}
+                  {invSettings.showDueDate !== false && (
+                    <div>
+                      <span className="text-neutral-400">DUE DATE: </span>
+                      <span className="text-neutral-800 font-semibold">{dueDateStr}</span>
+                    </div>
+                  )}
+                  {invSettings.showPoNumber !== false && order.poNumber && (
+                    <div>
+                      <span className="text-neutral-400">P.O. #: </span>
+                      <span className="text-neutral-800 font-semibold">{order.poNumber}</span>
+                    </div>
+                  )}
+                  {invSettings.showOrderMeta !== false && (
+                    <div>
+                      <span className="text-neutral-400">{isEstimate ? 'ESTIMATE #' : 'INVOICE #'}: </span>
+                      <span className="text-neutral-800 font-semibold">{order.portalId || order.id.slice(0, 8)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Account Manager */}
+              {invSettings.showAccountManager !== false && accountManagerName && (
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-neutral-900 font-bold text-[10px] mb-0.5">ACCOUNT MANAGER</p>
+                  <p className="text-neutral-700 font-semibold">{accountManagerName}</p>
+                  {accountManagerEmail && <p>{accountManagerEmail}</p>}
+                  {accountManagerPhone && <p>{accountManagerPhone}</p>}
+                </div>
+              )}
+
+              {/* Separate Shipping Address */}
+              {invSettings.showShippingAddress !== false && hasSeparateShipping && (
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-neutral-900 font-bold text-[10px] mb-0.5">SHIPPING ADDRESS</p>
+                  {order.shippingAddress.name && <p className="text-neutral-700 font-semibold">{order.shippingAddress.name}</p>}
+                  <p>{order.shippingAddress.street1}</p>
+                  {order.shippingAddress.street2 && <p>{order.shippingAddress.street2}</p>}
+                  <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}</p>
+                </div>
+              )}
+
+              {/* Statements & Terms */}
+              {invSettings.showStatementOfWork !== false && statementOfWorkText && (
+                <div>
+                  <p className="text-neutral-900 font-bold text-[10px] mb-1">STATEMENT OF WORK</p>
+                  <p className="whitespace-pre-line normal-case tracking-normal text-[10.5px] leading-relaxed text-neutral-600">{statementOfWorkText}</p>
+                </div>
+              )}
+
+              {invSettings.showFeeSchedule !== false && invSettings.feeSchedule && (
+                <div>
+                  <p className="text-neutral-900 font-bold text-[10px] mb-1">FEE SCHEDULE</p>
+                  <p className="whitespace-pre-line normal-case tracking-normal text-[10.5px] leading-relaxed text-neutral-600">{invSettings.feeSchedule}</p>
+                </div>
+              )}
+
+              {invSettings.showConfidentiality !== false && invSettings.confidentiality && (
+                <div>
+                  <p className="text-neutral-900 font-bold text-[10px] mb-1">CONFIDENTIALITY</p>
+                  <p className="whitespace-pre-line normal-case tracking-normal text-[10.5px] leading-relaxed text-neutral-600">{invSettings.confidentiality}</p>
+                </div>
+              )}
+
+              {/* Vertical Terms & Conditions Disclaimer on Left Margin */}
+              {invSettings.showDisclaimer !== false && (
+                <div
+                  className="h-[640px] text-[7.5px] leading-[1.65] tracking-[0.04em] text-neutral-500 uppercase select-none self-start"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                >
+                  {(() => {
+                    const rawText = invSettings.disclaimerText || defaultDisclaimerText;
+                    const resolvedText = !isEstimate && rawText === defaultDisclaimerText
+                      ? rawText.replace(/\*\*ESTIMATE TERMS & CONDITIONS\*\*/g, '**INVOICE TERMS & CONDITIONS**').replace(/THIS ESTIMATE/g, 'THIS INVOICE')
+                      : rawText;
+                    const parts = String(resolvedText).split(/(\*\*[^*]+\*\*)/g);
+                    return parts.map((part, pIdx) =>
+                      part.startsWith('**') && part.endsWith('**') ? (
+                        <span key={pIdx} className="font-semibold text-neutral-700">{part}</span>
+                      ) : (
+                        <span key={pIdx}>{part}</span>
+                      )
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Deliverables & Totals (66%) */}
+            <div className="w-[66%] flex flex-col">
+              <h3 className="text-[10.5px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-5">
+                DELIVERABLES
+              </h3>
+
+              {/* Deliverables Rows */}
+              <div className="flex flex-col gap-7">
+                {order.items?.filter((item: any) => !isDiscountItem(item)).map((item: any, idx: number) => {
+                  const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
+                  const price = parseFloat(priceStr) || 0;
+                  let qty = 0;
+                  if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+                    qty = parseInt(item.qty || 1);
+                  } else {
+                    qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+                  }
+                  const total = price * qty;
+                  const formattedItemTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total);
+                  const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+
+                  return (
+                    <div key={idx} className="flex w-full items-start text-[11px] leading-snug">
+                      <div className="w-[55%] pr-4 flex flex-col">
+                        <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em]">
+                          {item.style || 'Custom Item'}
+                        </span>
+                        {item.color && (
+                          <span className="text-[10px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5">
+                            {item.color}
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-[15%] text-center font-medium text-neutral-800">
+                        {qty}
+                      </div>
+                      <div className="w-[30%] text-right flex flex-col items-end">
+                        <span className="font-medium text-neutral-900">{formattedItemTotal}</span>
+                        <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.02em] mt-0.5">
+                          {formattedPrice}EA
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Services & Quality Control List */}
+              {invSettings.showComplimentaryServices !== false && customServices && customServices.length > 0 && (
+                <div className="mt-10 pt-6 border-t border-black/10 flex flex-col gap-3">
+                  <p className="text-[10px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-1">
+                    {invSettings.servicesHeading || 'SERVICES & QUALITY CONTROL'}
+                  </p>
+                  {customServices.map((srv: any, sIdx: number) => {
+                    const qtyVal = parseInt(srv.qty || 1) || 1;
+                    const priceVal = (parseFloat(srv.price || 0) || 0) * qtyVal;
+                    const priceFormatted = priceVal === 0 ? '$0.00' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
+
+                    return (
+                      <div key={sIdx} className="flex w-full items-center text-[10.5px] text-neutral-700 leading-snug">
+                        <div className="w-[55%] pr-4 font-medium uppercase tracking-[0.03em]">
+                          {srv.name}
+                        </div>
+                        <div className="w-[15%] text-center text-neutral-500">
+                          {qtyVal}
+                        </div>
+                        <div className="w-[30%] text-right font-medium text-neutral-700">
+                          {priceFormatted}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Logistics Fee if present */}
+              {order.logisticsFee && (
+                <div className="flex w-full items-center text-[11px] text-neutral-900 leading-snug mt-6 pt-4 border-t border-black/10">
+                  <div className="w-[55%] pr-4 font-semibold uppercase tracking-[0.03em]">
+                    Logistics (Kitting & Packaging)
+                  </div>
+                  <div className="w-[15%] text-center font-medium">1</div>
+                  <div className="w-[30%] text-right font-medium">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(order.logisticsFee || 0))}
+                  </div>
+                </div>
+              )}
+
+              {/* Subtotal & Totals Breakdown */}
+              {invSettings.showTotals !== false && (
+                <div className="mt-10 pt-6 border-t border-black/15 flex flex-col gap-2 text-[10.5px] uppercase tracking-[0.03em]">
+                  <div className="flex justify-between items-center text-neutral-500">
+                    <span>Deliverables Subtotal</span>
+                    <span className="font-medium text-neutral-900">{formattedItemsSubtotal}</span>
+                  </div>
+
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                      <span>Discount {order.discountCode ? `(${order.discountCode})` : ''}</span>
+                      <span>−{formattedDiscountAmount}</span>
+                    </div>
+                  )}
+
+                  {shippingFee > 0 && (
+                    <div className="flex justify-between items-center text-neutral-500">
+                      <span>Freight / Shipping & Handling</span>
+                      <span className="font-medium text-neutral-900">{formattedShippingFee}</span>
+                    </div>
+                  )}
+
+                  {taxAmount > 0 && (
+                    <div className="flex justify-between items-center text-neutral-500">
+                      <span>Estimated Sales Tax</span>
+                      <span className="font-medium text-neutral-900">{formattedTaxAmount}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-baseline pt-4 border-t border-black/15 mt-2">
+                    <span className="text-[10.5px] font-bold tracking-[0.06em] text-neutral-900 uppercase">
+                      {isEstimate ? 'Estimated Total' : 'Total Amount Due'}
+                    </span>
+                    <span className="text-2xl font-semibold text-neutral-900 tracking-tight">
+                      {formattedGrandTotal}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Wire Info & Payment Button */}
+              {(invSettings.showWireInfo !== false || invSettings.showPayButton !== false) && (
+                <div className="mt-8 pt-6 border-t border-black/10 flex flex-col gap-5">
+                  {invSettings.showWireInfo !== false && (
+                    <div>
+                      <p className="text-[10px] font-bold tracking-[0.05em] text-neutral-900 uppercase mb-2">
+                        WIRE / ACH TRANSFER
+                      </p>
+                      <div className="text-[10px] text-neutral-600 uppercase tracking-[0.03em] leading-relaxed grid grid-cols-2 gap-x-6 gap-y-2">
+                        <div>
+                          <span className="font-semibold text-neutral-900">BANK:</span> {invSettings.wireBankName}<br />
+                          <span className="whitespace-pre-line">{invSettings.wireBankAddress}</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-neutral-900">ROUTING #:</span> {invSettings.wireRoutingNumber}<br />
+                          <span className="font-semibold text-neutral-900">SWIFT:</span> {invSettings.wireSwiftCode}<br />
+                          <span className="font-semibold text-neutral-900">ACCOUNT NAME:</span> {invSettings.wireAccountName}<br />
+                          <span className="font-semibold text-neutral-900">ACCOUNT #:</span> {invSettings.wireAccountNumber}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {invSettings.showPayButton !== false && (
+                    order.paymentStatus === 'paid' ? (
+                      <div className="w-full py-3.5 bg-emerald-700 text-white text-center text-[10.5px] font-bold tracking-[0.12em] uppercase">
+                        ✓ PAID IN FULL
+                      </div>
+                    ) : invSettings.payButtonUrl && invSettings.payButtonUrl !== 'https://stripe.com' && !invSettings.payButtonUrl.includes('stripe.com/checkout') ? (
+                      <a
+                        href={invSettings.payButtonUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-3.5 bg-neutral-900 text-white text-center text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors block"
+                      >
+                        {invSettings.payButtonText}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsPayModalOpen(true)}
+                        className="w-full py-3.5 bg-neutral-900 text-white text-center text-[10.5px] font-bold tracking-[0.12em] uppercase hover:bg-black transition-colors cursor-pointer"
+                      >
+                        {invSettings.payButtonText}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 p-12 md:p-16 flex flex-col relative">
-           {/* Top Header */}
-           <div className="flex justify-between items-start mb-6">
-              <div className="flex flex-col items-start gap-2">
-                <img src="/inktheory-logo-black.png" alt="INKTHEORY Logo" className="h-6 md:h-7 object-contain" />
-                {invSettings.showSubtitle !== false && invSettings.subtitle && (
-                  <span className="text-neutral-400 italic text-lg font-serif">{invSettings.subtitle}</span>
-                )}
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>{isEstimate ? 'ESTIMATE' : 'INVOICE'}</span>
-                <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase mt-1"># {order.portalId || order.id.slice(0, 8)}</span>
-              </div>
-           </div>
-
-           {/* Banner & Terms Bar */}
-           <div className="w-full bg-[#f5f3ef] py-3 px-6 mb-4 flex justify-between items-center border border-neutral-200">
-             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 uppercase">{companyName} • {order.title}</span>
-           </div>
-
-           {/* Header Meta Info Bar */}
-           <div className="w-full bg-neutral-50 py-2.5 px-6 mb-8 flex justify-between items-center border border-neutral-200/60 text-[10px] font-bold tracking-widest text-neutral-600 uppercase">
-             {invSettings.showDueDate !== false && (
-               <div>
-                 <span className="text-neutral-400">TERMS / DUE: </span> 
-                 <span>{(invSettings.showFeeSchedule !== false && invSettings.feeSchedule) ? invSettings.feeSchedule : 'DUE UPON RECEIPT'} ({dueDateStr})</span>
-               </div>
-             )}
-             {invSettings.showPoNumber !== false && (
-               <div>
-                 <span className="text-neutral-400">P.O. #: </span> 
-                 <span>{order.poNumber || 'N/A'}</span>
-               </div>
-             )}
-             <div>
-               <span className="text-neutral-400">ORDER #: </span> 
-               <span>{order.portalId || order.id.slice(0, 8)}</span>
-             </div>
-           </div>
-
-           <div className="flex gap-12 flex-1">
-             {/* Left Column Data */}
-             <div className="w-1/3 flex flex-col gap-6">
-                {/* Account Manager */}
-                {invSettings.showAccountManager !== false && accountManagerName && (
-                  <div className="flex flex-col gap-0.5 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pb-3 border-b border-neutral-100">
-                    <p className="text-neutral-500 text-[9px]">ACCOUNT MANAGER:</p>
-                    <p className="text-xs text-black font-bold">{accountManagerName}</p>
-                    {accountManagerEmail && (
-                      <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal text-[10px]">
-                        {accountManagerEmail}
-                      </p>
-                    )}
-                    {accountManagerPhone && (
-                      <p className="normal-case text-neutral-500 font-medium tracking-normal text-[10px]">
-                        {accountManagerPhone}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Billing Contact */}
-                {invSettings.showClientInfo !== false && (
-                <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
-                   <p className="text-neutral-500">TO (CLIENT):</p>
-                   <p className="text-xs text-black">{companyName}</p>
-                   {clientName && clientName !== companyName && (
-                     <p className="text-neutral-600 font-medium">{clientName}</p>
-                   )}
-                   {invSettings.showAdditionalEmails !== false && allClientEmails.map((emailStr: string, eIdx: number) => (
-                     <p key={eIdx} className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{emailStr}</p>
-                   ))}
-                   {clientPhone && (
-                     <p className="normal-case text-neutral-500 font-medium tracking-normal">{clientPhone}</p>
-                   )}
-                   {cust.shippingStreet ? (
-                     <div className="mt-1 text-neutral-500 font-medium tracking-normal normal-case">
-                       <p className="font-bold tracking-widest uppercase text-[9px] text-neutral-400">BILLING ADDRESS:</p>
-                       <p>{cust.shippingStreet}</p>
-                       <p>{cust.shippingCity}, {cust.shippingState} {cust.shippingZip}</p>
-                     </div>
-                   ) : cust.location ? (
-                     <p className="normal-case text-neutral-500 font-medium tracking-normal">{cust.location}</p>
-                   ) : null}
-                </div>
-                )}
-
-                {/* Separate Shipping Address if different */}
-                {invSettings.showShippingAddress !== false && hasSeparateShipping && (
-                  <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pt-3 border-t border-neutral-100">
-                    <p className="text-neutral-500 text-[9px]">SHIPPING ADDRESS:</p>
-                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.name}</p>
-                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.street1}</p>
-                    {order.shippingAddress.street2 && <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.street2}</p>}
-                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}</p>
-                  </div>
-                )}
-
-                {invSettings.showOrderMeta !== false && (
-                <div className="flex flex-col gap-3 text-[11px] font-bold tracking-widest text-neutral-800 uppercase pt-2">
-                   <div>
-                     <p className="text-neutral-500 text-[9px]">ORDER TITLE:</p>
-                     <p>{order.title}</p>
-                   </div>
-                   <div>
-                     <p className="text-neutral-500 text-[9px]">COMPANY:</p>
-                     <p>{companyName}</p>
-                   </div>
-                   <div>
-                     <p className="text-neutral-500 text-[9px]">{isEstimate ? 'ESTIMATE #' : 'INVOICE #'}</p>
-                     <p>{order.portalId || order.id.slice(0, 8)}</p>
-                   </div>
-                </div>
-                )}
-
-                <div className="mt-4 flex flex-col gap-5 text-[10px] text-neutral-500 leading-relaxed max-w-[220px]">
-                   {invSettings.showStatementOfWork !== false && statementOfWorkText && (
-                     <div>
-                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
-                       <p className="whitespace-pre-line">{statementOfWorkText}</p>
-                     </div>
-                   )}
-                   {invSettings.showFeeSchedule !== false && invSettings.feeSchedule && (
-                     <div>
-                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">FEE SCHEDULE</p>
-                       <p className="whitespace-pre-line">{invSettings.feeSchedule}</p>
-                     </div>
-                   )}
-                   {invSettings.showConfidentiality !== false && invSettings.confidentiality && (
-                     <div>
-                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">CONFIDENTIALITY</p>
-                       <p className="whitespace-pre-line">{invSettings.confidentiality}</p>
-                     </div>
-                   )}
-                </div>
-
-                {invSettings.showFooterTagline !== false && invSettings.footerTagline && (
-                  <div className="mt-auto pt-6">
-                    <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">{invSettings.footerTagline}</p>
-                  </div>
-                )}
-             </div>
-
-             {/* Right Column Data */}
-             <div className="w-2/3 flex flex-col">
-                <h3 className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 uppercase mb-6 pb-2 border-b border-neutral-200">DELIVERABLES</h3>
-
-                <div className="w-full mb-6">
-                  {/* Table Header */}
-                  <div className="flex w-full text-[9px] font-bold tracking-widest text-neutral-500 uppercase pb-3 border-b border-neutral-100">
-                    <div className="w-1/2">ITEM</div>
-                    <div className="w-1/6 text-center">QTY</div>
-                    <div className="w-1/3 text-right">PRICE</div>
-                  </div>
-
-                  {/* Table Rows: Order Items */}
-                  <div className="flex flex-col gap-4 py-4 border-b border-neutral-100">
-                    {order.items?.filter((item: any) => !isDiscountItem(item)).map((item: any, idx: number) => {
-                       const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
-                       const price = parseFloat(priceStr) || 0;
-                       let qty = 0;
-                       if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
-                         qty = parseInt(item.qty || 1);
-                       } else {
-                         qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
-                       }
-                       const total = price * qty;
-                       const formattedItemTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total);
-                       const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
-
-                       return (
-                         <div key={idx} className="flex w-full text-[11px] text-neutral-800 leading-snug">
-                           <div className="w-1/2 pr-4 flex flex-col">
-                              <span className="font-bold uppercase tracking-wide">{item.style || 'Custom Item'}</span>
-                              {item.color && <span className="text-neutral-500 mt-0.5">{item.color}</span>}
-                           </div>
-                           <div className="w-1/6 text-center font-medium">
-                              {qty}
-                           </div>
-                           <div className="w-1/3 text-right flex flex-col">
-                              <span className="font-bold">{formattedItemTotal}</span>
-                              <span className="text-neutral-400 text-[10px] mt-0.5">{formattedPrice} ea</span>
-                           </div>
-                         </div>
-                       );
-                    })}
-                  </div>
-
-                  {/* Table Rows: Standard Complimentary Services */}
-                  {invSettings.showComplimentaryServices !== false && customServices && customServices.length > 0 && (
-                    <div className="flex flex-col gap-2.5 py-4 border-b border-neutral-100">
-                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">{invSettings.servicesHeading || 'SERVICES & QUALITY CONTROL'}</p>
-                      {customServices.map((srv: any, sIdx: number) => {
-                        const qtyVal = parseInt(srv.qty || 1) || 1;
-                        const priceVal = (parseFloat(srv.price || 0) || 0) * qtyVal;
-                        const priceFormatted = priceVal === 0 ? '$0.00' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
-
-                        return (
-                          <div key={sIdx} className="flex w-full text-[11px] text-neutral-700 leading-snug">
-                            <div className="w-1/2 pr-4 font-medium uppercase tracking-wide">
-                              {srv.name}
-                            </div>
-                            <div className="w-1/6 text-center text-neutral-400 text-[10px]">
-                              {qtyVal}
-                            </div>
-                            <div className="w-1/3 text-right font-bold text-neutral-600 text-[10px]">
-                              {priceFormatted}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Kitting, Packaging & Logistics line item if specified */}
-                  {order.logisticsFee && (
-                    <div className="flex w-full text-[11px] text-neutral-800 leading-snug py-3 border-b border-neutral-100">
-                      <div className="w-1/2 pr-4 font-bold uppercase tracking-wide">
-                        Logistics (Kitting & Packaging)
-                      </div>
-                      <div className="w-1/6 text-center font-medium">1</div>
-                      <div className="w-1/3 text-right font-bold">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(order.logisticsFee || 0))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Subtotal & Totals Breakdown */}
-                {invSettings.showTotals !== false && (
-                <div className="mt-auto border-t border-neutral-200 pt-4 flex flex-col gap-2 mb-8 text-[11px]">
-                   <div className="flex justify-between items-center text-neutral-500">
-                     <span>Deliverables Subtotal</span>
-                     <span className="font-medium text-neutral-800">{formattedItemsSubtotal}</span>
-                   </div>
-
-                   {discountAmount > 0 && (
-                     <div className="flex justify-between items-center text-emerald-700 font-semibold">
-                       <span>Discount {order.discountCode ? `(${order.discountCode})` : ''}</span>
-                       <span>−{formattedDiscountAmount}</span>
-                     </div>
-                   )}
-
-                   {shippingFee > 0 && (
-                     <div className="flex justify-between items-center text-neutral-500">
-                       <span>Freight / Shipping & Handling</span>
-                       <span className="font-medium text-neutral-800">{formattedShippingFee}</span>
-                     </div>
-                   )}
-
-                   {taxAmount > 0 && (
-                     <div className="flex justify-between items-center text-neutral-500">
-                       <span>Estimated Sales Tax</span>
-                       <span className="font-medium text-neutral-800">{formattedTaxAmount}</span>
-                     </div>
-                   )}
-
-                   <div className="flex justify-between items-end pt-3 border-t border-neutral-200 mt-1">
-                      <span className="text-sm font-serif italic text-neutral-400">Total Amount Due</span>
-                      <span className="text-4xl font-serif text-neutral-900 tracking-tight">{formattedGrandTotal}</span>
-                   </div>
-                </div>
-                )}
-
-                {/* Wire Info & Payment */}
-                {(invSettings.showWireInfo !== false || invSettings.showPayButton !== false) && (
-                <div className="bg-[#f5f3ef] rounded-xl p-6 flex flex-col gap-6">
-                   {invSettings.showWireInfo !== false && (
-                   <div>
-                     <p className="text-[10px] font-bold tracking-widest text-neutral-800 uppercase mb-2">WIRE INFO</p>
-                     <div className="text-[11px] text-neutral-600 leading-relaxed grid grid-cols-2 gap-x-4 gap-y-2">
-                       <div>
-                         <span className="font-bold text-neutral-800">Bank:</span> {invSettings.wireBankName}<br/>
-                         <span className="whitespace-pre-line">{invSettings.wireBankAddress}</span>
-                       </div>
-                       <div>
-                         <span className="font-bold text-neutral-800">Wire Routing #:</span> {invSettings.wireRoutingNumber}<br/>
-                         <span className="font-bold text-neutral-800">SWIFT Code:</span> {invSettings.wireSwiftCode}<br/>
-                         <span className="font-bold text-neutral-800">Account Name:</span> {invSettings.wireAccountName}<br/>
-                         <span className="font-bold text-neutral-800">Account Number:</span> {invSettings.wireAccountNumber}
-                       </div>
-                     </div>
-                   </div>
-                   )}
-
-                   {invSettings.showPayButton !== false && (
-                     order.paymentStatus === 'paid' ? (
-                       <div className="w-full py-4 bg-emerald-600 text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg shadow-sm">
-                         ✓ INVOICE PAID IN FULL
-                       </div>
-                     ) : invSettings.payButtonUrl && invSettings.payButtonUrl !== 'https://stripe.com' && !invSettings.payButtonUrl.includes('stripe.com/checkout') ? (
-                       <a 
-                         href={invSettings.payButtonUrl}
-                         target="_blank"
-                         rel="noreferrer"
-                         className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg block"
-                       >
-                         {invSettings.payButtonText}
-                       </a>
-                     ) : (
-                       <button 
-                         type="button"
-                         onClick={() => setIsPayModalOpen(true)}
-                         className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg cursor-pointer"
-                       >
-                         {invSettings.payButtonText}
-                       </button>
-                     )
-                   )}
-                </div>
-                )}
-
-                {/* Small Legal Protections Disclaimer Footer */}
-                {invSettings.showDisclaimer !== false && (
-                <div className="mt-6 pt-4 border-t border-neutral-100 text-[9px] text-neutral-400 leading-normal italic text-center">
-                  Quantities, freight, and applicable taxes are subject to final reconciliation. Custom merchandise is produced specifically for the client and is non-returnable after production is approved and production begins upon required approval and payment.
-                </div>
-                )}
-             </div>
-           </div>
+        {/* Bottom Center Footer */}
+        <div className="mt-16 pt-8 text-center flex flex-col items-center gap-1.5">
+          {invSettings.showFooterTagline !== false && invSettings.footerTagline && (
+            <p className="text-[9px] font-semibold tracking-[0.12em] text-neutral-500 uppercase">
+              {invSettings.footerTagline}
+            </p>
+          )}
+          <p className="text-[9px] tracking-[0.08em] text-neutral-500 uppercase">
+            INKTHEORY &nbsp;2817 WEST END AVE &nbsp;NASHVILLE &nbsp;TN &nbsp;37203
+          </p>
         </div>
       </div>
 
