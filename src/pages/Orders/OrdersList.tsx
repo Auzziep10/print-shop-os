@@ -215,7 +215,10 @@ export function OrdersList() {
                 const styleLower = (i.style || '').toLowerCase();
                 const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping';
                 const isTax = styleLower.includes('tax');
-                if (isShipping || isTax || isDiscountItem(i) || isNonGarmentItem(i)) return acc;
+                if (isShipping || isTax || isDiscountItem(i)) return acc;
+                if (i.itemType === 'service' || isNonGarmentItem(i)) {
+                  return acc + (parseInt(i.qty) || parseInt(i.quantity) || 0);
+                }
                 const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
                 return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 0));
               }, 0) || 0;

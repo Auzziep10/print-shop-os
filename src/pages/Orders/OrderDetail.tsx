@@ -3960,6 +3960,7 @@ export function OrderDetail() {
         ...editItemObj,
         qty: finalQty,
         total: lineTotal,
+        ...(editItemObj.itemType === 'service' ? { sizes: {} } : {}),
         ...(editItemObj.itemType === 'gang_sheet' ? {
            sheetWidth: Number(editItemObj.sheetWidth || 22),
            sheetHeight: Number(editItemObj.sheetHeight || 24),
@@ -4623,10 +4624,14 @@ export function OrderDetail() {
     const styleLower = (item.style || '').toLowerCase();
     const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
     const isTax = styleLower.includes('tax');
-    return !isShipping && !isTax && !isDiscountItem(item) && !isNonGarmentItem(item);
+    return !isShipping && !isTax && !isDiscountItem(item);
   });
 
   const totalItems = garmentItems.reduce((acc: number, i: any) => {
+    if (isDiscountItem(i)) return acc;
+    if (i.itemType === 'service' || isNonGarmentItem(i)) {
+      return acc + (parseInt(i.qty) || parseInt(i.quantity) || 0);
+    }
     const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
     return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 0));
   }, 0) || 0;
@@ -4634,7 +4639,7 @@ export function OrderDetail() {
   let lineItemsDiscountTotal = 0;
   let shippingLineItemsTotal = 0;
   const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
-    const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
+    const sizeSum = (i.itemType === 'service' || isNonGarmentItem(i)) ? 0 : (i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0);
     const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
     
     let safePriceNum = 0;
@@ -5270,7 +5275,7 @@ export function OrderDetail() {
                                     <span className="shrink-0">
                                       {item.title || (item.style && item.style !== item.sheetSizeName 
                                         ? item.style 
-                                        : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || 'Garment')))}
+                                        : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || (item.itemType === 'service' ? 'Service Item' : 'Garment'))))}
                                     </span>
                                     {item.hasCustomShipping && item.shippingAddress && (item.shippingAddress.name || item.shippingAddress.street1) && (
                                       <span 
@@ -5286,6 +5291,11 @@ export function OrderDetail() {
                                       {item.sheetSizeName || 'DTF'}
                                     </span>
                                   )}
+                                  {item.itemType === 'service' && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded shadow-sm">
+                                      Service
+                                    </span>
+                                  )}
                                   {item.shopifyOrder && (
                                     <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-sm">
                                       {item.shopifyOrder}
@@ -5295,14 +5305,16 @@ export function OrderDetail() {
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                    {item.itemType === 'gang_sheet' 
                                      ? `${item.sheetWidth && item.sheetHeight ? `${item.sheetWidth}" x ${item.sheetHeight}"` : ''}` 
-                                     : (() => {
-                                         const parts = [
-                                           item.gender && item.gender !== 'Unisex' ? item.gender : null,
-                                           item.itemStyle || item.garmentStyle || null,
-                                           item.color || null
-                                         ].filter(Boolean);
-                                         return parts.join(' • ');
-                                       })()}
+                                     : item.itemType === 'service'
+                                       ? (item.color || '')
+                                       : (() => {
+                                           const parts = [
+                                             item.gender && item.gender !== 'Unisex' ? item.gender : null,
+                                             item.itemStyle || item.garmentStyle || null,
+                                             item.color || null
+                                           ].filter(Boolean);
+                                           return parts.join(' • ');
+                                         })()}
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
@@ -5653,7 +5665,7 @@ export function OrderDetail() {
                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                            {(() => {
                               const isDisc = isDiscountItem(item);
-                              const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+                              const sizeQtySum = (item.itemType === 'service' || isNonGarmentItem(item)) ? 0 : (item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0);
                               const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
                               
                               let safePriceNum = 0;
@@ -5714,7 +5726,7 @@ export function OrderDetail() {
                       <div className="overflow-hidden">
                          <div className="flex flex-wrap gap-2 items-center bg-gray-50/80 p-3 pt-4 rounded-xl border border-brand-border shadow-inner">
                             {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
-                            {item.color && <DataPill label="Garment Color" value={item.color} />}
+                            {item.color && <DataPill label={item.itemType === 'service' ? "Description" : "Garment Color"} value={item.color} />}
                             {Array.isArray(item.logos) ? (
                               item.logos.map((logo: string, i: number) => (
                                 <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
@@ -8809,7 +8821,7 @@ export function OrderDetail() {
                     Garment
                   </button>
                   <button 
-                    onClick={() => setEditItemObj({...editItemObj, itemType: 'service'})} 
+                    onClick={() => setEditItemObj({...editItemObj, itemType: 'service', qty: editItemObj.qty || 1})} 
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${editItemObj.itemType === 'service' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
                   >
                     Service / Misc
