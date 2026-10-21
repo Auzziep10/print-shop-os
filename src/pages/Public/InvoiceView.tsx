@@ -358,19 +358,13 @@ export function InvoiceView() {
           <div className="flex-1 flex flex-col md:flex-row gap-8 md:gap-12 items-start md:items-stretch">
             {/* Left Column (34% on Desktop, Full Width on Mobile) */}
             <div className="w-full md:w-[34%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
-              {/* Category Tag & Issue Date / Due Date / PO */}
-              {(invSettings.showIssueDate !== false || (invSettings.showCategoryTag !== false && invSettings.categoryTag) || invSettings.showDueDate !== false || (invSettings.showPoNumber !== false && order.poNumber) || invSettings.showOrderMeta !== false) && (
+              {/* Issue Date / Due Date / PO */}
+              {(invSettings.showIssueDate !== false || invSettings.showDueDate !== false || (invSettings.showPoNumber !== false && order.poNumber)) && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-col gap-x-4 gap-y-2 pb-4 md:pb-0 border-b md:border-b-0 border-black/10">
                   {invSettings.showIssueDate !== false && (
                     <div>
                       <span className="text-neutral-400">ISSUED: </span>
                       <span className="text-neutral-800 font-semibold">{issueDate}</span>
-                    </div>
-                  )}
-                  {invSettings.showCategoryTag !== false && invSettings.categoryTag && (
-                    <div className="col-span-2 sm:col-span-1">
-                      <span className="text-neutral-400">CATEGORY: </span>
-                      <span className="text-neutral-800 font-semibold">{invSettings.categoryTag}</span>
                     </div>
                   )}
                   {invSettings.showDueDate !== false && (
@@ -383,12 +377,6 @@ export function InvoiceView() {
                     <div>
                       <span className="text-neutral-400">P.O. #: </span>
                       <span className="text-neutral-800 font-semibold">{order.poNumber}</span>
-                    </div>
-                  )}
-                  {invSettings.showOrderMeta !== false && (
-                    <div>
-                      <span className="text-neutral-400">{isEstimate ? 'ESTIMATE #' : 'INVOICE #'}: </span>
-                      <span className="text-neutral-800 font-semibold">{order.portalId || order.id.slice(0, 8)}</span>
                     </div>
                   )}
                 </div>
