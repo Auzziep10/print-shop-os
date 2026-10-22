@@ -59,7 +59,7 @@ export function PortalLayout() {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isPreviewingAgreementGate, setIsPreviewingAgreementGate] = useState(false);
+  const [adminBypassedGate, setAdminBypassedGate] = useState(false);
   const [isSignedAgreementsModalOpen, setIsSignedAgreementsModalOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [isJiggling, setIsJiggling] = useState(false);
@@ -591,15 +591,15 @@ export function PortalLayout() {
 
   const requiresAgreementSignature = Boolean(customer?.requirePortalAgreements) && !customer?.portalAgreementsSigned;
 
-  if (customerId && ((requiresAgreementSignature && userData?.role === 'Client') || isPreviewingAgreementGate)) {
+  if (customerId && requiresAgreementSignature && (!adminBypassedGate || userData?.role === 'Client')) {
     return (
       <PortalAgreementGate
         customerId={customerId}
         customer={customer}
         userEmail={userData?.email || user?.email || ''}
         userName={userData?.name || ''}
-        isPreviewMode={isPreviewingAgreementGate}
-        onExitPreview={() => setIsPreviewingAgreementGate(false)}
+        isAdminUser={userData?.role !== 'Client'}
+        onAdminBypass={() => setAdminBypassedGate(true)}
         onSignOut={async () => {
           await signOut();
           navigate('/login');
@@ -631,11 +631,11 @@ export function PortalLayout() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setIsPreviewingAgreementGate(true)}
-                  className="bg-neutral-900 hover:bg-black text-white px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={() => setAdminBypassedGate(false)}
+                  className="bg-white hover:bg-amber-50 text-amber-950 border border-amber-400 px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Eye size={12} />
-                  Client Gate Active (Unsigned) • Preview Signing Flow
+                  Return to Signing Gate
                 </button>
               )}
             </div>

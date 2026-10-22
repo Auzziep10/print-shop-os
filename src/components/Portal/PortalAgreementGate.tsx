@@ -32,8 +32,17 @@ interface PortalAgreementGateProps {
   userEmail?: string;
   userName?: string;
   onSignOut?: () => void;
-  isPreviewMode?: boolean;
-  onExitPreview?: () => void;
+  isAdminUser?: boolean;
+  onAdminBypass?: () => void;
+}
+
+interface PageSignatureState {
+  signedAt: string;
+  signerName: string;
+  signerTitle: string;
+  signatureType: 'type' | 'draw';
+  signatureText: string;
+  signatureDataUrl: string;
 }
 
 export function PortalAgreementGate({
@@ -42,8 +51,8 @@ export function PortalAgreementGate({
   userEmail,
   userName,
   onSignOut,
-  isPreviewMode = false,
-  onExitPreview
+  isAdminUser = false,
+  onAdminBypass
 }: PortalAgreementGateProps) {
   const companyName = customer?.company || customer?.name || customer?.contactName || 'Client';
   const defaultSignerName = customer?.contactName || userName || '';
@@ -55,77 +64,81 @@ export function PortalAgreementGate({
     return active.length > 0 ? active : all;
   }, [customer?.portalAgreementPages, companyName]);
 
-  // Step 0..(enabledPages.length - 1) are the document pages; step === enabledPages.length is the Final Signature step
   const [currentStep, setCurrentStep] = useState(0);
-
-  // Derive default initials from signer name
-  const deriveInitials = (name: string) => {
-    if (!name.trim()) return '';
-    return name
-      .trim()
-      .split(/\s+/)
-      .map(part => part[0]?.toUpperCase() || '')
-      .join('')
-      .slice(0, 4);
-  };
 
   const [signerName, setSignerName] = useState(defaultSignerName);
   const [signerTitle, setSignerTitle] = useState('Authorized Representative');
   const [signerEmail, setSignerEmail] = useState(defaultEmail);
-  const [initials, setInitials] = useState(() => deriveInitials(defaultSignerName));
 
-  // Track which pages have been initialed & accepted: map of page.id -> { initials, initialedAt }
-  const [acceptedPages, setAcceptedPages] = useState<Record<string, { initials: string; initialedAt: string }>>({});
+  // Track signed state for each individual document page: page.id -> PageSignatureState
+  const [signedPagesMap, setSignedPagesMap] = useState<Record<string, PageSignatureState>>({});
   const [pageCheckboxChecked, setPageCheckboxChecked] = useState(false);
 
-  // Final signature states
-  const [signatureMode, setSignatureMode] = useState<'type' | 'draw'>('type');
+  // Signature input state for current document
+  const [signatureMode, setSignatureMode] = useState<'type' | 'draw'>('draw');
   const [typedSignature, setTypedSignature] = useState(defaultSignerName);
-  const [consentChecked, setConsentChecked] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasDrawnStroke, setHasDrawnStroke] = useState(false);
+  const [savedDrawnDataUrl, setSavedDrawnDataUrl] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
   const docScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // Keep defaults synced if customer loads slightly after mount
+  // Sync defaults if customer data arrives after initial mount
   useEffect(() => {
     if (!signerName && (customer?.contactName || userName)) {
       const name = customer?.contactName || userName || '';
       setSignerName(name);
-      setTypedSignature(name);
-      if (!initials) setInitials(deriveInitials(name));
+      if (!typedSignature) setTypedSignature(name);
     }
     if (!signerEmail && (customer?.email || userEmail)) {
       setSignerEmail(customer?.email || userEmail || '');
     }
   }, [customer?.contactName, customer?.email, userName, userEmail]);
 
-  // Scroll document viewer to top when changing pages
+  // When switching between document pages, scroll to top and restore checkbox / signature state
   useEffect(() => {
     if (docScrollRef.current) {
       docScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
     const currentPage = enabledPages[currentStep];
     if (currentPage) {
-      setPageCheckboxChecked(Boolean(acceptedPages[currentPage.id]));
+      const existingSig = signedPagesMap[currentPage.id];
+      setPageCheckboxChecked(Boolean(existingSig));
     }
   }, [currentStep, enabledPages]);
 
-  // Setup drawing canvas when on final step and mode === 'draw'
+  // Initialize and restore canvas strokes when in draw mode
   useEffect(() => {
-    if (currentStep === enabledPages.length && signatureMode === 'draw' && canvasRef.current) {
+    if (signatureMode === 'draw' && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.strokeStyle = '#0f172a';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#111827';
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+
+        const activePage = enabledPages[currentStep];
+        const pageSigUrl = (activePage && signedPagesMap[activePage.id]?.signatureType === 'draw' && signedPagesMap[activePage.id]?.signatureDataUrl)
+          || savedDrawnDataUrl;
+
+        if (pageSigUrl) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            setHasDrawnStroke(true);
+          };
+          img.src = pageSigUrl;
+        } else {
+          setHasDrawnStroke(false);
+        }
       }
     }
-  }, [currentStep, enabledPages.length, signatureMode]);
+  }, [currentStep, signatureMode, enabledPages]);
 
   const getCanvasPoint = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -153,6 +166,10 @@ export function PortalAgreementGate({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     isDrawingRef.current = true;
     const { x, y } = getCanvasPoint(e);
     ctx.beginPath();
@@ -172,6 +189,9 @@ export function PortalAgreementGate({
   };
 
   const handleEndDraw = () => {
+    if (isDrawingRef.current && canvasRef.current) {
+      setSavedDrawnDataUrl(canvasRef.current.toDataURL('image/png'));
+    }
     isDrawingRef.current = false;
   };
 
@@ -181,33 +201,9 @@ export function PortalAgreementGate({
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawnStroke(false);
+    setSavedDrawnDataUrl('');
   };
 
-  const handleAcceptCurrentPage = () => {
-    const page = enabledPages[currentStep];
-    if (!page) return;
-    const cleanInitials = initials.trim().toUpperCase();
-    if (!cleanInitials) {
-      alert('Please enter your initials to initial this page.');
-      return;
-    }
-    if (!pageCheckboxChecked) {
-      alert(`Please check the box confirming you have read and agree to ${page.title}.`);
-      return;
-    }
-
-    setAcceptedPages(prev => ({
-      ...prev,
-      [page.id]: {
-        initials: cleanInitials,
-        initialedAt: prev[page.id]?.initialedAt || new Date().toISOString()
-      }
-    }));
-
-    setCurrentStep(prev => Math.min(enabledPages.length, prev + 1));
-  };
-
-  // Renders a typed signature onto an offscreen canvas so we save a clean PNG data URL
   const renderTypedSignatureDataUrl = (text: string): string => {
     const offscreen = document.createElement('canvas');
     offscreen.width = 600;
@@ -216,69 +212,114 @@ export function PortalAgreementGate({
     if (!ctx) return '';
     ctx.clearRect(0, 0, offscreen.width, offscreen.height);
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'italic 48px "Georgia", "Times New Roman", serif';
+    ctx.font = 'italic 46px "Georgia", "Times New Roman", serif';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text.trim(), 28, 85);
+    ctx.fillText(text.trim(), 24, 85);
     return offscreen.toDataURL('image/png');
   };
 
-  const allPagesAccepted = enabledPages.every(p => Boolean(acceptedPages[p.id]));
-  const totalSteps = enabledPages.length + 1;
-  const completedCount = Object.keys(acceptedPages).filter(id => enabledPages.some(p => p.id === id)).length;
-  const progressPercent = Math.round((completedCount / totalSteps) * 100);
+  const deriveInitials = (name: string) => {
+    if (!name.trim()) return 'SIGNED';
+    return name
+      .trim()
+      .split(/\s+/)
+      .map(part => part[0]?.toUpperCase() || '')
+      .join('')
+      .slice(0, 4);
+  };
 
-  const handleFinishAndSign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!allPagesAccepted) {
-      alert('Please initial and accept all agreement pages before completing your signature.');
-      return;
-    }
+  const activePage: PortalAgreementPage | undefined = enabledPages[currentStep];
+  const signedCount = enabledPages.filter(p => Boolean(signedPagesMap[p.id])).length;
+  const progressPercent = Math.round((signedCount / enabledPages.length) * 100);
+
+  // Strip redundant "Document X of Y • " prefix from subtitle if present
+  const formatCleanSubtitle = (subtitle: string) => {
+    return subtitle.replace(/^Document\s+\d+\s+of\s+\d+\s*•\s*/i, '').trim();
+  };
+
+  const handleSignCurrentDocument = async () => {
+    if (!activePage) return;
+
     if (!signerName.trim()) {
-      alert('Please enter your full legal name.');
+      alert('Please enter your Full Legal Name before signing.');
       return;
     }
     if (signatureMode === 'type' && !typedSignature.trim()) {
-      alert('Please type your signature.');
+      alert('Please type your signature in the signature box.');
       return;
     }
     if (signatureMode === 'draw' && !hasDrawnStroke) {
-      alert('Please draw your signature in the signature pad.');
+      alert('Please draw your signature on the signature line before continuing.');
       return;
     }
-    if (!consentChecked) {
-      alert('Please check the electronic signature consent box to finish.');
+    if (!pageCheckboxChecked) {
+      alert(`Please check the box confirming you agree to and sign "${activePage.title}".`);
       return;
     }
 
+    let currentSigDataUrl = '';
+    if (signatureMode === 'draw' && canvasRef.current) {
+      currentSigDataUrl = canvasRef.current.toDataURL('image/png');
+      setSavedDrawnDataUrl(currentSigDataUrl);
+    } else {
+      currentSigDataUrl = renderTypedSignatureDataUrl(typedSignature.trim() || signerName.trim());
+    }
+
+    const nowIso = new Date().toISOString();
+    const pageSig: PageSignatureState = {
+      signedAt: nowIso,
+      signerName: signerName.trim(),
+      signerTitle: signerTitle.trim() || 'Authorized Representative',
+      signatureType: signatureMode,
+      signatureText: signatureMode === 'type' ? (typedSignature.trim() || signerName.trim()) : signerName.trim(),
+      signatureDataUrl: currentSigDataUrl
+    };
+
+    const nextSignedMap: Record<string, PageSignatureState> = {
+      ...signedPagesMap,
+      [activePage.id]: pageSig
+    };
+    setSignedPagesMap(nextSignedMap);
+
+    // Check if there are any unsigned documents remaining
+    const nextUnsignedIndex = enabledPages.findIndex((p, idx) => idx > currentStep && !nextSignedMap[p.id]);
+    const anyUnsignedIndex = enabledPages.findIndex(p => !nextSignedMap[p.id]);
+
+    if (nextUnsignedIndex !== -1) {
+      setCurrentStep(nextUnsignedIndex);
+      return;
+    }
+    if (anyUnsignedIndex !== -1) {
+      setCurrentStep(anyUnsignedIndex);
+      return;
+    }
+
+    // All documents are now signed! Save to Firestore and unlock the portal.
     setIsSubmitting(true);
     try {
-      let signatureDataUrl = '';
-      if (signatureMode === 'draw' && canvasRef.current) {
-        signatureDataUrl = canvasRef.current.toDataURL('image/png');
-      } else {
-        signatureDataUrl = renderTypedSignatureDataUrl(typedSignature.trim() || signerName.trim());
-      }
-
-      const signedAt = new Date().toISOString();
-      const signedPages: SignedAgreementPageRecord[] = enabledPages.map(page => ({
-        id: page.id,
-        title: page.title,
-        subtitle: page.subtitle,
-        contentSnapshot: page.content,
-        initials: acceptedPages[page.id]?.initials || initials.trim().toUpperCase(),
-        initialedAt: acceptedPages[page.id]?.initialedAt || signedAt
-      }));
+      const computedInitials = deriveInitials(signerName);
+      const signedPages: SignedAgreementPageRecord[] = enabledPages.map(page => {
+        const sig = nextSignedMap[page.id] || pageSig;
+        return {
+          id: page.id,
+          title: page.title,
+          subtitle: page.subtitle,
+          contentSnapshot: page.content,
+          initials: computedInitials,
+          initialedAt: sig.signedAt
+        };
+      });
 
       const signedPayload: PortalAgreementsSignedData = {
-        signedAt,
+        signedAt: nowIso,
         signerName: signerName.trim(),
         signerTitle: signerTitle.trim() || 'Authorized Representative',
         signerEmail: signerEmail.trim(),
         companyName,
-        initials: initials.trim().toUpperCase(),
+        initials: computedInitials,
         signatureType: signatureMode,
-        signatureText: signatureMode === 'type' ? (typedSignature.trim() || signerName.trim()) : signerName.trim(),
-        signatureDataUrl,
+        signatureText: pageSig.signatureText,
+        signatureDataUrl: currentSigDataUrl,
         signedPages,
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
       };
@@ -287,10 +328,6 @@ export function PortalAgreementGate({
         portalAgreementsSigned: true,
         portalAgreementsData: signedPayload
       });
-
-      if (isPreviewMode && onExitPreview) {
-        onExitPreview();
-      }
     } catch (err) {
       console.error('Failed to save signed portal agreements:', err);
       alert('Failed to save your signature. Please try again.');
@@ -299,31 +336,30 @@ export function PortalAgreementGate({
     }
   };
 
-  const isFinalStep = currentStep === enabledPages.length;
-  const activePage: PortalAgreementPage | undefined = enabledPages[currentStep];
-
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white">
-      {/* Preview Mode Banner for Admin */}
-      {isPreviewMode && (
-        <div className="bg-indigo-600 text-white px-6 py-2.5 text-xs font-bold flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 uppercase tracking-wider">
-            <Eye size={15} />
-            <span>Admin Preview Mode: Viewing the DocuSign Portal Agreement Gate for {companyName}</span>
+      {/* Subtle Admin Notice Bar if an Admin is viewing the customer's portal */}
+      {isAdminUser && (
+        <div className="bg-amber-100 border-b border-amber-200 text-amber-950 px-6 py-2 text-xs font-bold flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Eye size={14} className="text-amber-700" />
+            <span>
+              Admin View: Client Portal Gate is active for <strong>{companyName}</strong>. The customer must sign all {enabledPages.length} documents below before seeing their portal.
+            </span>
           </div>
-          {onExitPreview && (
+          {onAdminBypass && (
             <button
               type="button"
-              onClick={onExitPreview}
-              className="bg-white text-indigo-700 hover:bg-indigo-50 px-3.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-colors cursor-pointer"
+              onClick={onAdminBypass}
+              className="bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
             >
-              Exit Preview
+              Skip Gate (Admin Only)
             </button>
           )}
         </div>
       )}
 
-      {/* Top DocuSign-style Header */}
+      {/* Top Header */}
       <header className="bg-white border-b border-neutral-200 px-6 lg:px-10 py-4 sticky top-0 z-30 shadow-xs">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-start">
@@ -346,11 +382,11 @@ export function PortalAgreementGate({
                     <Lock size={10} /> Signature Required
                   </span>
                   <span className="text-xs font-bold text-neutral-800 hidden sm:inline">
-                    {companyName} — Portal Onboarding Packet
+                    {companyName} — Portal Agreements
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
-                  Please review and initial all {enabledPages.length} agreement pages to unlock your Client Portal.
+                  Please review and sign each of the {enabledPages.length} documents below to unlock your Client Portal.
                 </p>
               </div>
             </div>
@@ -371,16 +407,16 @@ export function PortalAgreementGate({
             <div className="flex flex-col items-end flex-1 md:flex-initial">
               <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-neutral-600 mb-1">
                 <span>
-                  {isFinalStep
-                    ? `Step ${totalSteps} of ${totalSteps}: Final Signature`
-                    : `Document ${currentStep + 1} of ${enabledPages.length}`}
+                  Document {currentStep + 1} of {enabledPages.length}
                 </span>
-                <span className="text-emerald-600">({completedCount}/{enabledPages.length} Initialed)</span>
+                <span className="text-emerald-600">
+                  ({signedCount}/{enabledPages.length} Signed)
+                </span>
               </div>
               <div className="w-full md:w-48 h-2 bg-neutral-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-neutral-900 transition-all duration-300 rounded-full"
-                  style={{ width: `${isFinalStep && allPagesAccepted ? 92 : Math.max(8, progressPercent)}%` }}
+                  className="h-full bg-emerald-600 transition-all duration-300 rounded-full"
+                  style={{ width: `${Math.max(10, progressPercent)}%` }}
                 />
               </div>
             </div>
@@ -405,11 +441,11 @@ export function PortalAgreementGate({
         <aside className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-xs">
             <h2 className="text-xs font-extrabold uppercase tracking-widest text-neutral-400 mb-3">
-              Required Documents ({enabledPages.length})
+              Documents to Sign ({signedCount}/{enabledPages.length})
             </h2>
             <div className="space-y-2">
               {enabledPages.map((page, idx) => {
-                const isAccepted = Boolean(acceptedPages[page.id]);
+                const isSigned = Boolean(signedPagesMap[page.id]);
                 const isCurrent = currentStep === idx;
                 return (
                   <button
@@ -418,79 +454,44 @@ export function PortalAgreementGate({
                     onClick={() => setCurrentStep(idx)}
                     className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 cursor-pointer ${
                       isCurrent
-                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
-                        : isAccepted
+                        ? 'bg-amber-50/90 border-amber-400 text-neutral-900 shadow-xs ring-1 ring-amber-300'
+                        : isSigned
                         ? 'bg-emerald-50/60 border-emerald-200 text-neutral-900 hover:bg-emerald-50'
                         : 'bg-neutral-50/70 border-neutral-200/80 text-neutral-700 hover:bg-neutral-100'
                     }`}
                   >
                     <div
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0 mt-0.5 ${
-                        isAccepted
+                        isSigned
                           ? 'bg-emerald-500 text-white'
                           : isCurrent
-                          ? 'bg-amber-400 text-neutral-950'
+                          ? 'bg-amber-500 text-white'
                           : 'bg-neutral-200 text-neutral-600'
                       }`}
                     >
-                      {isAccepted ? <Check size={13} strokeWidth={3} /> : idx + 1}
+                      {isSigned ? <Check size={13} strokeWidth={3} /> : idx + 1}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold truncate ${isCurrent ? 'text-white' : 'text-neutral-900'}`}>
+                      <p className="text-xs font-bold truncate text-neutral-900">
                         {page.title}
                       </p>
                       <p
                         className={`text-[10px] mt-0.5 truncate ${
-                          isCurrent ? 'text-neutral-300' : isAccepted ? 'text-emerald-700 font-semibold' : 'text-neutral-500'
+                          isSigned
+                            ? 'text-emerald-700 font-bold'
+                            : isCurrent
+                            ? 'text-amber-800 font-semibold'
+                            : 'text-neutral-500'
                         }`}
                       >
-                        {isAccepted
-                          ? `Initialed (${acceptedPages[page.id].initials})`
-                          : `Page ${idx + 1} of ${enabledPages.length} • Action Required`}
+                        {isSigned
+                          ? `Signed by ${signedPagesMap[page.id].signerName}`
+                          : `Document ${idx + 1} of ${enabledPages.length} • Signature Required`}
                       </p>
                     </div>
                   </button>
                 );
               })}
-
-              {/* Final Signature Step Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (allPagesAccepted) {
-                    setCurrentStep(enabledPages.length);
-                  } else {
-                    alert('Please initial all document pages first before proceeding to final signature.');
-                  }
-                }}
-                className={`w-full text-left p-3 rounded-xl border transition-all flex items-start gap-3 ${
-                  isFinalStep
-                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm cursor-pointer'
-                    : allPagesAccepted
-                    ? 'bg-amber-50 border-amber-300 text-neutral-900 hover:bg-amber-100 cursor-pointer'
-                    : 'bg-neutral-100 border-neutral-200 text-neutral-400 cursor-not-allowed opacity-75'
-                }`}
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0 mt-0.5 ${
-                    isFinalStep
-                      ? 'bg-amber-400 text-neutral-950'
-                      : allPagesAccepted
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-neutral-200 text-neutral-500'
-                  }`}
-                >
-                  <PenTool size={12} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-bold ${isFinalStep ? 'text-white' : 'text-neutral-900'}`}>
-                    Execute & Sign Packet
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${isFinalStep ? 'text-neutral-300' : 'text-neutral-500'}`}>
-                    {allPagesAccepted ? 'Ready for final signature' : 'Complete all pages above first'}
-                  </p>
-                </div>
-              </button>
             </div>
           </div>
 
@@ -498,31 +499,30 @@ export function PortalAgreementGate({
           <div className="bg-white rounded-2xl border border-neutral-200 p-4 shadow-xs flex items-start gap-3">
             <ShieldCheck size={18} className="text-emerald-600 shrink-0 mt-0.5" />
             <div className="text-[11px] text-neutral-600 leading-relaxed">
-              <p className="font-bold text-neutral-900 mb-0.5">Verified Electronic Record</p>
-              Once signed, a timestamped copy of all {enabledPages.length} agreements is permanently linked to{' '}
-              <span className="font-semibold text-neutral-800">{companyName}</span> and your portal will unlock immediately.
+              <p className="font-bold text-neutral-900 mb-0.5">Verified Electronic Signature</p>
+              Each document must be signed below. Once all {enabledPages.length} documents are signed, your Client Portal will unlock immediately.
             </div>
           </div>
         </aside>
 
-        {/* Right Main Column: Document Sheet OR Final Signature Pad */}
+        {/* Right Main Column: Document Sheet + Direct Signature Block */}
         <section className="lg:col-span-8 flex flex-col">
-          {!isFinalStep && activePage ? (
+          {activePage && (
             <div className="bg-white rounded-2xl border border-neutral-200 shadow-md overflow-hidden flex flex-col">
-              {/* Document Top Metadata Bar */}
-              <div className="bg-neutral-900 text-white px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Light, Clean Document Header (No Black Background) */}
+              <div className="bg-neutral-50 border-b border-neutral-200 px-6 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 block mb-1">
-                    Page {currentStep + 1} of {enabledPages.length} • {activePage.subtitle}
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 block mb-1">
+                    Document {currentStep + 1} of {enabledPages.length} • {formatCleanSubtitle(activePage.subtitle)}
                   </span>
-                  <h1 className="font-serif text-xl sm:text-2xl tracking-tight text-white">
+                  <h1 className="font-serif text-xl sm:text-2xl tracking-tight text-neutral-900">
                     {activePage.title}
                   </h1>
                 </div>
-                <div className="text-left sm:text-right text-[11px] text-neutral-300 shrink-0 space-y-0.5">
+                <div className="text-left sm:text-right text-[11px] text-neutral-500 shrink-0 space-y-0.5">
                   <div className="flex items-center sm:justify-end gap-1.5">
                     <Building2 size={12} className="text-neutral-400" />
-                    <span className="font-bold text-white">{companyName}</span>
+                    <span className="font-bold text-neutral-800">{companyName}</span>
                   </div>
                   <div className="flex items-center sm:justify-end gap-1.5">
                     <Calendar size={12} className="text-neutral-400" />
@@ -534,117 +534,58 @@ export function PortalAgreementGate({
               {/* Paper Document Body */}
               <div
                 ref={docScrollRef}
-                className="p-6 sm:p-10 bg-white max-h-[52vh] overflow-y-auto border-b border-neutral-200"
+                className="p-6 sm:p-10 bg-white max-h-[42vh] overflow-y-auto border-b border-neutral-200"
               >
                 <div className="max-w-2xl mx-auto font-sans text-xs sm:text-[13px] text-neutral-800 leading-relaxed whitespace-pre-wrap">
                   {activePage.content}
                 </div>
               </div>
 
-              {/* DocuSign-Style Bottom Initial & Acceptance Bar */}
-              <div className="p-6 bg-amber-50/70 border-t border-amber-200/80 flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  {/* Left: Checkbox confirmation */}
-                  <label className="flex items-start gap-3 cursor-pointer select-none flex-1">
-                    <input
-                      type="checkbox"
-                      checked={pageCheckboxChecked}
-                      onChange={e => setPageCheckboxChecked(e.target.checked)}
-                      className="w-4 h-4 mt-0.5 accent-neutral-900 rounded cursor-pointer"
-                    />
-                    <span className="text-xs font-bold text-neutral-900 leading-snug">
-                      I have read, understand, and agree to the terms set forth in{' '}
-                      <span className="underline">{activePage.title}</span> (Page {currentStep + 1} of {enabledPages.length}).
-                    </span>
-                  </label>
-
-                  {/* Right: DocuSign Initial Stamp Box */}
-                  <div className="flex items-center gap-3 shrink-0 bg-white border-2 border-amber-400 rounded-xl px-3.5 py-2 shadow-xs">
-                    <div className="bg-amber-400 text-neutral-950 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded">
-                      Initial Here
+              {/* Direct Document Signature Block */}
+              <div className="p-6 sm:p-8 bg-neutral-50/70 space-y-5">
+                <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-amber-400 text-neutral-950 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md flex items-center gap-1">
+                      <PenTool size={11} /> Sign Document {currentStep + 1} of {enabledPages.length}
                     </div>
-                    <input
-                      type="text"
-                      maxLength={5}
-                      value={initials}
-                      onChange={e => setInitials(e.target.value.toUpperCase())}
-                      placeholder="JD"
-                      className="w-16 text-center font-serif italic text-base font-bold text-neutral-900 border-b border-neutral-300 focus:border-black focus:outline-none uppercase bg-transparent"
-                    />
+                    {signedPagesMap[activePage.id] && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
+                        <CheckCircle2 size={12} /> Signed
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Switch between Draw & Type Signature */}
+                  <div className="inline-flex bg-white p-1 rounded-xl border border-neutral-200 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setSignatureMode('draw')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        signatureMode === 'draw'
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      <PenTool size={12} />
+                      Draw Signature
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSignatureMode('type')}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        signatureMode === 'type'
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                      }`}
+                    >
+                      <Type size={12} />
+                      Type Signature
+                    </button>
                   </div>
                 </div>
 
-                {/* Navigation Buttons */}
-                <div className="flex items-center justify-between pt-2 border-t border-amber-200/60">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
-                    disabled={currentStep === 0}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 bg-white text-xs font-bold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft size={15} />
-                    Previous Page
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleAcceptCurrentPage}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-extrabold uppercase tracking-wider shadow-md transition-all cursor-pointer"
-                  >
-                    <Check size={15} strokeWidth={3} className="text-amber-400" />
-                    {currentStep < enabledPages.length - 1
-                      ? `Initial & Continue to Page ${currentStep + 2}`
-                      : 'Initial & Proceed to Final Signature'}
-                    <ChevronRight size={15} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Final Signature Execution Card */
-            <form
-              onSubmit={handleFinishAndSign}
-              className="bg-white rounded-2xl border border-neutral-200 shadow-md overflow-hidden flex flex-col"
-            >
-              <div className="bg-neutral-900 text-white px-6 py-5 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400 block mb-1">
-                    Final Step • All {enabledPages.length} Pages Initialed
-                  </span>
-                  <h1 className="font-serif text-xl sm:text-2xl tracking-tight text-white">
-                    Adopt Signature & Unlock Client Portal
-                  </h1>
-                </div>
-                <ShieldCheck size={28} className="text-emerald-400 shrink-0" />
-              </div>
-
-              <div className="p-6 sm:p-8 space-y-6">
-                {/* Summary of Initialed Pages */}
-                <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4">
-                  <p className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-900 mb-2.5 flex items-center gap-1.5">
-                    <CheckCircle2 size={14} className="text-emerald-600" />
-                    Initialed Agreement Pages ({enabledPages.length} of {enabledPages.length})
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {enabledPages.map((page, idx) => (
-                      <div
-                        key={page.id}
-                        onClick={() => setCurrentStep(idx)}
-                        className="bg-white border border-emerald-200/80 rounded-lg px-3 py-2 flex items-center justify-between text-xs cursor-pointer hover:border-emerald-400 transition-colors"
-                      >
-                        <span className="font-bold text-neutral-800 truncate pr-2">
-                          {idx + 1}. {page.title}
-                        </span>
-                        <span className="text-[10px] font-serif italic font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded shrink-0">
-                          {acceptedPages[page.id]?.initials || initials}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Signer Identity Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Signer Name & Title Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500 block mb-1">
                       Full Legal Name *
@@ -655,10 +596,12 @@ export function PortalAgreementGate({
                       value={signerName}
                       onChange={e => {
                         setSignerName(e.target.value);
-                        if (signatureMode === 'type') setTypedSignature(e.target.value);
+                        if (!typedSignature || typedSignature === signerName) {
+                          setTypedSignature(e.target.value);
+                        }
                       }}
                       placeholder="Jane Doe"
-                      className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:bg-white focus:border-black focus:outline-none"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -670,8 +613,8 @@ export function PortalAgreementGate({
                       required
                       value={signerTitle}
                       onChange={e => setSignerTitle(e.target.value)}
-                      placeholder="Owner / Authorized Representative"
-                      className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:bg-white focus:border-black focus:outline-none"
+                      placeholder="Authorized Representative"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -683,143 +626,116 @@ export function PortalAgreementGate({
                       value={signerEmail}
                       onChange={e => setSignerEmail(e.target.value)}
                       placeholder="you@company.com"
-                      className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:bg-white focus:border-black focus:outline-none"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Signature Method Tabs */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500">
-                      Electronic Signature *
-                    </label>
-                    <div className="inline-flex bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+                {/* Signature Pad Area */}
+                {signatureMode === 'draw' ? (
+                  <div className="bg-amber-50/50 border-2 border-amber-300 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-950">
+                        Sign with your mouse or finger on the signature line below:
+                      </span>
                       <button
                         type="button"
-                        onClick={() => setSignatureMode('type')}
-                        className={`px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          signatureMode === 'type'
-                            ? 'bg-white text-neutral-900 shadow-2xs'
-                            : 'text-neutral-500 hover:text-neutral-800'
-                        }`}
+                        onClick={handleClearCanvas}
+                        className="text-[11px] font-bold text-neutral-600 hover:text-red-600 flex items-center gap-1 cursor-pointer"
                       >
-                        <Type size={13} />
-                        Type Signature
+                        <RotateCcw size={12} /> Clear Signature
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setSignatureMode('draw')}
-                        className={`px-3 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                          signatureMode === 'draw'
-                            ? 'bg-white text-neutral-900 shadow-2xs'
-                            : 'text-neutral-500 hover:text-neutral-800'
-                        }`}
-                      >
-                        <PenTool size={13} />
-                        Draw Signature
-                      </button>
+                    </div>
+                    <div className="relative bg-white border border-neutral-300 rounded-xl overflow-hidden shadow-inner">
+                      <canvas
+                        ref={canvasRef}
+                        width={640}
+                        height={140}
+                        onMouseDown={handleStartDraw}
+                        onMouseMove={handleMoveDraw}
+                        onMouseUp={handleEndDraw}
+                        onMouseLeave={handleEndDraw}
+                        onTouchStart={handleStartDraw}
+                        onTouchMove={handleMoveDraw}
+                        onTouchEnd={handleEndDraw}
+                        className="w-full h-32 cursor-crosshair touch-none"
+                      />
+                      <div className="absolute bottom-5 left-6 right-6 border-b border-neutral-300 pointer-events-none flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-600 pb-1">SIGN HERE ✕</span>
+                        <span className="text-[9px] font-mono text-neutral-400 pb-1 uppercase">
+                          {companyName} • Document {currentStep + 1} of {enabledPages.length}
+                        </span>
+                      </div>
                     </div>
                   </div>
-
-                  {signatureMode === 'type' ? (
-                    <div className="bg-amber-50/40 border-2 border-amber-300 rounded-2xl p-5 space-y-3">
-                      <input
-                        type="text"
-                        value={typedSignature}
-                        onChange={e => setTypedSignature(e.target.value)}
-                        placeholder="Type your full legal name to sign..."
-                        className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 focus:border-black focus:outline-none"
-                      />
-                      <div className="bg-white border border-dashed border-neutral-300 rounded-xl px-6 py-5 flex items-center justify-between">
-                        <div className="flex items-baseline gap-3 min-w-0">
-                          <span className="text-xs font-bold text-amber-600 uppercase tracking-widest shrink-0">
-                            Sign Here:
-                          </span>
-                          <span className="font-serif italic text-3xl sm:text-4xl text-neutral-900 tracking-wide truncate">
-                            {typedSignature || signerName || 'Your Signature'}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono text-neutral-400 shrink-0 hidden sm:inline">
-                          DOCUSIGN-VERIFIED
+                ) : (
+                  <div className="bg-amber-50/50 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
+                    <input
+                      type="text"
+                      value={typedSignature}
+                      onChange={e => setTypedSignature(e.target.value)}
+                      placeholder="Type your full legal name to sign..."
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-2 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                    />
+                    <div className="bg-white border border-dashed border-neutral-300 rounded-xl px-6 py-4 flex items-center justify-between">
+                      <div className="flex items-baseline gap-3 min-w-0">
+                        <span className="text-xs font-bold text-amber-600 uppercase tracking-widest shrink-0">
+                          Sign Here ✕
+                        </span>
+                        <span className="font-serif italic text-3xl text-neutral-900 tracking-wide truncate">
+                          {typedSignature || signerName || 'Your Signature'}
                         </span>
                       </div>
+                      <span className="text-[10px] font-mono text-neutral-400 shrink-0 hidden sm:inline">
+                        E-SIGNATURE
+                      </span>
                     </div>
-                  ) : (
-                    <div className="bg-amber-50/40 border-2 border-amber-300 rounded-2xl p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-amber-900">
-                          Use your mouse or finger to sign on the line below:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleClearCanvas}
-                          className="text-[11px] font-bold text-neutral-600 hover:text-red-600 flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw size={12} /> Clear Pad
-                        </button>
-                      </div>
-                      <div className="relative bg-white border border-neutral-300 rounded-xl overflow-hidden">
-                        <canvas
-                          ref={canvasRef}
-                          width={640}
-                          height={160}
-                          onMouseDown={handleStartDraw}
-                          onMouseMove={handleMoveDraw}
-                          onMouseUp={handleEndDraw}
-                          onMouseLeave={handleEndDraw}
-                          onTouchStart={handleStartDraw}
-                          onTouchMove={handleMoveDraw}
-                          onTouchEnd={handleEndDraw}
-                          className="w-full h-36 cursor-crosshair touch-none"
-                        />
-                        <div className="absolute bottom-6 left-6 right-6 border-b border-neutral-300 pointer-events-none flex items-center justify-between">
-                          <span className="text-xs font-bold text-neutral-400 pb-1">X</span>
-                          <span className="text-[9px] font-mono text-neutral-300 pb-1 uppercase">
-                            Authorized Signature — {companyName}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Electronic Signature Legal Consent */}
-                <label className="flex items-start gap-3 p-4 rounded-xl bg-neutral-50 border border-neutral-200 cursor-pointer select-none">
+                {/* Agreement Confirmation Checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer select-none bg-white p-3.5 rounded-xl border border-neutral-200">
                   <input
                     type="checkbox"
-                    checked={consentChecked}
-                    onChange={e => setConsentChecked(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 accent-neutral-900 rounded cursor-pointer"
+                    checked={pageCheckboxChecked}
+                    onChange={e => setPageCheckboxChecked(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 accent-emerald-600 rounded cursor-pointer"
                   />
-                  <span className="text-xs text-neutral-700 leading-relaxed font-medium">
-                    By checking this box and clicking <strong>"Finish & Sign All Documents"</strong>, I confirm that I am authorized to sign on behalf of{' '}
-                    <strong>{companyName}</strong>, and I agree that my electronic initials ({initials || '—'}) and signature constitute my legally binding execution of all {enabledPages.length} agreements in this packet.
+                  <span className="text-xs font-semibold text-neutral-800 leading-snug">
+                    I have read, understand, and agree to the terms of{' '}
+                    <strong className="text-neutral-950 underline">{activePage.title}</strong> (Document {currentStep + 1} of {enabledPages.length}), and I execute this document with my legally binding electronic signature on behalf of <strong>{companyName}</strong>.
                   </span>
                 </label>
-              </div>
 
-              {/* Footer Actions */}
-              <div className="px-6 sm:px-8 py-4 bg-neutral-50 border-t border-neutral-200 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(enabledPages.length - 1)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 bg-white text-xs font-bold text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
-                >
-                  <ChevronLeft size={15} />
-                  Back to Documents
-                </button>
+                {/* Bottom Navigation & Sign Button */}
+                <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
+                    disabled={currentStep === 0 || isSubmitting}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 bg-white text-xs font-bold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft size={15} />
+                    Previous Document
+                  </button>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  <ShieldCheck size={16} />
-                  {isSubmitting ? 'Executing Agreements...' : 'Finish & Sign All Documents'}
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleSignCurrentDocument}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <PenTool size={14} />
+                    {isSubmitting
+                      ? 'Saving Signed Documents...'
+                      : currentStep < enabledPages.length - 1
+                      ? `Sign Document ${currentStep + 1} & Continue`
+                      : `Sign Final Document & Unlock Portal`}
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
               </div>
-            </form>
+            </div>
           )}
         </section>
       </div>
@@ -858,17 +774,17 @@ export function SignedAgreementsViewerModal({
         }));
 
   return (
-    <div className="fixed inset-0 z-[150] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl border border-neutral-200 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-neutral-900 text-white flex items-center justify-between shrink-0">
+        {/* Clean Light Modal Header (No Black Background) */}
+        <div className="px-6 py-4 bg-neutral-50 border-b border-neutral-200 text-neutral-900 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <ShieldCheck size={22} className="text-emerald-400" />
+            <ShieldCheck size={22} className="text-emerald-600" />
             <div>
-              <h3 className="font-serif text-lg text-white">
+              <h3 className="font-serif text-lg text-neutral-900">
                 {signedData ? 'Executed Portal Agreements & NDA Packet' : 'Portal Agreement Packet Preview'}
               </h3>
-              <p className="text-[11px] text-neutral-300">
+              <p className="text-[11px] text-neutral-500">
                 {companyName} •{' '}
                 {signedData?.signedAt
                   ? `Signed on ${new Date(signedData.signedAt).toLocaleString()}`
@@ -880,14 +796,14 @@ export function SignedAgreementsViewerModal({
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Printer size={14} /> Print / Save PDF
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg bg-white border border-neutral-200 hover:bg-neutral-100 text-neutral-600 transition-colors cursor-pointer"
             >
               <X size={16} />
             </button>
@@ -895,7 +811,7 @@ export function SignedAgreementsViewerModal({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 sm:p-8 overflow-y-auto space-y-6 bg-neutral-50 flex-1">
+        <div className="p-6 sm:p-8 overflow-y-auto space-y-6 bg-neutral-50/50 flex-1">
           {/* Signature Certificate Summary */}
           {signedData && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -915,8 +831,7 @@ export function SignedAgreementsViewerModal({
                   </p>
                 )}
                 <p className="text-xs text-emerald-800">
-                  <strong>Executed At:</strong> {new Date(signedData.signedAt).toLocaleString()} •{' '}
-                  <strong>Initials:</strong> {signedData.initials}
+                  <strong>Executed At:</strong> {new Date(signedData.signedAt).toLocaleString()}
                 </p>
               </div>
 
@@ -945,23 +860,40 @@ export function SignedAgreementsViewerModal({
               key={page.id || index}
               className="bg-white rounded-2xl border border-neutral-200 shadow-2xs overflow-hidden"
             >
-              <div className="px-6 py-3.5 bg-neutral-100 border-b border-neutral-200 flex items-center justify-between">
+              <div className="px-6 py-3.5 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-                    Page {index + 1} of {pagesToDisplay.length}
+                    Document {index + 1} of {pagesToDisplay.length}
                   </span>
                   <h4 className="text-sm font-bold text-neutral-900">{page.title}</h4>
                 </div>
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3 py-1 rounded-lg">
-                  <span className="text-[10px] font-extrabold uppercase text-amber-900">Initials:</span>
-                  <span className="font-serif italic font-bold text-sm text-neutral-900">
-                    {page.initials || signedData?.initials || '—'}
-                  </span>
-                </div>
+                {signedData && (
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    <span className="text-[10px] font-extrabold uppercase text-emerald-900">
+                      Signed by {signedData.signerName}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="p-6 text-xs text-neutral-800 leading-relaxed whitespace-pre-wrap font-sans">
                 {page.contentSnapshot}
               </div>
+              {signedData && (
+                <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="text-[11px] text-neutral-600">
+                    <strong>Signed By:</strong> {signedData.signerName} ({signedData.signerTitle}) •{' '}
+                    <span>{new Date(page.initialedAt || signedData.signedAt).toLocaleString()}</span>
+                  </div>
+                  {signedData.signatureDataUrl && (
+                    <img
+                      src={signedData.signatureDataUrl}
+                      alt="Signature"
+                      className="h-9 object-contain bg-white border border-neutral-200 rounded px-3 py-1"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
