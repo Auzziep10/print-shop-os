@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw } from 'lucide-react';
+import { DEFAULT_PORTAL_AGREEMENTS, PortalAgreementPage } from '../../lib/portalAgreements';
+import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
 
 export interface ColorVariation {
   id: string;
@@ -119,6 +121,8 @@ export function CustomerDetail() {
     autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
     allowLocalDelivery: true,
     freeShipping: false,
+    requirePortalAgreements: false,
+    portalAgreementPages: DEFAULT_PORTAL_AGREEMENTS as PortalAgreementPage[],
     resaleCertificateUrl: '',
     resaleCertificateName: '',
     accountDiscount: {
@@ -129,6 +133,8 @@ export function CustomerDetail() {
       note: ''
     }
   });
+  const [editingAgreementPageId, setEditingAgreementPageId] = useState<string | null>(null);
+  const [isSignedAgreementsModalOpen, setIsSignedAgreementsModalOpen] = useState(false);
 
   const [customPricing, setCustomPricing] = useState<{
     enabled: boolean;
@@ -1385,6 +1391,10 @@ export function CustomerDetail() {
             autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
             allowLocalDelivery: data.allowLocalDelivery ?? true,
             freeShipping: data.freeShipping ?? false,
+            requirePortalAgreements: Boolean(data.requirePortalAgreements),
+            portalAgreementPages: Array.isArray(data.portalAgreementPages) && data.portalAgreementPages.length > 0
+              ? data.portalAgreementPages
+              : DEFAULT_PORTAL_AGREEMENTS,
             resaleCertificateUrl: data.resaleCertificateUrl || '',
             resaleCertificateName: data.resaleCertificateName || '',
             accountDiscount: {
@@ -1527,6 +1537,8 @@ export function CustomerDetail() {
         autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         freeShipping: editCompanyForm.freeShipping ?? false,
+        requirePortalAgreements: Boolean(editCompanyForm.requirePortalAgreements),
+        portalAgreementPages: editCompanyForm.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
         accountDiscount: editCompanyForm.accountDiscount,
@@ -1550,6 +1562,8 @@ export function CustomerDetail() {
         autoQuotingEnabled: customPricing.autoQuotingEnabled || 'inherit',
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         freeShipping: editCompanyForm.freeShipping ?? false,
+        requirePortalAgreements: Boolean(editCompanyForm.requirePortalAgreements),
+        portalAgreementPages: editCompanyForm.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName,
         accountDiscount: editCompanyForm.accountDiscount,
@@ -1830,6 +1844,10 @@ export function CustomerDetail() {
                 autoQuotingEnabled: liveCustomerData.autoQuotingEnabled || prev.autoQuotingEnabled,
                 allowLocalDelivery: liveCustomerData.allowLocalDelivery ?? prev.allowLocalDelivery,
                 freeShipping: liveCustomerData.freeShipping ?? prev.freeShipping,
+                requirePortalAgreements: Boolean(liveCustomerData.requirePortalAgreements),
+                portalAgreementPages: Array.isArray(liveCustomerData.portalAgreementPages) && liveCustomerData.portalAgreementPages.length > 0
+                  ? liveCustomerData.portalAgreementPages
+                  : prev.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS,
                 resaleCertificateUrl: liveCustomerData.resaleCertificateUrl || prev.resaleCertificateUrl,
                 resaleCertificateName: liveCustomerData.resaleCertificateName || prev.resaleCertificateName,
                 accountDiscount: {
@@ -1961,6 +1979,23 @@ export function CustomerDetail() {
                     >
                       <FileText size={10} /> Resale Cert
                     </a>
+                  )}
+                  {(liveCustomerData?.requirePortalAgreements || customer?.requirePortalAgreements) && (
+                    <button
+                      type="button"
+                      onClick={() => setIsSignedAgreementsModalOpen(true)}
+                      className={`text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs cursor-pointer transition-colors ${
+                        liveCustomerData?.portalAgreementsSigned
+                          ? 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800'
+                          : 'bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800'
+                      }`}
+                      title="Click to view or preview Portal Agreements & NDA Packet"
+                    >
+                      <ShieldCheck size={11} className={liveCustomerData?.portalAgreementsSigned ? 'text-emerald-600' : 'text-amber-600'} />
+                      {liveCustomerData?.portalAgreementsSigned
+                        ? 'NDA & Agreements Signed'
+                        : 'Awaiting NDA / Portal Signature'}
+                    </button>
                   )}
                 </div>
             </div>
@@ -3306,6 +3341,23 @@ export function CustomerDetail() {
                       <input type="checkbox" id="bypassMinimumRequirement" checked={editCompanyForm.bypassMinimumRequirement} onChange={e => setEditCompanyForm({...editCompanyForm, bypassMinimumRequirement: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="bypassMinimumRequirement" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">BYPASS MINIMUM GARMENT REQUIREMENT PER STYLE (ALLOW &lt;20 UNITS)</label>
                     </div>
+                    <div className={`flex items-center gap-3 p-2.5 -ml-2 rounded-xl border transition-colors ${
+                      editCompanyForm.requirePortalAgreements
+                        ? 'bg-amber-50 border-amber-300'
+                        : 'bg-brand-bg/50 border-brand-border/60'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        id="requirePortalAgreementsCheckbox"
+                        checked={Boolean(editCompanyForm.requirePortalAgreements)}
+                        onChange={e => setEditCompanyForm({ ...editCompanyForm, requirePortalAgreements: e.target.checked })}
+                        className="w-4 h-4 accent-amber-600 cursor-pointer"
+                      />
+                      <label htmlFor="requirePortalAgreementsCheckbox" className="text-xs font-bold text-amber-900 uppercase tracking-widest cursor-pointer mt-0.5 flex items-center gap-1.5">
+                        <PenTool size={13} className="text-amber-700" />
+                        REQUIRE NDA &amp; PORTAL AGREEMENTS BEFORE PORTAL ACCESS (DOCUSIGN GATE)
+                      </label>
+                    </div>
 
 
                     {/* Resale Certificate uploader */}
@@ -3382,6 +3434,226 @@ export function CustomerDetail() {
                       )}
                     </div>
                   </div>
+               </div>
+
+               {/* Portal Onboarding & NDA Agreement Gate Card (DocuSign-style) */}
+               <div className="bg-white rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] overflow-hidden">
+                 <div className="p-5 flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl shrink-0">
+                       <PenTool size={18} />
+                     </div>
+                     <div>
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <h3 className="text-sm font-bold text-brand-primary">
+                           Portal NDA &amp; Onboarding Agreements (DocuSign Gate)
+                         </h3>
+                         <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                           liveCustomerData?.portalAgreementsSigned
+                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                             : editCompanyForm.requirePortalAgreements
+                             ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                             : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
+                         }`}>
+                           {liveCustomerData?.portalAgreementsSigned
+                             ? `Signed • ${liveCustomerData?.portalAgreementsData?.signedAt ? new Date(liveCustomerData.portalAgreementsData.signedAt).toLocaleDateString() : 'Completed'}`
+                             : editCompanyForm.requirePortalAgreements
+                             ? 'Required • Awaiting Client Signature'
+                             : 'Disabled (Not Required)'}
+                         </span>
+                       </div>
+                       <p className="text-[11px] text-brand-secondary mt-0.5">
+                         When enabled, this client must review, initial, and e-sign the 4 onboarding agreement pages (NDA + 3 Portal Agreements) before they can view their Client Portal.
+                       </p>
+                     </div>
+                   </div>
+
+                   {/* Enable / Disable Toggle Switch */}
+                   <button
+                     type="button"
+                     onClick={() => setEditCompanyForm(prev => ({
+                       ...prev,
+                       requirePortalAgreements: !prev.requirePortalAgreements
+                     }))}
+                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                       editCompanyForm.requirePortalAgreements ? 'bg-amber-500' : 'bg-neutral-300'
+                     }`}
+                   >
+                     <span
+                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                         editCompanyForm.requirePortalAgreements ? 'translate-x-5' : 'translate-x-0'
+                       }`}
+                     />
+                   </button>
+                 </div>
+
+                 {(editCompanyForm.requirePortalAgreements || liveCustomerData?.portalAgreementsSigned) && (
+                   <div className="p-5 pt-0 border-t border-brand-border/40 mt-1 space-y-4">
+                     {/* Signed Status Certificate Box */}
+                     {liveCustomerData?.portalAgreementsSigned && liveCustomerData?.portalAgreementsData && (
+                       <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                         <div className="space-y-1">
+                           <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-900">
+                             <ShieldCheck size={15} className="text-emerald-600" />
+                             <span>Signed by {liveCustomerData.portalAgreementsData.signerName} ({liveCustomerData.portalAgreementsData.signerTitle})</span>
+                           </div>
+                           <p className="text-[11px] text-emerald-800">
+                             Executed on {new Date(liveCustomerData.portalAgreementsData.signedAt).toLocaleString()} • Initials: <strong>{liveCustomerData.portalAgreementsData.initials}</strong>
+                           </p>
+                         </div>
+                         <div className="flex items-center gap-2 shrink-0">
+                           <button
+                             type="button"
+                             onClick={() => setIsSignedAgreementsModalOpen(true)}
+                             className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                           >
+                             <Eye size={13} /> View Signed Packet
+                           </button>
+                           <button
+                             type="button"
+                             onClick={async () => {
+                               if (!id) return;
+                               if (!window.confirm('Reset signature status so this client is required to sign the agreement pages again upon next portal visit?')) return;
+                               try {
+                                 await updateDoc(doc(db, 'customers', id), {
+                                   portalAgreementsSigned: false,
+                                   portalAgreementsData: null
+                                 });
+                                 setLiveCustomerData((prev: any) => ({
+                                   ...prev,
+                                   portalAgreementsSigned: false,
+                                   portalAgreementsData: null
+                                 }));
+                               } catch (err) {
+                                 console.error('Failed to reset signature status:', err);
+                                 alert('Failed to reset signature status.');
+                               }
+                             }}
+                             className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 hover:bg-red-50 hover:border-red-300 hover:text-red-700 text-emerald-900 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                           >
+                             <RotateCcw size={12} /> Require Re-Sign
+                           </button>
+                         </div>
+                       </div>
+                     )}
+
+                     {/* 4 Agreement Pages List & Inline Customizer */}
+                     <div className="pt-3 space-y-2.5">
+                       <div className="flex items-center justify-between">
+                         <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">
+                           Included Agreement Pages ({(editCompanyForm.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).filter(p => p.enabled !== false).length} of {(editCompanyForm.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).length})
+                         </span>
+                         <div className="flex items-center gap-2">
+                           <button
+                             type="button"
+                             onClick={() => setIsSignedAgreementsModalOpen(true)}
+                             className="text-[10px] font-bold text-brand-primary hover:underline flex items-center gap-1 cursor-pointer"
+                           >
+                             <Eye size={12} /> Preview Packet
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setEditCompanyForm(prev => ({
+                                 ...prev,
+                                 portalAgreementPages: DEFAULT_PORTAL_AGREEMENTS
+                               }));
+                               setEditingAgreementPageId(null);
+                             }}
+                             className="text-[10px] font-semibold text-brand-secondary hover:text-red-600 cursor-pointer"
+                           >
+                             Reset Default Text
+                           </button>
+                         </div>
+                       </div>
+
+                       <div className="space-y-2">
+                         {(editCompanyForm.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).map((page, idx) => {
+                           const isEditingThisPage = editingAgreementPageId === page.id;
+                           return (
+                             <div
+                               key={page.id || idx}
+                               className="border border-brand-border/70 rounded-xl bg-brand-bg/40 p-3 space-y-3"
+                             >
+                               <div className="flex items-center justify-between gap-3">
+                                 <label className="flex items-center gap-2.5 cursor-pointer select-none min-w-0 flex-1">
+                                   <input
+                                     type="checkbox"
+                                     checked={page.enabled !== false}
+                                     onChange={e => {
+                                       const checked = e.target.checked;
+                                       setEditCompanyForm(prev => ({
+                                         ...prev,
+                                         portalAgreementPages: (prev.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).map((p, i) =>
+                                           i === idx ? { ...p, enabled: checked } : p
+                                         )
+                                       }));
+                                     }}
+                                     className="w-4 h-4 accent-brand-primary rounded cursor-pointer"
+                                   />
+                                   <span className="text-xs font-bold text-brand-primary truncate">
+                                     Page {idx + 1}: {page.title}
+                                   </span>
+                                 </label>
+
+                                 <button
+                                   type="button"
+                                   onClick={() => setEditingAgreementPageId(isEditingThisPage ? null : page.id)}
+                                   className="px-2.5 py-1 rounded-lg bg-white border border-brand-border text-[10px] font-bold text-brand-secondary hover:text-brand-primary transition-colors cursor-pointer shrink-0"
+                                 >
+                                   {isEditingThisPage ? 'Done Editing' : 'Edit Page Text'}
+                                 </button>
+                               </div>
+
+                               {isEditingThisPage && (
+                                 <div className="space-y-2 pt-2 border-t border-brand-border/50">
+                                   <div>
+                                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary block mb-1">
+                                       Page Title
+                                     </label>
+                                     <input
+                                       type="text"
+                                       value={page.title}
+                                       onChange={e => {
+                                         const val = e.target.value;
+                                         setEditCompanyForm(prev => ({
+                                           ...prev,
+                                           portalAgreementPages: (prev.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).map((p, i) =>
+                                             i === idx ? { ...p, title: val } : p
+                                           )
+                                         }));
+                                       }}
+                                       className="w-full bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary"
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary block mb-1">
+                                       Agreement Body Text (Supports {'{{COMPANY_NAME}}'} and {'{{DATE}}'})
+                                     </label>
+                                     <textarea
+                                       rows={7}
+                                       value={page.content}
+                                       onChange={e => {
+                                         const val = e.target.value;
+                                         setEditCompanyForm(prev => ({
+                                           ...prev,
+                                           portalAgreementPages: (prev.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS).map((p, i) =>
+                                             i === idx ? { ...p, content: val } : p
+                                           )
+                                         }));
+                                       }}
+                                       className="w-full bg-white border border-brand-border rounded-lg p-3 text-xs font-mono text-brand-primary focus:outline-none focus:border-brand-primary leading-relaxed"
+                                     />
+                                   </div>
+                                 </div>
+                               )}
+                             </div>
+                           );
+                         })}
+                       </div>
+                     </div>
+                   </div>
+                 )}
                </div>
 
                {/* Automatic Account Discount Card */}
@@ -5177,6 +5449,15 @@ export function CustomerDetail() {
           croppedLogo: liveCustomerData?.croppedLogo,
           portalId: liveCustomerData?.portalId
         }}
+      />
+
+      {/* Signed Agreements & NDA Packet Viewer Modal */}
+      <SignedAgreementsViewerModal
+        isOpen={isSignedAgreementsModalOpen}
+        onClose={() => setIsSignedAgreementsModalOpen(false)}
+        companyName={editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.name || 'Client'}
+        signedData={liveCustomerData?.portalAgreementsData || null}
+        fallbackPages={editCompanyForm.portalAgreementPages || liveCustomerData?.portalAgreementPages || DEFAULT_PORTAL_AGREEMENTS}
       />
     </div>
   );

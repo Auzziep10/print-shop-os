@@ -1,9 +1,10 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check, MessageSquare, Send, Loader2, FileText, ShieldCheck, Eye } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
+import { PortalAgreementGate, SignedAgreementsViewerModal } from '../Portal/PortalAgreementGate';
 import { db, storage } from '../../lib/firebase';
 import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -58,6 +59,8 @@ export function PortalLayout() {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPreviewingAgreementGate, setIsPreviewingAgreementGate] = useState(false);
+  const [isSignedAgreementsModalOpen, setIsSignedAgreementsModalOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [isJiggling, setIsJiggling] = useState(false);
 
@@ -398,6 +401,9 @@ export function PortalLayout() {
   // Effect to trigger shipping address complete pop-up
   useEffect(() => {
     if (!isLoadingCustomer && customer) {
+      if (customer.requirePortalAgreements && !customer.portalAgreementsSigned) {
+        return;
+      }
       const hasIncompleteAddress = !customer.shippingStreet || !customer.shippingCity || !customer.shippingState || !customer.shippingZip;
       const isDismissed = sessionStorage.getItem('wovn_dismissed_address_prompt') === 'true';
       if (hasIncompleteAddress && !isDismissed) {
@@ -575,7 +581,7 @@ export function PortalLayout() {
     });
   };
 
-  if (loading || !user) {
+  if (loading || !user || (customerId && isLoadingCustomer)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white text-black">
         <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full" />
@@ -583,13 +589,57 @@ export function PortalLayout() {
     );
   }
 
+  const requiresAgreementSignature = Boolean(customer?.requirePortalAgreements) && !customer?.portalAgreementsSigned;
+
+  if (customerId && ((requiresAgreementSignature && userData?.role === 'Client') || isPreviewingAgreementGate)) {
+    return (
+      <PortalAgreementGate
+        customerId={customerId}
+        customer={customer}
+        userEmail={userData?.email || user?.email || ''}
+        userName={userData?.name || ''}
+        isPreviewMode={isPreviewingAgreementGate}
+        onExitPreview={() => setIsPreviewingAgreementGate(false)}
+        onSignOut={async () => {
+          await signOut();
+          navigate('/login');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
       {/* Admin Impersonation Banner */}
       {customerId && userData?.role !== 'Client' && (
-        <div className="bg-amber-300 text-amber-900 px-6 py-2 text-[13px] font-bold flex items-center justify-center gap-3 uppercase tracking-wider">
-          <Info size={16} />
-          Admin View: You are currently viewing the portal as Customer {customerId}
+        <div className="bg-amber-300 text-amber-900 px-6 py-2 text-[13px] font-bold flex flex-wrap items-center justify-center gap-3 uppercase tracking-wider">
+          <div className="flex items-center gap-2">
+            <Info size={16} />
+            <span>Admin View: You are currently viewing the portal as Customer {customerId}</span>
+          </div>
+          {customer?.requirePortalAgreements && (
+            <div className="flex items-center gap-2 ml-2">
+              {customer?.portalAgreementsSigned ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSignedAgreementsModalOpen(true)}
+                  className="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShieldCheck size={12} />
+                  NDA & Agreements Signed (View)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewingAgreementGate(true)}
+                  className="bg-neutral-900 hover:bg-black text-white px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Eye size={12} />
+                  Client Gate Active (Unsigned) • Preview Signing Flow
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -771,6 +821,20 @@ export function PortalLayout() {
                   Account Settings
                 </button>
 
+                {customer?.portalAgreementsSigned && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileDropdownOpen(false);
+                      setIsSignedAgreementsModalOpen(true);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <FileText size={14} />
+                    Signed Agreements
+                  </button>
+                )}
+
                 <button
                   onClick={async () => {
                     setIsProfileDropdownOpen(false);
@@ -797,6 +861,14 @@ export function PortalLayout() {
         isOpen={isHelpOpen} 
         onClose={() => setIsHelpOpen(false)} 
         onStartTour={handleStartTour}
+      />
+
+      <SignedAgreementsViewerModal
+        isOpen={isSignedAgreementsModalOpen}
+        onClose={() => setIsSignedAgreementsModalOpen(false)}
+        companyName={customer?.company || customer?.name || customer?.contactName || 'Client'}
+        signedData={customer?.portalAgreementsData || null}
+        fallbackPages={customer?.portalAgreementPages || null}
       />
 
       {activeTour && (
