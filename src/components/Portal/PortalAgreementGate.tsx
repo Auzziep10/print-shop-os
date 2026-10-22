@@ -77,6 +77,7 @@ export function PortalAgreementGate({
   // Signature input state for current document
   const [signatureMode, setSignatureMode] = useState<'type' | 'draw'>('draw');
   const [typedSignature, setTypedSignature] = useState(defaultSignerName);
+  const [handwritingFont, setHandwritingFont] = useState<string>("'Great Vibes', cursive");
   const [hasDrawnStroke, setHasDrawnStroke] = useState(false);
   const [savedDrawnDataUrl, setSavedDrawnDataUrl] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -204,17 +205,17 @@ export function PortalAgreementGate({
     setSavedDrawnDataUrl('');
   };
 
-  const renderTypedSignatureDataUrl = (text: string): string => {
+  const renderTypedSignatureDataUrl = (text: string, fontFamily = handwritingFont): string => {
     const offscreen = document.createElement('canvas');
-    offscreen.width = 600;
+    offscreen.width = 640;
     offscreen.height = 160;
     const ctx = offscreen.getContext('2d');
     if (!ctx) return '';
     ctx.clearRect(0, 0, offscreen.width, offscreen.height);
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'italic 46px "Georgia", "Times New Roman", serif';
+    ctx.font = `54px ${fontFamily}`;
     ctx.textBaseline = 'middle';
-    ctx.fillText(text.trim(), 24, 85);
+    ctx.fillText(text.trim(), 28, 82);
     return offscreen.toDataURL('image/png');
   };
 
@@ -244,12 +245,12 @@ export function PortalAgreementGate({
       alert('Please enter your Full Legal Name before signing.');
       return;
     }
-    if (signatureMode === 'type' && !typedSignature.trim()) {
+    if (signatureMode === 'type' && !(typedSignature.trim() || signerName.trim())) {
       alert('Please type your signature in the signature box.');
       return;
     }
     if (signatureMode === 'draw' && !hasDrawnStroke) {
-      alert('Please draw your signature on the signature line before continuing.');
+      alert('Please draw your signature with your mouse/finger, or switch to "Type Name (Writing Font)".');
       return;
     }
     if (!pageCheckboxChecked) {
@@ -631,67 +632,158 @@ export function PortalAgreementGate({
                   </div>
                 </div>
 
-                {/* Signature Pad Area */}
-                {signatureMode === 'draw' ? (
-                  <div className="bg-amber-50/50 border-2 border-amber-300 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-amber-950">
-                        Sign with your mouse or finger on the signature line below:
-                      </span>
+                {/* Unified Signature Box (Draw with Mouse OR Type Name in Writing Font) */}
+                <div className="bg-amber-50/50 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    {/* Prominent Mode Tabs right inside the yellow signature box */}
+                    <div className="inline-flex bg-white p-1 rounded-xl border border-amber-300 shadow-2xs">
                       <button
                         type="button"
-                        onClick={handleClearCanvas}
-                        className="text-[11px] font-bold text-neutral-600 hover:text-red-600 flex items-center gap-1 cursor-pointer"
+                        onClick={() => setSignatureMode('draw')}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          signatureMode === 'draw'
+                            ? 'bg-neutral-900 text-white shadow-2xs'
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
                       >
-                        <RotateCcw size={12} /> Clear Signature
+                        <PenTool size={13} />
+                        Draw with Mouse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignatureMode('type');
+                          if (!typedSignature && signerName) {
+                            setTypedSignature(signerName);
+                          }
+                        }}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          signatureMode === 'type'
+                            ? 'bg-neutral-900 text-white shadow-2xs'
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        <Type size={13} />
+                        Type Name (Writing Font)
                       </button>
                     </div>
-                    <div className="relative bg-white border border-neutral-300 rounded-xl overflow-hidden shadow-inner">
-                      <canvas
-                        ref={canvasRef}
-                        width={640}
-                        height={140}
-                        onMouseDown={handleStartDraw}
-                        onMouseMove={handleMoveDraw}
-                        onMouseUp={handleEndDraw}
-                        onMouseLeave={handleEndDraw}
-                        onTouchStart={handleStartDraw}
-                        onTouchMove={handleMoveDraw}
-                        onTouchEnd={handleEndDraw}
-                        className="w-full h-32 cursor-crosshair touch-none"
-                      />
-                      <div className="absolute bottom-5 left-6 right-6 border-b border-neutral-300 pointer-events-none flex items-center justify-between">
-                        <span className="text-xs font-bold text-amber-600 pb-1">SIGN HERE ✕</span>
-                        <span className="text-[9px] font-mono text-neutral-400 pb-1 uppercase">
-                          {companyName} • Document {currentStep + 1} of {enabledPages.length}
-                        </span>
+
+                    {signatureMode === 'draw' ? (
+                      <div className="flex items-center gap-3">
+                        {signerName.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSignatureMode('type');
+                              if (!typedSignature) setTypedSignature(signerName);
+                            }}
+                            className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer"
+                          >
+                            Or auto-sign as "{signerName.trim()}" in writing font
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleClearCanvas}
+                          className="text-[11px] font-bold text-neutral-600 hover:text-red-600 flex items-center gap-1 cursor-pointer"
+                        >
+                          <RotateCcw size={12} /> Clear Signature
+                        </button>
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50/50 border-2 border-amber-300 rounded-2xl p-4 space-y-3">
-                    <input
-                      type="text"
-                      value={typedSignature}
-                      onChange={e => setTypedSignature(e.target.value)}
-                      placeholder="Type your full legal name to sign..."
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-2 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
-                    />
-                    <div className="bg-white border border-dashed border-neutral-300 rounded-xl px-6 py-4 flex items-center justify-between">
-                      <div className="flex items-baseline gap-3 min-w-0">
-                        <span className="text-xs font-bold text-amber-600 uppercase tracking-widest shrink-0">
-                          Sign Here ✕
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-900 mr-1">
+                          Writing Style:
                         </span>
-                        <span className="font-serif italic text-3xl text-neutral-900 tracking-wide truncate">
+                        {[
+                          { label: 'Classic Script', font: "'Great Vibes', cursive" },
+                          { label: 'Flowing Cursive', font: "'Dancing Script', cursive" },
+                          { label: 'Signature Pen', font: "'Alex Brush', cursive" }
+                        ].map(option => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            onClick={() => setHandwritingFont(option.font)}
+                            className={`px-2.5 py-1 rounded-lg text-xs border transition-all cursor-pointer ${
+                              handwritingFont === option.font
+                                ? 'bg-amber-400/30 border-amber-500 text-neutral-950 font-bold'
+                                : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                            }`}
+                            style={{ fontFamily: option.font, fontSize: '15px' }}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {signatureMode === 'draw' ? (
+                    <>
+                      <p className="text-[11px] font-bold text-amber-950">
+                        Sign with your mouse or finger on the signature line below:
+                      </p>
+                      <div className="relative bg-white border border-neutral-300 rounded-xl overflow-hidden shadow-inner">
+                        <canvas
+                          ref={canvasRef}
+                          width={640}
+                          height={140}
+                          onMouseDown={handleStartDraw}
+                          onMouseMove={handleMoveDraw}
+                          onMouseUp={handleEndDraw}
+                          onMouseLeave={handleEndDraw}
+                          onTouchStart={handleStartDraw}
+                          onTouchMove={handleMoveDraw}
+                          onTouchEnd={handleEndDraw}
+                          className="w-full h-32 cursor-crosshair touch-none"
+                        />
+                        <div className="absolute bottom-5 left-6 right-6 border-b border-neutral-300 pointer-events-none flex items-center justify-between">
+                          <span className="text-xs font-bold text-amber-600 pb-1">SIGN HERE ✕</span>
+                          <span className="text-[9px] font-mono text-neutral-400 pb-1 uppercase">
+                            {companyName} • Document {currentStep + 1} of {enabledPages.length}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-[11px] font-bold text-amber-950 block mb-1.5">
+                          Type your name below and it will sign on the line in a handwriting font:
+                        </label>
+                        <input
+                          type="text"
+                          value={typedSignature}
+                          onChange={e => {
+                            setTypedSignature(e.target.value);
+                            if (!signerName) setSignerName(e.target.value);
+                          }}
+                          placeholder="Type your full name to sign..."
+                          className="w-full bg-white border border-neutral-300 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 focus:border-neutral-900 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="relative bg-white border border-neutral-300 rounded-xl h-32 px-6 flex items-center overflow-hidden shadow-inner">
+                        <div
+                          className="text-neutral-900 truncate pb-3 select-none pl-24 sm:pl-28"
+                          style={{
+                            fontFamily: handwritingFont,
+                            fontSize: '46px',
+                            lineHeight: 1.15
+                          }}
+                        >
                           {typedSignature || signerName || 'Your Signature'}
-                        </span>
+                        </div>
+                        <div className="absolute bottom-5 left-6 right-6 border-b border-neutral-300 pointer-events-none flex items-center justify-between">
+                          <span className="text-xs font-bold text-amber-600 pb-1">SIGN HERE ✕</span>
+                          <span className="text-[9px] font-mono text-neutral-400 pb-1 uppercase">
+                            {companyName} • Document {currentStep + 1} of {enabledPages.length}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-[10px] font-mono text-neutral-400 shrink-0 hidden sm:inline">
-                        E-SIGNATURE
-                      </span>
-                    </div>
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
 
                 {/* Agreement Confirmation Checkbox */}
                 <label className="flex items-start gap-3 cursor-pointer select-none bg-white p-3.5 rounded-xl border border-neutral-200">
@@ -843,7 +935,10 @@ export function SignedAgreementsViewerModal({
                     className="h-12 object-contain"
                   />
                 ) : (
-                  <span className="font-serif italic text-2xl text-neutral-900">
+                  <span
+                    className="text-3xl text-neutral-900"
+                    style={{ fontFamily: "'Great Vibes', 'Dancing Script', cursive" }}
+                  >
                     {signedData.signatureText || signedData.signerName}
                   </span>
                 )}
