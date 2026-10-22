@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  FileText,
   Check,
   ChevronRight,
   ChevronLeft,
@@ -21,9 +20,9 @@ import {
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import {
-  PortalAgreementPage,
-  PortalAgreementsSignedData,
-  SignedAgreementPageRecord,
+  type PortalAgreementPage,
+  type PortalAgreementsSignedData,
+  type SignedAgreementPageRecord,
   resolvePortalAgreements
 } from '../../lib/portalAgreements';
 

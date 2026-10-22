@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw } from 'lucide-react';
-import { DEFAULT_PORTAL_AGREEMENTS, PortalAgreementPage } from '../../lib/portalAgreements';
+import { DEFAULT_PORTAL_AGREEMENTS, type PortalAgreementPage } from '../../lib/portalAgreements';
 import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
 
 export interface ColorVariation {
