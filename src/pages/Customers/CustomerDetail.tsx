@@ -2230,14 +2230,31 @@ export function CustomerDetail() {
           </div>
         )}
 
-        {/* Brands (Sub-Customers) Full-Width Dropdown Box */}
-        <div className="w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4">
-          <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4">
+        {/* Brands (Sub-Customers) Full-Width Dropdown Box - Hidden on subcustomer pages */}
+        {!liveCustomerData?.parentCustomerId && (
+        <div
+          onClick={() => {
+            if (isBrandsSectionCollapsed) setIsBrandsSectionCollapsed(false);
+          }}
+          className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4 ${
+            isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
+          }`}
+        >
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+            }}
+            className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
+          >
             <div className="flex items-center justify-between">
               <div className="flex gap-6 items-center">
                 <button
                   type="button"
-                  onClick={() => setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+                  }}
                   className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer"
                 >
                   <span>Brands</span>
@@ -2251,14 +2268,20 @@ export function CustomerDetail() {
                   <PillButton
                     variant="outline"
                     className="px-4 text-xs font-bold gap-1 cursor-pointer"
-                    onClick={() => setIsNewBrandModalOpen(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsNewBrandModalOpen(true);
+                    }}
                   >
                     <Plus size={14} /> Add Brand
                   </PillButton>
                 )}
                 <button
                   type="button"
-                  onClick={() => setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+                  }}
                   className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                   title={isBrandsSectionCollapsed ? "Expand Brands" : "Collapse Brands"}
                 >
@@ -2379,19 +2402,49 @@ export function CustomerDetail() {
             </div>
           )}
         </div>
+        )}
 
         {/* Suggested Items & Asset Vault Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+        <div
+          className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${
+            liveCustomerData?.parentCustomerId
+              ? 'order-last mt-8 border-t border-brand-border pt-12'
+              : 'mt-4'
+          }`}
+        >
           
           {/* Suggested Items (Recommendations) */}
-          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between">
+          <div
+            onClick={() => {
+              if (isGarmentsSectionCollapsed) setIsGarmentsSectionCollapsed(false);
+            }}
+            className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${
+              isGarmentsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
+            }`}
+          >
             <div>
-              <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 mb-4">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsGarmentsSectionCollapsed(!isGarmentsSectionCollapsed);
+                }}
+                className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 mb-4 cursor-pointer select-none"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex gap-6 items-center">
                     <button
                       type="button"
-                      onClick={() => setActiveGarmentTab('suggested')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isGarmentsSectionCollapsed) {
+                          setActiveGarmentTab('suggested');
+                          setIsGarmentsSectionCollapsed(false);
+                        } else if (activeGarmentTab !== 'suggested') {
+                          setActiveGarmentTab('suggested');
+                        } else {
+                          setIsGarmentsSectionCollapsed(true);
+                        }
+                      }}
                       className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'suggested'
                           ? 'text-neutral-900 border-neutral-900'
@@ -2409,7 +2462,17 @@ export function CustomerDetail() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveGarmentTab('samples')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isGarmentsSectionCollapsed) {
+                          setActiveGarmentTab('samples');
+                          setIsGarmentsSectionCollapsed(false);
+                        } else if (activeGarmentTab !== 'samples') {
+                          setActiveGarmentTab('samples');
+                        } else {
+                          setIsGarmentsSectionCollapsed(true);
+                        }
+                      }}
                       className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'samples'
                           ? 'text-neutral-900 border-neutral-900'
@@ -2427,7 +2490,17 @@ export function CustomerDetail() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setActiveGarmentTab('past')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isGarmentsSectionCollapsed) {
+                          setActiveGarmentTab('past');
+                          setIsGarmentsSectionCollapsed(false);
+                        } else if (activeGarmentTab !== 'past') {
+                          setActiveGarmentTab('past');
+                        } else {
+                          setIsGarmentsSectionCollapsed(true);
+                        }
+                      }}
                       className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'past'
                           ? 'text-neutral-900 border-neutral-900'
@@ -2446,18 +2519,21 @@ export function CustomerDetail() {
                   </div>
                   <div className="flex items-center gap-2">
                     {!isGarmentsSectionCollapsed && activeGarmentTab === 'suggested' && (
-                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
+                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
                         <Plus size={14} /> Add Suggestion
                       </PillButton>
                     )}
                     {!isGarmentsSectionCollapsed && activeGarmentTab === 'samples' && (
-                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
+                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
                         <Plus size={14} /> Add Sample Item
                       </PillButton>
                     )}
                     <button
                       type="button"
-                      onClick={() => setIsGarmentsSectionCollapsed(!isGarmentsSectionCollapsed)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsGarmentsSectionCollapsed(!isGarmentsSectionCollapsed);
+                      }}
                       className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                       title={isGarmentsSectionCollapsed ? "Expand section" : "Collapse section"}
                     >
@@ -2642,14 +2718,38 @@ export function CustomerDetail() {
           </div>
 
           {/* Customer Asset Vault & Chat Card */}
-          <div id="vault-roster-section" className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${!isVaultSectionCollapsed ? 'min-h-[450px]' : ''}`}>
+          <div
+            id="vault-roster-section"
+            onClick={() => {
+              if (isVaultSectionCollapsed) setIsVaultSectionCollapsed(false);
+            }}
+            className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${
+              !isVaultSectionCollapsed ? 'min-h-[450px]' : 'cursor-pointer hover:border-brand-primary/30 transition-colors'
+            }`}
+          >
             <div>
               {/* Header Tabs */}
-              <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsVaultSectionCollapsed(!isVaultSectionCollapsed);
+                }}
+                className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4 cursor-pointer select-none"
+              >
                 <div className="flex gap-6 items-center">
                   <button
                     type="button"
-                    onClick={() => setActiveRightTab('vault')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isVaultSectionCollapsed) {
+                        setActiveRightTab('vault');
+                        setIsVaultSectionCollapsed(false);
+                      } else if (activeRightTab !== 'vault') {
+                        setActiveRightTab('vault');
+                      } else {
+                        setIsVaultSectionCollapsed(true);
+                      }
+                    }}
                     className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                       activeRightTab === 'vault'
                         ? 'text-neutral-900 border-neutral-900'
@@ -2660,7 +2760,17 @@ export function CustomerDetail() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveRightTab('chat')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isVaultSectionCollapsed) {
+                        setActiveRightTab('chat');
+                        setIsVaultSectionCollapsed(false);
+                      } else if (activeRightTab !== 'chat') {
+                        setActiveRightTab('chat');
+                      } else {
+                        setIsVaultSectionCollapsed(true);
+                      }
+                    }}
                     className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative gap-1.5 ${
                       activeRightTab === 'chat'
                         ? 'text-neutral-900 border-neutral-900'
@@ -2679,7 +2789,17 @@ export function CustomerDetail() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveRightTab('roster')}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isVaultSectionCollapsed) {
+                        setActiveRightTab('roster');
+                        setIsVaultSectionCollapsed(false);
+                      } else if (activeRightTab !== 'roster') {
+                        setActiveRightTab('roster');
+                      } else {
+                        setIsVaultSectionCollapsed(true);
+                      }
+                    }}
                     className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative gap-1.5 ${
                       activeRightTab === 'roster'
                         ? 'text-neutral-900 border-neutral-900'
@@ -2700,7 +2820,10 @@ export function CustomerDetail() {
                       {assets.length > 0 && (
                         <button
                           type="button"
-                          onClick={handleAutoCropAllAssets}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAutoCropAllAssets();
+                          }}
                           disabled={isTrimmingVaultLogos}
                           className="bg-white border border-brand-border hover:bg-neutral-50 px-3 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                           title="Auto-crop all logos to PNG trimmed to exact visible edges"
@@ -2713,7 +2836,10 @@ export function CustomerDetail() {
                           {isTrimmingVaultLogos ? "Trimming..." : "Trim All to PNG"}
                         </button>
                       )}
-                      <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                      <label
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
                         <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
                         {isUploadingLogoVault ? (
                           <Loader2 className="animate-spin" size={14} />
@@ -2728,7 +2854,10 @@ export function CustomerDetail() {
                   {!isVaultSectionCollapsed && activeRightTab === 'roster' && (
                     <button
                       type="button"
-                      onClick={handleOpenAddMemberModal}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenAddMemberModal();
+                      }}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
                     >
                       <UserPlus size={14} />
@@ -2738,7 +2867,10 @@ export function CustomerDetail() {
 
                   <button
                     type="button"
-                    onClick={() => setIsVaultSectionCollapsed(!isVaultSectionCollapsed)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsVaultSectionCollapsed(!isVaultSectionCollapsed);
+                    }}
                     className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                     title={isVaultSectionCollapsed ? "Expand section" : "Collapse section"}
                   >
