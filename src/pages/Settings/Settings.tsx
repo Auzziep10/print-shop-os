@@ -18,6 +18,7 @@ import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 import { StudioQrTab } from './StudioQrTab';
 import { MergeCustomersTab } from './MergeCustomersTab';
 import { ArtistCollabTab } from './ArtistCollabTab';
+import { XCollabTab } from './XCollabTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,6 +157,16 @@ export function Settings() {
               Artist×Collab
             </button>
             <button
+              onClick={() => setActiveTab('xcollab')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'xcollab'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              xCollab
+            </button>
+            <button
               onClick={() => setActiveTab('studio-qr')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'studio-qr' || activeTab === 'qr-code'
@@ -230,6 +241,7 @@ export function Settings() {
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'brand-shop' && <ShopManagerTab />}
           {activeTab === 'artist-collab' && <ArtistCollabTab />}
+          {activeTab === 'xcollab' && <XCollabTab />}
           {(activeTab === 'studio-qr' || activeTab === 'qr-code') && <StudioQrTab />}
           {activeTab === 'discounts' && <DiscountCodesTab />}
           {activeTab === 'thank-you-card' && <ThankYouCardTab />}

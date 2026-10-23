@@ -52,6 +52,18 @@
       "destination": "/artistxcollab/incolor/collection/index.html"
     },
     {
+      "source": "/xcollab",
+      "destination": "/xcollab/index.html"
+    },
+    {
+      "source": "/xcollab/:token",
+      "destination": "/xcollab/index.html"
+    },
+    {
+      "source": "/xcollab/:token/",
+      "destination": "/xcollab/index.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
