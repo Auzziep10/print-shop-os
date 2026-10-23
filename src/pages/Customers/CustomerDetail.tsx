@@ -2014,14 +2014,14 @@ export function CustomerDetail() {
         }}
       />
 
-      {/* Designer Rack Upload Design Modal */}
+      {/* Designer Rack Upload Design Modal (4 Quadrants) */}
       {isDesignerRackModalOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
           onClick={() => setIsDesignerRackModalOpen(false)}
         >
           <div
-            className="bg-white max-w-xl w-full rounded-2xl shadow-2xl border border-brand-border overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white max-w-3xl w-full rounded-2xl shadow-2xl border border-brand-border overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 border-b border-brand-border flex items-center justify-between bg-brand-bg/40">
@@ -2030,7 +2030,7 @@ export function CustomerDetail() {
                   {editingDesignerRackId ? 'Edit Design' : 'Upload Design'}
                 </h3>
                 <p className="text-xs text-brand-secondary mt-0.5">
-                  Add the mock-up, logo(s), PSD Google Drive link, and garment sourcing link.
+                  Name the garment and complete the 4 quadrants below.
                 </p>
               </div>
               <button
@@ -2042,7 +2042,7 @@ export function CustomerDetail() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveDesignerRackModal} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveDesignerRackModal} className="p-6 space-y-5 max-h-[82vh] overflow-y-auto">
               {/* Required Garment Title */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
@@ -2053,96 +2053,154 @@ export function CustomerDetail() {
                   required
                   value={designerRackForm.title}
                   onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Enter what this garment should be called (e.g. Vintage Wash Heavyweight Tee)"
-                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
+                  placeholder="Enter what this garment should be called (e.g. Windbreaker, Heavyweight Tee)"
+                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm font-medium text-brand-primary focus:outline-none transition-all"
                 />
               </div>
 
-              {/* 1. Mock-up */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
-                  1. Mock-up
-                </label>
-                <div className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/80 rounded-xl p-3.5">
-                  <div className="w-20 h-20 rounded-xl border border-brand-border bg-checkerboard flex items-center justify-center p-1.5 shrink-0 overflow-hidden">
+              {/* 4 Quadrants Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Quadrant 1: Mock-up */}
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+                      1. Mock-up
+                    </span>
+                    {designerRackForm.mockupUrl ? (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="Mock-up not uploaded yet">
+                        !
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex flex-col items-center justify-center bg-white border border-dashed border-brand-border rounded-xl p-3 mb-3 overflow-hidden">
                     {designerRackForm.mockupUrl ? (
                       designerRackForm.mockupName?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
-                        <div className="flex flex-col items-center gap-1 text-center">
-                          <FileText size={20} className="text-neutral-500" />
-                          <span className="text-[8px] font-black uppercase text-neutral-500">
-                            {designerRackForm.mockupName.split('.').pop()}
+                        <div className="flex flex-col items-center gap-1 text-center py-2">
+                          <FileText size={28} className="text-neutral-600" />
+                          <span className="text-[10px] font-bold text-brand-primary truncate max-w-[180px]">
+                            {designerRackForm.mockupName}
                           </span>
                         </div>
                       ) : (
                         <img
                           src={designerRackForm.mockupUrl}
                           alt="Mock-up preview"
-                          className="max-w-full max-h-full object-contain"
+                          className="max-h-28 max-w-full object-contain mix-blend-multiply"
                         />
                       )
                     ) : (
-                      <Image size={22} className="text-neutral-300" />
+                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary">
+                        <Image size={26} className="text-neutral-300" />
+                        <span className="text-[11px]">Upload garment mock-up image or PDF</span>
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    {designerRackForm.mockupUrl ? (
-                      <p className="text-xs font-bold text-brand-primary truncate mb-2" title={designerRackForm.mockupName}>
-                        {designerRackForm.mockupName || 'Mock-up uploaded'}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-brand-secondary mb-2">
-                        Upload the garment mock-up image or PDF.
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
-                        <input
-                          type="file"
-                          className="hidden"
-                          onChange={handleUploadRackMockup}
-                          accept="image/*,application/pdf"
-                          disabled={isUploadingRackMockup}
-                        />
-                        {isUploadingRackMockup ? (
-                          <Loader2 className="animate-spin" size={14} />
-                        ) : (
-                          <Upload size={14} />
-                        )}
-                        <span>
-                          {isUploadingRackMockup
-                            ? 'Uploading...'
-                            : designerRackForm.mockupUrl
-                            ? 'Replace Mock-up'
-                            : 'Upload Mock-up'}
-                        </span>
-                      </label>
-                      {designerRackForm.mockupUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDesignerRackForm((prev) => ({
-                              ...prev,
-                              mockupUrl: '',
-                              mockupName: ''
-                            }))
-                          }
-                          className="text-xs text-red-600 hover:underline font-semibold px-2 py-1 cursor-pointer"
-                        >
-                          Remove
-                        </button>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleUploadRackMockup}
+                        accept="image/*,application/pdf"
+                        disabled={isUploadingRackMockup}
+                      />
+                      {isUploadingRackMockup ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        <Upload size={14} />
                       )}
-                    </div>
+                      <span>
+                        {isUploadingRackMockup
+                          ? 'Uploading...'
+                          : designerRackForm.mockupUrl
+                          ? 'Replace Mock-up'
+                          : 'Upload Mock-up'}
+                      </span>
+                    </label>
+                    {designerRackForm.mockupUrl && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDesignerRackForm((prev) => ({
+                            ...prev,
+                            mockupUrl: '',
+                            mockupName: ''
+                          }))
+                        }
+                        className="text-xs text-red-600 hover:underline font-semibold px-2 py-1 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              {/* 2. Logo or Logos */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary">
-                    2. Logo or Logos ({designerRackForm.logos.length})
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
+                {/* Quadrant 2: Logo or Logos */}
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+                      2. Logo or Logos ({designerRackForm.logos.length})
+                    </span>
+                    {designerRackForm.logos.length > 0 ? (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="No logos uploaded yet">
+                        !
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 bg-white border border-dashed border-brand-border rounded-xl p-3 mb-3 flex items-center justify-center overflow-y-auto max-h-32">
+                    {designerRackForm.logos.length === 0 ? (
+                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary">
+                        <Palette size={24} className="text-neutral-300" />
+                        <span className="text-[11px]">Upload one or more logo files</span>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2 w-full">
+                        {designerRackForm.logos.map((logo) => {
+                          const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                          return (
+                            <div
+                              key={logo.id}
+                              className="relative group bg-brand-bg/30 border border-brand-border/70 rounded-lg p-1.5 flex flex-col items-center gap-1"
+                            >
+                              <div className="w-11 h-11 rounded bg-checkerboard flex items-center justify-center p-1 overflow-hidden">
+                                {isLogoImg ? (
+                                  <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                                ) : (
+                                  <span className="text-[8px] font-black uppercase text-neutral-500">
+                                    {logo.name?.split('.').pop() || 'FILE'}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[9px] font-medium text-brand-primary truncate w-full text-center" title={logo.name}>
+                                {logo.name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRackLogoFromForm(logo.id)}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                                title="Remove Logo"
+                              >
+                                <X size={10} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
                     <input
                       type="file"
                       multiple
@@ -2152,83 +2210,69 @@ export function CustomerDetail() {
                       disabled={isUploadingRackLogos}
                     />
                     {isUploadingRackLogos ? (
-                      <Loader2 className="animate-spin" size={13} />
+                      <Loader2 className="animate-spin" size={14} />
                     ) : (
-                      <Plus size={13} />
+                      <Plus size={14} />
                     )}
                     <span>{isUploadingRackLogos ? 'Uploading...' : 'Upload Logo(s)'}</span>
                   </label>
                 </div>
 
-                {designerRackForm.logos.length === 0 ? (
-                  <div className="bg-brand-bg/30 border border-dashed border-brand-border/80 rounded-xl p-4 text-center text-xs text-brand-secondary">
-                    No logos uploaded yet. Click "Upload Logo(s)" to add one or multiple logo files.
+                {/* Quadrant 3: PSD Google Drive Link */}
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[150px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+                      3. PSD Google Drive Link
+                    </span>
+                    {designerRackForm.psdDriveLink.trim() ? (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="PSD link not entered yet">
+                        !
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 bg-brand-bg/20 border border-brand-border/70 rounded-xl p-3">
-                    {designerRackForm.logos.map((logo) => {
-                      const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
-                      return (
-                        <div
-                          key={logo.id}
-                          className="relative group bg-white border border-brand-border/70 rounded-xl p-2 flex flex-col items-center gap-1.5"
-                        >
-                          <div className="w-14 h-14 rounded-lg bg-checkerboard flex items-center justify-center p-1 overflow-hidden">
-                            {isLogoImg ? (
-                              <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
-                            ) : (
-                              <div className="flex flex-col items-center gap-0.5">
-                                <FileText size={16} className="text-neutral-500" />
-                                <span className="text-[8px] font-black uppercase text-neutral-500">
-                                  {logo.name?.split('.').pop() || 'FILE'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <span className="text-[10px] font-medium text-brand-primary truncate w-full text-center" title={logo.name}>
-                            {logo.name}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRackLogoFromForm(logo.id)}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
-                            title="Remove Logo"
-                          >
-                            <X size={11} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                  <p className="text-[11px] text-brand-secondary mb-3">
+                    Paste the Google Drive link to the editable PSD / source artwork file.
+                  </p>
+                  <input
+                    type="url"
+                    value={designerRackForm.psdDriveLink}
+                    onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, psdDriveLink: e.target.value }))}
+                    placeholder="https://drive.google.com/file/d/..."
+                    className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
+                  />
+                </div>
+
+                {/* Quadrant 4: Garment Sourcing Link */}
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[150px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+                      4. Garment Sourcing Link
+                    </span>
+                    {designerRackForm.garmentSourcingLink.trim() ? (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="Garment sourcing link not entered yet">
+                        !
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* 3. Google Drive Link to PSD File */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
-                  3. Google Drive Link to PSD File
-                </label>
-                <input
-                  type="url"
-                  value={designerRackForm.psdDriveLink}
-                  onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, psdDriveLink: e.target.value }))}
-                  placeholder="https://drive.google.com/file/d/..."
-                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
-                />
-              </div>
-
-              {/* 4. Link to Garment Online for Sourcing */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
-                  4. Link to Garment Online for Sourcing
-                </label>
-                <input
-                  type="url"
-                  value={designerRackForm.garmentSourcingLink}
-                  onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentSourcingLink: e.target.value }))}
-                  placeholder="https://www.sanmar.com/... or supplier garment URL"
-                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
-                />
+                  <p className="text-[11px] text-brand-secondary mb-3">
+                    Paste the link to the blank garment online for sourcing (SanMar, S&S, etc.).
+                  </p>
+                  <input
+                    type="url"
+                    value={designerRackForm.garmentSourcingLink}
+                    onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentSourcingLink: e.target.value }))}
+                    placeholder="https://www.sanmar.com/... or supplier URL"
+                    className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
+                  />
+                </div>
               </div>
 
               {/* Modal Actions */}
@@ -2938,7 +2982,7 @@ export function CustomerDetail() {
                     </PillButton>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {designerRack.map((design: any) => {
                       const mockupSrc = design.mockupUrl || design.url || '';
                       const mockupLabel = design.mockupName || design.name || 'Mock-up';
@@ -2953,13 +2997,34 @@ export function CustomerDetail() {
                         ? design.logos
                         : [];
 
+                      const missingFields: string[] = [];
+                      if (!mockupSrc) missingFields.push('Mock-up');
+                      if (designLogos.length === 0) missingFields.push('Logo(s)');
+                      if (!design.psdDriveLink?.trim()) missingFields.push('PSD Drive Link');
+                      if (!design.garmentSourcingLink?.trim()) missingFields.push('Garment Sourcing Link');
+                      const isIncomplete = missingFields.length > 0;
+
                       return (
                         <div
                           key={design.id}
-                          className="flex flex-col justify-between bg-brand-bg/30 hover:bg-brand-bg/60 border border-brand-border/70 rounded-2xl p-4 transition-all group relative gap-3"
+                          className="flex flex-col justify-between bg-white hover:bg-brand-bg/20 border border-brand-border rounded-2xl p-5 transition-all group relative gap-4 shadow-2xs"
                         >
-                          <div className="flex items-start gap-4">
-                            {/* Mock-up Preview */}
+                          {/* Red Exclamation Badge when any of the 4 fields is missing */}
+                          {isIncomplete && (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditDesignerRackModal(design);
+                              }}
+                              className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer z-10"
+                              title={`Incomplete — Missing: ${missingFields.join(', ')}. Click to edit.`}
+                            >
+                              !
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-5">
+                            {/* Larger Mock-up Preview */}
                             <div
                               onClick={() => {
                                 if (!mockupSrc) return;
@@ -2969,7 +3034,7 @@ export function CustomerDetail() {
                                   window.open(mockupSrc, '_blank');
                                 }
                               }}
-                              className={`w-24 h-24 rounded-xl border border-brand-border/60 bg-checkerboard flex items-center justify-center p-2 overflow-hidden shrink-0 ${
+                              className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
                                 mockupSrc ? 'cursor-pointer' : ''
                               }`}
                               title={mockupSrc ? 'Click to view Mock-up' : 'No Mock-up uploaded'}
@@ -2979,118 +3044,122 @@ export function CustomerDetail() {
                                   <img
                                     src={mockupSrc}
                                     alt={displayTitle}
-                                    className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
+                                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
                                   />
                                 ) : (
                                   <div className="flex flex-col items-center gap-1 text-center">
-                                    <FileText size={24} className="text-neutral-500" />
-                                    <span className="text-[9px] font-black uppercase text-neutral-500 truncate max-w-[70px]">
+                                    <FileText size={28} className="text-neutral-500" />
+                                    <span className="text-[10px] font-black uppercase text-neutral-500 truncate max-w-[90px]">
                                       {mockupLabel.split('.').pop() || 'MOCKUP'}
                                     </span>
                                   </div>
                                 )
                               ) : (
-                                <span className="text-[10px] text-neutral-400 font-semibold text-center">No Mock-up</span>
+                                <span className="text-xs text-neutral-400 font-semibold text-center">No Mock-up</span>
                               )}
                             </div>
 
                             {/* Design Info & Logos */}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <h4 className="font-bold text-sm text-brand-primary truncate" title={displayTitle}>
-                                    {displayTitle}
-                                  </h4>
-                                  {design.uploadedAt && (
-                                    <p className="text-[10px] text-brand-secondary mt-0.5">
-                                      Added {new Date(design.uploadedAt).toLocaleDateString()}
-                                    </p>
+                            <div className="min-w-0 flex-1 flex flex-col justify-between h-full">
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <h4 className="font-bold text-base text-brand-primary truncate" title={displayTitle}>
+                                        {displayTitle}
+                                      </h4>
+                                    </div>
+                                    {design.uploadedAt && (
+                                      <p className="text-[11px] text-brand-secondary mt-0.5">
+                                        Added {new Date(design.uploadedAt).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditDesignerRackModal(design);
+                                      }}
+                                      className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                                      title="Edit Design"
+                                    >
+                                      <Edit3 size={15} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteDesignerRackItem(design.id);
+                                      }}
+                                      className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Remove Design"
+                                    >
+                                      <Trash2 size={15} />
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Logos Row */}
+                                <div className="mt-4">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                                    Logos ({designLogos.length})
+                                  </p>
+                                  {designLogos.length === 0 ? (
+                                    <p className="text-[11px] italic text-brand-secondary/60">No logos attached</p>
+                                  ) : (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {designLogos.map((logo) => {
+                                        const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                                        return (
+                                          <div
+                                            key={logo.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (isLogoImg) {
+                                                setExpandedImage({ src: logo.url, alt: logo.name });
+                                              } else {
+                                                window.open(logo.url, '_blank');
+                                              }
+                                            }}
+                                            className="w-11 h-11 rounded-xl border border-brand-border/70 bg-checkerboard p-1.5 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
+                                            title={`Logo: ${logo.name}`}
+                                          >
+                                            {isLogoImg ? (
+                                              <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                                            ) : (
+                                              <span className="text-[8px] font-black uppercase text-neutral-600">
+                                                {logo.name?.split('.').pop() || 'FILE'}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditDesignerRackModal(design);
-                                    }}
-                                    className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-white rounded-lg transition-colors cursor-pointer"
-                                    title="Edit Design"
-                                  >
-                                    <Edit3 size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteDesignerRackItem(design.id);
-                                    }}
-                                    className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                    title="Remove Design"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Logos Row */}
-                              <div className="mt-2.5">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                                  Logos ({designLogos.length})
-                                </p>
-                                {designLogos.length === 0 ? (
-                                  <p className="text-[11px] italic text-brand-secondary/60">No logos attached</p>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {designLogos.map((logo) => {
-                                      const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
-                                      return (
-                                        <div
-                                          key={logo.id}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (isLogoImg) {
-                                              setExpandedImage({ src: logo.url, alt: logo.name });
-                                            } else {
-                                              window.open(logo.url, '_blank');
-                                            }
-                                          }}
-                                          className="w-9 h-9 rounded-lg border border-brand-border/70 bg-checkerboard p-1 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
-                                          title={`Logo: ${logo.name}`}
-                                        >
-                                          {isLogoImg ? (
-                                            <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
-                                          ) : (
-                                            <span className="text-[8px] font-black uppercase text-neutral-600">
-                                              {logo.name?.split('.').pop() || 'FILE'}
-                                            </span>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
 
-                          {/* Links Footer (PSD Drive Link & Garment Sourcing Link) */}
-                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-brand-border/50">
+                          {/* Plain Black Links Footer (PSD Drive Link & Garment Sourcing Link) */}
+                          <div className="flex flex-wrap items-center gap-5 pt-3 border-t border-brand-border/50">
                             {design.psdDriveLink ? (
                               <a
                                 href={design.psdDriveLink.startsWith('http') ? design.psdDriveLink : `https://${design.psdDriveLink}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-[11px] font-bold transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-900 hover:text-black hover:underline transition-colors"
                                 title={design.psdDriveLink}
                               >
-                                <FileText size={12} />
+                                <FileText size={13} />
                                 <span>PSD Drive Link</span>
-                                <ExternalLink size={10} />
+                                <ExternalLink size={11} />
                               </a>
                             ) : (
-                              <span className="text-[10px] text-brand-secondary/50 italic">No PSD link</span>
+                              <span className="text-xs text-brand-secondary/50 italic">No PSD link</span>
                             )}
 
                             {design.garmentSourcingLink ? (
@@ -3099,15 +3168,15 @@ export function CustomerDetail() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[11px] font-bold transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-900 hover:text-black hover:underline transition-colors"
                                 title={design.garmentSourcingLink}
                               >
-                                <Shirt size={12} />
+                                <Shirt size={13} />
                                 <span>Garment Sourcing Link</span>
-                                <ExternalLink size={10} />
+                                <ExternalLink size={11} />
                               </a>
                             ) : (
-                              <span className="text-[10px] text-brand-secondary/50 italic">No sourcing link</span>
+                              <span className="text-xs text-brand-secondary/50 italic">No sourcing link</span>
                             )}
                           </div>
                         </div>
