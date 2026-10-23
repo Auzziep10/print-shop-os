@@ -172,6 +172,9 @@ export function CustomerDetail() {
   const [isGarmentsSectionCollapsed, setIsGarmentsSectionCollapsed] = useState(true);
   const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(true);
   const [isBrandsSectionCollapsed, setIsBrandsSectionCollapsed] = useState(true);
+  const [isDesignerRackCollapsed, setIsDesignerRackCollapsed] = useState(true);
+  const [designerRack, setDesignerRack] = useState<any[]>([]);
+  const [isUploadingDesignerRack, setIsUploadingDesignerRack] = useState(false);
   const [subBrands, setSubBrands] = useState<any[]>([]);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
@@ -1009,6 +1012,59 @@ export function CustomerDetail() {
     }
   };
 
+  const handleUploadDesignerRack = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !id) return;
+
+    setIsUploadingDesignerRack(true);
+    try {
+      const newlyUploaded: any[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const storageRef = ref(storage, `customers/${id}/designer_rack/${Date.now()}_${i}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadUrl = await getDownloadURL(storageRef);
+        newlyUploaded.push({
+          id: `design-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+          name: file.name,
+          url: downloadUrl,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      const updated = [...designerRack, ...newlyUploaded];
+      await updateDoc(doc(db, 'customers', id), {
+        designerRack: updated
+      });
+      setDesignerRack(updated);
+      setLiveCustomerData((prev: any) => prev ? { ...prev, designerRack: updated } : prev);
+      setIsDesignerRackCollapsed(false);
+    } catch (err) {
+      console.error("Designer Rack upload failed:", err);
+      alert("Failed to upload design to Designer Rack.");
+    } finally {
+      setIsUploadingDesignerRack(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDesignerRackItem = async (designId: string) => {
+    if (!id) return;
+    if (!window.confirm("Remove this design from the Designer Rack?")) return;
+
+    const updated = designerRack.filter(d => d.id !== designId);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        designerRack: updated
+      });
+      setDesignerRack(updated);
+      setLiveCustomerData((prev: any) => prev ? { ...prev, designerRack: updated } : prev);
+    } catch (err) {
+      console.error("Error deleting design from Designer Rack:", err);
+      alert("Failed to delete design.");
+    }
+  };
+
   const [isTrimmingVaultLogos, setIsTrimmingVaultLogos] = useState(false);
 
   const handleAutoCropSingleAsset = async (asset: any) => {
@@ -1365,6 +1421,7 @@ export function CustomerDetail() {
           setSuggestedItems(data.suggestedItems || []);
           setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
+          setDesignerRack(data.designerRack || []);
           setTeamRoster(data.teamRoster || []);
           
           if (data.hasUnreadCreation) {
@@ -1816,70 +1873,70 @@ export function CustomerDetail() {
         }}
       />
       {/* Top Breadcrumb & Actions */}
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-brand-border">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-brand-border">
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
           <button 
             onClick={() => navigate('/customers')}
-            className="flex items-center gap-2 text-sm text-brand-secondary hover:text-brand-primary transition-colors cursor-pointer"
+            className="flex items-center gap-2 text-sm font-medium text-brand-secondary hover:text-brand-primary transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            <ArrowLeft size={16} />
-            Back to Customers
+            <ArrowLeft size={16} className="shrink-0" />
+            <span>Back to Customers</span>
           </button>
           {liveCustomerData?.parentCustomerId && (
             <>
-              <span className="text-brand-border">/</span>
+              <span className="text-brand-border select-none">/</span>
               <button
                 type="button"
                 onClick={() => navigate(`/customers/${liveCustomerData.parentCustomerId}`)}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-full transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                <Building2 size={12} />
-                Parent: {liveCustomerData.parentCompanyName || 'Parent Customer'}
+                <Building2 size={13} className="shrink-0" />
+                <span>Parent: {liveCustomerData.parentCompanyName || 'Parent Customer'}</span>
               </button>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
             type="button"
             onClick={handleToggleCustomerHighPriority}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               liveCustomerData?.highPriority
                 ? 'bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-xs'
                 : 'bg-white text-brand-primary border-brand-border hover:border-red-500 hover:text-red-600'
             }`}
             title={liveCustomerData?.highPriority ? 'Remove High Priority from Customer' : 'Mark Customer as High Priority'}
           >
-            <AlertTriangle size={14} />
-            {liveCustomerData?.highPriority ? 'High Priority' : 'Mark High Priority'}
+            <AlertTriangle size={14} className="shrink-0" />
+            <span>{liveCustomerData?.highPriority ? 'High Priority' : 'Mark High Priority'}</span>
           </button>
           <PillButton 
             variant="outline" 
-            className="gap-2"
+            className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
             onClick={() => setIsQrModalOpen(true)}
           >
-            <QrCode size={16} />
-            Share Portal QR
+            <QrCode size={15} className="shrink-0" />
+            <span>Share Portal QR</span>
           </PillButton>
           <PillButton 
             variant="outline" 
-            className="gap-2"
+            className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
             onClick={() => navigate(`/settings?tab=merge-customers&primaryId=${id}`)}
           >
-            <GitMerge size={16} />
-            Merge Account
+            <GitMerge size={15} className="shrink-0" />
+            <span>Merge Account</span>
           </PillButton>
           <PillButton 
             variant="outline" 
-            className="gap-2"
+            className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
             onClick={() => window.open(`/portal/${id}`, '_blank')}
           >
-            <ExternalLink size={16} />
-            Login to Client Portal
+            <ExternalLink size={15} className="shrink-0" />
+            <span>Login to Client Portal</span>
           </PillButton>
           <PillButton 
             variant="outline" 
-            className="gap-2"
+            className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
             onClick={() => {
               setActiveRightTab('roster');
               setIsVaultSectionCollapsed(false);
@@ -1887,10 +1944,13 @@ export function CustomerDetail() {
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
           >
-            <Users size={16} />
-            Team Roster ({teamRoster.length})
+            <Users size={15} className="shrink-0" />
+            <span>Team Roster ({teamRoster.length})</span>
           </PillButton>
-          <PillButton variant="filled" onClick={() => {
+          <PillButton
+            variant="filled"
+            className="px-4 py-2 text-xs whitespace-nowrap shrink-0"
+            onClick={() => {
             if (liveCustomerData) {
               setEditCompanyForm(prev => ({
                 ...prev,
@@ -2402,6 +2462,171 @@ export function CustomerDetail() {
             </div>
           )}
         </div>
+        )}
+
+        {/* Designer Rack Full-Width Dropdown Box - Shown on brand / subcustomer pages */}
+        {Boolean(liveCustomerData?.parentCustomerId) && (
+          <div
+            onClick={() => {
+              if (isDesignerRackCollapsed) setIsDesignerRackCollapsed(false);
+            }}
+            className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4 ${
+              isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
+            }`}
+          >
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+              }}
+              className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex gap-6 items-center">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+                    }}
+                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer"
+                  >
+                    <span>Designer Rack</span>
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                      {designerRack.length}
+                    </span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!isDesignerRackCollapsed && (
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-pill text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleUploadDesignerRack}
+                        accept="image/*,application/pdf,.ai,.eps,.svg,.psd"
+                      />
+                      {isUploadingDesignerRack ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        <Upload size={14} />
+                      )}
+                      <span>{isUploadingDesignerRack ? 'Uploading...' : 'Upload Design'}</span>
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+                    }}
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                    title={isDesignerRackCollapsed ? 'Expand Designer Rack' : 'Collapse Designer Rack'}
+                  >
+                    {isDesignerRackCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {!isDesignerRackCollapsed && (
+                <p className="text-xs text-brand-secondary">
+                  Uploaded designs, mockups, and artwork files curated for this brand.
+                </p>
+              )}
+            </div>
+
+            {!isDesignerRackCollapsed && (
+              <div className="mt-4">
+                {designerRack.length === 0 ? (
+                  <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
+                    <p>No designs uploaded to the Designer Rack yet. Click below to upload a design.</p>
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-pill text-xs font-bold bg-brand-primary text-white hover:bg-black transition-all cursor-pointer shadow-xs"
+                    >
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleUploadDesignerRack}
+                        accept="image/*,application/pdf,.ai,.eps,.svg,.psd"
+                      />
+                      {isUploadingDesignerRack ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        <Upload size={14} />
+                      )}
+                      <span>{isUploadingDesignerRack ? 'Uploading...' : 'Upload Design'}</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {designerRack.map((design: any) => {
+                      const isImage = Boolean(design.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                      return (
+                        <div
+                          key={design.id}
+                          className="flex flex-col justify-between bg-brand-bg/30 hover:bg-brand-bg/60 border border-brand-border/70 rounded-2xl p-3 transition-all group relative"
+                        >
+                          <div
+                            onClick={() => {
+                              if (isImage) {
+                                setExpandedImage({ src: design.url, alt: design.name });
+                              } else {
+                                window.open(design.url, '_blank');
+                              }
+                            }}
+                            className="aspect-square rounded-xl border border-brand-border/60 bg-checkerboard flex items-center justify-center p-2 overflow-hidden cursor-pointer mb-2"
+                            title={design.name}
+                          >
+                            {isImage ? (
+                              <img
+                                src={design.url}
+                                alt={design.name}
+                                className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-1 text-center">
+                                <FileText size={24} className="text-neutral-500" />
+                                <span className="text-[9px] font-black uppercase text-neutral-500 truncate max-w-[70px]">
+                                  {design.name?.split('.').pop() || 'FILE'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-brand-primary truncate" title={design.name}>
+                              {design.name}
+                            </p>
+                            {design.uploadedAt && (
+                              <p className="text-[10px] text-brand-secondary mt-0.5">
+                                {new Date(design.uploadedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteDesignerRackItem(design.id);
+                            }}
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-500 hover:border-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            title="Remove Design"
+                          >
+                            <X size={12} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Suggested Items & Asset Vault Row */}
