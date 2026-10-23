@@ -38,8 +38,9 @@ export interface XcLinkModel {
 
 export interface XcLink {
   id: string;
-  customer: string;     // staff label, e.g. "Southern Grown — spring drop"
+  customer: string;     // who the link is for; shown top right unless artistLine is set
   lede?: string;        // optional replacement for the bottom-left paragraph
+  artistLine?: string;  // top-right "Artist:" line on the page, e.g. "INCOLOR • BigLoudRock" (blank = customer)
   modelIds: string[];
   models: XcLinkModel[];
   active: boolean;

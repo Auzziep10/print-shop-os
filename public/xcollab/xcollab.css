@@ -24,6 +24,9 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .mark{ position:absolute; z-index:10; left:50%; top:6.5vh; transform:translate(-50%,-56%); font-family:var(--serif); font-style:italic; font-weight:700;
   font-size:clamp(40px, 4.3vw, 96px); line-height:1; pointer-events:none; }
 
+.who{ position:absolute; z-index:10; right:5.3vw; top:7.15vh; transform:translateY(-50%); font-weight:300; font-size:clamp(12px, .88vw, 19px); line-height:1; white-space:nowrap; pointer-events:none; }
+.who span{ margin-left:.55em; }
+
 /* ---- stage: the wordmark sits behind, the models stand in front of it */
 .stage{ position:absolute; inset:0; touch-action:pan-y; cursor:grab; }
 .stage.dragging{ cursor:grabbing; }
@@ -70,6 +73,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 @media (max-aspect-ratio: 1/1){
   .nav{ top:max(34px, calc(env(safe-area-inset-top) + 26px)); gap:18px; left:20px; }
   .mark{ top:max(34px, calc(env(safe-area-inset-top) + 26px)); left:auto; right:20px; transform:translateY(-56%); font-size:40px; }
+  .who{ left:20px; right:auto; top:calc(max(34px, calc(env(safe-area-inset-top) + 26px)) + 30px); font-size:12px; }
   .panel-x{ top:max(34px, calc(env(safe-area-inset-top) + 26px)); right:20px; }
   .word{ top:41%; }
   .m{ bottom:22%; height:64%; }

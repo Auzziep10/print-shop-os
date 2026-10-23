@@ -145,6 +145,7 @@ export function XCollabTab() {
   const [editingLink, setEditingLink] = useState<XcLink | null>(null);
   const [customer, setCustomer] = useState('');
   const [lede, setLede] = useState('');
+  const [artistLine, setArtistLine] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [linkError, setLinkError] = useState('');
 
@@ -212,13 +213,13 @@ export function XCollabTab() {
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selectedIds = useMemo(() => models.filter(m => selected.has(m.id)).map(m => m.id), [models, selected]);
 
-  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setLinkError(''); };
+  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setArtistLine(''); setLinkError(''); };
 
   const saveLink = async () => {
     setLinkError('');
     if (!customer.trim()) { setLinkError('Name the customer so you can tell the links apart.'); return; }
     if (!selectedIds.length) { setLinkError('Toggle on at least one model.'); return; }
-    const payload = { customer: customer.trim(), lede: lede.trim(), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
+    const payload = { customer: customer.trim(), lede: lede.trim(), artistLine: artistLine.trim(), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
     try {
       if (editingLink) {
         await updateDoc(doc(db, XC_LINKS_COLLECTION, editingLink.id), payload);
@@ -235,7 +236,7 @@ export function XCollabTab() {
   };
 
   const editLink = (l: XcLink) => {
-    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setSelected(new Set(l.modelIds || [])); setLinkError('');
+    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setArtistLine(l.artistLine || ''); setSelected(new Set(l.modelIds || [])); setLinkError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const toggleLink = (l: XcLink) => updateDoc(doc(db, XC_LINKS_COLLECTION, l.id), { active: !l.active, updatedAt: Date.now() });
@@ -275,8 +276,9 @@ export function XCollabTab() {
             <button type="button" className="rounded-full border border-brand-border px-3 py-1 text-brand-primary hover:border-brand-primary" onClick={() => setSelected(new Set())}>All off</button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto]">
-          <input className={tokens.components.input + ' bg-white'} value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer (only you see this)" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_1.4fr_auto]">
+          <input className={tokens.components.input + ' bg-white'} value={customer} onChange={e => setCustomer(e.target.value)} placeholder="Customer, e.g. INCOLOR" />
+          <input className={tokens.components.input + ' bg-white'} value={artistLine} onChange={e => setArtistLine(e.target.value)} placeholder={`Top right “Artist:” line (blank = ${customer.trim() || 'customer'})`} />
           <input className={tokens.components.input + ' bg-white'} value={lede} onChange={e => setLede(e.target.value)} placeholder="Intro text (optional, replaces the bottom-left paragraph)" />
           <div className="flex gap-2">
             {editingLink && <PillButton type="button" onClick={resetLinkForm}><X size={14} className="mr-1" />Cancel</PillButton>}

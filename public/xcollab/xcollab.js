@@ -62,6 +62,8 @@
     var stage = $('stage'), track = $('track'), word = $('word');
     var n = models.length, cur = 0, W = 0, H = 0;
     if(link && link.lede) $('lede').innerHTML = esc(link.lede).replace(/\n/g, '<br>');
+    var who = link && !message ? (link.artistLine || link.customer || '').trim() : '';
+    if(who){ $('whoName').textContent = who; $('who').hidden = false; }
     if(message){ $('msg').innerHTML = message; $('msg').hidden = false; $('caption').hidden = true; }
 
     var els = models.map(function(m, i){
