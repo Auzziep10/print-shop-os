@@ -41,6 +41,7 @@ export interface XcLink {
   customer: string;     // who the link is for; shown top right unless artistLine is set
   lede?: string;        // optional replacement for the bottom-left paragraph
   artistLine?: string;  // top-right "Artist:" line on the page, e.g. "INCOLOR • BigLoudRock" (blank = customer)
+  autoplay?: number;    // seconds before the page moves to the next model on its own (0 / missing = off)
   modelIds: string[];
   models: XcLinkModel[];
   active: boolean;

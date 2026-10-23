@@ -1,11 +1,13 @@
 /* xCollab — one shared link = one customer's set of models, centred in front of the COLLAB wordmark.
    Proportions come from the 2000×1119 comp: 1 comp px ≈ 0.05vw across, ≈ 0.0894vh down. */
+@font-face{ font-family:'Zabal'; src:url('fonts/ZabalDEMO-Light.woff2') format('woff2'); font-weight:300; font-style:normal; font-display:swap; }
+@font-face{ font-family:'Zabal'; src:url('fonts/ZabalDEMO-Regular.woff2') format('woff2'); font-weight:400; font-style:normal; font-display:swap; }
 :root{
   --bg:#f7f7f8;
   --ink:#0b0b0c;
   --muted:#2a2a2d;
   --gutter:3.9vw;
-  --sans:'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --sans:'Zabal', 'Helvetica Neue', Arial, sans-serif;
   --wide:'Archivo', 'Arial Black', sans-serif;
   --serif:'Playfair Display', Georgia, 'Times New Roman', serif;
 }

@@ -152,6 +152,7 @@
       if(e.button !== 0 || !n) return;
       drag = { x:e.clientX, y:e.clientY, lastX:e.clientX, lastT:performance.now(), v:0, axis:null, id:e.pointerId, dx:0 };
       capture(stage, e.pointerId);
+      arm(true);
     });
     stage.addEventListener('pointermove', function(e){
       if(!drag){ hoverSide(e); return; }
@@ -177,6 +178,7 @@
       } else if(!d.axis && e.type === 'pointerup'){
         if(e.clientX < W * 0.42) go(-1); else if(e.clientX > W * 0.58) go(1);
       }
+      arm(true);
     }
     stage.addEventListener('pointerup', endDrag);
     stage.addEventListener('pointercancel', endDrag);
@@ -189,7 +191,7 @@
     window.addEventListener('keydown', function(e){
       if(e.key === 'Escape') return closePanel();
       if(panel.classList.contains('on')) return;
-      if(e.key === 'ArrowRight') go(1); else if(e.key === 'ArrowLeft') go(-1);
+      if(e.key === 'ArrowRight'){ go(1); arm(true); } else if(e.key === 'ArrowLeft'){ go(-1); arm(true); }
     });
 
     // ---- Artists / Collection / Concept
@@ -215,10 +217,12 @@
       panel.scrollTop = 0;
       panel.classList.add('on'); panel.setAttribute('aria-hidden', 'false');
       Array.prototype.forEach.call(navBtns, function(b){ b.classList.toggle('on', b.dataset.panel === kind); });
+      clearTimeout(autoT);
     }
     function closePanel(){
       panel.classList.remove('on'); panel.setAttribute('aria-hidden', 'true');
       Array.prototype.forEach.call(navBtns, function(b){ b.classList.remove('on'); });
+      arm(true);
     }
     Array.prototype.forEach.call(navBtns, function(b){
       b.addEventListener('click', function(){ if(b.classList.contains('on')) closePanel(); else openPanel(b.dataset.panel); });
@@ -229,9 +233,23 @@
       closePanel(); jump(+b.dataset.go);
     });
 
+    // ---- auto-rotate: link.autoplay seconds per model (set per link in Settings → xCollab); 0 = off.
+    // Any swipe, click or key restarts the clock with a little extra time so it never fights the customer.
+    var autoMs = Math.max(0, +(link && link.autoplay) || 0) * 1000, autoT = 0;
+    function arm(touched){
+      clearTimeout(autoT);
+      if(!autoMs || n < 2 || panel.classList.contains('on')) return;
+      autoT = setTimeout(function(){
+        if(!drag && !document.hidden) go(1);
+        arm(false);
+      }, autoMs + (touched ? 4000 : 0));
+    }
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) arm(false); });
+
     settleRel();
     layout();
     caption();
+    arm(false);
     window.addEventListener('resize', layout);
     if(document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
   }

@@ -146,6 +146,7 @@ export function XCollabTab() {
   const [customer, setCustomer] = useState('');
   const [lede, setLede] = useState('');
   const [artistLine, setArtistLine] = useState('');
+  const [autoplay, setAutoplay] = useState('5');   // seconds per model; 0 = no auto-rotate
   const [copied, setCopied] = useState<string | null>(null);
   const [linkError, setLinkError] = useState('');
 
@@ -213,13 +214,13 @@ export function XCollabTab() {
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selectedIds = useMemo(() => models.filter(m => selected.has(m.id)).map(m => m.id), [models, selected]);
 
-  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setArtistLine(''); setLinkError(''); };
+  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setArtistLine(''); setAutoplay('5'); setLinkError(''); };
 
   const saveLink = async () => {
     setLinkError('');
     if (!customer.trim()) { setLinkError('Name the customer so you can tell the links apart.'); return; }
     if (!selectedIds.length) { setLinkError('Toggle on at least one model.'); return; }
-    const payload = { customer: customer.trim(), lede: lede.trim(), artistLine: artistLine.trim(), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
+    const payload = { customer: customer.trim(), lede: lede.trim(), artistLine: artistLine.trim(), autoplay: Math.max(0, Math.min(120, Math.round(Number(autoplay) || 0))), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
     try {
       if (editingLink) {
         await updateDoc(doc(db, XC_LINKS_COLLECTION, editingLink.id), payload);
@@ -236,7 +237,7 @@ export function XCollabTab() {
   };
 
   const editLink = (l: XcLink) => {
-    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setArtistLine(l.artistLine || ''); setSelected(new Set(l.modelIds || [])); setLinkError('');
+    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setArtistLine(l.artistLine || ''); setAutoplay(String(l.autoplay ?? 0)); setSelected(new Set(l.modelIds || [])); setLinkError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const toggleLink = (l: XcLink) => updateDoc(doc(db, XC_LINKS_COLLECTION, l.id), { active: !l.active, updatedAt: Date.now() });
@@ -287,6 +288,12 @@ export function XCollabTab() {
             </PillButton>
           </div>
         </div>
+        <label className="mt-3 flex items-center gap-2 text-xs text-brand-secondary">
+          Auto-rotate to the next model every
+          <input type="number" min={0} max={120} step={1} value={autoplay} onChange={e => setAutoplay(e.target.value)}
+            className="w-16 rounded-md border border-brand-border bg-white px-2 py-1 text-center text-sm text-brand-primary focus:border-brand-primary focus:outline-none" />
+          seconds <span className="opacity-70">(0 = off; it pauses for a moment whenever the customer swipes or clicks)</span>
+        </label>
         {linkError && <p className="mt-2 text-xs text-red-600">{linkError}</p>}
       </div>
 
@@ -354,7 +361,7 @@ export function XCollabTab() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-brand-primary">{l.customer || 'Untitled'}{!l.active && <span className="ml-2 text-xs font-normal text-brand-secondary">paused</span>}</div>
-                  <div className="truncate text-xs text-brand-secondary">{(l.models || []).length} model{(l.models || []).length === 1 ? '' : 's'} · <span className="font-mono">{xcShareUrl(l.id)}</span></div>
+                  <div className="truncate text-xs text-brand-secondary">{(l.models || []).length} model{(l.models || []).length === 1 ? '' : 's'} · {l.autoplay ? `rotates every ${l.autoplay}s` : 'no auto-rotate'} · <span className="font-mono">{xcShareUrl(l.id)}</span></div>
                 </div>
                 <div className="flex items-center gap-1 text-brand-secondary">
                   <button onClick={() => copy(l.id)} className="inline-flex items-center gap-1 rounded-full border border-brand-border px-3 py-1 text-xs text-brand-primary hover:border-brand-primary">
