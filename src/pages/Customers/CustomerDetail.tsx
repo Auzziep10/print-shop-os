@@ -1066,12 +1066,10 @@ export function CustomerDetail() {
       const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const downloadUrl = await getDownloadURL(storageRef);
-      const defaultTitle = file.name.replace(/\.[^/.]+$/, '');
       setDesignerRackForm(prev => ({
         ...prev,
         mockupUrl: downloadUrl,
-        mockupName: file.name,
-        title: prev.title.trim() ? prev.title : defaultTitle
+        mockupName: file.name
       }));
     } catch (err) {
       console.error("Designer Rack mockup upload failed:", err);
@@ -1123,6 +1121,10 @@ export function CustomerDetail() {
   const handleSaveDesignerRackModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
+    if (!designerRackForm.title.trim()) {
+      alert("Please enter a title for what the garment should be called.");
+      return;
+    }
     if (
       !designerRackForm.mockupUrl &&
       designerRackForm.logos.length === 0 &&
@@ -1135,10 +1137,7 @@ export function CustomerDetail() {
 
     setIsSavingDesignerRack(true);
     try {
-      const displayTitle =
-        designerRackForm.title.trim() ||
-        designerRackForm.mockupName?.replace(/\.[^/.]+$/, '') ||
-        `Design #${designerRack.length + 1}`;
+      const displayTitle = designerRackForm.title.trim();
 
       let updated: any[];
       if (editingDesignerRackId) {
@@ -2044,16 +2043,17 @@ export function CustomerDetail() {
             </div>
 
             <form onSubmit={handleSaveDesignerRackModal} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
-              {/* Optional Design Name */}
+              {/* Required Garment Title */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
-                  Design Name (Optional)
+                  Garment Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={designerRackForm.title}
                   onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g. Summer Tour Tee — Black"
+                  placeholder="Enter what this garment should be called (e.g. Vintage Wash Heavyweight Tee)"
                   className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
                 />
               </div>
