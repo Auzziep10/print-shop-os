@@ -174,7 +174,26 @@ export function CustomerDetail() {
   const [isBrandsSectionCollapsed, setIsBrandsSectionCollapsed] = useState(true);
   const [isDesignerRackCollapsed, setIsDesignerRackCollapsed] = useState(true);
   const [designerRack, setDesignerRack] = useState<any[]>([]);
-  const [isUploadingDesignerRack, setIsUploadingDesignerRack] = useState(false);
+  const [isDesignerRackModalOpen, setIsDesignerRackModalOpen] = useState(false);
+  const [editingDesignerRackId, setEditingDesignerRackId] = useState<string | null>(null);
+  const [designerRackForm, setDesignerRackForm] = useState<{
+    title: string;
+    mockupUrl: string;
+    mockupName: string;
+    logos: { id: string; name: string; url: string }[];
+    psdDriveLink: string;
+    garmentSourcingLink: string;
+  }>({
+    title: '',
+    mockupUrl: '',
+    mockupName: '',
+    logos: [],
+    psdDriveLink: '',
+    garmentSourcingLink: ''
+  });
+  const [isUploadingRackMockup, setIsUploadingRackMockup] = useState(false);
+  const [isUploadingRackLogos, setIsUploadingRackLogos] = useState(false);
+  const [isSavingDesignerRack, setIsSavingDesignerRack] = useState(false);
   const [subBrands, setSubBrands] = useState<any[]>([]);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
@@ -1012,39 +1031,162 @@ export function CustomerDetail() {
     }
   };
 
-  const handleUploadDesignerRack = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpenNewDesignerRackModal = () => {
+    setEditingDesignerRackId(null);
+    setDesignerRackForm({
+      title: '',
+      mockupUrl: '',
+      mockupName: '',
+      logos: [],
+      psdDriveLink: '',
+      garmentSourcingLink: ''
+    });
+    setIsDesignerRackModalOpen(true);
+  };
+
+  const handleOpenEditDesignerRackModal = (design: any) => {
+    setEditingDesignerRackId(design.id);
+    setDesignerRackForm({
+      title: design.title || design.name || '',
+      mockupUrl: design.mockupUrl || design.url || '',
+      mockupName: design.mockupName || design.name || '',
+      logos: Array.isArray(design.logos) ? design.logos : [],
+      psdDriveLink: design.psdDriveLink || '',
+      garmentSourcingLink: design.garmentSourcingLink || ''
+    });
+    setIsDesignerRackModalOpen(true);
+  };
+
+  const handleUploadRackMockup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+
+    setIsUploadingRackMockup(true);
+    try {
+      const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      const defaultTitle = file.name.replace(/\.[^/.]+$/, '');
+      setDesignerRackForm(prev => ({
+        ...prev,
+        mockupUrl: downloadUrl,
+        mockupName: file.name,
+        title: prev.title.trim() ? prev.title : defaultTitle
+      }));
+    } catch (err) {
+      console.error("Designer Rack mockup upload failed:", err);
+      alert("Failed to upload mock-up file.");
+    } finally {
+      setIsUploadingRackMockup(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleUploadRackLogos = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !id) return;
 
-    setIsUploadingDesignerRack(true);
+    setIsUploadingRackLogos(true);
     try {
-      const newlyUploaded: any[] = [];
+      const uploadedLogos: { id: string; name: string; url: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const storageRef = ref(storage, `customers/${id}/designer_rack/${Date.now()}_${i}_${file.name}`);
+        const storageRef = ref(storage, `customers/${id}/designer_rack/logos/${Date.now()}_${i}_${file.name}`);
         await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(storageRef);
-        newlyUploaded.push({
-          id: `design-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+        uploadedLogos.push({
+          id: `rack-logo-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
           name: file.name,
-          url: downloadUrl,
-          uploadedAt: new Date().toISOString()
+          url: downloadUrl
         });
       }
+      setDesignerRackForm(prev => ({
+        ...prev,
+        logos: [...prev.logos, ...uploadedLogos]
+      }));
+    } catch (err) {
+      console.error("Designer Rack logo upload failed:", err);
+      alert("Failed to upload logo file(s).");
+    } finally {
+      setIsUploadingRackLogos(false);
+      e.target.value = '';
+    }
+  };
 
-      const updated = [...designerRack, ...newlyUploaded];
+  const handleRemoveRackLogoFromForm = (logoId: string) => {
+    setDesignerRackForm(prev => ({
+      ...prev,
+      logos: prev.logos.filter(l => l.id !== logoId)
+    }));
+  };
+
+  const handleSaveDesignerRackModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+    if (
+      !designerRackForm.mockupUrl &&
+      designerRackForm.logos.length === 0 &&
+      !designerRackForm.psdDriveLink.trim() &&
+      !designerRackForm.garmentSourcingLink.trim()
+    ) {
+      alert("Please upload a mock-up/logo or enter a link before saving.");
+      return;
+    }
+
+    setIsSavingDesignerRack(true);
+    try {
+      const displayTitle =
+        designerRackForm.title.trim() ||
+        designerRackForm.mockupName?.replace(/\.[^/.]+$/, '') ||
+        `Design #${designerRack.length + 1}`;
+
+      let updated: any[];
+      if (editingDesignerRackId) {
+        updated = designerRack.map(d =>
+          d.id === editingDesignerRackId
+            ? {
+                ...d,
+                title: displayTitle,
+                name: displayTitle,
+                mockupUrl: designerRackForm.mockupUrl,
+                mockupName: designerRackForm.mockupName,
+                url: designerRackForm.mockupUrl || d.url || '',
+                logos: designerRackForm.logos,
+                psdDriveLink: designerRackForm.psdDriveLink.trim(),
+                garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+                updatedAt: new Date().toISOString()
+              }
+            : d
+        );
+      } else {
+        const newItem = {
+          id: `design-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          title: displayTitle,
+          name: displayTitle,
+          mockupUrl: designerRackForm.mockupUrl,
+          mockupName: designerRackForm.mockupName,
+          url: designerRackForm.mockupUrl,
+          logos: designerRackForm.logos,
+          psdDriveLink: designerRackForm.psdDriveLink.trim(),
+          garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+          uploadedAt: new Date().toISOString()
+        };
+        updated = [...designerRack, newItem];
+      }
+
       await updateDoc(doc(db, 'customers', id), {
         designerRack: updated
       });
       setDesignerRack(updated);
-      setLiveCustomerData((prev: any) => prev ? { ...prev, designerRack: updated } : prev);
+      setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      setIsDesignerRackModalOpen(false);
+      setEditingDesignerRackId(null);
       setIsDesignerRackCollapsed(false);
     } catch (err) {
-      console.error("Designer Rack upload failed:", err);
-      alert("Failed to upload design to Designer Rack.");
+      console.error("Failed to save Designer Rack item:", err);
+      alert("Failed to save design to Designer Rack.");
     } finally {
-      setIsUploadingDesignerRack(false);
-      e.target.value = '';
+      setIsSavingDesignerRack(false);
     }
   };
 
@@ -1872,6 +2014,254 @@ export function CustomerDetail() {
           setIsBrandsSectionCollapsed(false);
         }}
       />
+
+      {/* Designer Rack Upload Design Modal */}
+      {isDesignerRackModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => setIsDesignerRackModalOpen(false)}
+        >
+          <div
+            className="bg-white max-w-xl w-full rounded-2xl shadow-2xl border border-brand-border overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5 border-b border-brand-border flex items-center justify-between bg-brand-bg/40">
+              <div>
+                <h3 className="font-serif text-2xl text-brand-primary">
+                  {editingDesignerRackId ? 'Edit Design' : 'Upload Design'}
+                </h3>
+                <p className="text-xs text-brand-secondary mt-0.5">
+                  Add the mock-up, logo(s), PSD Google Drive link, and garment sourcing link.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDesignerRackModalOpen(false)}
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-white border border-brand-border rounded-lg p-1.5 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDesignerRackModal} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+              {/* Optional Design Name */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                  Design Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={designerRackForm.title}
+                  onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="e.g. Summer Tour Tee — Black"
+                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* 1. Mock-up */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                  1. Mock-up
+                </label>
+                <div className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/80 rounded-xl p-3.5">
+                  <div className="w-20 h-20 rounded-xl border border-brand-border bg-checkerboard flex items-center justify-center p-1.5 shrink-0 overflow-hidden">
+                    {designerRackForm.mockupUrl ? (
+                      designerRackForm.mockupName?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <FileText size={20} className="text-neutral-500" />
+                          <span className="text-[8px] font-black uppercase text-neutral-500">
+                            {designerRackForm.mockupName.split('.').pop()}
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={designerRackForm.mockupUrl}
+                          alt="Mock-up preview"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      )
+                    ) : (
+                      <Image size={22} className="text-neutral-300" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {designerRackForm.mockupUrl ? (
+                      <p className="text-xs font-bold text-brand-primary truncate mb-2" title={designerRackForm.mockupName}>
+                        {designerRackForm.mockupName || 'Mock-up uploaded'}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-brand-secondary mb-2">
+                        Upload the garment mock-up image or PDF.
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={handleUploadRackMockup}
+                          accept="image/*,application/pdf"
+                          disabled={isUploadingRackMockup}
+                        />
+                        {isUploadingRackMockup ? (
+                          <Loader2 className="animate-spin" size={14} />
+                        ) : (
+                          <Upload size={14} />
+                        )}
+                        <span>
+                          {isUploadingRackMockup
+                            ? 'Uploading...'
+                            : designerRackForm.mockupUrl
+                            ? 'Replace Mock-up'
+                            : 'Upload Mock-up'}
+                        </span>
+                      </label>
+                      {designerRackForm.mockupUrl && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDesignerRackForm((prev) => ({
+                              ...prev,
+                              mockupUrl: '',
+                              mockupName: ''
+                            }))
+                          }
+                          className="text-xs text-red-600 hover:underline font-semibold px-2 py-1 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Logo or Logos */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary">
+                    2. Logo or Logos ({designerRackForm.logos.length})
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleUploadRackLogos}
+                      accept="image/*,application/pdf,.ai,.eps,.svg"
+                      disabled={isUploadingRackLogos}
+                    />
+                    {isUploadingRackLogos ? (
+                      <Loader2 className="animate-spin" size={13} />
+                    ) : (
+                      <Plus size={13} />
+                    )}
+                    <span>{isUploadingRackLogos ? 'Uploading...' : 'Upload Logo(s)'}</span>
+                  </label>
+                </div>
+
+                {designerRackForm.logos.length === 0 ? (
+                  <div className="bg-brand-bg/30 border border-dashed border-brand-border/80 rounded-xl p-4 text-center text-xs text-brand-secondary">
+                    No logos uploaded yet. Click "Upload Logo(s)" to add one or multiple logo files.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 bg-brand-bg/20 border border-brand-border/70 rounded-xl p-3">
+                    {designerRackForm.logos.map((logo) => {
+                      const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                      return (
+                        <div
+                          key={logo.id}
+                          className="relative group bg-white border border-brand-border/70 rounded-xl p-2 flex flex-col items-center gap-1.5"
+                        >
+                          <div className="w-14 h-14 rounded-lg bg-checkerboard flex items-center justify-center p-1 overflow-hidden">
+                            {isLogoImg ? (
+                              <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                            ) : (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <FileText size={16} className="text-neutral-500" />
+                                <span className="text-[8px] font-black uppercase text-neutral-500">
+                                  {logo.name?.split('.').pop() || 'FILE'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-medium text-brand-primary truncate w-full text-center" title={logo.name}>
+                            {logo.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRackLogoFromForm(logo.id)}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                            title="Remove Logo"
+                          >
+                            <X size={11} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Google Drive Link to PSD File */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                  3. Google Drive Link to PSD File
+                </label>
+                <input
+                  type="url"
+                  value={designerRackForm.psdDriveLink}
+                  onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, psdDriveLink: e.target.value }))}
+                  placeholder="https://drive.google.com/file/d/..."
+                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* 4. Link to Garment Online for Sourcing */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                  4. Link to Garment Online for Sourcing
+                </label>
+                <input
+                  type="url"
+                  value={designerRackForm.garmentSourcingLink}
+                  onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentSourcingLink: e.target.value }))}
+                  placeholder="https://www.sanmar.com/... or supplier garment URL"
+                  className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm text-brand-primary focus:outline-none transition-all"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-brand-border">
+                <PillButton
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDesignerRackModalOpen(false)}
+                  disabled={isSavingDesignerRack}
+                >
+                  Cancel
+                </PillButton>
+                <PillButton
+                  type="submit"
+                  variant="filled"
+                  className="gap-1.5"
+                  disabled={isSavingDesignerRack || isUploadingRackMockup || isUploadingRackLogos}
+                >
+                  {isSavingDesignerRack ? (
+                    <>
+                      <Loader2 className="animate-spin" size={14} /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} /> {editingDesignerRackId ? 'Save Changes' : 'Save Design'}
+                    </>
+                  )}
+                </PillButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-brand-border">
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
@@ -2499,24 +2889,16 @@ export function CustomerDetail() {
                 </div>
                 <div className="flex items-center gap-2">
                   {!isDesignerRackCollapsed && (
-                    <label
-                      onClick={(e) => e.stopPropagation()}
-                      className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-pill text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    <PillButton
+                      variant="outline"
+                      className="px-4 text-xs font-bold gap-1.5 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenNewDesignerRackModal();
+                      }}
                     >
-                      <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleUploadDesignerRack}
-                        accept="image/*,application/pdf,.ai,.eps,.svg,.psd"
-                      />
-                      {isUploadingDesignerRack ? (
-                        <Loader2 className="animate-spin" size={14} />
-                      ) : (
-                        <Upload size={14} />
-                      )}
-                      <span>{isUploadingDesignerRack ? 'Uploading...' : 'Upload Design'}</span>
-                    </label>
+                      <Upload size={14} /> Upload Design
+                    </PillButton>
                   )}
                   <button
                     type="button"
@@ -2534,7 +2916,7 @@ export function CustomerDetail() {
 
               {!isDesignerRackCollapsed && (
                 <p className="text-xs text-brand-secondary">
-                  Uploaded designs, mockups, and artwork files curated for this brand.
+                  Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated for this brand.
                 </p>
               )}
             </div>
@@ -2544,81 +2926,190 @@ export function CustomerDetail() {
                 {designerRack.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
                     <p>No designs uploaded to the Designer Rack yet. Click below to upload a design.</p>
-                    <label
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-pill text-xs font-bold bg-brand-primary text-white hover:bg-black transition-all cursor-pointer shadow-xs"
+                    <PillButton
+                      variant="filled"
+                      className="gap-1.5 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenNewDesignerRackModal();
+                      }}
                     >
-                      <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleUploadDesignerRack}
-                        accept="image/*,application/pdf,.ai,.eps,.svg,.psd"
-                      />
-                      {isUploadingDesignerRack ? (
-                        <Loader2 className="animate-spin" size={14} />
-                      ) : (
-                        <Upload size={14} />
-                      )}
-                      <span>{isUploadingDesignerRack ? 'Uploading...' : 'Upload Design'}</span>
-                    </label>
+                      <Upload size={14} /> Upload Design
+                    </PillButton>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {designerRack.map((design: any) => {
-                      const isImage = Boolean(design.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                      const mockupSrc = design.mockupUrl || design.url || '';
+                      const mockupLabel = design.mockupName || design.name || 'Mock-up';
+                      const displayTitle = design.title || design.name || 'Untitled Design';
+                      const isMockupImage = Boolean(
+                        mockupSrc &&
+                          (mockupLabel.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ||
+                            mockupSrc.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ||
+                            !mockupLabel.includes('.'))
+                      );
+                      const designLogos: { id: string; name: string; url: string }[] = Array.isArray(design.logos)
+                        ? design.logos
+                        : [];
+
                       return (
                         <div
                           key={design.id}
-                          className="flex flex-col justify-between bg-brand-bg/30 hover:bg-brand-bg/60 border border-brand-border/70 rounded-2xl p-3 transition-all group relative"
+                          className="flex flex-col justify-between bg-brand-bg/30 hover:bg-brand-bg/60 border border-brand-border/70 rounded-2xl p-4 transition-all group relative gap-3"
                         >
-                          <div
-                            onClick={() => {
-                              if (isImage) {
-                                setExpandedImage({ src: design.url, alt: design.name });
-                              } else {
-                                window.open(design.url, '_blank');
-                              }
-                            }}
-                            className="aspect-square rounded-xl border border-brand-border/60 bg-checkerboard flex items-center justify-center p-2 overflow-hidden cursor-pointer mb-2"
-                            title={design.name}
-                          >
-                            {isImage ? (
-                              <img
-                                src={design.url}
-                                alt={design.name}
-                                className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
-                              />
-                            ) : (
-                              <div className="flex flex-col items-center gap-1 text-center">
-                                <FileText size={24} className="text-neutral-500" />
-                                <span className="text-[9px] font-black uppercase text-neutral-500 truncate max-w-[70px]">
-                                  {design.name?.split('.').pop() || 'FILE'}
-                                </span>
+                          <div className="flex items-start gap-4">
+                            {/* Mock-up Preview */}
+                            <div
+                              onClick={() => {
+                                if (!mockupSrc) return;
+                                if (isMockupImage) {
+                                  setExpandedImage({ src: mockupSrc, alt: displayTitle });
+                                } else {
+                                  window.open(mockupSrc, '_blank');
+                                }
+                              }}
+                              className={`w-24 h-24 rounded-xl border border-brand-border/60 bg-checkerboard flex items-center justify-center p-2 overflow-hidden shrink-0 ${
+                                mockupSrc ? 'cursor-pointer' : ''
+                              }`}
+                              title={mockupSrc ? 'Click to view Mock-up' : 'No Mock-up uploaded'}
+                            >
+                              {mockupSrc ? (
+                                isMockupImage ? (
+                                  <img
+                                    src={mockupSrc}
+                                    alt={displayTitle}
+                                    className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform"
+                                  />
+                                ) : (
+                                  <div className="flex flex-col items-center gap-1 text-center">
+                                    <FileText size={24} className="text-neutral-500" />
+                                    <span className="text-[9px] font-black uppercase text-neutral-500 truncate max-w-[70px]">
+                                      {mockupLabel.split('.').pop() || 'MOCKUP'}
+                                    </span>
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-[10px] text-neutral-400 font-semibold text-center">No Mock-up</span>
+                              )}
+                            </div>
+
+                            {/* Design Info & Logos */}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-sm text-brand-primary truncate" title={displayTitle}>
+                                    {displayTitle}
+                                  </h4>
+                                  {design.uploadedAt && (
+                                    <p className="text-[10px] text-brand-secondary mt-0.5">
+                                      Added {new Date(design.uploadedAt).toLocaleDateString()}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditDesignerRackModal(design);
+                                    }}
+                                    className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-white rounded-lg transition-colors cursor-pointer"
+                                    title="Edit Design"
+                                  >
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteDesignerRackItem(design.id);
+                                    }}
+                                    className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Remove Design"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
                               </div>
+
+                              {/* Logos Row */}
+                              <div className="mt-2.5">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                                  Logos ({designLogos.length})
+                                </p>
+                                {designLogos.length === 0 ? (
+                                  <p className="text-[11px] italic text-brand-secondary/60">No logos attached</p>
+                                ) : (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {designLogos.map((logo) => {
+                                      const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                                      return (
+                                        <div
+                                          key={logo.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isLogoImg) {
+                                              setExpandedImage({ src: logo.url, alt: logo.name });
+                                            } else {
+                                              window.open(logo.url, '_blank');
+                                            }
+                                          }}
+                                          className="w-9 h-9 rounded-lg border border-brand-border/70 bg-checkerboard p-1 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
+                                          title={`Logo: ${logo.name}`}
+                                        >
+                                          {isLogoImg ? (
+                                            <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                                          ) : (
+                                            <span className="text-[8px] font-black uppercase text-neutral-600">
+                                              {logo.name?.split('.').pop() || 'FILE'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Links Footer (PSD Drive Link & Garment Sourcing Link) */}
+                          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-brand-border/50">
+                            {design.psdDriveLink ? (
+                              <a
+                                href={design.psdDriveLink.startsWith('http') ? design.psdDriveLink : `https://${design.psdDriveLink}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-[11px] font-bold transition-colors"
+                                title={design.psdDriveLink}
+                              >
+                                <FileText size={12} />
+                                <span>PSD Drive Link</span>
+                                <ExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-brand-secondary/50 italic">No PSD link</span>
+                            )}
+
+                            {design.garmentSourcingLink ? (
+                              <a
+                                href={design.garmentSourcingLink.startsWith('http') ? design.garmentSourcingLink : `https://${design.garmentSourcingLink}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-[11px] font-bold transition-colors"
+                                title={design.garmentSourcingLink}
+                              >
+                                <Shirt size={12} />
+                                <span>Garment Sourcing Link</span>
+                                <ExternalLink size={10} />
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-brand-secondary/50 italic">No sourcing link</span>
                             )}
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-brand-primary truncate" title={design.name}>
-                              {design.name}
-                            </p>
-                            {design.uploadedAt && (
-                              <p className="text-[10px] text-brand-secondary mt-0.5">
-                                {new Date(design.uploadedAt).toLocaleDateString()}
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteDesignerRackItem(design.id);
-                            }}
-                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-500 hover:border-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                            title="Remove Design"
-                          >
-                            <X size={12} strokeWidth={2.5} />
-                          </button>
                         </div>
                       );
                     })}

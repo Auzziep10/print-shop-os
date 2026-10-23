@@ -4868,6 +4868,35 @@ export function OrderDetail() {
                     )}
                     </div>
                   )}
+                  {Boolean(liveCustomer?.parentCustomerId) && order.customerId && (
+                    <div className="mb-1.5">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const parentName = liveCustomer.parentCompanyName || 'Parent Customer';
+                          if (!window.confirm(`Move this order from "${customer.company}" to parent customer "${parentName}"?`)) {
+                            return;
+                          }
+                          try {
+                            await updateDoc(doc(db, 'orders', order.id), {
+                              customerId: liveCustomer.parentCustomerId,
+                              movedFromBrandId: order.customerId,
+                              movedFromBrandName: customer.company || '',
+                              movedAt: new Date().toISOString()
+                            });
+                          } catch (err) {
+                            console.error('Failed to move order to parent customer:', err);
+                            alert('Failed to move order to parent customer.');
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-600 hover:text-white border border-indigo-200 hover:border-indigo-600 px-3 py-1 rounded-full transition-all cursor-pointer"
+                        title={`Move this order to ${liveCustomer.parentCompanyName || 'Parent Customer'}`}
+                      >
+                        <ArrowLeftRight size={12} />
+                        <span>Move Order to Parent ({liveCustomer.parentCompanyName || 'Parent'})</span>
+                      </button>
+                    </div>
+                  )}
                   {order.customerId ? (
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-3 flex-wrap">

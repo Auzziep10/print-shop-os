@@ -271,6 +271,34 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [modifiedOrderIds, setModifiedOrderIds] = useState<Set<string>>(new Set());
   const [submittingOrderIds, setSubmittingOrderIds] = useState<Set<string>>(new Set());
   const [resubmitSuccessIds, setResubmitSuccessIds] = useState<Set<string>>(new Set());
+  const [movingOrderId, setMovingOrderId] = useState<string | null>(null);
+
+  const handleMoveOrderToParent = async (e: React.MouseEvent, order: any) => {
+    e.stopPropagation();
+    if (!customer?.parentCustomerId) return;
+    const parentName = customer.parentCompanyName || 'Parent Customer';
+    if (!window.confirm(`Move order "${order.title || order.portalId || order.id}" to parent customer "${parentName}"?`)) {
+      return;
+    }
+    setMovingOrderId(order.id);
+    try {
+      await setDoc(
+        doc(db, 'orders', order.id),
+        {
+          customerId: customer.parentCustomerId,
+          movedFromBrandId: currentCustomerId,
+          movedFromBrandName: customer.company || customer.contactName || '',
+          movedAt: new Date().toISOString()
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error('Error moving order to parent customer:', err);
+      alert('Failed to move order to parent customer.');
+    } finally {
+      setMovingOrderId(null);
+    }
+  };
 
   const getActiveSidesCountForOrderItem = (item: any) => {
     if (!item.customized) return 1;
@@ -1682,6 +1710,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                     );
                   }
                })()}
+              {overrideCustomerId && Boolean(customer?.parentCustomerId) && (
+                <button
+                  type="button"
+                  disabled={movingOrderId === order.id}
+                  onClick={(e) => handleMoveOrderToParent(e, order)}
+                  className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 text-[11px] font-bold rounded-full py-2.5 px-3 transition-all tracking-wide text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title={`Move order to ${customer?.parentCompanyName || 'Parent Customer'}`}
+                >
+                  {movingOrderId === order.id ? (
+                    <Loader2 size={12} className="animate-spin shrink-0" />
+                  ) : (
+                    <Building2 size={12} className="shrink-0" />
+                  )}
+                  <span className="truncate">Move to Parent</span>
+                </button>
+              )}
               <div className="flex flex-1 xl:w-full gap-2">
                 <button 
                   className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
