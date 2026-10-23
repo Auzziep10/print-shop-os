@@ -10,7 +10,7 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight } from 'lucide-react';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
@@ -752,7 +752,33 @@ export function Dashboard() {
       });
     }
 
-    return items;
+    // Group subcustomers directly underneath their parent customer when the parent is in the list
+    const parentIdsInList = new Set(
+      items.filter(i => i.itemType === 'customer').map(i => i.id)
+    );
+    const childrenByParent = new Map<string, typeof items>();
+    const topLevelItems: typeof items = [];
+
+    for (const item of items) {
+      const parentId = item.itemType === 'customer' ? item.data?.parentCustomerId : null;
+      if (parentId && parentIdsInList.has(parentId)) {
+        const list = childrenByParent.get(parentId) || [];
+        list.push(item);
+        childrenByParent.set(parentId, list);
+      } else {
+        topLevelItems.push(item);
+      }
+    }
+
+    const groupedItems: typeof items = [];
+    for (const item of topLevelItems) {
+      groupedItems.push(item);
+      if (item.itemType === 'customer' && childrenByParent.has(item.id)) {
+        groupedItems.push(...(childrenByParent.get(item.id) || []));
+      }
+    }
+
+    return groupedItems;
   }, [highPriorityCustomers, highPriorityOrders, localPriorityOrder]);
 
   const handleDropPriorityItem = async (targetKey: string) => {
@@ -929,6 +955,7 @@ export function Dashboard() {
 
               if (entry.itemType === 'customer') {
                 const c = entry.data;
+                const isSubCustomer = Boolean(c.parentCustomerId);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
                 const activeCustOrders = orders.filter(
                   (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
@@ -965,7 +992,9 @@ export function Dashboard() {
                       setDragOverPriorityKey(null);
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
-                    className={`px-3.5 py-2.5 flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
+                    className={`${
+                      isSubCustomer ? 'pl-10 sm:pl-12 pr-3.5 py-2 bg-red-50/20' : 'px-3.5 py-2.5'
+                    } flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
                       isDragging
                         ? 'opacity-40 bg-red-50'
                         : isDragOver
@@ -974,6 +1003,9 @@ export function Dashboard() {
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {isSubCustomer && (
+                        <CornerDownRight size={14} className="text-red-400 shrink-0 -mr-1" />
+                      )}
                       <div
                         className="flex items-center gap-1.5 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
                         title="Drag to reorder"
@@ -1000,7 +1032,7 @@ export function Dashboard() {
                           {companyName}
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-600 text-white rounded shrink-0">
-                          Customer
+                          {isSubCustomer ? 'Brand' : 'Customer'}
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
                           {c.type || 'B2C'}
