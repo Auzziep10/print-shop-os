@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
@@ -272,29 +272,119 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [submittingOrderIds, setSubmittingOrderIds] = useState<Set<string>>(new Set());
   const [resubmitSuccessIds, setResubmitSuccessIds] = useState<Set<string>>(new Set());
   const [movingOrderId, setMovingOrderId] = useState<string | null>(null);
+  const [familyBrands, setFamilyBrands] = useState<any[]>([]);
+  const [parentCustomerDoc, setParentCustomerDoc] = useState<any | null>(null);
+  const [orderContextMenu, setOrderContextMenu] = useState<{
+    order: any;
+    x: number;
+    y: number;
+  } | null>(null);
 
-  const handleMoveOrderToParent = async (e: React.MouseEvent, order: any) => {
-    e.stopPropagation();
-    if (!customer?.parentCustomerId) return;
-    const parentName = customer.parentCompanyName || 'Parent Customer';
-    if (!window.confirm(`Move order "${order.title || order.portalId || order.id}" to parent customer "${parentName}"?`)) {
+  useEffect(() => {
+    if (!overrideCustomerId || !currentCustomerId) {
+      setFamilyBrands([]);
+      setParentCustomerDoc(null);
       return;
     }
+    const rootParentId = customer?.parentCustomerId || currentCustomerId;
+    if (customer?.parentCustomerId) {
+      getDoc(doc(db, 'customers', customer.parentCustomerId))
+        .then((snap) => {
+          if (snap.exists()) setParentCustomerDoc({ id: snap.id, ...snap.data() });
+        })
+        .catch(() => {});
+    } else {
+      setParentCustomerDoc(null);
+    }
+
+    const q = query(collection(db, 'customers'), where('parentCustomerId', '==', rootParentId));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) =>
+          (a.company || a.contactName || '').localeCompare(b.company || b.contactName || '')
+        );
+        setFamilyBrands(list);
+      },
+      () => {
+        setFamilyBrands([]);
+      }
+    );
+    return () => unsub();
+  }, [overrideCustomerId, currentCustomerId, customer?.parentCustomerId]);
+
+  useEffect(() => {
+    if (!orderContextMenu) return;
+    const handleClose = () => setOrderContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOrderContextMenu(null);
+    };
+    window.addEventListener('click', handleClose);
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [orderContextMenu]);
+
+  const moveTargets = (() => {
+    const targets: Array<{
+      id: string;
+      name: string;
+      logo: string | null;
+      isParent: boolean;
+    }> = [];
+
+    if (customer?.parentCustomerId) {
+      const parentName =
+        parentCustomerDoc?.company ||
+        customer.parentCompanyName ||
+        parentCustomerDoc?.contactName ||
+        'Parent Customer';
+      targets.push({
+        id: customer.parentCustomerId,
+        name: parentName,
+        logo: parentCustomerDoc?.croppedLogo || parentCustomerDoc?.logo || null,
+        isParent: true
+      });
+    }
+
+    familyBrands.forEach((b: any) => {
+      if (b.id === currentCustomerId) return;
+      const bName = b.company && b.company !== '-' ? b.company : b.contactName || 'Unnamed Brand';
+      targets.push({
+        id: b.id,
+        name: bName,
+        logo: b.croppedLogo || b.logo || null,
+        isParent: false
+      });
+    });
+
+    return targets;
+  })();
+
+  const handleMoveOrderToTarget = async (order: any, targetId: string, targetName: string) => {
+    if (!order?.id || !targetId) return;
     setMovingOrderId(order.id);
+    setOrderContextMenu(null);
     try {
       await setDoc(
         doc(db, 'orders', order.id),
         {
-          customerId: customer.parentCustomerId,
-          movedFromBrandId: currentCustomerId,
-          movedFromBrandName: customer.company || customer.contactName || '',
+          customerId: targetId,
+          movedFromCustomerId: currentCustomerId,
+          movedFromCustomerName: customer?.company || customer?.contactName || '',
+          movedToCustomerName: targetName,
           movedAt: new Date().toISOString()
         },
         { merge: true }
       );
     } catch (err) {
-      console.error('Error moving order to parent customer:', err);
-      alert('Failed to move order to parent customer.');
+      console.error('Error moving order:', err);
+      alert('Failed to move order.');
     } finally {
       setMovingOrderId(null);
     }
@@ -886,6 +976,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
              className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
              onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
              onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
+             onContextMenu={(e) => {
+               if (!overrideCustomerId) return;
+               e.preventDefault();
+               e.stopPropagation();
+               setOrderContextMenu({ x: e.clientX, y: e.clientY, order });
+             }}
            >
              
              {/* Main Gray Capsule Wrapper */}
@@ -1710,22 +1806,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                     );
                   }
                })()}
-              {overrideCustomerId && Boolean(customer?.parentCustomerId) && (
-                <button
-                  type="button"
-                  disabled={movingOrderId === order.id}
-                  onClick={(e) => handleMoveOrderToParent(e, order)}
-                  className="w-full bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 text-[11px] font-bold rounded-full py-2.5 px-3 transition-all tracking-wide text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title={`Move order to ${customer?.parentCompanyName || 'Parent Customer'}`}
-                >
-                  {movingOrderId === order.id ? (
-                    <Loader2 size={12} className="animate-spin shrink-0" />
-                  ) : (
-                    <Building2 size={12} className="shrink-0" />
-                  )}
-                  <span className="truncate">Move to Parent</span>
-                </button>
-              )}
               <div className="flex flex-1 xl:w-full gap-2">
                 <button 
                   className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
@@ -1750,6 +1830,57 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         );
       })}
     </div>
+
+      {/* Right-Click Context Menu for Moving Quotes & Orders between Parent & Brands */}
+      {orderContextMenu && (
+        <div
+          className="fixed z-[300] bg-white border border-brand-border rounded-2xl shadow-[0_20px_50px_-10px_rgba(0,0,0,0.2)] py-2 w-64 animate-in fade-in zoom-in-95 duration-150"
+          style={{
+            left: Math.min(orderContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 270 : orderContextMenu.x),
+            top: Math.min(orderContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 280 : orderContextMenu.y),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3.5 py-1.5 border-b border-brand-border/60 mb-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
+              Move {orderContextMenu.order.statusIndex === 0 ? 'Quote' : 'Order'}
+            </p>
+            <p className="text-xs font-bold text-brand-primary truncate">
+              {orderContextMenu.order.title || orderContextMenu.order.portalId || orderContextMenu.order.id}
+            </p>
+          </div>
+          {moveTargets.length > 0 ? (
+            <div className="max-h-60 overflow-y-auto px-1.5 space-y-0.5">
+              {moveTargets.map((target) => (
+                <button
+                  key={target.id}
+                  disabled={movingOrderId === orderContextMenu.order.id}
+                  onClick={() => handleMoveOrderToTarget(orderContextMenu.order, target.id, target.name)}
+                  className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-brand-bg transition-colors flex items-center justify-between gap-2 group"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ChevronRight size={13} className="text-brand-muted group-hover:text-brand-primary shrink-0 transition-colors" />
+                    <span className="text-xs font-bold text-brand-primary truncate">
+                      Move to {target.name}
+                    </span>
+                  </div>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                    target.isParent
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-brand-bg text-brand-muted border border-brand-border'
+                  }`}>
+                    {target.isParent ? 'Parent' : 'Brand'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="px-3.5 py-3 text-xs text-brand-muted italic">
+              No brands or parent company linked to this customer yet.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Image Overlay */}
       {expandedImage && (
