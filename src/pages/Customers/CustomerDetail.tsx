@@ -195,6 +195,8 @@ export function CustomerDetail() {
   });
   const [isUploadingRackMockup, setIsUploadingRackMockup] = useState(false);
   const [isUploadingRackLogos, setIsUploadingRackLogos] = useState(false);
+  const [isDraggingRackMockup, setIsDraggingRackMockup] = useState(false);
+  const [isDraggingRackLogos, setIsDraggingRackLogos] = useState(false);
   const [isSavingDesignerRack, setIsSavingDesignerRack] = useState(false);
   const [subBrands, setSubBrands] = useState<any[]>([]);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
@@ -1073,8 +1075,7 @@ export function CustomerDetail() {
     setIsDesignerRackModalOpen(true);
   };
 
-  const handleUploadRackMockup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const uploadRackMockupFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0 || !id) return;
 
     setIsUploadingRackMockup(true);
@@ -1105,8 +1106,14 @@ export function CustomerDetail() {
       alert("Failed to upload mock-up file(s).");
     } finally {
       setIsUploadingRackMockup(false);
-      e.target.value = '';
     }
+  };
+
+  const handleUploadRackMockup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await uploadRackMockupFiles(e.target.files);
+    }
+    e.target.value = '';
   };
 
   const handleRemoveRackMockupFromForm = (mockupId: string) => {
@@ -1121,8 +1128,7 @@ export function CustomerDetail() {
     });
   };
 
-  const handleUploadRackLogos = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const uploadRackLogoFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0 || !id) return;
 
     setIsUploadingRackLogos(true);
@@ -1148,8 +1154,14 @@ export function CustomerDetail() {
       alert("Failed to upload logo file(s).");
     } finally {
       setIsUploadingRackLogos(false);
-      e.target.value = '';
     }
+  };
+
+  const handleUploadRackLogos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await uploadRackLogoFiles(e.target.files);
+    }
+    e.target.value = '';
   };
 
   const handleRemoveRackLogoFromForm = (logoId: string) => {
@@ -2107,7 +2119,33 @@ export function CustomerDetail() {
               {/* 4 Quadrants Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Quadrant 1: Mock-up(s) */}
-                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isDraggingRackMockup) setIsDraggingRackMockup(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setIsDraggingRackMockup(false);
+                    }
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingRackMockup(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      await uploadRackMockupFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 flex flex-col justify-between min-h-[210px] transition-all ${
+                    isDraggingRackMockup
+                      ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
+                      : 'border-brand-border bg-brand-bg/25'
+                  }`}
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
                       1. Mock-up ({designerRackForm.mockups.length})
@@ -2123,7 +2161,11 @@ export function CustomerDetail() {
                     )}
                   </div>
 
-                  <div className="flex-1 flex flex-col items-center justify-center bg-white border border-dashed border-brand-border rounded-xl p-3 mb-3 overflow-hidden">
+                  <div
+                    className={`flex-1 flex flex-col items-center justify-center bg-white border border-dashed rounded-xl p-3 mb-3 overflow-hidden transition-colors ${
+                      isDraggingRackMockup ? 'border-brand-primary bg-brand-primary/5' : 'border-brand-border'
+                    }`}
+                  >
                     {designerRackForm.mockups.length > 0 ? (
                       <div className="w-full flex flex-col items-center gap-2.5">
                         {/* Primary Thumbnail (Always First Mock-up) */}
@@ -2192,9 +2234,13 @@ export function CustomerDetail() {
                         )}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary">
-                        <Image size={26} className="text-neutral-300" />
-                        <span className="text-[11px]">Upload one or more mock-ups (1st shows in thumbnail)</span>
+                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary pointer-events-none">
+                        <Image size={26} className={isDraggingRackMockup ? 'text-brand-primary' : 'text-neutral-300'} />
+                        <span className="text-[11px]">
+                          {isDraggingRackMockup
+                            ? 'Drop mock-up file(s) here...'
+                            : 'Drag & drop or upload mock-ups (1st shows in thumbnail)'}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -2242,7 +2288,33 @@ export function CustomerDetail() {
                 </div>
 
                 {/* Quadrant 2: Logo or Logos */}
-                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isDraggingRackLogos) setIsDraggingRackLogos(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setIsDraggingRackLogos(false);
+                    }
+                  }}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingRackLogos(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      await uploadRackLogoFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 flex flex-col justify-between min-h-[210px] transition-all ${
+                    isDraggingRackLogos
+                      ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
+                      : 'border-brand-border bg-brand-bg/25'
+                  }`}
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
                       2. Logo or Logos ({designerRackForm.logos.length})
@@ -2258,11 +2330,17 @@ export function CustomerDetail() {
                     )}
                   </div>
 
-                  <div className="flex-1 bg-white border border-dashed border-brand-border rounded-xl p-3 mb-3 flex items-center justify-center overflow-y-auto max-h-32">
+                  <div
+                    className={`flex-1 bg-white border border-dashed rounded-xl p-3 mb-3 flex items-center justify-center overflow-y-auto max-h-32 transition-colors ${
+                      isDraggingRackLogos ? 'border-brand-primary bg-brand-primary/5' : 'border-brand-border'
+                    }`}
+                  >
                     {designerRackForm.logos.length === 0 ? (
-                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary">
-                        <Palette size={24} className="text-neutral-300" />
-                        <span className="text-[11px]">Upload one or more logo files</span>
+                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary pointer-events-none">
+                        <Palette size={24} className={isDraggingRackLogos ? 'text-brand-primary' : 'text-neutral-300'} />
+                        <span className="text-[11px]">
+                          {isDraggingRackLogos ? 'Drop logo file(s) here...' : 'Drag & drop or upload logo files'}
+                        </span>
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2 w-full">
