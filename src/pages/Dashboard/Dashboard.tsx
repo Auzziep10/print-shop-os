@@ -711,6 +711,24 @@ export function Dashboard() {
   }, [customers]);
 
   const highPriorityItems = useMemo(() => {
+    const highPriorityCustIds = new Set(highPriorityCustomers.map((c: any) => c.id));
+
+    // Find any parent customers that aren't high priority themselves, but have a high-priority subcustomer
+    const contextParentsMap = new Map<string, { parentData: any; minChildRank: number }>();
+    highPriorityCustomers.forEach((c: any) => {
+      const parentId = c.parentCustomerId;
+      if (parentId && !highPriorityCustIds.has(parentId) && customers[parentId]) {
+        const childRank = typeof c.highPriorityRank === 'number' ? c.highPriorityRank : 9999;
+        const existing = contextParentsMap.get(parentId);
+        if (!existing || childRank < existing.minChildRank) {
+          contextParentsMap.set(parentId, {
+            parentData: { id: parentId, ...customers[parentId] },
+            minChildRank: childRank
+          });
+        }
+      }
+    });
+
     const items: Array<{
       key: string;
       itemType: 'customer' | 'order';
@@ -718,6 +736,7 @@ export function Dashboard() {
       rank: number;
       label: string;
       data: any;
+      isContextParent?: boolean;
     }> = [
       ...highPriorityCustomers.map((c: any) => ({
         key: `cust-${c.id}`,
@@ -725,7 +744,17 @@ export function Dashboard() {
         id: c.id,
         rank: typeof c.highPriorityRank === 'number' ? c.highPriorityRank : 9999,
         label: (c.company && c.company !== '-' ? c.company : c.contactName || c.name || c.email || 'Customer').toLowerCase(),
-        data: c
+        data: c,
+        isContextParent: false
+      })),
+      ...Array.from(contextParentsMap.entries()).map(([parentId, { parentData, minChildRank }]) => ({
+        key: `cust-${parentId}`,
+        itemType: 'customer' as const,
+        id: parentId,
+        rank: typeof parentData.highPriorityRank === 'number' ? parentData.highPriorityRank : minChildRank,
+        label: (parentData.company && parentData.company !== '-' ? parentData.company : parentData.contactName || parentData.name || parentData.email || 'Customer').toLowerCase(),
+        data: parentData,
+        isContextParent: true
       })),
       ...highPriorityOrders.map((o: any) => ({
         key: `order-${o.id}`,
@@ -779,7 +808,7 @@ export function Dashboard() {
     }
 
     return groupedItems;
-  }, [highPriorityCustomers, highPriorityOrders, localPriorityOrder]);
+  }, [highPriorityCustomers, highPriorityOrders, localPriorityOrder, customers]);
 
   const handleDropPriorityItem = async (targetKey: string) => {
     if (!draggedPriorityKey || draggedPriorityKey === targetKey) {
@@ -956,6 +985,7 @@ export function Dashboard() {
               if (entry.itemType === 'customer') {
                 const c = entry.data;
                 const isSubCustomer = Boolean(c.parentCustomerId);
+                const isNonPriorityParent = Boolean(entry.isContextParent || !c.highPriority);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
                 const activeCustOrders = orders.filter(
                   (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
@@ -993,13 +1023,21 @@ export function Dashboard() {
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
                     className={`${
-                      isSubCustomer ? 'pl-10 sm:pl-12 pr-3.5 py-2 bg-red-50/20' : 'px-3.5 py-2.5'
-                    } flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
+                      isSubCustomer
+                        ? 'pl-10 sm:pl-12 pr-3.5 py-2 bg-red-50/20'
+                        : isNonPriorityParent
+                          ? 'px-3.5 py-2.5 bg-neutral-50/70'
+                          : 'px-3.5 py-2.5'
+                    } flex items-center justify-between gap-3 border-l-4 ${
+                      isNonPriorityParent ? 'border-l-neutral-300' : 'border-l-red-600'
+                    } transition-all cursor-pointer group select-none ${
                       isDragging
                         ? 'opacity-40 bg-red-50'
                         : isDragOver
                           ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
-                          : 'hover:bg-red-50/40'
+                          : isNonPriorityParent
+                            ? 'hover:bg-neutral-100/80'
+                            : 'hover:bg-red-50/40'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -1007,12 +1045,18 @@ export function Dashboard() {
                         <CornerDownRight size={14} className="text-red-400 shrink-0 -mr-1" />
                       )}
                       <div
-                        className="flex items-center gap-1.5 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
+                        className={`flex items-center gap-1.5 text-neutral-400 ${
+                          isNonPriorityParent ? 'group-hover:text-neutral-700' : 'group-hover:text-red-600'
+                        } cursor-grab active:cursor-grabbing shrink-0`}
                         title="Drag to reorder"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <GripVertical size={15} />
-                        <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center">
+                        <span
+                          className={`text-[11px] font-extrabold w-4 text-center ${
+                            isNonPriorityParent ? 'text-neutral-500' : 'text-red-700/80'
+                          }`}
+                        >
                           {idx + 1}
                         </span>
                       </div>
@@ -1022,23 +1066,47 @@ export function Dashboard() {
                           <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
                         </div>
                       ) : (
-                        <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                        <div
+                          className={`w-7 h-7 rounded-md border flex items-center justify-center shrink-0 ${
+                            isNonPriorityParent
+                              ? 'bg-neutral-100 border-neutral-200 text-neutral-500'
+                              : 'bg-red-50 border-red-200 text-red-600'
+                          }`}
+                        >
                           <Building2 size={14} />
                         </div>
                       )}
 
                       <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-                        <span className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
+                        <span
+                          className={`font-bold text-sm transition-colors truncate ${
+                            isNonPriorityParent
+                              ? 'text-neutral-700 group-hover:text-black'
+                              : 'text-brand-primary group-hover:text-red-700'
+                          }`}
+                        >
                           {companyName}
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-600 text-white rounded shrink-0">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
+                            isNonPriorityParent
+                              ? 'bg-neutral-200 text-neutral-700'
+                              : 'bg-red-600 text-white'
+                          }`}
+                        >
                           {isSubCustomer ? 'Brand' : 'Customer'}
                         </span>
                         <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
                           {c.type || 'B2C'}
                         </span>
                         {activeCustOrders.length > 0 && (
-                          <span className="text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded shrink-0">
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 border ${
+                              isNonPriorityParent
+                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
+                                : 'text-red-700 bg-red-50 border-red-200'
+                            }`}
+                          >
                             {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
                           </span>
                         )}
@@ -1051,17 +1119,23 @@ export function Dashboard() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
+                      <span
+                        className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary transition-colors ${
+                          isNonPriorityParent ? 'group-hover:text-black' : 'group-hover:text-red-700'
+                        }`}
+                      >
                         Profile <ChevronRight size={13} />
                       </span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
-                        title="Remove High Priority from Customer"
-                        className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
-                      >
-                        <X size={14} />
-                      </button>
+                      {!isNonPriorityParent && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
+                          title="Remove High Priority from Customer"
+                          className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
