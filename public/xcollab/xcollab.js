@@ -59,7 +59,7 @@
 
   // ---------------------------------------------------------------- page
   function init(models, link, message){
-    var stage = $('stage'), track = $('track'), word = $('word');
+    var stage = $('stage'), track = $('track'), word = $('word'), wordFront = $('wordFront');
     var n = models.length, cur = 0, W = 0, H = 0;
     if(link && link.lede) $('lede').innerHTML = esc(link.lede).replace(/\n/g, '<br>');
     var who = link && !message ? (link.artistLine || link.customer || '').trim() : '';
@@ -79,7 +79,8 @@
       var w = word.getBoundingClientRect().width || 1;
       word.style.fontSize = (100 * W * (tall() ? 0.93 : 0.82) / w) + 'px';
       // the comp's face is wider than Archivo Expanded; a slight vertical squash matches its cap height (≈ 11.4% of the word's width)
-      word.style.transform = 'translate(-50%,-50%) scaleY(0.85)';
+      word.style.transform = 'translate(-50%,-50%) scaleY(0.9)';
+      wordFront.style.fontSize = word.style.fontSize; wordFront.style.transform = word.style.transform;   // the front copy must sit exactly on top
     }
     var spread = 0;
     function fitModels(){
