@@ -30,6 +30,7 @@ import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentB
 import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
+import { NewCustomerModal } from './NewCustomerModal';
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -170,6 +171,49 @@ export function CustomerDetail() {
   const [isInvoiceSectionCollapsed, setIsInvoiceSectionCollapsed] = useState(true);
   const [isGarmentsSectionCollapsed, setIsGarmentsSectionCollapsed] = useState(true);
   const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(true);
+  const [isBrandsSectionCollapsed, setIsBrandsSectionCollapsed] = useState(true);
+  const [subBrands, setSubBrands] = useState<any[]>([]);
+  const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) {
+      setSubBrands([]);
+      return;
+    }
+    const q = query(collection(db, 'customers'), where('parentCustomerId', '==', id));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      list.sort((a: any, b: any) => (a.company || a.contactName || '').localeCompare(b.company || b.contactName || ''));
+      setSubBrands(list);
+    }, (err) => {
+      console.error('Error fetching sub-brands:', err);
+    });
+    return () => unsub();
+  }, [id]);
+
+  const handleDeleteBrand = async (e: React.MouseEvent, brandId: string, brandName: string) => {
+    e.stopPropagation();
+    const display = brandName && brandName !== '-' ? brandName : 'this brand';
+    if (!window.confirm(`Are you sure you want to delete "${display}"?\n\nThis will permanently delete the brand profile and remove portal access for all linked users.`)) {
+      return;
+    }
+    setDeletingBrandId(brandId);
+    try {
+      const userQuery = query(collection(db, 'users'), where('customerId', '==', brandId));
+      const userSnap = await getDocs(userQuery);
+      await Promise.all(userSnap.docs.map(u => deleteDoc(u.ref)));
+      await deleteDoc(doc(db, 'customers', brandId));
+    } catch (err: any) {
+      console.error('Error deleting brand:', err);
+      alert('Failed to delete brand: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setDeletingBrandId(null);
+    }
+  };
 
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
@@ -1329,8 +1373,8 @@ export function CustomerDetail() {
             });
           }
           
-          if (data.logo) setLiveLogo(data.logo);
-          if (data.croppedLogo) setLiveCroppedLogo(data.croppedLogo);
+          setLiveLogo(data.logo || null);
+          setLiveCroppedLogo(data.croppedLogo || null);
           
           let fetchedLinks: string[] = [];
           if (data.catalogLinkIds) fetchedLinks = data.catalogLinkIds;
@@ -1762,15 +1806,39 @@ export function CustomerDetail() {
 
   return (
     <div className={tokens.layout.container}>
+      <NewCustomerModal
+        isOpen={isNewBrandModalOpen}
+        onClose={() => setIsNewBrandModalOpen(false)}
+        parentCustomerId={id}
+        parentCompanyName={editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || ''}
+        onSuccess={() => {
+          setIsBrandsSectionCollapsed(false);
+        }}
+      />
       {/* Top Breadcrumb & Actions */}
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-brand-border">
-        <button 
-          onClick={() => navigate('/customers')}
-          className="flex items-center gap-2 text-sm text-brand-secondary hover:text-brand-primary transition-colors"
-        >
-          <ArrowLeft size={16} />
-          Back to Customers
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/customers')}
+            className="flex items-center gap-2 text-sm text-brand-secondary hover:text-brand-primary transition-colors cursor-pointer"
+          >
+            <ArrowLeft size={16} />
+            Back to Customers
+          </button>
+          {liveCustomerData?.parentCustomerId && (
+            <>
+              <span className="text-brand-border">/</span>
+              <button
+                type="button"
+                onClick={() => navigate(`/customers/${liveCustomerData.parentCustomerId}`)}
+                className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-full transition-colors cursor-pointer"
+              >
+                <Building2 size={12} />
+                Parent: {liveCustomerData.parentCompanyName || 'Parent Customer'}
+              </button>
+            </>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -2161,6 +2229,156 @@ export function CustomerDetail() {
              </div>
           </div>
         )}
+
+        {/* Brands (Sub-Customers) Full-Width Dropdown Box */}
+        <div className="w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4">
+          <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-6 items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed)}
+                  className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer"
+                >
+                  <span>Brands</span>
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                    {subBrands.length}
+                  </span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isBrandsSectionCollapsed && (
+                  <PillButton
+                    variant="outline"
+                    className="px-4 text-xs font-bold gap-1 cursor-pointer"
+                    onClick={() => setIsNewBrandModalOpen(true)}
+                  >
+                    <Plus size={14} /> Add Brand
+                  </PillButton>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed)}
+                  className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                  title={isBrandsSectionCollapsed ? "Expand Brands" : "Collapse Brands"}
+                >
+                  {isBrandsSectionCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {!isBrandsSectionCollapsed && (
+              <p className="text-xs text-brand-secondary">
+                Sub-customers and brands managed under this customer account, each with its own shipping address, assets, and orders.
+              </p>
+            )}
+          </div>
+
+          {!isBrandsSectionCollapsed && (
+            <div className="mt-4">
+              {subBrands.length === 0 ? (
+                <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
+                  <p>No brands added under this customer yet. Click below to create a sub-brand.</p>
+                  <PillButton
+                    variant="filled"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setIsNewBrandModalOpen(true)}
+                  >
+                    <Plus size={14} /> New Brand
+                  </PillButton>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {subBrands.map((brand: any) => {
+                    const brandName = brand.company && brand.company !== '-' ? brand.company : (brand.contactName || 'Unnamed Brand');
+                    const shippingLine = brand.shippingStreet
+                      ? `${brand.shippingStreet}${brand.shippingCity ? `, ${brand.shippingCity}` : ''}${brand.shippingState ? `, ${brand.shippingState}` : ''} ${brand.shippingZip || ''}`.trim()
+                      : (brand.location || '');
+                    return (
+                      <div
+                        key={brand.id}
+                        onClick={() => navigate(`/customers/${brand.id}`)}
+                        className="flex items-start justify-between gap-4 bg-brand-bg/30 hover:bg-brand-bg/70 border border-brand-border/70 hover:border-brand-primary/40 rounded-2xl p-4 transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                          <div className="w-12 h-12 rounded-xl bg-white border border-brand-border flex items-center justify-center text-brand-secondary shrink-0 overflow-hidden p-1">
+                            {brand.croppedLogo || brand.logo ? (
+                              <img src={brand.croppedLogo || brand.logo} alt={brandName} className="w-full h-full object-contain mix-blend-multiply" />
+                            ) : (
+                              <Building2 size={20} />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-serif text-lg text-brand-primary group-hover:text-black truncate">
+                                {brandName}
+                              </h4>
+                              <span className="text-[9px] bg-white border border-brand-border px-1.5 py-0.5 rounded text-brand-secondary font-bold uppercase tracking-wider shrink-0">
+                                {brand.type || 'B2B'}
+                              </span>
+                            </div>
+                            {brand.contactName && brand.company && brand.company !== '-' && (
+                              <p className="text-xs font-medium text-brand-primary/80 truncate mt-0.5">
+                                {brand.contactName}
+                              </p>
+                            )}
+                            <div className="flex flex-col gap-1 mt-1.5 text-[11px] text-brand-secondary">
+                              {shippingLine ? (
+                                <span className="flex items-center gap-1.5 truncate" title={shippingLine}>
+                                  <MapPin size={12} className="shrink-0 text-brand-secondary" />
+                                  <span className="truncate">{shippingLine}</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] italic text-brand-secondary/60">No shipping address set</span>
+                              )}
+                              {(brand.email || brand.phone) && (
+                                <div className="flex items-center gap-3 flex-wrap text-[10px] text-brand-secondary/80">
+                                  {brand.phone && (
+                                    <span className="flex items-center gap-1 truncate">
+                                      <Phone size={10} className="shrink-0" /> {brand.phone}
+                                    </span>
+                                  )}
+                                  {brand.email && (
+                                    <span className="flex items-center gap-1 truncate">
+                                      <Mail size={10} className="shrink-0" /> {brand.email}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`/portal/${brand.id}`, '_blank');
+                            }}
+                            className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            title="Open Brand Client Portal"
+                          >
+                            <ExternalLink size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteBrand(e, brand.id, brandName)}
+                            disabled={deletingBrandId === brand.id}
+                            className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            title="Delete Brand"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Suggested Items & Asset Vault Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">

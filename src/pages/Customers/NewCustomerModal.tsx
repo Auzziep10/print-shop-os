@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase, Eye, EyeOff, Truck } from 'lucide-react';
 import { db, firebaseConfig } from '../../lib/firebase';
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { sendCustomerWelcomeSMS } from '../../lib/smsService';
@@ -7,22 +7,31 @@ import { sendCustomerWelcomeEmail } from '../../lib/emailService';
 import { tokens } from '../../lib/tokens';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { AddressAutocompleteInput } from '../../components/ui/AddressAutocompleteInput';
 
 interface NewCustomerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (id: string) => void;
+  parentCustomerId?: string;
+  parentCompanyName?: string;
 }
 
-export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModalProps) {
-  const [formData, setFormData] = useState({
-    company: '',
-    email: '',
-    phone: '',
-    location: '',
-    type: 'B2B' as 'B2B' | 'DTC',
-    contactName: '',
-  });
+const INITIAL_FORM = {
+  company: '',
+  email: '',
+  phone: '',
+  location: '',
+  shippingStreet: '',
+  shippingCity: '',
+  shippingState: '',
+  shippingZip: '',
+  type: 'B2B' as 'B2B' | 'DTC',
+  contactName: '',
+};
+
+export function NewCustomerModal({ isOpen, onClose, onSuccess, parentCustomerId, parentCompanyName }: NewCustomerModalProps) {
+  const [formData, setFormData] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [password, setPassword] = useState('');
@@ -30,10 +39,12 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
 
   if (!isOpen) return null;
 
+  const isBrandMode = Boolean(parentCustomerId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.company.trim() && !formData.contactName.trim() && !formData.email.trim()) {
-      setError('Please provide at least a company name, contact name, or email.');
+      setError(`Please provide at least a ${isBrandMode ? 'brand name' : 'company name'}, contact name, or email.`);
       return;
     }
 
@@ -71,8 +82,19 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         }
       }
 
+      const resolvedLocation = formData.location.trim() || (
+        formData.shippingCity.trim()
+          ? `${formData.shippingCity.trim()}${formData.shippingState.trim() ? `, ${formData.shippingState.trim()}` : ''}`
+          : ''
+      );
+
       const docRef = await addDoc(collection(db, 'customers'), {
         ...formData,
+        location: resolvedLocation,
+        ...(parentCustomerId ? {
+          parentCustomerId,
+          parentCompanyName: parentCompanyName || ''
+        } : {}),
         hasUnreadCreation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -104,12 +126,13 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         sendCustomerWelcomeSMS(docRef.id);
       }
 
+      setFormData(INITIAL_FORM);
       setPassword('');
       onSuccess(docRef.id);
       onClose();
     } catch (err: any) {
       console.error('Error creating customer:', err);
-      setError(err.message || 'Failed to create customer. Please try again.');
+      setError(err.message || `Failed to create ${isBrandMode ? 'brand' : 'customer'}. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -126,8 +149,12 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         {/* Header */}
         <div className="px-6 py-5 border-b border-brand-border flex items-center justify-between shrink-0 bg-brand-bg/30">
           <div>
-            <h2 className="font-serif text-2xl text-brand-primary">New Customer</h2>
-            <p className="text-sm text-brand-secondary mt-1">Add a new company or individual.</p>
+            <h2 className="font-serif text-2xl text-brand-primary">{isBrandMode ? 'New Brand' : 'New Customer'}</h2>
+            <p className="text-sm text-brand-secondary mt-1">
+              {isBrandMode
+                ? `Add a sub-brand under ${parentCompanyName || 'this customer'} with its own shipping address and details.`
+                : 'Add a new company or individual.'}
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -151,7 +178,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
             <div className="grid grid-cols-2 gap-4">
                {/* Type Selector */}
                <div className="col-span-2 space-y-2">
-                 <label className={tokens.typography.label}>Customer Type</label>
+                 <label className={tokens.typography.label}>{isBrandMode ? 'Brand Type' : 'Customer Type'}</label>
                  <div className="grid grid-cols-2 gap-3">
                    <button
                      type="button"
@@ -184,7 +211,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
             <div className="space-y-4">
               {formData.type === 'B2B' && (
                 <div className="space-y-2">
-                  <label htmlFor="company" className={tokens.typography.label}>Company Name *</label>
+                  <label htmlFor="company" className={tokens.typography.label}>{isBrandMode ? 'Brand Name *' : 'Company Name *'}</label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary">
                       <Building2 size={18} />
@@ -195,7 +222,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
                       name="company"
                       value={formData.company}
                       onChange={handleChange}
-                      placeholder="e.g. Acme Corp"
+                      placeholder={isBrandMode ? 'e.g. Sub-Brand Studio' : 'e.g. Acme Corp'}
                       className={`${tokens.components.input} pl-10`}
                       required={formData.type === 'B2B'}
                     />
@@ -303,6 +330,71 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
                   </div>
                 </div>
               </div>
+
+              {/* Shipping Address Section */}
+              <div className="pt-3 border-t border-brand-border/60 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brand-primary">
+                  <Truck size={14} className="text-brand-secondary" />
+                  <span>Shipping Address</span>
+                </div>
+                <div className="space-y-1.5">
+                  <label className={tokens.typography.label}>Street Address</label>
+                  <AddressAutocompleteInput
+                    value={formData.shippingStreet}
+                    onChange={val => setFormData(prev => ({ ...prev, shippingStreet: val }))}
+                    onAddressSelect={(parsed) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        shippingStreet: parsed.street,
+                        shippingCity: parsed.city || prev.shippingCity,
+                        shippingState: parsed.state || prev.shippingState,
+                        shippingZip: parsed.zip || prev.shippingZip,
+                        location: prev.location || (parsed.city ? `${parsed.city}${parsed.state ? `, ${parsed.state}` : ''}` : prev.location)
+                      }));
+                    }}
+                    placeholder="123 Main St"
+                    className={tokens.components.input}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label htmlFor="shippingCity" className={tokens.typography.label}>City</label>
+                    <input
+                      type="text"
+                      id="shippingCity"
+                      name="shippingCity"
+                      value={formData.shippingCity}
+                      onChange={handleChange}
+                      placeholder="City"
+                      className={tokens.components.input}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="shippingState" className={tokens.typography.label}>State</label>
+                    <input
+                      type="text"
+                      id="shippingState"
+                      name="shippingState"
+                      value={formData.shippingState}
+                      onChange={handleChange}
+                      placeholder="CA"
+                      className={tokens.components.input}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="shippingZip" className={tokens.typography.label}>Zip</label>
+                    <input
+                      type="text"
+                      id="shippingZip"
+                      name="shippingZip"
+                      value={formData.shippingZip}
+                      onChange={handleChange}
+                      placeholder="90210"
+                      className={tokens.components.input}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -326,7 +418,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
             {isSubmitting ? (
               <Loader2 className="animate-spin" size={18} />
             ) : (
-              'Create Customer'
+              isBrandMode ? 'Create Brand' : 'Create Customer'
             )}
           </button>
         </div>

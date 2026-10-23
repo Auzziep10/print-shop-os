@@ -81,11 +81,16 @@ export function CustomersList() {
         lastOrderStr = formatDisplayDate(customerOrders[customerOrders.length - 1].date) || '-';
       }
 
+      const brandsCount = Object.values(liveCustomers).filter((c: any) => c?.parentCustomerId === id).length;
+
       return {
         id,
         company: companyString,
         contact: liveData.contactName || liveData.email || 'N/A', 
         type: liveData.type || 'B2C',
+        parentCustomerId: liveData.parentCustomerId || null,
+        parentCompanyName: liveData.parentCompanyName || (liveData.parentCustomerId && liveCustomers[liveData.parentCustomerId]?.company) || '',
+        brandsCount,
         highPriority: Boolean(liveData.highPriority),
         highPriorityRank: typeof liveData.highPriorityRank === 'number' ? liveData.highPriorityRank : 9999,
         ordersToDate,
@@ -97,9 +102,12 @@ export function CustomersList() {
         lastActiveAt: liveData.lastActiveAt || null,
         hasUnreadCreation: liveData.hasUnreadCreation || false,
       };
-    }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
-                   c.contact.toLowerCase().includes(search.toLowerCase()) ||
-                   c.id.toLowerCase().includes(search.toLowerCase()))
+    }).filter(c => {
+      if (!search.trim() && c.parentCustomerId) return false;
+      return c.company.toLowerCase().includes(search.toLowerCase()) || 
+             c.contact.toLowerCase().includes(search.toLowerCase()) ||
+             c.id.toLowerCase().includes(search.toLowerCase());
+    })
       .sort((a, b) => {
         if (a.highPriority !== b.highPriority) return a.highPriority ? -1 : 1;
         if (a.highPriority && b.highPriority && a.highPriorityRank !== b.highPriorityRank) {
@@ -225,6 +233,16 @@ export function CustomersList() {
                     {customer.highPriority && (
                       <span className="bg-red-600 text-white text-[10px] font-sans font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-xs" title="High Priority Customer">
                         <AlertTriangle size={10} /> HIGH PRIORITY
+                      </span>
+                    )}
+                    {customer.brandsCount > 0 && (
+                      <span className="bg-neutral-900 text-white text-[10px] font-sans font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0" title={`${customer.brandsCount} Sub-Brands`}>
+                        {customer.brandsCount} {customer.brandsCount === 1 ? 'Brand' : 'Brands'}
+                      </span>
+                    )}
+                    {customer.parentCustomerId && (
+                      <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-sans font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+                        Brand{customer.parentCompanyName ? ` • ${customer.parentCompanyName}` : ''}
                       </span>
                     )}
                     {isOnline(customer) && (
