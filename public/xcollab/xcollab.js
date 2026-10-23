@@ -65,6 +65,7 @@
     var who = link && !message ? (link.artistLine || link.customer || '').trim() : '';
     if(who){ $('whoName').textContent = who; $('who').hidden = false; }
     if(message){ $('msg').innerHTML = message; $('msg').hidden = false; $('caption').hidden = true; }
+    if(link && link.showCaption === false) $('caption').hidden = true;   // per-link option in Settings → xCollab
 
     var els = models.map(function(m, i){
       var el = document.createElement('div'); el.className = 'm'; el.dataset.i = i;

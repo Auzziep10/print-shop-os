@@ -12,6 +12,7 @@
   --serif:'Playfair Display', Georgia, 'Times New Roman', serif;
 }
 *{ box-sizing:border-box; margin:0; padding:0; }
+[hidden]{ display:none !important; }
 html, body{ height:100%; background:var(--bg); color:var(--ink); }
 body{ font-family:var(--sans); -webkit-font-smoothing:antialiased; overflow:hidden; overscroll-behavior:none; }
 button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; }

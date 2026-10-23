@@ -146,6 +146,7 @@ export function XCollabTab() {
   const [customer, setCustomer] = useState('');
   const [lede, setLede] = useState('');
   const [artistLine, setArtistLine] = useState('');
+  const [showCaption, setShowCaption] = useState(true);   // bottom-right look name / artist / count
   const [autoplay, setAutoplay] = useState('5');   // seconds per model; 0 = no auto-rotate
   const [copied, setCopied] = useState<string | null>(null);
   const [linkError, setLinkError] = useState('');
@@ -214,13 +215,13 @@ export function XCollabTab() {
   const toggle = (id: string) => setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selectedIds = useMemo(() => models.filter(m => selected.has(m.id)).map(m => m.id), [models, selected]);
 
-  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setArtistLine(''); setAutoplay('5'); setLinkError(''); };
+  const resetLinkForm = () => { setEditingLink(null); setSelected(new Set()); setCustomer(''); setLede(''); setArtistLine(''); setAutoplay('5'); setShowCaption(true); setLinkError(''); };
 
   const saveLink = async () => {
     setLinkError('');
     if (!customer.trim()) { setLinkError('Name the customer so you can tell the links apart.'); return; }
     if (!selectedIds.length) { setLinkError('Toggle on at least one model.'); return; }
-    const payload = { customer: customer.trim(), lede: lede.trim(), artistLine: artistLine.trim(), autoplay: Math.max(0, Math.min(120, Math.round(Number(autoplay) || 0))), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
+    const payload = { customer: customer.trim(), lede: lede.trim(), artistLine: artistLine.trim(), showCaption, autoplay: Math.max(0, Math.min(120, Math.round(Number(autoplay) || 0))), modelIds: selectedIds, models: snapshotModels(selectedIds, models), updatedAt: Date.now() };
     try {
       if (editingLink) {
         await updateDoc(doc(db, XC_LINKS_COLLECTION, editingLink.id), payload);
@@ -237,7 +238,7 @@ export function XCollabTab() {
   };
 
   const editLink = (l: XcLink) => {
-    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setArtistLine(l.artistLine || ''); setAutoplay(String(l.autoplay ?? 0)); setSelected(new Set(l.modelIds || [])); setLinkError('');
+    setEditingLink(l); setCustomer(l.customer || ''); setLede(l.lede || ''); setArtistLine(l.artistLine || ''); setAutoplay(String(l.autoplay ?? 0)); setShowCaption(l.showCaption !== false); setSelected(new Set(l.modelIds || [])); setLinkError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const toggleLink = (l: XcLink) => updateDoc(doc(db, XC_LINKS_COLLECTION, l.id), { active: !l.active, updatedAt: Date.now() });
@@ -293,6 +294,10 @@ export function XCollabTab() {
           <input type="number" min={0} max={120} step={1} value={autoplay} onChange={e => setAutoplay(e.target.value)}
             className="w-16 rounded-md border border-brand-border bg-white px-2 py-1 text-center text-sm text-brand-primary focus:border-brand-primary focus:outline-none" />
           seconds <span className="opacity-70">(0 = off; it pauses for a moment whenever the customer swipes or clicks)</span>
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-xs text-brand-secondary">
+          <input type="checkbox" checked={showCaption} onChange={e => setShowCaption(e.target.checked)} className="accent-brand-primary" />
+          Show the look name, artist and count (e.g. “Look 02 · Sample Artist · 02 / 03”) in the bottom right
         </label>
         {linkError && <p className="mt-2 text-xs text-red-600">{linkError}</p>}
       </div>
