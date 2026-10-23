@@ -931,6 +931,20 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       }}
                     >
                       <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words" title={order.title}>{order.title || 'Custom Order'}</h2>
+                      {overrideCustomerId && ((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
+                        <div className="flex flex-col leading-tight border-l border-brand-border pl-3 py-0.5 shrink-0" title="Individual info (admin only)">
+                          {(order.personalInfo?.gender || order.personalInfo?.sex) && (
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-brand-primary">
+                              {order.personalInfo.gender || order.personalInfo.sex}
+                            </span>
+                          )}
+                          {order.personalInfo?.size && (
+                            <span className="text-[11px] font-semibold uppercase tracking-widest text-brand-secondary">
+                              Size {order.personalInfo.size}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {!overrideCustomerId && (
                         <span className="text-gray-400 group-hover:text-black transition-colors shrink-0">
                           <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
