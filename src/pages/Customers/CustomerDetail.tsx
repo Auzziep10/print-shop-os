@@ -225,6 +225,23 @@ export function CustomerDetail() {
     return () => unsub();
   }, [id]);
 
+  // Real-time sync for designerRack & assets so team members never overwrite each other
+  useEffect(() => {
+    if (!id) return;
+    const unsub = onSnapshot(doc(db, 'customers', id), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (Array.isArray(data.designerRack)) {
+        setDesignerRack(data.designerRack);
+        setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: data.designerRack } : prev));
+      }
+      if (Array.isArray(data.assets)) {
+        setAssets(data.assets);
+      }
+    });
+    return () => unsub();
+  }, [id]);
+
   const handleDeleteBrand = async (e: React.MouseEvent, brandId: string, brandName: string) => {
     e.stopPropagation();
     const display = brandName && brandName !== '-' ? brandName : 'this brand';
@@ -1084,6 +1101,67 @@ export function CustomerDetail() {
     setIsDesignerRackModalOpen(true);
   };
 
+  const autoPersistEditingDesignerRack = async (nextForm: typeof designerRackForm) => {
+    if (!id || !editingDesignerRackId) return;
+    try {
+      const custRef = doc(db, 'customers', id);
+      const latestSnap = await getDoc(custRef);
+      const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
+        ? latestSnap.data().designerRack
+        : designerRack;
+
+      const displayTitle = nextForm.title.trim();
+      const primaryMockupUrl =
+        nextForm.frontMockupUrl ||
+        nextForm.backMockupUrl ||
+        nextForm.otherMockups[0]?.url ||
+        '';
+      const primaryMockupName =
+        nextForm.frontMockupName ||
+        nextForm.backMockupName ||
+        nextForm.otherMockups[0]?.name ||
+        '';
+      const combinedMockups: { id: string; name: string; url: string }[] = [
+        ...(nextForm.frontMockupUrl
+          ? [{ id: 'front', name: nextForm.frontMockupName || 'Front Mock-up', url: nextForm.frontMockupUrl }]
+          : []),
+        ...(nextForm.backMockupUrl
+          ? [{ id: 'back', name: nextForm.backMockupName || 'Back Mock-up', url: nextForm.backMockupUrl }]
+          : []),
+        ...nextForm.otherMockups
+      ];
+
+      const updated = latestRack.map(d =>
+        d.id === editingDesignerRackId
+          ? {
+              ...d,
+              title: displayTitle || d.title || d.name || 'Untitled Design',
+              name: displayTitle || d.name || d.title || 'Untitled Design',
+              frontMockupUrl: nextForm.frontMockupUrl,
+              frontMockupName: nextForm.frontMockupName,
+              backMockupUrl: nextForm.backMockupUrl,
+              backMockupName: nextForm.backMockupName,
+              otherMockups: nextForm.otherMockups,
+              mockupUrl: primaryMockupUrl,
+              mockupName: primaryMockupName,
+              mockups: combinedMockups,
+              url: primaryMockupUrl,
+              logos: nextForm.logos,
+              psdDriveLink: nextForm.psdDriveLink.trim(),
+              garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
+              updatedAt: new Date().toISOString()
+            }
+          : d
+      );
+
+      await updateDoc(custRef, { designerRack: updated });
+      setDesignerRack(updated);
+      setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+    } catch (err) {
+      console.error("Failed to auto-persist Designer Rack edit:", err);
+    }
+  };
+
   const uploadRackMockupForSlot = async (slot: 'front' | 'back' | 'other', files: FileList | File[]) => {
     if (!files || files.length === 0 || !id) return;
 
@@ -1094,11 +1172,12 @@ export function CustomerDetail() {
         const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${slot}_${file.name}`);
         await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(storageRef);
-        setDesignerRackForm(prev =>
+        const nextForm =
           slot === 'front'
-            ? { ...prev, frontMockupUrl: downloadUrl, frontMockupName: file.name }
-            : { ...prev, backMockupUrl: downloadUrl, backMockupName: file.name }
-        );
+            ? { ...designerRackForm, frontMockupUrl: downloadUrl, frontMockupName: file.name }
+            : { ...designerRackForm, backMockupUrl: downloadUrl, backMockupName: file.name };
+        setDesignerRackForm(nextForm);
+        await autoPersistEditingDesignerRack(nextForm);
       } else {
         const uploadedOthers: { id: string; name: string; url: string }[] = [];
         for (let i = 0; i < files.length; i++) {
@@ -1112,10 +1191,12 @@ export function CustomerDetail() {
             url: downloadUrl
           });
         }
-        setDesignerRackForm(prev => ({
-          ...prev,
-          otherMockups: [...prev.otherMockups, ...uploadedOthers]
-        }));
+        const nextForm = {
+          ...designerRackForm,
+          otherMockups: [...designerRackForm.otherMockups, ...uploadedOthers]
+        };
+        setDesignerRackForm(nextForm);
+        await autoPersistEditingDesignerRack(nextForm);
       }
     } catch (err) {
       console.error("Designer Rack mockup upload failed:", err);
@@ -1136,10 +1217,12 @@ export function CustomerDetail() {
   };
 
   const handleRemoveOtherMockupFromForm = (mockupId: string) => {
-    setDesignerRackForm(prev => ({
-      ...prev,
-      otherMockups: prev.otherMockups.filter(m => m.id !== mockupId)
-    }));
+    const nextForm = {
+      ...designerRackForm,
+      otherMockups: designerRackForm.otherMockups.filter(m => m.id !== mockupId)
+    };
+    setDesignerRackForm(nextForm);
+    void autoPersistEditingDesignerRack(nextForm);
   };
 
   const uploadRackLogoFiles = async (files: FileList | File[]) => {
@@ -1159,10 +1242,12 @@ export function CustomerDetail() {
           url: downloadUrl
         });
       }
-      setDesignerRackForm(prev => ({
-        ...prev,
-        logos: [...prev.logos, ...uploadedLogos]
-      }));
+      const nextForm = {
+        ...designerRackForm,
+        logos: [...designerRackForm.logos, ...uploadedLogos]
+      };
+      setDesignerRackForm(nextForm);
+      await autoPersistEditingDesignerRack(nextForm);
     } catch (err) {
       console.error("Designer Rack logo upload failed:", err);
       alert("Failed to upload logo file(s).");
@@ -1179,10 +1264,12 @@ export function CustomerDetail() {
   };
 
   const handleRemoveRackLogoFromForm = (logoId: string) => {
-    setDesignerRackForm(prev => ({
-      ...prev,
-      logos: prev.logos.filter(l => l.id !== logoId)
-    }));
+    const nextForm = {
+      ...designerRackForm,
+      logos: designerRackForm.logos.filter(l => l.id !== logoId)
+    };
+    setDesignerRackForm(nextForm);
+    void autoPersistEditingDesignerRack(nextForm);
   };
 
   const handleSaveDesignerRackModal = async (e: React.FormEvent) => {
@@ -1206,6 +1293,12 @@ export function CustomerDetail() {
 
     setIsSavingDesignerRack(true);
     try {
+      const custRef = doc(db, 'customers', id);
+      const latestSnap = await getDoc(custRef);
+      const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
+        ? latestSnap.data().designerRack
+        : designerRack;
+
       const displayTitle = designerRackForm.title.trim();
       const primaryMockupUrl =
         designerRackForm.frontMockupUrl ||
@@ -1229,7 +1322,7 @@ export function CustomerDetail() {
 
       let updated: any[];
       if (editingDesignerRackId) {
-        updated = designerRack.map(d =>
+        updated = latestRack.map(d =>
           d.id === editingDesignerRackId
             ? {
                 ...d,
@@ -1243,7 +1336,7 @@ export function CustomerDetail() {
                 mockupUrl: primaryMockupUrl,
                 mockupName: primaryMockupName,
                 mockups: combinedMockups,
-                url: primaryMockupUrl || d.url || '',
+                url: primaryMockupUrl,
                 logos: designerRackForm.logos,
                 psdDriveLink: designerRackForm.psdDriveLink.trim(),
                 garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
@@ -1270,10 +1363,10 @@ export function CustomerDetail() {
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
           uploadedAt: new Date().toISOString()
         };
-        updated = [...designerRack, newItem];
+        updated = [...latestRack, newItem];
       }
 
-      await updateDoc(doc(db, 'customers', id), {
+      await updateDoc(custRef, {
         designerRack: updated
       });
       setDesignerRack(updated);
@@ -1293,9 +1386,14 @@ export function CustomerDetail() {
     if (!id) return;
     if (!window.confirm("Remove this design from the Designer Rack?")) return;
 
-    const updated = designerRack.filter(d => d.id !== designId);
     try {
-      await updateDoc(doc(db, 'customers', id), {
+      const custRef = doc(db, 'customers', id);
+      const latestSnap = await getDoc(custRef);
+      const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
+        ? latestSnap.data().designerRack
+        : designerRack;
+      const updated = latestRack.filter(d => d.id !== designId);
+      await updateDoc(custRef, {
         designerRack: updated
       });
       setDesignerRack(updated);
@@ -2247,13 +2345,15 @@ export function CustomerDetail() {
                             )}
                             <button
                               type="button"
-                              onClick={() =>
-                                setDesignerRackForm((prev) => ({
-                                  ...prev,
+                              onClick={() => {
+                                const nextForm = {
+                                  ...designerRackForm,
                                   frontMockupUrl: '',
                                   frontMockupName: ''
-                                }))
-                              }
+                                };
+                                setDesignerRackForm(nextForm);
+                                void autoPersistEditingDesignerRack(nextForm);
+                              }}
                               className="absolute top-0 right-0 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
                               title="Remove Front Mock-up"
                             >
@@ -2358,13 +2458,15 @@ export function CustomerDetail() {
                             )}
                             <button
                               type="button"
-                              onClick={() =>
-                                setDesignerRackForm((prev) => ({
-                                  ...prev,
+                              onClick={() => {
+                                const nextForm = {
+                                  ...designerRackForm,
                                   backMockupUrl: '',
                                   backMockupName: ''
-                                }))
-                              }
+                                };
+                                setDesignerRackForm(nextForm);
+                                void autoPersistEditingDesignerRack(nextForm);
+                              }}
                               className="absolute top-0 right-0 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
                               title="Remove Back Mock-up"
                             >
