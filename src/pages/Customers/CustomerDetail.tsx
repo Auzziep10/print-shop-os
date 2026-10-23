@@ -3379,8 +3379,7 @@ export function CustomerDetail() {
         </div>
         )}
 
-        {/* Designer Rack Full-Width Dropdown Box - Shown on brand / subcustomer pages */}
-        {Boolean(liveCustomerData?.parentCustomerId) && (
+        {/* Designer Rack Full-Width Dropdown Box - Shown on parent companies (under Brands) and subcustomers */}
           <div
             onClick={() => {
               if (isDesignerRackCollapsed) setIsDesignerRackCollapsed(false);
@@ -3687,7 +3686,6 @@ export function CustomerDetail() {
               </div>
             )}
           </div>
-        )}
 
         {/* Suggested Items & Asset Vault Row */}
         <div
