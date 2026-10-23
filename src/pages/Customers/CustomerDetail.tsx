@@ -180,6 +180,7 @@ export function CustomerDetail() {
     title: string;
     mockupUrl: string;
     mockupName: string;
+    mockups: { id: string; name: string; url: string }[];
     logos: { id: string; name: string; url: string }[];
     psdDriveLink: string;
     garmentSourcingLink: string;
@@ -187,6 +188,7 @@ export function CustomerDetail() {
     title: '',
     mockupUrl: '',
     mockupName: '',
+    mockups: [],
     logos: [],
     psdDriveLink: '',
     garmentSourcingLink: ''
@@ -1037,6 +1039,7 @@ export function CustomerDetail() {
       title: '',
       mockupUrl: '',
       mockupName: '',
+      mockups: [],
       logos: [],
       psdDriveLink: '',
       garmentSourcingLink: ''
@@ -1046,10 +1049,23 @@ export function CustomerDetail() {
 
   const handleOpenEditDesignerRackModal = (design: any) => {
     setEditingDesignerRackId(design.id);
+    const existingMockups: { id: string; name: string; url: string }[] =
+      Array.isArray(design.mockups) && design.mockups.length > 0
+        ? design.mockups
+        : design.mockupUrl || design.url
+        ? [
+            {
+              id: `rack-mockup-0`,
+              name: design.mockupName || design.name || 'Mock-up',
+              url: design.mockupUrl || design.url
+            }
+          ]
+        : [];
     setDesignerRackForm({
       title: design.title || design.name || '',
-      mockupUrl: design.mockupUrl || design.url || '',
-      mockupName: design.mockupName || design.name || '',
+      mockupUrl: existingMockups[0]?.url || '',
+      mockupName: existingMockups[0]?.name || '',
+      mockups: existingMockups,
       logos: Array.isArray(design.logos) ? design.logos : [],
       psdDriveLink: design.psdDriveLink || '',
       garmentSourcingLink: design.garmentSourcingLink || ''
@@ -1058,26 +1074,51 @@ export function CustomerDetail() {
   };
 
   const handleUploadRackMockup = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !id) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !id) return;
 
     setIsUploadingRackMockup(true);
     try {
-      const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-      setDesignerRackForm(prev => ({
-        ...prev,
-        mockupUrl: downloadUrl,
-        mockupName: file.name
-      }));
+      const uploadedMockups: { id: string; name: string; url: string }[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${i}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadUrl = await getDownloadURL(storageRef);
+        uploadedMockups.push({
+          id: `rack-mockup-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+          name: file.name,
+          url: downloadUrl
+        });
+      }
+      setDesignerRackForm(prev => {
+        const nextMockups = [...prev.mockups, ...uploadedMockups];
+        return {
+          ...prev,
+          mockups: nextMockups,
+          mockupUrl: nextMockups[0]?.url || '',
+          mockupName: nextMockups[0]?.name || ''
+        };
+      });
     } catch (err) {
       console.error("Designer Rack mockup upload failed:", err);
-      alert("Failed to upload mock-up file.");
+      alert("Failed to upload mock-up file(s).");
     } finally {
       setIsUploadingRackMockup(false);
       e.target.value = '';
     }
+  };
+
+  const handleRemoveRackMockupFromForm = (mockupId: string) => {
+    setDesignerRackForm(prev => {
+      const nextMockups = prev.mockups.filter(m => m.id !== mockupId);
+      return {
+        ...prev,
+        mockups: nextMockups,
+        mockupUrl: nextMockups[0]?.url || '',
+        mockupName: nextMockups[0]?.name || ''
+      };
+    });
   };
 
   const handleUploadRackLogos = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1126,6 +1167,7 @@ export function CustomerDetail() {
       return;
     }
     if (
+      designerRackForm.mockups.length === 0 &&
       !designerRackForm.mockupUrl &&
       designerRackForm.logos.length === 0 &&
       !designerRackForm.psdDriveLink.trim() &&
@@ -1138,6 +1180,8 @@ export function CustomerDetail() {
     setIsSavingDesignerRack(true);
     try {
       const displayTitle = designerRackForm.title.trim();
+      const primaryMockupUrl = designerRackForm.mockups[0]?.url || designerRackForm.mockupUrl || '';
+      const primaryMockupName = designerRackForm.mockups[0]?.name || designerRackForm.mockupName || '';
 
       let updated: any[];
       if (editingDesignerRackId) {
@@ -1147,9 +1191,10 @@ export function CustomerDetail() {
                 ...d,
                 title: displayTitle,
                 name: displayTitle,
-                mockupUrl: designerRackForm.mockupUrl,
-                mockupName: designerRackForm.mockupName,
-                url: designerRackForm.mockupUrl || d.url || '',
+                mockupUrl: primaryMockupUrl,
+                mockupName: primaryMockupName,
+                mockups: designerRackForm.mockups,
+                url: primaryMockupUrl || d.url || '',
                 logos: designerRackForm.logos,
                 psdDriveLink: designerRackForm.psdDriveLink.trim(),
                 garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
@@ -1162,9 +1207,10 @@ export function CustomerDetail() {
           id: `design-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           title: displayTitle,
           name: displayTitle,
-          mockupUrl: designerRackForm.mockupUrl,
-          mockupName: designerRackForm.mockupName,
-          url: designerRackForm.mockupUrl,
+          mockupUrl: primaryMockupUrl,
+          mockupName: primaryMockupName,
+          mockups: designerRackForm.mockups,
+          url: primaryMockupUrl,
           logos: designerRackForm.logos,
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
@@ -2060,13 +2106,13 @@ export function CustomerDetail() {
 
               {/* 4 Quadrants Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Quadrant 1: Mock-up */}
+                {/* Quadrant 1: Mock-up(s) */}
                 <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-                      1. Mock-up
+                      1. Mock-up ({designerRackForm.mockups.length})
                     </span>
-                    {designerRackForm.mockupUrl ? (
+                    {designerRackForm.mockups.length > 0 ? (
                       <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
                         <Check size={12} strokeWidth={3} />
                       </span>
@@ -2078,25 +2124,77 @@ export function CustomerDetail() {
                   </div>
 
                   <div className="flex-1 flex flex-col items-center justify-center bg-white border border-dashed border-brand-border rounded-xl p-3 mb-3 overflow-hidden">
-                    {designerRackForm.mockupUrl ? (
-                      designerRackForm.mockupName?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
-                        <div className="flex flex-col items-center gap-1 text-center py-2">
-                          <FileText size={28} className="text-neutral-600" />
-                          <span className="text-[10px] font-bold text-brand-primary truncate max-w-[180px]">
-                            {designerRackForm.mockupName}
-                          </span>
+                    {designerRackForm.mockups.length > 0 ? (
+                      <div className="w-full flex flex-col items-center gap-2.5">
+                        {/* Primary Thumbnail (Always First Mock-up) */}
+                        <div className="relative group/primary flex items-center justify-center w-full">
+                          {designerRackForm.mockups[0].name?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
+                            <div className="flex flex-col items-center gap-1 text-center py-2">
+                              <FileText size={28} className="text-neutral-600" />
+                              <span className="text-[10px] font-bold text-brand-primary truncate max-w-[180px]">
+                                {designerRackForm.mockups[0].name}
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={designerRackForm.mockups[0].url}
+                              alt="Primary Mock-up preview"
+                              className="max-h-28 max-w-full object-contain mix-blend-multiply"
+                            />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRackMockupFromForm(designerRackForm.mockups[0].id)}
+                            className="absolute top-0 right-0 w-5 h-5 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                            title="Remove this mock-up"
+                          >
+                            <X size={11} strokeWidth={2.5} />
+                          </button>
                         </div>
-                      ) : (
-                        <img
-                          src={designerRackForm.mockupUrl}
-                          alt="Mock-up preview"
-                          className="max-h-28 max-w-full object-contain mix-blend-multiply"
-                        />
-                      )
+
+                        {/* Additional Mock-ups Row (if more than 1 uploaded) */}
+                        {designerRackForm.mockups.length > 1 && (
+                          <div className="w-full pt-2 border-t border-brand-border/50 flex items-center gap-2 overflow-x-auto">
+                            {designerRackForm.mockups.map((m, idx) => {
+                              const isImg = !m.name?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i);
+                              return (
+                                <div
+                                  key={m.id}
+                                  className={`relative shrink-0 w-11 h-11 rounded-lg border p-1 flex items-center justify-center bg-brand-bg/20 ${
+                                    idx === 0 ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-brand-border/80'
+                                  }`}
+                                  title={idx === 0 ? `${m.name} (Main Thumbnail)` : m.name}
+                                >
+                                  {isImg ? (
+                                    <img src={m.url} alt={m.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                  ) : (
+                                    <span className="text-[8px] font-black uppercase text-neutral-500">
+                                      {m.name?.split('.').pop() || 'FILE'}
+                                    </span>
+                                  )}
+                                  {idx === 0 && (
+                                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[7px] font-black uppercase px-1 rounded">
+                                      1st
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveRackMockupFromForm(m.id)}
+                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                                    title="Remove Mock-up"
+                                  >
+                                    <X size={9} strokeWidth={2.5} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary">
                         <Image size={26} className="text-neutral-300" />
-                        <span className="text-[11px]">Upload garment mock-up image or PDF</span>
+                        <span className="text-[11px]">Upload one or more mock-ups (1st shows in thumbnail)</span>
                       </div>
                     )}
                   </div>
@@ -2105,6 +2203,7 @@ export function CustomerDetail() {
                     <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
                       <input
                         type="file"
+                        multiple
                         className="hidden"
                         onChange={handleUploadRackMockup}
                         accept="image/*,application/pdf"
@@ -2113,29 +2212,30 @@ export function CustomerDetail() {
                       {isUploadingRackMockup ? (
                         <Loader2 className="animate-spin" size={14} />
                       ) : (
-                        <Upload size={14} />
+                        <Plus size={14} />
                       )}
                       <span>
                         {isUploadingRackMockup
                           ? 'Uploading...'
-                          : designerRackForm.mockupUrl
-                          ? 'Replace Mock-up'
-                          : 'Upload Mock-up'}
+                          : designerRackForm.mockups.length > 0
+                          ? 'Add More Mock-ups'
+                          : 'Upload Mock-up(s)'}
                       </span>
                     </label>
-                    {designerRackForm.mockupUrl && (
+                    {designerRackForm.mockups.length > 0 && (
                       <button
                         type="button"
                         onClick={() =>
                           setDesignerRackForm((prev) => ({
                             ...prev,
+                            mockups: [],
                             mockupUrl: '',
                             mockupName: ''
                           }))
                         }
                         className="text-xs text-red-600 hover:underline font-semibold px-2 py-1 cursor-pointer"
                       >
-                        Remove
+                        Remove All
                       </button>
                     )}
                   </div>
@@ -2984,8 +3084,20 @@ export function CustomerDetail() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {designerRack.map((design: any) => {
-                      const mockupSrc = design.mockupUrl || design.url || '';
-                      const mockupLabel = design.mockupName || design.name || 'Mock-up';
+                      const designMockups: { id: string; name: string; url: string }[] =
+                        Array.isArray(design.mockups) && design.mockups.length > 0
+                          ? design.mockups
+                          : design.mockupUrl || design.url
+                          ? [
+                              {
+                                id: 'primary',
+                                name: design.mockupName || design.name || 'Mock-up',
+                                url: design.mockupUrl || design.url
+                              }
+                            ]
+                          : [];
+                      const mockupSrc = designMockups[0]?.url || '';
+                      const mockupLabel = designMockups[0]?.name || design.mockupName || design.name || 'Mock-up';
                       const displayTitle = design.title || design.name || 'Untitled Design';
                       const isMockupImage = Boolean(
                         mockupSrc &&
@@ -3024,38 +3136,73 @@ export function CustomerDetail() {
                           )}
 
                           <div className="flex items-start gap-5">
-                            {/* Larger Mock-up Preview */}
-                            <div
-                              onClick={() => {
-                                if (!mockupSrc) return;
-                                if (isMockupImage) {
-                                  setExpandedImage({ src: mockupSrc, alt: displayTitle });
-                                } else {
-                                  window.open(mockupSrc, '_blank');
-                                }
-                              }}
-                              className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
-                                mockupSrc ? 'cursor-pointer' : ''
-                              }`}
-                              title={mockupSrc ? 'Click to view Mock-up' : 'No Mock-up uploaded'}
-                            >
-                              {mockupSrc ? (
-                                isMockupImage ? (
-                                  <img
-                                    src={mockupSrc}
-                                    alt={displayTitle}
-                                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
-                                  />
+                            {/* Larger Mock-up Preview (First Mock-up Always Shown Here) */}
+                            <div className="flex flex-col items-center gap-2 shrink-0">
+                              <div
+                                onClick={() => {
+                                  if (!mockupSrc) return;
+                                  if (isMockupImage) {
+                                    setExpandedImage({ src: mockupSrc, alt: displayTitle });
+                                  } else {
+                                    window.open(mockupSrc, '_blank');
+                                  }
+                                }}
+                                className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
+                                  mockupSrc ? 'cursor-pointer' : ''
+                                }`}
+                                title={mockupSrc ? 'Click to view Mock-up' : 'No Mock-up uploaded'}
+                              >
+                                {mockupSrc ? (
+                                  isMockupImage ? (
+                                    <img
+                                      src={mockupSrc}
+                                      alt={displayTitle}
+                                      className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
+                                    />
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-1 text-center">
+                                      <FileText size={28} className="text-neutral-500" />
+                                      <span className="text-[10px] font-black uppercase text-neutral-500 truncate max-w-[90px]">
+                                        {mockupLabel.split('.').pop() || 'MOCKUP'}
+                                      </span>
+                                    </div>
+                                  )
                                 ) : (
-                                  <div className="flex flex-col items-center gap-1 text-center">
-                                    <FileText size={28} className="text-neutral-500" />
-                                    <span className="text-[10px] font-black uppercase text-neutral-500 truncate max-w-[90px]">
-                                      {mockupLabel.split('.').pop() || 'MOCKUP'}
-                                    </span>
-                                  </div>
-                                )
-                              ) : (
-                                <span className="text-xs text-neutral-400 font-semibold text-center">No Mock-up</span>
+                                  <span className="text-xs text-neutral-400 font-semibold text-center">No Mock-up</span>
+                                )}
+                              </div>
+                              {designMockups.length > 1 && (
+                                <div className="flex items-center gap-1.5 flex-wrap max-w-[160px] justify-center">
+                                  {designMockups.slice(1).map((extraMock, extraIdx) => {
+                                    const isExtraImg = Boolean(
+                                      extraMock.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ||
+                                        extraMock.url?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)
+                                    );
+                                    return (
+                                      <div
+                                        key={extraMock.id || extraIdx}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (isExtraImg) {
+                                            setExpandedImage({ src: extraMock.url, alt: `${displayTitle} - ${extraMock.name}` });
+                                          } else {
+                                            window.open(extraMock.url, '_blank');
+                                          }
+                                        }}
+                                        className="w-9 h-9 rounded-lg border border-brand-border/70 bg-neutral-50 p-1 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
+                                        title={`Mock-up ${extraIdx + 2}: ${extraMock.name}`}
+                                      >
+                                        {isExtraImg ? (
+                                          <img src={extraMock.url} alt={extraMock.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                        ) : (
+                                          <span className="text-[7px] font-black uppercase text-neutral-600">
+                                            {extraMock.name?.split('.').pop() || 'FILE'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               )}
                             </div>
 
