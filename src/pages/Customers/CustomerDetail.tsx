@@ -178,24 +178,28 @@ export function CustomerDetail() {
   const [editingDesignerRackId, setEditingDesignerRackId] = useState<string | null>(null);
   const [designerRackForm, setDesignerRackForm] = useState<{
     title: string;
-    mockupUrl: string;
-    mockupName: string;
-    mockups: { id: string; name: string; url: string }[];
+    frontMockupUrl: string;
+    frontMockupName: string;
+    backMockupUrl: string;
+    backMockupName: string;
+    otherMockups: { id: string; name: string; url: string }[];
     logos: { id: string; name: string; url: string }[];
     psdDriveLink: string;
     garmentSourcingLink: string;
   }>({
     title: '',
-    mockupUrl: '',
-    mockupName: '',
-    mockups: [],
+    frontMockupUrl: '',
+    frontMockupName: '',
+    backMockupUrl: '',
+    backMockupName: '',
+    otherMockups: [],
     logos: [],
     psdDriveLink: '',
     garmentSourcingLink: ''
   });
-  const [isUploadingRackMockup, setIsUploadingRackMockup] = useState(false);
+  const [uploadingRackMockupSlot, setUploadingRackMockupSlot] = useState<'front' | 'back' | 'other' | null>(null);
   const [isUploadingRackLogos, setIsUploadingRackLogos] = useState(false);
-  const [isDraggingRackMockup, setIsDraggingRackMockup] = useState(false);
+  const [draggingRackMockupSlot, setDraggingRackMockupSlot] = useState<'front' | 'back' | 'other' | null>(null);
   const [isDraggingRackLogos, setIsDraggingRackLogos] = useState(false);
   const [isSavingDesignerRack, setIsSavingDesignerRack] = useState(false);
   const [subBrands, setSubBrands] = useState<any[]>([]);
@@ -1039,9 +1043,11 @@ export function CustomerDetail() {
     setEditingDesignerRackId(null);
     setDesignerRackForm({
       title: '',
-      mockupUrl: '',
-      mockupName: '',
-      mockups: [],
+      frontMockupUrl: '',
+      frontMockupName: '',
+      backMockupUrl: '',
+      backMockupName: '',
+      otherMockups: [],
       logos: [],
       psdDriveLink: '',
       garmentSourcingLink: ''
@@ -1051,23 +1057,26 @@ export function CustomerDetail() {
 
   const handleOpenEditDesignerRackModal = (design: any) => {
     setEditingDesignerRackId(design.id);
-    const existingMockups: { id: string; name: string; url: string }[] =
-      Array.isArray(design.mockups) && design.mockups.length > 0
-        ? design.mockups
-        : design.mockupUrl || design.url
-        ? [
-            {
-              id: `rack-mockup-0`,
-              name: design.mockupName || design.name || 'Mock-up',
-              url: design.mockupUrl || design.url
-            }
-          ]
-        : [];
+    const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
+      ? design.mockups
+      : [];
+    const frontUrl = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+    const frontName = design.frontMockupName || legacyMockups[0]?.name || design.mockupName || design.name || '';
+    const backUrl = design.backMockupUrl || legacyMockups[1]?.url || '';
+    const backName = design.backMockupName || legacyMockups[1]?.name || '';
+    const existingOther: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
+      ? design.otherMockups
+      : legacyMockups.length > 2
+      ? legacyMockups.slice(2)
+      : [];
+
     setDesignerRackForm({
       title: design.title || design.name || '',
-      mockupUrl: existingMockups[0]?.url || '',
-      mockupName: existingMockups[0]?.name || '',
-      mockups: existingMockups,
+      frontMockupUrl: frontUrl,
+      frontMockupName: frontName,
+      backMockupUrl: backUrl,
+      backMockupName: backName,
+      otherMockups: existingOther,
       logos: Array.isArray(design.logos) ? design.logos : [],
       psdDriveLink: design.psdDriveLink || '',
       garmentSourcingLink: design.garmentSourcingLink || ''
@@ -1075,57 +1084,62 @@ export function CustomerDetail() {
     setIsDesignerRackModalOpen(true);
   };
 
-  const uploadRackMockupFiles = async (files: FileList | File[]) => {
+  const uploadRackMockupForSlot = async (slot: 'front' | 'back' | 'other', files: FileList | File[]) => {
     if (!files || files.length === 0 || !id) return;
 
-    setIsUploadingRackMockup(true);
+    setUploadingRackMockupSlot(slot);
     try {
-      const uploadedMockups: { id: string; name: string; url: string }[] = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${i}_${file.name}`);
+      if (slot === 'front' || slot === 'back') {
+        const file = files[0];
+        const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${slot}_${file.name}`);
         await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(storageRef);
-        uploadedMockups.push({
-          id: `rack-mockup-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
-          name: file.name,
-          url: downloadUrl
-        });
-      }
-      setDesignerRackForm(prev => {
-        const nextMockups = [...prev.mockups, ...uploadedMockups];
-        return {
+        setDesignerRackForm(prev =>
+          slot === 'front'
+            ? { ...prev, frontMockupUrl: downloadUrl, frontMockupName: file.name }
+            : { ...prev, backMockupUrl: downloadUrl, backMockupName: file.name }
+        );
+      } else {
+        const uploadedOthers: { id: string; name: string; url: string }[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_other_${i}_${file.name}`);
+          await uploadBytes(storageRef, file);
+          const downloadUrl = await getDownloadURL(storageRef);
+          uploadedOthers.push({
+            id: `rack-other-mockup-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 6)}`,
+            name: file.name,
+            url: downloadUrl
+          });
+        }
+        setDesignerRackForm(prev => ({
           ...prev,
-          mockups: nextMockups,
-          mockupUrl: nextMockups[0]?.url || '',
-          mockupName: nextMockups[0]?.name || ''
-        };
-      });
+          otherMockups: [...prev.otherMockups, ...uploadedOthers]
+        }));
+      }
     } catch (err) {
       console.error("Designer Rack mockup upload failed:", err);
       alert("Failed to upload mock-up file(s).");
     } finally {
-      setIsUploadingRackMockup(false);
+      setUploadingRackMockupSlot(null);
     }
   };
 
-  const handleUploadRackMockup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadRackMockupForSlot = async (
+    slot: 'front' | 'back' | 'other',
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (e.target.files && e.target.files.length > 0) {
-      await uploadRackMockupFiles(e.target.files);
+      await uploadRackMockupForSlot(slot, e.target.files);
     }
     e.target.value = '';
   };
 
-  const handleRemoveRackMockupFromForm = (mockupId: string) => {
-    setDesignerRackForm(prev => {
-      const nextMockups = prev.mockups.filter(m => m.id !== mockupId);
-      return {
-        ...prev,
-        mockups: nextMockups,
-        mockupUrl: nextMockups[0]?.url || '',
-        mockupName: nextMockups[0]?.name || ''
-      };
-    });
+  const handleRemoveOtherMockupFromForm = (mockupId: string) => {
+    setDesignerRackForm(prev => ({
+      ...prev,
+      otherMockups: prev.otherMockups.filter(m => m.id !== mockupId)
+    }));
   };
 
   const uploadRackLogoFiles = async (files: FileList | File[]) => {
@@ -1179,8 +1193,9 @@ export function CustomerDetail() {
       return;
     }
     if (
-      designerRackForm.mockups.length === 0 &&
-      !designerRackForm.mockupUrl &&
+      !designerRackForm.frontMockupUrl &&
+      !designerRackForm.backMockupUrl &&
+      designerRackForm.otherMockups.length === 0 &&
       designerRackForm.logos.length === 0 &&
       !designerRackForm.psdDriveLink.trim() &&
       !designerRackForm.garmentSourcingLink.trim()
@@ -1192,8 +1207,25 @@ export function CustomerDetail() {
     setIsSavingDesignerRack(true);
     try {
       const displayTitle = designerRackForm.title.trim();
-      const primaryMockupUrl = designerRackForm.mockups[0]?.url || designerRackForm.mockupUrl || '';
-      const primaryMockupName = designerRackForm.mockups[0]?.name || designerRackForm.mockupName || '';
+      const primaryMockupUrl =
+        designerRackForm.frontMockupUrl ||
+        designerRackForm.backMockupUrl ||
+        designerRackForm.otherMockups[0]?.url ||
+        '';
+      const primaryMockupName =
+        designerRackForm.frontMockupName ||
+        designerRackForm.backMockupName ||
+        designerRackForm.otherMockups[0]?.name ||
+        '';
+      const combinedMockups: { id: string; name: string; url: string }[] = [
+        ...(designerRackForm.frontMockupUrl
+          ? [{ id: 'front', name: designerRackForm.frontMockupName || 'Front Mock-up', url: designerRackForm.frontMockupUrl }]
+          : []),
+        ...(designerRackForm.backMockupUrl
+          ? [{ id: 'back', name: designerRackForm.backMockupName || 'Back Mock-up', url: designerRackForm.backMockupUrl }]
+          : []),
+        ...designerRackForm.otherMockups
+      ];
 
       let updated: any[];
       if (editingDesignerRackId) {
@@ -1203,9 +1235,14 @@ export function CustomerDetail() {
                 ...d,
                 title: displayTitle,
                 name: displayTitle,
+                frontMockupUrl: designerRackForm.frontMockupUrl,
+                frontMockupName: designerRackForm.frontMockupName,
+                backMockupUrl: designerRackForm.backMockupUrl,
+                backMockupName: designerRackForm.backMockupName,
+                otherMockups: designerRackForm.otherMockups,
                 mockupUrl: primaryMockupUrl,
                 mockupName: primaryMockupName,
-                mockups: designerRackForm.mockups,
+                mockups: combinedMockups,
                 url: primaryMockupUrl || d.url || '',
                 logos: designerRackForm.logos,
                 psdDriveLink: designerRackForm.psdDriveLink.trim(),
@@ -1219,9 +1256,14 @@ export function CustomerDetail() {
           id: `design-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           title: displayTitle,
           name: displayTitle,
+          frontMockupUrl: designerRackForm.frontMockupUrl,
+          frontMockupName: designerRackForm.frontMockupName,
+          backMockupUrl: designerRackForm.backMockupUrl,
+          backMockupName: designerRackForm.backMockupName,
+          otherMockups: designerRackForm.otherMockups,
           mockupUrl: primaryMockupUrl,
           mockupName: primaryMockupName,
-          mockups: designerRackForm.mockups,
+          mockups: combinedMockups,
           url: primaryMockupUrl,
           logos: designerRackForm.logos,
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
@@ -2118,171 +2160,330 @@ export function CustomerDetail() {
 
               {/* 4 Quadrants Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Quadrant 1: Mock-up(s) */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!isDraggingRackMockup) setIsDraggingRackMockup(true);
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                      setIsDraggingRackMockup(false);
-                    }
-                  }}
-                  onDrop={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDraggingRackMockup(false);
-                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                      await uploadRackMockupFiles(e.dataTransfer.files);
-                    }
-                  }}
-                  className={`rounded-2xl border p-4 flex flex-col justify-between min-h-[210px] transition-all ${
-                    isDraggingRackMockup
-                      ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
-                      : 'border-brand-border bg-brand-bg/25'
-                  }`}
-                >
+                {/* Quadrant 1: Mock-up (Front, Back & Optional Other Mock-ups) */}
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[210px]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-                      1. Mock-up ({designerRackForm.mockups.length})
+                      1. Mock-up
                     </span>
-                    {designerRackForm.mockups.length > 0 ? (
-                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                    {designerRackForm.frontMockupUrl && designerRackForm.backMockupUrl ? (
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center" title="Front & Back mock-ups uploaded">
                         <Check size={12} strokeWidth={3} />
                       </span>
                     ) : (
-                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="Mock-up not uploaded yet">
+                      <span
+                        className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center"
+                        title="Both Front and Back mock-ups are required"
+                      >
                         !
                       </span>
                     )}
                   </div>
 
-                  <div
-                    className={`flex-1 flex flex-col items-center justify-center bg-white border border-dashed rounded-xl p-3 mb-3 overflow-hidden transition-colors ${
-                      isDraggingRackMockup ? 'border-brand-primary bg-brand-primary/5' : 'border-brand-border'
-                    }`}
-                  >
-                    {designerRackForm.mockups.length > 0 ? (
-                      <div className="w-full flex flex-col items-center gap-2.5">
-                        {/* Primary Thumbnail (Always First Mock-up) */}
-                        <div className="relative group/primary flex items-center justify-center w-full">
-                          {designerRackForm.mockups[0].name?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
-                            <div className="flex flex-col items-center gap-1 text-center py-2">
-                              <FileText size={28} className="text-neutral-600" />
-                              <span className="text-[10px] font-bold text-brand-primary truncate max-w-[180px]">
-                                {designerRackForm.mockups[0].name}
-                              </span>
-                            </div>
-                          ) : (
-                            <img
-                              src={designerRackForm.mockups[0].url}
-                              alt="Primary Mock-up preview"
-                              className="max-h-28 max-w-full object-contain mix-blend-multiply"
-                            />
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveRackMockupFromForm(designerRackForm.mockups[0].id)}
-                            className="absolute top-0 right-0 w-5 h-5 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
-                            title="Remove this mock-up"
+                  {/* Required Front & Back Sub-Boxes (Each with its own ! / ✓ and Drag & Drop) */}
+                  <div className="grid grid-cols-2 gap-2.5 mb-2.5">
+                    {/* FRONT MOCK-UP */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (draggingRackMockupSlot !== 'front') setDraggingRackMockupSlot('front');
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setDraggingRackMockupSlot(null);
+                        }
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDraggingRackMockupSlot(null);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          await uploadRackMockupForSlot('front', e.dataTransfer.files);
+                        }
+                      }}
+                      className={`rounded-xl border border-dashed bg-white p-2.5 flex flex-col justify-between transition-all ${
+                        draggingRackMockupSlot === 'front'
+                          ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
+                          : 'border-brand-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary">
+                          Front <span className="text-[9px] font-medium text-brand-secondary normal-case">(Thumbnail)</span>
+                        </span>
+                        {designerRackForm.frontMockupUrl ? (
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                            <Check size={10} strokeWidth={3} />
+                          </span>
+                        ) : (
+                          <span
+                            className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center"
+                            title="Front mock-up required"
                           >
-                            <X size={11} strokeWidth={2.5} />
-                          </button>
-                        </div>
+                            !
+                          </span>
+                        )}
+                      </div>
 
-                        {/* Additional Mock-ups Row (if more than 1 uploaded) */}
-                        {designerRackForm.mockups.length > 1 && (
-                          <div className="w-full pt-2 border-t border-brand-border/50 flex items-center gap-2 overflow-x-auto">
-                            {designerRackForm.mockups.map((m, idx) => {
-                              const isImg = !m.name?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i);
-                              return (
-                                <div
-                                  key={m.id}
-                                  className={`relative shrink-0 w-11 h-11 rounded-lg border p-1 flex items-center justify-center bg-brand-bg/20 ${
-                                    idx === 0 ? 'border-neutral-900 ring-1 ring-neutral-900' : 'border-brand-border/80'
-                                  }`}
-                                  title={idx === 0 ? `${m.name} (Main Thumbnail)` : m.name}
-                                >
-                                  {isImg ? (
-                                    <img src={m.url} alt={m.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                                  ) : (
-                                    <span className="text-[8px] font-black uppercase text-neutral-500">
-                                      {m.name?.split('.').pop() || 'FILE'}
-                                    </span>
-                                  )}
-                                  {idx === 0 && (
-                                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[7px] font-black uppercase px-1 rounded">
-                                      1st
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveRackMockupFromForm(m.id)}
-                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
-                                    title="Remove Mock-up"
-                                  >
-                                    <X size={9} strokeWidth={2.5} />
-                                  </button>
-                                </div>
-                              );
-                            })}
+                      <div className="h-24 flex items-center justify-center relative my-1 overflow-hidden">
+                        {designerRackForm.frontMockupUrl ? (
+                          <>
+                            {designerRackForm.frontMockupName?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
+                              <div className="flex flex-col items-center gap-1 text-center">
+                                <FileText size={22} className="text-neutral-600" />
+                                <span className="text-[9px] font-bold text-brand-primary truncate max-w-[110px]">
+                                  {designerRackForm.frontMockupName}
+                                </span>
+                              </div>
+                            ) : (
+                              <img
+                                src={designerRackForm.frontMockupUrl}
+                                alt="Front Mock-up"
+                                className="max-h-22 max-w-full object-contain mix-blend-multiply"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDesignerRackForm((prev) => ({
+                                  ...prev,
+                                  frontMockupUrl: '',
+                                  frontMockupName: ''
+                                }))
+                              }
+                              className="absolute top-0 right-0 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                              title="Remove Front Mock-up"
+                            >
+                              <X size={10} strokeWidth={2.5} />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-center text-brand-secondary pointer-events-none">
+                            <Image size={20} className={draggingRackMockupSlot === 'front' ? 'text-brand-primary' : 'text-neutral-300'} />
+                            <span className="text-[10px]">
+                              {draggingRackMockupSlot === 'front' ? 'Drop Front here' : 'Drag or upload Front'}
+                            </span>
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1.5 text-center py-4 text-brand-secondary pointer-events-none">
-                        <Image size={26} className={isDraggingRackMockup ? 'text-brand-primary' : 'text-neutral-300'} />
-                        <span className="text-[11px]">
-                          {isDraggingRackMockup
-                            ? 'Drop mock-up file(s) here...'
-                            : 'Drag & drop or upload mock-ups (1st shows in thumbnail)'}
+
+                      <label className="w-full inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-bg/40 hover:bg-neutral-100 border border-brand-border text-[11px] font-bold text-brand-primary transition-all cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleUploadRackMockupForSlot('front', e)}
+                          accept="image/*,application/pdf"
+                          disabled={uploadingRackMockupSlot !== null}
+                        />
+                        {uploadingRackMockupSlot === 'front' ? (
+                          <Loader2 className="animate-spin" size={12} />
+                        ) : (
+                          <Upload size={12} />
+                        )}
+                        <span>
+                          {uploadingRackMockupSlot === 'front'
+                            ? 'Uploading...'
+                            : designerRackForm.frontMockupUrl
+                            ? 'Replace Front'
+                            : 'Upload Front'}
                         </span>
+                      </label>
+                    </div>
+
+                    {/* BACK MOCK-UP */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (draggingRackMockupSlot !== 'back') setDraggingRackMockupSlot('back');
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setDraggingRackMockupSlot(null);
+                        }
+                      }}
+                      onDrop={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDraggingRackMockupSlot(null);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          await uploadRackMockupForSlot('back', e.dataTransfer.files);
+                        }
+                      }}
+                      className={`rounded-xl border border-dashed bg-white p-2.5 flex flex-col justify-between transition-all ${
+                        draggingRackMockupSlot === 'back'
+                          ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
+                          : 'border-brand-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-primary">
+                          Back
+                        </span>
+                        {designerRackForm.backMockupUrl ? (
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                            <Check size={10} strokeWidth={3} />
+                          </span>
+                        ) : (
+                          <span
+                            className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center"
+                            title="Back mock-up required"
+                          >
+                            !
+                          </span>
+                        )}
                       </div>
-                    )}
+
+                      <div className="h-24 flex items-center justify-center relative my-1 overflow-hidden">
+                        {designerRackForm.backMockupUrl ? (
+                          <>
+                            {designerRackForm.backMockupName?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i) ? (
+                              <div className="flex flex-col items-center gap-1 text-center">
+                                <FileText size={22} className="text-neutral-600" />
+                                <span className="text-[9px] font-bold text-brand-primary truncate max-w-[110px]">
+                                  {designerRackForm.backMockupName}
+                                </span>
+                              </div>
+                            ) : (
+                              <img
+                                src={designerRackForm.backMockupUrl}
+                                alt="Back Mock-up"
+                                className="max-h-22 max-w-full object-contain mix-blend-multiply"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDesignerRackForm((prev) => ({
+                                  ...prev,
+                                  backMockupUrl: '',
+                                  backMockupName: ''
+                                }))
+                              }
+                              className="absolute top-0 right-0 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                              title="Remove Back Mock-up"
+                            >
+                              <X size={10} strokeWidth={2.5} />
+                            </button>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-center text-brand-secondary pointer-events-none">
+                            <Image size={20} className={draggingRackMockupSlot === 'back' ? 'text-brand-primary' : 'text-neutral-300'} />
+                            <span className="text-[10px]">
+                              {draggingRackMockupSlot === 'back' ? 'Drop Back here' : 'Drag or upload Back'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="w-full inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand-bg/40 hover:bg-neutral-100 border border-brand-border text-[11px] font-bold text-brand-primary transition-all cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => handleUploadRackMockupForSlot('back', e)}
+                          accept="image/*,application/pdf"
+                          disabled={uploadingRackMockupSlot !== null}
+                        />
+                        {uploadingRackMockupSlot === 'back' ? (
+                          <Loader2 className="animate-spin" size={12} />
+                        ) : (
+                          <Upload size={12} />
+                        )}
+                        <span>
+                          {uploadingRackMockupSlot === 'back'
+                            ? 'Uploading...'
+                            : designerRackForm.backMockupUrl
+                            ? 'Replace Back'
+                            : 'Upload Back'}
+                        </span>
+                      </label>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-brand-border hover:bg-neutral-50 text-xs font-bold text-brand-primary shadow-2xs transition-all cursor-pointer">
-                      <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleUploadRackMockup}
-                        accept="image/*,application/pdf"
-                        disabled={isUploadingRackMockup}
-                      />
-                      {isUploadingRackMockup ? (
-                        <Loader2 className="animate-spin" size={14} />
-                      ) : (
-                        <Plus size={14} />
-                      )}
-                      <span>
-                        {isUploadingRackMockup
-                          ? 'Uploading...'
-                          : designerRackForm.mockups.length > 0
-                          ? 'Add More Mock-ups'
-                          : 'Upload Mock-up(s)'}
+                  {/* Optional Other Mock-ups (No Exclamation Mark) */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (draggingRackMockupSlot !== 'other') setDraggingRackMockupSlot('other');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDraggingRackMockupSlot(null);
+                      }
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDraggingRackMockupSlot(null);
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        await uploadRackMockupForSlot('other', e.dataTransfer.files);
+                      }
+                    }}
+                    className={`rounded-xl border border-dashed bg-white p-2.5 transition-all ${
+                      draggingRackMockupSlot === 'other'
+                        ? 'border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20'
+                        : 'border-brand-border'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">
+                        Other Mock-ups <span className="font-normal normal-case">(Optional • {designerRackForm.otherMockups.length})</span>
                       </span>
-                    </label>
-                    {designerRackForm.mockups.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDesignerRackForm((prev) => ({
-                            ...prev,
-                            mockups: [],
-                            mockupUrl: '',
-                            mockupName: ''
-                          }))
-                        }
-                        className="text-xs text-red-600 hover:underline font-semibold px-2 py-1 cursor-pointer"
-                      >
-                        Remove All
-                      </button>
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-bg/40 hover:bg-neutral-100 border border-brand-border text-[10px] font-bold text-brand-primary transition-all cursor-pointer">
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleUploadRackMockupForSlot('other', e)}
+                          accept="image/*,application/pdf"
+                          disabled={uploadingRackMockupSlot !== null}
+                        />
+                        {uploadingRackMockupSlot === 'other' ? (
+                          <Loader2 className="animate-spin" size={11} />
+                        ) : (
+                          <Plus size={11} />
+                        )}
+                        <span>{uploadingRackMockupSlot === 'other' ? 'Uploading...' : 'Upload Other'}</span>
+                      </label>
+                    </div>
+
+                    {designerRackForm.otherMockups.length > 0 && (
+                      <div className="flex items-center gap-2 overflow-x-auto pt-2 mt-2 border-t border-brand-border/50">
+                        {designerRackForm.otherMockups.map((m) => {
+                          const isImg = !m.name?.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i);
+                          return (
+                            <div
+                              key={m.id}
+                              className="relative shrink-0 w-10 h-10 rounded-lg border border-brand-border/80 p-1 flex items-center justify-center bg-brand-bg/20"
+                              title={m.name}
+                            >
+                              {isImg ? (
+                                <img src={m.url} alt={m.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                              ) : (
+                                <span className="text-[8px] font-black uppercase text-neutral-500">
+                                  {m.name?.split('.').pop() || 'FILE'}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOtherMockupFromForm(m.id)}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-neutral-200 shadow-xs text-neutral-400 hover:text-red-600 hover:border-red-400 flex items-center justify-center cursor-pointer"
+                                title="Remove Mock-up"
+                              >
+                                <X size={9} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2467,7 +2668,7 @@ export function CustomerDetail() {
                   type="submit"
                   variant="filled"
                   className="gap-1.5"
-                  disabled={isSavingDesignerRack || isUploadingRackMockup || isUploadingRackLogos}
+                  disabled={isSavingDesignerRack || uploadingRackMockupSlot !== null || isUploadingRackLogos}
                 >
                   {isSavingDesignerRack ? (
                     <>
@@ -3162,20 +3363,26 @@ export function CustomerDetail() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {designerRack.map((design: any) => {
-                      const designMockups: { id: string; name: string; url: string }[] =
-                        Array.isArray(design.mockups) && design.mockups.length > 0
-                          ? design.mockups
-                          : design.mockupUrl || design.url
-                          ? [
-                              {
-                                id: 'primary',
-                                name: design.mockupName || design.name || 'Mock-up',
-                                url: design.mockupUrl || design.url
-                              }
-                            ]
-                          : [];
-                      const mockupSrc = designMockups[0]?.url || '';
-                      const mockupLabel = designMockups[0]?.name || design.mockupName || design.name || 'Mock-up';
+                      const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
+                        ? design.mockups
+                        : [];
+                      const frontSrc = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+                      const frontName = design.frontMockupName || legacyMockups[0]?.name || design.mockupName || design.name || 'Front Mock-up';
+                      const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
+                      const backName = design.backMockupName || legacyMockups[1]?.name || 'Back Mock-up';
+                      const otherMockups: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
+                        ? design.otherMockups
+                        : legacyMockups.length > 2
+                        ? legacyMockups.slice(2)
+                        : [];
+
+                      const designMockups: { id: string; name: string; url: string }[] = [
+                        ...(frontSrc ? [{ id: 'front', name: frontName, url: frontSrc }] : []),
+                        ...(backSrc ? [{ id: 'back', name: backName, url: backSrc }] : []),
+                        ...otherMockups
+                      ];
+                      const mockupSrc = frontSrc || designMockups[0]?.url || '';
+                      const mockupLabel = frontSrc ? frontName : designMockups[0]?.name || 'Mock-up';
                       const displayTitle = design.title || design.name || 'Untitled Design';
                       const isMockupImage = Boolean(
                         mockupSrc &&
@@ -3188,7 +3395,8 @@ export function CustomerDetail() {
                         : [];
 
                       const missingFields: string[] = [];
-                      if (!mockupSrc) missingFields.push('Mock-up');
+                      if (!frontSrc) missingFields.push('Front Mock-up');
+                      if (!backSrc) missingFields.push('Back Mock-up');
                       if (designLogos.length === 0) missingFields.push('Logo(s)');
                       if (!design.psdDriveLink?.trim()) missingFields.push('PSD Drive Link');
                       if (!design.garmentSourcingLink?.trim()) missingFields.push('Garment Sourcing Link');
