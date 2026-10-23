@@ -3422,73 +3422,38 @@ export function CustomerDetail() {
                           )}
 
                           <div className="flex items-start gap-5">
-                            {/* Larger Mock-up Preview (First Mock-up Always Shown Here) */}
-                            <div className="flex flex-col items-center gap-2 shrink-0">
-                              <div
-                                onClick={() => {
-                                  if (!mockupSrc) return;
-                                  if (isMockupImage) {
-                                    setExpandedImage({ src: mockupSrc, alt: displayTitle });
-                                  } else {
-                                    window.open(mockupSrc, '_blank');
-                                  }
-                                }}
-                                className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
-                                  mockupSrc ? 'cursor-pointer' : ''
-                                }`}
-                                title={mockupSrc ? 'Click to view Mock-up' : 'No Mock-up uploaded'}
-                              >
-                                {mockupSrc ? (
-                                  isMockupImage ? (
-                                    <img
-                                      src={mockupSrc}
-                                      alt={displayTitle}
-                                      className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
-                                    />
-                                  ) : (
-                                    <div className="flex flex-col items-center gap-1 text-center">
-                                      <FileText size={28} className="text-neutral-500" />
-                                      <span className="text-[10px] font-black uppercase text-neutral-500 truncate max-w-[90px]">
-                                        {mockupLabel.split('.').pop() || 'MOCKUP'}
-                                      </span>
-                                    </div>
-                                  )
+                            {/* Larger Front Mock-up Preview */}
+                            <div
+                              onClick={() => {
+                                if (!mockupSrc) return;
+                                if (isMockupImage) {
+                                  setExpandedImage({ src: mockupSrc, alt: displayTitle });
+                                } else {
+                                  window.open(mockupSrc, '_blank');
+                                }
+                              }}
+                              className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
+                                mockupSrc ? 'cursor-pointer' : ''
+                              }`}
+                              title={mockupSrc ? 'Click to view Front Mock-up' : 'No Front Mock-up uploaded'}
+                            >
+                              {mockupSrc ? (
+                                isMockupImage ? (
+                                  <img
+                                    src={mockupSrc}
+                                    alt={displayTitle}
+                                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
+                                  />
                                 ) : (
-                                  <span className="text-xs text-neutral-400 font-semibold text-center">No Mock-up</span>
-                                )}
-                              </div>
-                              {designMockups.length > 1 && (
-                                <div className="flex items-center gap-1.5 flex-wrap max-w-[160px] justify-center">
-                                  {designMockups.slice(1).map((extraMock, extraIdx) => {
-                                    const isExtraImg = Boolean(
-                                      extraMock.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ||
-                                        extraMock.url?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)
-                                    );
-                                    return (
-                                      <div
-                                        key={extraMock.id || extraIdx}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (isExtraImg) {
-                                            setExpandedImage({ src: extraMock.url, alt: `${displayTitle} - ${extraMock.name}` });
-                                          } else {
-                                            window.open(extraMock.url, '_blank');
-                                          }
-                                        }}
-                                        className="w-9 h-9 rounded-lg border border-brand-border/70 bg-neutral-50 p-1 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
-                                        title={`Mock-up ${extraIdx + 2}: ${extraMock.name}`}
-                                      >
-                                        {isExtraImg ? (
-                                          <img src={extraMock.url} alt={extraMock.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                                        ) : (
-                                          <span className="text-[7px] font-black uppercase text-neutral-600">
-                                            {extraMock.name?.split('.').pop() || 'FILE'}
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                  <div className="flex flex-col items-center gap-1 text-center">
+                                    <FileText size={28} className="text-neutral-500" />
+                                    <span className="text-[10px] font-black uppercase text-neutral-500 truncate max-w-[90px]">
+                                      {mockupLabel.split('.').pop() || 'MOCKUP'}
+                                    </span>
+                                  </div>
+                                )
+                              ) : (
+                                <span className="text-xs text-neutral-400 font-semibold text-center">No Mock-up</span>
                               )}
                             </div>
 
