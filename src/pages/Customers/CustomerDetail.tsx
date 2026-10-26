@@ -2790,8 +2790,8 @@ export function CustomerDetail() {
                 </div>
 
                 {/* Quadrant 3: PSD Google Drive Link */}
-                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[150px]">
-                  <div className="flex items-center justify-between mb-2">
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
                       3. PSD Google Drive Link
                     </span>
@@ -2805,9 +2805,6 @@ export function CustomerDetail() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-brand-secondary mb-3">
-                    Paste the Google Drive link to the editable PSD / source artwork file.
-                  </p>
                   <input
                     type="url"
                     value={designerRackForm.psdDriveLink}
@@ -2818,32 +2815,12 @@ export function CustomerDetail() {
                 </div>
 
                 {/* Quadrant 4: Garment Sourcing Link */}
-                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[150px]">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-                      4. Garment Sourcing Link
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextForm = {
-                            ...designerRackForm,
-                            approvedForOrder: !designerRackForm.approvedForOrder
-                          };
-                          setDesignerRackForm(nextForm);
-                          void autoPersistEditingDesignerRack(nextForm);
-                        }}
-                        disabled={isSavingDesignerRack}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none ${
-                          designerRackForm.approvedForOrder
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                            : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
-                        }`}
-                      >
-                        <Check size={11} strokeWidth={3} />
-                        <span>Approved for Order</span>
-                      </button>
+                <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+                        4. Garment Sourcing Link
+                      </span>
                       {designerRackForm.garmentSourcingLink.trim() ? (
                         <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
                           <Check size={12} strokeWidth={3} />
@@ -2854,17 +2831,36 @@ export function CustomerDetail() {
                         </span>
                       )}
                     </div>
+                    <input
+                      type="url"
+                      value={designerRackForm.garmentSourcingLink}
+                      onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentSourcingLink: e.target.value }))}
+                      placeholder="https://www.sanmar.com/... or supplier URL"
+                      className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
+                    />
                   </div>
-                  <p className="text-[11px] text-brand-secondary mb-3">
-                    Paste the link to the blank garment online for sourcing (SanMar, S&S, etc.).
-                  </p>
-                  <input
-                    type="url"
-                    value={designerRackForm.garmentSourcingLink}
-                    onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentSourcingLink: e.target.value }))}
-                    placeholder="https://www.sanmar.com/... or supplier URL"
-                    className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
-                  />
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextForm = {
+                          ...designerRackForm,
+                          approvedForOrder: !designerRackForm.approvedForOrder
+                        };
+                        setDesignerRackForm(nextForm);
+                        void autoPersistEditingDesignerRack(nextForm);
+                      }}
+                      disabled={isSavingDesignerRack}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none ${
+                        designerRackForm.approvedForOrder
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                          : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                      }`}
+                    >
+                      <Check size={12} strokeWidth={3} />
+                      <span>Approved for Order</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
