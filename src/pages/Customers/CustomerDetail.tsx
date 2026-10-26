@@ -3639,16 +3639,16 @@ export function CustomerDetail() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!isDesignerRackCollapsed && (
+                  {!isDesignerRackCollapsed && subBrands.length === 0 && (
                     <PillButton
                       variant="outline"
-                      className="px-4 text-xs font-bold gap-1.5 cursor-pointer"
+                      className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleOpenNewDesignerRackModal();
                       }}
                     >
-                      <Upload size={14} /> Upload Design
+                      <Plus size={14} /> Design
                     </PillButton>
                   )}
                   <button
@@ -3675,7 +3675,7 @@ export function CustomerDetail() {
                   {subBrands.length > 0 && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2 pt-1"
+                      className="flex flex-wrap items-center gap-2.5 pt-1"
                     >
                       <label className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary shrink-0">
                         Brand Rack:
@@ -3687,7 +3687,7 @@ export function CustomerDetail() {
                           className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
                         >
                           <option value="all">
-                            All Brands ({combinedDesignerRack.length})
+                            All ({combinedDesignerRack.length})
                           </option>
                           <option value={id || ''}>
                             {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'} ({designerRack.length})
@@ -3707,6 +3707,16 @@ export function CustomerDetail() {
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
                         />
                       </div>
+                      <PillButton
+                        variant="outline"
+                        className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenNewDesignerRackModal();
+                        }}
+                      >
+                        <Plus size={14} /> Design
+                      </PillButton>
                     </div>
                   )}
                 </div>

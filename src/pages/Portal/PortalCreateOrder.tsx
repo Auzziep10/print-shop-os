@@ -2474,7 +2474,7 @@ export function PortalCreateOrder() {
                 className="appearance-none bg-white border border-neutral-200 hover:border-black focus:border-black rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-neutral-900 focus:outline-none transition-all cursor-pointer shadow-2xs"
               >
                 <option value="all">
-                  All Brands ({designerRackItems.length})
+                  All ({designerRackItems.length})
                 </option>
                 <option value={customerId || ''}>
                   {customer?.company || customer?.contactName || 'Parent'} ({Array.isArray(customer?.designerRack) ? customer.designerRack.length : 0})

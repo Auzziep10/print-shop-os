@@ -11716,7 +11716,7 @@ export function OrderDetail() {
                       className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
                     >
                       <option value="all">
-                        All Brands ({allDesignerRackItems.length})
+                        All ({allDesignerRackItems.length})
                       </option>
                       <option value={order?.customerId || ''}>
                         {liveCustomer?.company || liveCustomer?.contactName || order?.customer || 'Parent'} ({Array.isArray(liveCustomer?.designerRack) ? liveCustomer.designerRack.length : 0})
