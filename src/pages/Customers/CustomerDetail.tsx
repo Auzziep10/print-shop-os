@@ -2854,11 +2854,11 @@ export function CustomerDetail() {
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer select-none ${
                         designerRackForm.approvedForOrder
                           ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                          : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                          : 'bg-white hover:bg-neutral-50 text-brand-primary border-brand-border hover:border-brand-primary'
                       }`}
                     >
-                      <Check size={12} strokeWidth={3} />
-                      <span>Approved for Order</span>
+                      {designerRackForm.approvedForOrder && <Check size={12} strokeWidth={3} />}
+                      <span>{designerRackForm.approvedForOrder ? 'Approved For Order' : 'Approve For Order'}</span>
                     </button>
                   </div>
                 </div>
@@ -2880,11 +2880,11 @@ export function CustomerDetail() {
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shadow-2xs ${
                     designerRackForm.finalDesignApproved
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                      : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                      : 'bg-white hover:bg-neutral-50 text-brand-primary border-brand-border hover:border-brand-primary'
                   }`}
                 >
-                  <Check size={14} strokeWidth={3} />
-                  <span>Final Design Approved</span>
+                  {designerRackForm.finalDesignApproved && <Check size={14} strokeWidth={3} />}
+                  <span>{designerRackForm.finalDesignApproved ? 'Final Design Approved' : 'Approve Final Design'}</span>
                 </button>
 
                 <div className="flex items-center gap-3 ml-auto">
