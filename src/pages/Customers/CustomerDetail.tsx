@@ -176,6 +176,8 @@ export function CustomerDetail() {
   const [designerRack, setDesignerRack] = useState<any[]>([]);
   const [isDesignerRackModalOpen, setIsDesignerRackModalOpen] = useState(false);
   const [editingDesignerRackId, setEditingDesignerRackId] = useState<string | null>(null);
+  const [editingDesignerRackTargetCustomerId, setEditingDesignerRackTargetCustomerId] = useState<string | null>(null);
+  const [selectedDesignerRackBrandFilter, setSelectedDesignerRackBrandFilter] = useState<string>('all');
   const [designerRackForm, setDesignerRackForm] = useState<{
     title: string;
     frontMockupUrl: string;
@@ -186,6 +188,8 @@ export function CustomerDetail() {
     logos: { id: string; name: string; url: string }[];
     psdDriveLink: string;
     garmentSourcingLink: string;
+    finalDesignApproved: boolean;
+    approvedForOrder: boolean;
   }>({
     title: '',
     frontMockupUrl: '',
@@ -195,7 +199,9 @@ export function CustomerDetail() {
     otherMockups: [],
     logos: [],
     psdDriveLink: '',
-    garmentSourcingLink: ''
+    garmentSourcingLink: '',
+    finalDesignApproved: false,
+    approvedForOrder: false
   });
   const [uploadingRackMockupSlot, setUploadingRackMockupSlot] = useState<'front' | 'back' | 'other' | null>(null);
   const [isUploadingRackLogos, setIsUploadingRackLogos] = useState(false);
@@ -1056,8 +1062,37 @@ export function CustomerDetail() {
     }
   };
 
+  const combinedDesignerRack = useMemo(() => {
+    const parentName = editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent Company';
+    const ownItems = (Array.isArray(designerRack) ? designerRack : []).map((d: any) => ({
+      ...d,
+      _sourceCustomerId: id || '',
+      _sourceCustomerName: parentName,
+      _isSubBrand: false
+    }));
+    const brandItems = (Array.isArray(subBrands) ? subBrands : []).flatMap((b: any) => {
+      const bName = b.company || b.contactName || 'Sub-Brand';
+      const bRack = Array.isArray(b.designerRack) ? b.designerRack : [];
+      return bRack.map((d: any) => ({
+        ...d,
+        _sourceCustomerId: b.id,
+        _sourceCustomerName: bName,
+        _isSubBrand: true
+      }));
+    });
+    return [...ownItems, ...brandItems];
+  }, [designerRack, subBrands, id, editCompanyForm.name, liveCustomerData?.company, liveCustomerData?.contactName]);
+
+  const filteredDesignerRack = useMemo(() => {
+    if (selectedDesignerRackBrandFilter === 'all') return combinedDesignerRack;
+    return combinedDesignerRack.filter((d: any) => d._sourceCustomerId === selectedDesignerRackBrandFilter);
+  }, [combinedDesignerRack, selectedDesignerRackBrandFilter]);
+
   const handleOpenNewDesignerRackModal = () => {
     setEditingDesignerRackId(null);
+    setEditingDesignerRackTargetCustomerId(
+      selectedDesignerRackBrandFilter !== 'all' ? selectedDesignerRackBrandFilter : (id || null)
+    );
     setDesignerRackForm({
       title: '',
       frontMockupUrl: '',
@@ -1067,13 +1102,16 @@ export function CustomerDetail() {
       otherMockups: [],
       logos: [],
       psdDriveLink: '',
-      garmentSourcingLink: ''
+      garmentSourcingLink: '',
+      finalDesignApproved: false,
+      approvedForOrder: false
     });
     setIsDesignerRackModalOpen(true);
   };
 
   const handleOpenEditDesignerRackModal = (design: any) => {
     setEditingDesignerRackId(design.id);
+    setEditingDesignerRackTargetCustomerId(design._sourceCustomerId || id || null);
     const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
       ? design.mockups
       : [];
@@ -1096,19 +1134,25 @@ export function CustomerDetail() {
       otherMockups: existingOther,
       logos: Array.isArray(design.logos) ? design.logos : [],
       psdDriveLink: design.psdDriveLink || '',
-      garmentSourcingLink: design.garmentSourcingLink || ''
+      garmentSourcingLink: design.garmentSourcingLink || '',
+      finalDesignApproved: Boolean(design.finalDesignApproved),
+      approvedForOrder: Boolean(design.approvedForOrder)
     });
     setIsDesignerRackModalOpen(true);
   };
 
   const autoPersistEditingDesignerRack = async (nextForm: typeof designerRackForm) => {
-    if (!id || !editingDesignerRackId) return;
+    const targetCustomerId = editingDesignerRackTargetCustomerId || id;
+    if (!targetCustomerId || !editingDesignerRackId) return;
     try {
-      const custRef = doc(db, 'customers', id);
+      const custRef = doc(db, 'customers', targetCustomerId);
       const latestSnap = await getDoc(custRef);
+      const fallbackRack = targetCustomerId === id
+        ? designerRack
+        : (subBrands.find(b => b.id === targetCustomerId)?.designerRack || []);
       const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
         ? latestSnap.data().designerRack
-        : designerRack;
+        : fallbackRack;
 
       const displayTitle = nextForm.title.trim();
       const primaryMockupUrl =
@@ -1149,27 +1193,32 @@ export function CustomerDetail() {
               logos: nextForm.logos,
               psdDriveLink: nextForm.psdDriveLink.trim(),
               garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
+              finalDesignApproved: Boolean(nextForm.finalDesignApproved),
+              approvedForOrder: Boolean(nextForm.approvedForOrder),
               updatedAt: new Date().toISOString()
             }
           : d
       );
 
       await updateDoc(custRef, { designerRack: updated });
-      setDesignerRack(updated);
-      setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      if (targetCustomerId === id) {
+        setDesignerRack(updated);
+        setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      }
     } catch (err) {
       console.error("Failed to auto-persist Designer Rack edit:", err);
     }
   };
 
   const uploadRackMockupForSlot = async (slot: 'front' | 'back' | 'other', files: FileList | File[]) => {
-    if (!files || files.length === 0 || !id) return;
+    const targetCustomerId = editingDesignerRackTargetCustomerId || id;
+    if (!files || files.length === 0 || !targetCustomerId) return;
 
     setUploadingRackMockupSlot(slot);
     try {
       if (slot === 'front' || slot === 'back') {
         const file = files[0];
-        const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_${slot}_${file.name}`);
+        const storageRef = ref(storage, `customers/${targetCustomerId}/designer_rack/mockups/${Date.now()}_${slot}_${file.name}`);
         await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(storageRef);
         const nextForm =
@@ -1182,7 +1231,7 @@ export function CustomerDetail() {
         const uploadedOthers: { id: string; name: string; url: string }[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const storageRef = ref(storage, `customers/${id}/designer_rack/mockups/${Date.now()}_other_${i}_${file.name}`);
+          const storageRef = ref(storage, `customers/${targetCustomerId}/designer_rack/mockups/${Date.now()}_other_${i}_${file.name}`);
           await uploadBytes(storageRef, file);
           const downloadUrl = await getDownloadURL(storageRef);
           uploadedOthers.push({
@@ -1226,14 +1275,15 @@ export function CustomerDetail() {
   };
 
   const uploadRackLogoFiles = async (files: FileList | File[]) => {
-    if (!files || files.length === 0 || !id) return;
+    const targetCustomerId = editingDesignerRackTargetCustomerId || id;
+    if (!files || files.length === 0 || !targetCustomerId) return;
 
     setIsUploadingRackLogos(true);
     try {
       const uploadedLogos: { id: string; name: string; url: string }[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const storageRef = ref(storage, `customers/${id}/designer_rack/logos/${Date.now()}_${i}_${file.name}`);
+        const storageRef = ref(storage, `customers/${targetCustomerId}/designer_rack/logos/${Date.now()}_${i}_${file.name}`);
         await uploadBytes(storageRef, file);
         const downloadUrl = await getDownloadURL(storageRef);
         uploadedLogos.push({
@@ -1274,7 +1324,8 @@ export function CustomerDetail() {
 
   const handleSaveDesignerRackModal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) return;
+    const targetCustomerId = editingDesignerRackTargetCustomerId || id;
+    if (!targetCustomerId) return;
     if (!designerRackForm.title.trim()) {
       alert("Please enter a title for what the garment should be called.");
       return;
@@ -1293,11 +1344,14 @@ export function CustomerDetail() {
 
     setIsSavingDesignerRack(true);
     try {
-      const custRef = doc(db, 'customers', id);
+      const custRef = doc(db, 'customers', targetCustomerId);
       const latestSnap = await getDoc(custRef);
+      const fallbackRack = targetCustomerId === id
+        ? designerRack
+        : (subBrands.find(b => b.id === targetCustomerId)?.designerRack || []);
       const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
         ? latestSnap.data().designerRack
-        : designerRack;
+        : fallbackRack;
 
       const displayTitle = designerRackForm.title.trim();
       const primaryMockupUrl =
@@ -1340,6 +1394,8 @@ export function CustomerDetail() {
                 logos: designerRackForm.logos,
                 psdDriveLink: designerRackForm.psdDriveLink.trim(),
                 garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+                finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
+                approvedForOrder: Boolean(designerRackForm.approvedForOrder),
                 updatedAt: new Date().toISOString()
               }
             : d
@@ -1361,6 +1417,8 @@ export function CustomerDetail() {
           logos: designerRackForm.logos,
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+          finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
+          approvedForOrder: Boolean(designerRackForm.approvedForOrder),
           uploadedAt: new Date().toISOString()
         };
         updated = [...latestRack, newItem];
@@ -1369,10 +1427,13 @@ export function CustomerDetail() {
       await updateDoc(custRef, {
         designerRack: updated
       });
-      setDesignerRack(updated);
-      setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      if (targetCustomerId === id) {
+        setDesignerRack(updated);
+        setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      }
       setIsDesignerRackModalOpen(false);
       setEditingDesignerRackId(null);
+      setEditingDesignerRackTargetCustomerId(null);
       setIsDesignerRackCollapsed(false);
     } catch (err) {
       console.error("Failed to save Designer Rack item:", err);
@@ -1382,22 +1443,28 @@ export function CustomerDetail() {
     }
   };
 
-  const handleDeleteDesignerRackItem = async (designId: string) => {
-    if (!id) return;
+  const handleDeleteDesignerRackItem = async (designId: string, sourceCustomerId?: string) => {
+    const targetCustomerId = sourceCustomerId || id;
+    if (!targetCustomerId) return;
     if (!window.confirm("Remove this design from the Designer Rack?")) return;
 
     try {
-      const custRef = doc(db, 'customers', id);
+      const custRef = doc(db, 'customers', targetCustomerId);
       const latestSnap = await getDoc(custRef);
+      const fallbackRack = targetCustomerId === id
+        ? designerRack
+        : (subBrands.find(b => b.id === targetCustomerId)?.designerRack || []);
       const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
         ? latestSnap.data().designerRack
-        : designerRack;
+        : fallbackRack;
       const updated = latestRack.filter(d => d.id !== designId);
       await updateDoc(custRef, {
         designerRack: updated
       });
-      setDesignerRack(updated);
-      setLiveCustomerData((prev: any) => prev ? { ...prev, designerRack: updated } : prev);
+      if (targetCustomerId === id) {
+        setDesignerRack(updated);
+        setLiveCustomerData((prev: any) => prev ? { ...prev, designerRack: updated } : prev);
+      }
     } catch (err) {
       console.error("Error deleting design from Designer Rack:", err);
       alert("Failed to delete design.");
@@ -2241,6 +2308,29 @@ export function CustomerDetail() {
             </div>
 
             <form onSubmit={handleSaveDesignerRackModal} className="p-6 space-y-5 max-h-[82vh] overflow-y-auto">
+              {subBrands.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
+                    Assign to Brand / Customer
+                  </label>
+                  <select
+                    value={editingDesignerRackTargetCustomerId || id || ''}
+                    onChange={(e) => setEditingDesignerRackTargetCustomerId(e.target.value)}
+                    disabled={Boolean(editingDesignerRackId)}
+                    className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm font-medium text-brand-primary focus:outline-none transition-all cursor-pointer disabled:opacity-60"
+                  >
+                    <option value={id || ''}>
+                      {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent Company'} (Parent)
+                    </option>
+                    {subBrands.map((b: any) => (
+                      <option key={b.id} value={b.id}>
+                        {b.company || b.contactName || 'Sub-Brand'} (Brand)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Required Garment Title */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
@@ -2729,19 +2819,41 @@ export function CustomerDetail() {
 
                 {/* Quadrant 4: Garment Sourcing Link */}
                 <div className="rounded-2xl border border-brand-border bg-brand-bg/25 p-4 flex flex-col justify-between min-h-[150px]">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between gap-2 mb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
                       4. Garment Sourcing Link
                     </span>
-                    {designerRackForm.garmentSourcingLink.trim() ? (
-                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                        <Check size={12} strokeWidth={3} />
-                      </span>
-                    ) : (
-                      <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center" title="Garment sourcing link not entered yet">
-                        !
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextForm = {
+                            ...designerRackForm,
+                            approvedForOrder: !designerRackForm.approvedForOrder
+                          };
+                          setDesignerRackForm(nextForm);
+                          void autoPersistEditingDesignerRack(nextForm);
+                        }}
+                        disabled={isSavingDesignerRack}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none ${
+                          designerRackForm.approvedForOrder
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                            : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                        }`}
+                      >
+                        <Check size={11} strokeWidth={3} />
+                        <span>Approved for Order</span>
+                      </button>
+                      {designerRackForm.garmentSourcingLink.trim() ? (
+                        <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <Check size={12} strokeWidth={3} />
+                        </span>
+                      ) : (
+                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center shrink-0" title="Garment sourcing link not entered yet">
+                          !
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-[11px] text-brand-secondary mb-3">
                     Paste the link to the blank garment online for sourcing (SanMar, S&S, etc.).
@@ -2757,31 +2869,54 @@ export function CustomerDetail() {
               </div>
 
               {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-brand-border">
-                <PillButton
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-brand-border flex-wrap">
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => setIsDesignerRackModalOpen(false)}
+                  onClick={() => {
+                    const nextForm = {
+                      ...designerRackForm,
+                      finalDesignApproved: !designerRackForm.finalDesignApproved
+                    };
+                    setDesignerRackForm(nextForm);
+                    void autoPersistEditingDesignerRack(nextForm);
+                  }}
                   disabled={isSavingDesignerRack}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shadow-2xs ${
+                    designerRackForm.finalDesignApproved
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                      : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-300 hover:border-emerald-500'
+                  }`}
                 >
-                  Cancel
-                </PillButton>
-                <PillButton
-                  type="submit"
-                  variant="filled"
-                  className="gap-1.5"
-                  disabled={isSavingDesignerRack || uploadingRackMockupSlot !== null || isUploadingRackLogos}
-                >
-                  {isSavingDesignerRack ? (
-                    <>
-                      <Loader2 className="animate-spin" size={14} /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={14} /> {editingDesignerRackId ? 'Save Changes' : 'Save Design'}
-                    </>
-                  )}
-                </PillButton>
+                  <Check size={14} strokeWidth={3} />
+                  <span>Final Design Approved</span>
+                </button>
+
+                <div className="flex items-center gap-3 ml-auto">
+                  <PillButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDesignerRackModalOpen(false)}
+                    disabled={isSavingDesignerRack}
+                  >
+                    Cancel
+                  </PillButton>
+                  <PillButton
+                    type="submit"
+                    variant="filled"
+                    className="gap-1.5"
+                    disabled={isSavingDesignerRack || uploadingRackMockupSlot !== null || isUploadingRackLogos}
+                  >
+                    {isSavingDesignerRack ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} /> {editingDesignerRackId ? 'Save Changes' : 'Save Design'}
+                      </>
+                    )}
+                  </PillButton>
+                </div>
               </div>
             </form>
           </div>
@@ -3407,7 +3542,7 @@ export function CustomerDetail() {
                   >
                     <span>Designer Rack</span>
                     <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
-                      {designerRack.length}
+                      {combinedDesignerRack.length}
                     </span>
                   </button>
                 </div>
@@ -3439,15 +3574,83 @@ export function CustomerDetail() {
               </div>
 
               {!isDesignerRackCollapsed && (
-                <p className="text-xs text-brand-secondary">
-                  Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated for this brand.
-                </p>
+                <div className="flex flex-col gap-2.5">
+                  <p className="text-xs text-brand-secondary">
+                    {subBrands.length > 0
+                      ? 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated across this parent company and all its brands.'
+                      : 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated for this brand.'}
+                  </p>
+                  {subBrands.length > 0 && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex flex-wrap items-center gap-1.5 pt-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDesignerRackBrandFilter('all')}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          selectedDesignerRackBrandFilter === 'all'
+                            ? 'bg-neutral-900 text-white'
+                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                        }`}
+                      >
+                        <span>All Brands</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          selectedDesignerRackBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                        }`}>
+                          {combinedDesignerRack.length}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDesignerRackBrandFilter(id || '')}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          selectedDesignerRackBrandFilter === id
+                            ? 'bg-neutral-900 text-white'
+                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                        }`}
+                      >
+                        <span>{editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          selectedDesignerRackBrandFilter === id ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                        }`}>
+                          {designerRack.length}
+                        </span>
+                      </button>
+                      {subBrands.map((b: any) => {
+                        const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                        const bName = b.company || b.contactName || 'Sub-Brand';
+                        const isSelected = selectedDesignerRackBrandFilter === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setSelectedDesignerRackBrandFilter(b.id)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? 'bg-neutral-900 text-white'
+                                : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                            }`}
+                          >
+                            <Building2 size={11} />
+                            <span>{bName}</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                              isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                            }`}>
+                              {bCount}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
             {!isDesignerRackCollapsed && (
               <div className="mt-4">
-                {designerRack.length === 0 ? (
+                {filteredDesignerRack.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
                     <p>No designs uploaded to the Designer Rack yet. Click below to upload a design.</p>
                     <PillButton
@@ -3463,7 +3666,7 @@ export function CustomerDetail() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                    {designerRack.map((design: any) => {
+                    {filteredDesignerRack.map((design: any) => {
                       const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
                         ? design.mockups
                         : [];
@@ -3505,11 +3708,22 @@ export function CustomerDetail() {
 
                       return (
                         <div
-                          key={design.id}
+                          key={`${design._sourceCustomerId || 'own'}-${design.id}`}
                           className="flex flex-col justify-between bg-white hover:bg-brand-bg/20 border border-brand-border rounded-2xl p-5 transition-all group relative gap-4 shadow-2xs"
                         >
-                          {/* Red Exclamation Badge when any of the 4 fields is missing */}
-                          {isIncomplete && (
+                          {/* Top-Right Status Badge: Green Checkmark when Final Design Approved, or Red Exclamation when Incomplete */}
+                          {design.finalDesignApproved ? (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditDesignerRackModal(design);
+                              }}
+                              className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer z-10"
+                              title="Final Design Approved — Click to edit"
+                            >
+                              <Check size={13} strokeWidth={3} />
+                            </div>
+                          ) : isIncomplete ? (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -3520,7 +3734,7 @@ export function CustomerDetail() {
                             >
                               !
                             </div>
-                          )}
+                          ) : null}
 
                           <div className="flex items-start gap-5">
                             {/* Larger Front Mock-up Preview */}
@@ -3568,6 +3782,18 @@ export function CustomerDetail() {
                                         {displayTitle}
                                       </h4>
                                     </div>
+                                    {subBrands.length > 0 && design._sourceCustomerName && (
+                                      <div className="mt-1">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                          design._isSubBrand
+                                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                            : 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                                        }`}>
+                                          <Building2 size={10} />
+                                          <span className="truncate max-w-[140px]">{design._sourceCustomerName}</span>
+                                        </span>
+                                      </div>
+                                    )}
                                     {design.uploadedAt && (
                                       <p className="text-[11px] text-brand-secondary mt-0.5">
                                         Added {new Date(design.uploadedAt).toLocaleDateString()}
@@ -3590,7 +3816,7 @@ export function CustomerDetail() {
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteDesignerRackItem(design.id);
+                                        handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
                                       }}
                                       className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                                       title="Remove Design"
@@ -3662,20 +3888,40 @@ export function CustomerDetail() {
                             )}
 
                             {design.garmentSourcingLink ? (
-                              <a
-                                href={design.garmentSourcingLink.startsWith('http') ? design.garmentSourcingLink : `https://${design.garmentSourcingLink}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-900 hover:text-black hover:underline transition-colors"
-                                title={design.garmentSourcingLink}
-                              >
-                                <Shirt size={13} />
-                                <span>Garment Sourcing Link</span>
-                                <ExternalLink size={11} />
-                              </a>
+                              <div className="inline-flex items-center gap-1.5">
+                                <a
+                                  href={design.garmentSourcingLink.startsWith('http') ? design.garmentSourcingLink : `https://${design.garmentSourcingLink}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-900 hover:text-black hover:underline transition-colors"
+                                  title={design.garmentSourcingLink}
+                                >
+                                  <Shirt size={13} />
+                                  <span>Garment Sourcing Link</span>
+                                  <ExternalLink size={11} />
+                                </a>
+                                {Boolean(design.approvedForOrder) && (
+                                  <span
+                                    className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0"
+                                    title="Approved for Order"
+                                  >
+                                    <Check size={10} strokeWidth={3} />
+                                  </span>
+                                )}
+                              </div>
                             ) : (
-                              <span className="text-xs text-brand-secondary/50 italic">No sourcing link</span>
+                              <span className="inline-flex items-center gap-1.5 text-xs text-brand-secondary/50 italic">
+                                <span>No sourcing link</span>
+                                {Boolean(design.approvedForOrder) && (
+                                  <span
+                                    className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0 not-italic"
+                                    title="Approved for Order"
+                                  >
+                                    <Check size={10} strokeWidth={3} />
+                                  </span>
+                                )}
+                              </span>
                             )}
                           </div>
                         </div>

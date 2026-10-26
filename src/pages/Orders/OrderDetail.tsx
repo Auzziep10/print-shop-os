@@ -1789,27 +1789,64 @@ export function OrderDetail() {
   const [itemSaveDestination, setItemSaveDestination] = useState<boolean>(false);
 
   const [liveCustomer, setLiveCustomer] = useState<any>(null);
+  const [customerSubBrands, setCustomerSubBrands] = useState<any[]>([]);
   const [fetchingCustomer, setFetchingCustomer] = useState(true);
 
   useEffect(() => {
-    const fetchLiveCustomer = async () => {
-      if (!order || !order.customerId) {
-        setFetchingCustomer(false);
-        return;
+    if (!order || !order.customerId) {
+      setFetchingCustomer(false);
+      setCustomerSubBrands([]);
+      return;
+    }
+    setFetchingCustomer(true);
+    const unsubCust = onSnapshot(doc(db, 'customers', order.customerId), (d) => {
+      if (d.exists()) {
+        setLiveCustomer(d.data());
       }
-      try {
-        const d = await getDoc(doc(db, 'customers', order.customerId));
-        if (d.exists()) {
-           setLiveCustomer(d.data());
-        }
-      } catch (err) {
-        console.error("Failed to fetch live customer data", err);
-      } finally {
-        setFetchingCustomer(false);
-      }
+      setFetchingCustomer(false);
+    }, (err) => {
+      console.error("Failed to fetch live customer data", err);
+      setFetchingCustomer(false);
+    });
+
+    const subBrandsQuery = query(collection(db, 'customers'), where('parentCustomerId', '==', order.customerId));
+    const unsubSubBrands = onSnapshot(subBrandsQuery, (snap) => {
+      const list = snap.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      }));
+      list.sort((a: any, b: any) => (a.company || a.contactName || '').localeCompare(b.company || b.contactName || ''));
+      setCustomerSubBrands(list);
+    }, (err) => {
+      console.error("Failed to fetch customer sub-brands", err);
+    });
+
+    return () => {
+      unsubCust();
+      unsubSubBrands();
     };
-    fetchLiveCustomer();
   }, [order?.customerId]);
+
+  const allDesignerRackItems = useMemo(() => {
+    const parentName = liveCustomer?.company || liveCustomer?.contactName || order?.customer || 'Company';
+    const ownItems = (Array.isArray(liveCustomer?.designerRack) ? liveCustomer.designerRack : []).map((d: any) => ({
+      ...d,
+      _sourceCustomerId: order?.customerId || '',
+      _sourceCustomerName: parentName,
+      _isSubBrand: false
+    }));
+    const subBrandItems = (Array.isArray(customerSubBrands) ? customerSubBrands : []).flatMap((b: any) => {
+      const bName = b.company || b.contactName || 'Sub-Brand';
+      const bRack = Array.isArray(b.designerRack) ? b.designerRack : [];
+      return bRack.map((d: any) => ({
+        ...d,
+        _sourceCustomerId: b.id,
+        _sourceCustomerName: bName,
+        _isSubBrand: true
+      }));
+    });
+    return [...ownItems, ...subBrandItems];
+  }, [liveCustomer, customerSubBrands, order?.customerId, order?.customer]);
 
   const orderSavedDestinations = useMemo(() => {
     const list: { label: string; address: any }[] = [];
@@ -1928,7 +1965,8 @@ export function OrderDetail() {
   const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(false);
-  const [deckModalTab, setDeckModalTab] = useState<'storefront' | 'catalog' | 'decks'>('storefront');
+  const [deckModalTab, setDeckModalTab] = useState<'designer_rack' | 'storefront' | 'catalog' | 'decks'>('storefront');
+  const [deckModalBrandFilter, setDeckModalBrandFilter] = useState<string>('all');
   const [deckModalSearch, setDeckModalSearch] = useState<string>('');
   const [deckModalGarmentType, setDeckModalGarmentType] = useState<string>('all');
   const [storefrontCatalogSettings, setStorefrontCatalogSettings] = useState<any>({});
@@ -2239,6 +2277,106 @@ export function OrderDetail() {
       costPrice: numericPrice,
       wholesalePrice: numericPrice
     }));
+  };
+
+  const buildOrderItemFromDesignerRack = (design: any, prev?: any) => {
+    const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups) ? design.mockups : [];
+    const frontUrl = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+    const backUrl = design.backMockupUrl || legacyMockups[1]?.url || '';
+    const otherMockups: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
+      ? design.otherMockups
+      : legacyMockups.length > 2
+      ? legacyMockups.slice(2)
+      : [];
+    const primaryImage = frontUrl || backUrl || otherMockups[0]?.url || '';
+    const extraRefs = [
+      ...(frontUrl && backUrl ? [backUrl] : []),
+      ...otherMockups.map((m: any) => m.url).filter(Boolean)
+    ];
+    const designLogos: { id: string; name: string; url: string }[] = Array.isArray(design.logos) ? design.logos : [];
+    const mappedArtworks = designLogos.map((l: any, idx: number) => ({
+      id: l.id || `art-${Date.now()}-${idx}`,
+      name: l.name || `Logo ${idx + 1}`,
+      url: l.url,
+      imageUrl: l.url,
+      originalUrl: l.url,
+      width: 3.5,
+      height: 3.5,
+      quantity: 10
+    }));
+    const mappedLogoLabels = designLogos.map((l: any, idx: number) =>
+      l.name ? l.name.replace(/\.[^/.]+$/, '') : `Logo ${idx + 1}`
+    );
+    const styleTitle = design.title || design.name || 'Custom Garment';
+
+    const existingRefs = Array.isArray(prev?.referenceImages) ? prev.referenceImages : [];
+    const mergedRefs = Array.from(new Set([...existingRefs, ...extraRefs]));
+
+    return {
+      ...(prev || {}),
+      id: prev?.id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      itemType: 'garment',
+      gender: prev?.gender || 'Unisex',
+      style: styleTitle,
+      title: styleTitle,
+      itemNum: prev?.itemNum || '',
+      color: prev?.color || '',
+      sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0)
+        ? prev.sizes
+        : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },
+      price: prev?.price && parseFloat(String(prev.price).replace(/[^0-9.]/g, '')) > 0 ? prev.price : '0.00',
+      blankCost: prev?.blankCost || 0,
+      qty: prev?.qty || 0,
+      total: prev?.total || '$0.00',
+      image: primaryImage || prev?.image || '',
+      originalFrontImage: frontUrl || primaryImage || prev?.originalFrontImage || '',
+      originalBackImage: backUrl || prev?.originalBackImage || '',
+      referenceImages: mergedRefs,
+      logos: mappedLogoLabels.length > 0 ? mappedLogoLabels : (prev?.logos || []),
+      artworks: mappedArtworks.length > 0 ? mappedArtworks : (prev?.artworks || []),
+      logoUrl: designLogos[0]?.url || prev?.logoUrl || null,
+      logoName: designLogos[0]?.name || prev?.logoName || null,
+      logoUrlBack: designLogos[1]?.url || prev?.logoUrlBack || null,
+      logoNameBack: designLogos[1]?.name || prev?.logoNameBack || null,
+      supplierUrl: design.garmentSourcingLink || prev?.supplierUrl || '',
+      psdDriveLink: design.psdDriveLink || prev?.psdDriveLink || '',
+      designerRackItemId: design.id,
+      brandCustomerId: design._sourceCustomerId || order?.customerId || '',
+      brandCustomerName: design._sourceCustomerName || ''
+    };
+  };
+
+  const handleAddDesignerRackItemDirectly = async (design: any) => {
+    if (!id || !order) return;
+    try {
+      const newItem = buildOrderItemFromDesignerRack(design);
+      const existingItems = order.items || [];
+      const updatedItems = [...existingItems, newItem];
+      const styleTitle = design.title || design.name || 'Custom Garment';
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Added ${styleTitle} from Design Rack to quote`,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), {
+        items: updatedItems,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+
+      setRecentlyAddedStyle(design.id);
+      setTimeout(() => setRecentlyAddedStyle(null), 2200);
+    } catch (err) {
+      console.error("Error adding Design Rack item directly to quote:", err);
+    }
+  };
+
+  const handleSelectDesignerRackForSpecs = (design: any) => {
+    setIsDeckModalOpen(false);
+    setEditItemObj((prev: any) => buildOrderItemFromDesignerRack(design, prev));
   };
 
   const handleFetchDecks = async () => {
@@ -5104,7 +5242,7 @@ export function OrderDetail() {
           <div>
             <div className="flex justify-between items-center mb-4 relative z-[100]">
                <h2 className={tokens.typography.h2}>Details</h2>
-               <div className="flex items-center gap-3 relative z-[110]">
+               <div className="flex items-center gap-3 relative z-[110] flex-wrap">
                  <PillButton 
                    variant="outline" 
                    onClick={() => setEditItemObj({
@@ -5123,9 +5261,25 @@ export function OrderDetail() {
                  >
                    <Plus size={14} /> Add Item
                  </PillButton>
+                 {allDesignerRackItems.length > 0 && (
+                   <PillButton
+                     variant="outline"
+                     onClick={() => {
+                       setDeckModalTab('designer_rack');
+                       setIsDeckModalOpen(true);
+                       handleFetchDecks();
+                     }}
+                     className="gap-2 shrink-0 px-4 py-2 text-xs border-[1.5px] border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors font-bold cursor-pointer"
+                   >
+                     <Sparkles size={14} /> Design Rack ({allDesignerRackItems.length})
+                   </PillButton>
+                 )}
                   <PillButton 
                     variant="filled" 
                     onClick={() => {
+                      if (allDesignerRackItems.length > 0 && deckModalTab !== 'storefront' && deckModalTab !== 'catalog' && deckModalTab !== 'decks') {
+                        setDeckModalTab('designer_rack');
+                      }
                       setIsDeckModalOpen(true);
                       handleFetchDecks();
                     }}
@@ -9337,9 +9491,22 @@ export function OrderDetail() {
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                  {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                    <>
+                     {allDesignerRackItems.length > 0 && (
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setDeckModalTab('designer_rack');
+                           setIsDeckModalOpen(true);
+                           handleFetchDecks();
+                         }}
+                         className="text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white border border-neutral-900 px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-black transition-colors shadow-sm cursor-pointer"
+                       >
+                         <Sparkles size={14} /> Design Rack ({allDesignerRackItems.length})
+                       </button>
+                     )}
                      <button 
                        onClick={() => { setIsDeckModalOpen(true); handleFetchDecks(); }}
                        className="text-xs font-bold uppercase tracking-widest bg-brand-primary text-white border border-brand-primary px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-brand-primary/90 transition-colors shadow-sm cursor-pointer"
@@ -10029,7 +10196,7 @@ export function OrderDetail() {
                         <div className="flex flex-col gap-3">
                           <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Decoration Options (Logos)</label>
                           <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-3 h-full justify-center">
-                             {[0, 1, 2].map(idx => (
+                             {Array.from({ length: Math.max(3, editItemObj.logos?.length || 0, editItemObj.artworks?.length || 0) }, (_, i) => i).map(idx => (
                                <div key={idx} className="flex gap-2 items-center relative">
                                   <div className="relative flex-1">
                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
@@ -10268,6 +10435,19 @@ export function OrderDetail() {
                                </div>
                              );
                            })()}
+                           {editItemObj.psdDriveLink && (
+                             <a
+                               href={editItemObj.psdDriveLink.startsWith('http') ? editItemObj.psdDriveLink : `https://${editItemObj.psdDriveLink}`}
+                               target="_blank"
+                               rel="noreferrer"
+                               className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-800 bg-neutral-100 border border-neutral-300 hover:bg-black hover:text-white hover:border-black transition-all px-2.5 py-1 rounded-full shadow-xs hover:shadow-md hover:-translate-y-[1px] shrink-0 cursor-pointer"
+                               title={`Open PSD Drive Link: ${editItemObj.psdDriveLink}`}
+                             >
+                               <FileText size={11} strokeWidth={2.5} />
+                               <span>PSD Drive Link</span>
+                               <ExternalLink size={10} strokeWidth={2.5} />
+                             </a>
+                           )}
                          </div>
                        </div>
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
@@ -10296,7 +10476,7 @@ export function OrderDetail() {
                              <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Supplier / Product Source Link (Optional)</label>
                              {editItemObj.supplierUrl && (
                                <a 
-                                 href={editItemObj.supplierUrl} 
+                                 href={editItemObj.supplierUrl.startsWith('http') ? editItemObj.supplierUrl : `https://${editItemObj.supplierUrl}`} 
                                  target="_blank" 
                                  rel="noreferrer"
                                  className="text-[10px] text-brand-primary font-bold hover:underline flex items-center gap-1"
@@ -10312,6 +10492,29 @@ export function OrderDetail() {
                              onChange={(e) => setEditItemObj({...editItemObj, supplierUrl: e.target.value})}
                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
                              placeholder="https://www.sanmar.com/... or custom supplier URL"
+                           />
+                         </div>
+                         <div className="flex flex-col gap-1.5 sm:col-span-2 pt-1 border-t border-brand-border/40">
+                           <div className="flex items-center justify-between">
+                             <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">PSD / Source Artwork Drive Link (Optional)</label>
+                             {editItemObj.psdDriveLink && (
+                               <a 
+                                 href={editItemObj.psdDriveLink.startsWith('http') ? editItemObj.psdDriveLink : `https://${editItemObj.psdDriveLink}`} 
+                                 target="_blank" 
+                                 rel="noreferrer"
+                                 className="text-[10px] text-brand-primary font-bold hover:underline flex items-center gap-1"
+                               >
+                                 <span>Open PSD Link</span>
+                                 <ExternalLink size={10} />
+                               </a>
+                             )}
+                           </div>
+                           <input 
+                             type="url"
+                             value={editItemObj.psdDriveLink || ''}
+                             onChange={(e) => setEditItemObj({...editItemObj, psdDriveLink: e.target.value})}
+                             className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2 text-xs focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                             placeholder="https://drive.google.com/file/d/..."
                            />
                          </div>
                        </div>
@@ -11448,11 +11651,25 @@ export function OrderDetail() {
 
               {/* Navigation Tabs & Search */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-                <div className="flex bg-neutral-100 p-1 rounded-xl shrink-0">
+                <div className="flex bg-neutral-100 p-1 rounded-xl shrink-0 overflow-x-auto">
+                  {(allDesignerRackItems.length > 0 || deckModalTab === 'designer_rack') && (
+                    <button
+                      type="button"
+                      onClick={() => setDeckModalTab('designer_rack')}
+                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        deckModalTab === 'designer_rack'
+                          ? 'bg-white shadow-sm text-brand-primary'
+                          : 'text-brand-secondary hover:text-brand-primary'
+                      }`}
+                    >
+                      <Sparkles size={13} />
+                      <span>Design Rack ({allDesignerRackItems.length})</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setDeckModalTab('storefront')}
-                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                       deckModalTab === 'storefront' 
                         ? 'bg-white shadow-sm text-brand-primary' 
                         : 'text-brand-secondary hover:text-brand-primary'
@@ -11463,7 +11680,7 @@ export function OrderDetail() {
                   <button
                     type="button"
                     onClick={() => setDeckModalTab('catalog')}
-                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                       deckModalTab === 'catalog' 
                         ? 'bg-white shadow-sm text-brand-primary' 
                         : 'text-brand-secondary hover:text-brand-primary'
@@ -11475,7 +11692,7 @@ export function OrderDetail() {
                     <button
                       type="button"
                       onClick={() => setDeckModalTab('decks')}
-                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                      className={`px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                         deckModalTab === 'decks' 
                           ? 'bg-white shadow-sm text-brand-primary' 
                           : 'text-brand-secondary hover:text-brand-primary'
@@ -11492,7 +11709,13 @@ export function OrderDetail() {
                     type="text"
                     value={deckModalSearch}
                     onChange={(e) => setDeckModalSearch(e.target.value)}
-                    placeholder={deckModalTab === 'storefront' ? 'Search storefront styles, names, brands...' : 'Search styles, item #, brands (e.g. District, Bella)...'}
+                    placeholder={
+                      deckModalTab === 'designer_rack'
+                        ? 'Search Design Rack garments or brands...'
+                        : deckModalTab === 'storefront'
+                        ? 'Search storefront styles, names, brands...'
+                        : 'Search styles, item #, brands (e.g. District, Bella)...'
+                    }
                     className="w-full bg-neutral-50 border border-brand-border rounded-xl pl-9 pr-8 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary focus:bg-white transition-all outline-none"
                   />
                   {deckModalSearch && (
@@ -11505,6 +11728,68 @@ export function OrderDetail() {
                   )}
                 </div>
               </div>
+
+              {/* Brand Filter Pills for Design Rack when Parent Company has Sub-Brands */}
+              {deckModalTab === 'designer_rack' && customerSubBrands.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs font-medium border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeckModalBrandFilter('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      deckModalBrandFilter === 'all'
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                    }`}
+                  >
+                    <span>All Brands</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      deckModalBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                    }`}>
+                      {allDesignerRackItems.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeckModalBrandFilter(order?.customerId || '')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      deckModalBrandFilter === order?.customerId
+                        ? 'bg-brand-primary text-white'
+                        : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                    }`}
+                  >
+                    <span>{liveCustomer?.company || liveCustomer?.contactName || order?.customer || 'Parent'}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      deckModalBrandFilter === order?.customerId ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                    }`}>
+                      {Array.isArray(liveCustomer?.designerRack) ? liveCustomer.designerRack.length : 0}
+                    </span>
+                  </button>
+                  {customerSubBrands.map((b: any) => {
+                    const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                    const bName = b.company || b.contactName || 'Sub-Brand';
+                    const isSelected = deckModalBrandFilter === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setDeckModalBrandFilter(b.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isSelected
+                            ? 'bg-brand-primary text-white'
+                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
+                        }`}
+                      >
+                        <span>{bName}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                        }`}>
+                          {bCount}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Garment Type Pills */}
               {(deckModalTab === 'storefront' || deckModalTab === 'catalog') && (
@@ -11559,7 +11844,226 @@ export function OrderDetail() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar bg-neutral-50 min-h-[400px]">
-              {deckModalTab === 'storefront' || deckModalTab === 'catalog' ? (() => {
+              {deckModalTab === 'designer_rack' ? (() => {
+                const searchLower = deckModalSearch.trim().toLowerCase();
+                let rackItems = allDesignerRackItems;
+
+                if (deckModalBrandFilter !== 'all') {
+                  rackItems = rackItems.filter((d: any) => d._sourceCustomerId === deckModalBrandFilter);
+                }
+
+                if (searchLower) {
+                  rackItems = rackItems.filter((d: any) => {
+                    const haystack = `${d.title || ''} ${d.name || ''} ${d._sourceCustomerName || ''}`.toLowerCase();
+                    return haystack.includes(searchLower);
+                  });
+                }
+
+                if (rackItems.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary h-full">
+                      <Sparkles size={40} className="mb-3 text-brand-secondary/30" />
+                      <p className="font-bold text-base text-brand-primary">
+                        No Design Rack garments found
+                      </p>
+                      <p className="text-xs mt-1 max-w-sm text-neutral-500">
+                        {allDesignerRackItems.length > 0
+                          ? 'Try selecting "All Brands" or clearing your search filter.'
+                          : 'No garments have been uploaded to the Design Rack for this customer or its brands yet.'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {rackItems.map((design: any, idx: number) => {
+                      const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups) ? design.mockups : [];
+                      const frontSrc = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+                      const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
+                      const otherMockups: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
+                        ? design.otherMockups
+                        : legacyMockups.length > 2
+                        ? legacyMockups.slice(2)
+                        : [];
+                      const primarySrc = frontSrc || backSrc || otherMockups[0]?.url || '';
+                      const displayTitle = design.title || design.name || 'Untitled Design';
+                      const designLogos: { id: string; name: string; url: string }[] = Array.isArray(design.logos) ? design.logos : [];
+                      const isRecentlyAdded = recentlyAddedStyle === design.id;
+                      const inQuoteCount = (order?.items || []).filter((i: any) =>
+                        (i.designerRackItemId && i.designerRackItemId === design.id) ||
+                        (i.style && i.style.toLowerCase() === displayTitle.toLowerCase())
+                      ).length;
+
+                      return (
+                        <div
+                          key={`${design._sourceCustomerId || 'own'}-${design.id || idx}`}
+                          onClick={() => handleSelectDesignerRackForSpecs(design)}
+                          className="group relative flex flex-col sm:flex-row items-stretch sm:items-center gap-4 bg-white border border-brand-border hover:border-brand-primary transition-all rounded-2xl p-4 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5"
+                        >
+                          {Boolean(design.finalDesignApproved) && (
+                            <div
+                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md ring-2 ring-white z-10"
+                              title="Final Design Approved"
+                            >
+                              <Check size={13} strokeWidth={3} />
+                            </div>
+                          )}
+                          {/* Front (& Back) Mockup Preview */}
+                          <div className="w-24 h-24 rounded-xl overflow-hidden bg-neutral-50 shrink-0 flex items-center justify-center p-1.5 border border-neutral-100 self-center sm:self-auto relative">
+                            {primarySrc ? (
+                              <img src={primarySrc} alt={displayTitle} className="w-full h-full object-contain mix-blend-multiply" />
+                            ) : (
+                              <span className="text-[10px] text-neutral-400 font-semibold text-center">No Mock-up</span>
+                            )}
+                            {frontSrc && backSrc && (
+                              <div
+                                className="absolute bottom-1 right-1 w-7 h-7 rounded-md bg-white border border-neutral-200 shadow-xs p-0.5 flex items-center justify-center"
+                                title="Includes Back Mock-up"
+                              >
+                                <img src={backSrc} alt="Back" className="w-full h-full object-contain mix-blend-multiply" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Design Rack Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1.5 mb-1">
+                              <h4 className="font-bold text-brand-primary text-sm truncate" title={displayTitle}>
+                                {displayTitle}
+                              </h4>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                              {design._sourceCustomerName && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  design._isSubBrand
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                    : 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                                }`}>
+                                  {design._sourceCustomerName}
+                                </span>
+                              )}
+                              {designLogos.length > 0 && (
+                                <span className="text-[10px] font-bold text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">
+                                  {designLogos.length} {designLogos.length === 1 ? 'Logo' : 'Logos'}
+                                </span>
+                              )}
+                              {inQuoteCount > 0 && (
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.25 rounded flex items-center gap-0.5">
+                                  <Check size={9} /> In Quote ({inQuoteCount})
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Logos Mini Row */}
+                            {designLogos.length > 0 && (
+                              <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-none" onClick={(e) => e.stopPropagation()}>
+                                {designLogos.slice(0, 5).map((logo) => {
+                                  const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                                  return (
+                                    <div
+                                      key={logo.id}
+                                      className="w-7 h-7 rounded-md border border-brand-border/70 bg-checkerboard p-1 flex items-center justify-center shrink-0 overflow-hidden"
+                                      title={logo.name}
+                                    >
+                                      {isLogoImg ? (
+                                        <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                                      ) : (
+                                        <span className="text-[7px] font-black uppercase text-neutral-600">
+                                          {logo.name?.split('.').pop() || 'ART'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Quick Links */}
+                            <div className="flex flex-wrap items-center gap-3 text-[11px]" onClick={(e) => e.stopPropagation()}>
+                              {design.psdDriveLink && (
+                                <a
+                                  href={design.psdDriveLink.startsWith('http') ? design.psdDriveLink : `https://${design.psdDriveLink}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-bold text-neutral-800 hover:text-black hover:underline"
+                                >
+                                  <FileText size={11} />
+                                  <span>PSD Link</span>
+                                  <ExternalLink size={9} />
+                                </a>
+                              )}
+                              {design.garmentSourcingLink && (
+                                <span className="inline-flex items-center gap-1">
+                                  <a
+                                    href={design.garmentSourcingLink.startsWith('http') ? design.garmentSourcingLink : `https://${design.garmentSourcingLink}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 font-bold text-neutral-800 hover:text-black hover:underline"
+                                  >
+                                    <Shirt size={11} />
+                                    <span>Sourcing Link</span>
+                                    <ExternalLink size={9} />
+                                  </a>
+                                  {Boolean(design.approvedForOrder) && (
+                                    <span
+                                      className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0"
+                                      title="Approved for Order"
+                                    >
+                                      <Check size={9} strokeWidth={3} />
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex sm:flex-col items-center justify-end sm:justify-center gap-1.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddDesignerRackItemDirectly(design);
+                              }}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs whitespace-nowrap ${
+                                isRecentlyAdded
+                                  ? 'bg-emerald-600 text-white shadow-xs scale-102'
+                                  : 'bg-black hover:bg-neutral-800 text-white'
+                              }`}
+                              title="Add directly to current quote"
+                            >
+                              {isRecentlyAdded ? (
+                                <>
+                                  <Check size={13} />
+                                  <span>Added!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <PackagePlus size={13} />
+                                  <span>+ Add to Quote</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectDesignerRackForSpecs(design);
+                              }}
+                              className="text-[10px] font-bold text-neutral-500 hover:text-black hover:underline px-1 py-0.5 transition-colors cursor-pointer"
+                              title="Configure size quantities, artwork, or specs"
+                            >
+                              {editItemObj ? 'Apply to Item' : 'Configure Specs'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })() : deckModalTab === 'storefront' || deckModalTab === 'catalog' ? (() => {
                 const searchLower = deckModalSearch.trim().toLowerCase();
                 const isStorefrontTab = deckModalTab === 'storefront';
 

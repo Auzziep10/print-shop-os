@@ -287,6 +287,64 @@ export function PortalCreateOrder() {
     setIsCartOpen(true);
   };
 
+  const handleSelectDesignerRackItem = (design: any) => {
+    if (!design) return;
+    const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups) ? design.mockups : [];
+    const frontUrl = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+    const backUrl = design.backMockupUrl || legacyMockups[1]?.url || '';
+    const otherMockups: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
+      ? design.otherMockups
+      : legacyMockups.length > 2
+      ? legacyMockups.slice(2)
+      : [];
+    const primaryImage = frontUrl || backUrl || otherMockups[0]?.url || '';
+    const extraRefs = [
+      ...(frontUrl && backUrl ? [backUrl] : []),
+      ...otherMockups.map((m: any) => m.url).filter(Boolean)
+    ];
+    const designLogos: { id: string; name: string; url: string }[] = Array.isArray(design.logos) ? design.logos : [];
+    const styleTitle = design.title || design.name || 'Custom Garment';
+
+    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    const quantities: Record<string, number> = {};
+    defaultSizes.forEach((s: string) => {
+      quantities[s] = 0;
+    });
+
+    const newItem = {
+      instanceId: `item-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      style: styleTitle,
+      title: styleTitle,
+      itemNum: '',
+      gender: 'Unisex',
+      price: 0,
+      colors: ['Custom Color'],
+      selectedColor: 'Custom Color',
+      image: primaryImage,
+      originalFrontImage: frontUrl || primaryImage,
+      originalBackImage: backUrl || null,
+      customizedFrontImage: frontUrl || primaryImage,
+      customizedBackImage: backUrl || null,
+      referenceImages: extraRefs,
+      logoUrl: designLogos[0]?.url || null,
+      logoName: designLogos[0]?.name || null,
+      logoUrlBack: designLogos[1]?.url || null,
+      logoNameBack: designLogos[1]?.name || null,
+      supplierUrl: design.garmentSourcingLink || '',
+      psdDriveLink: design.psdDriveLink || '',
+      designerRackItemId: design.id,
+      brandCustomerId: design._sourceCustomerId || customerId || '',
+      brandCustomerName: design._sourceCustomerName || '',
+      customized: true,
+      quantities,
+      sizes: defaultSizes
+    };
+
+    lastLocalEditTimeRef.current = Date.now();
+    setOrderItems(prev => [...prev, newItem]);
+    setIsCartOpen(true);
+  };
+
   const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
     const catalogProd = sanmarCatalog.find(p => p.style.toLowerCase() === String(itemNum || item?.style || '').toLowerCase());
     const weightAndFabric = getGarmentWeightAndFabric(item, catalogProd);
@@ -426,6 +484,9 @@ export function PortalCreateOrder() {
   );
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [sampleItems, setSampleItems] = useState<any[]>([]);
+  const [designerRackItems, setDesignerRackItems] = useState<any[]>([]);
+  const [portalSubBrands, setPortalSubBrands] = useState<any[]>([]);
+  const [activeDesignerRackBrandFilter, setActiveDesignerRackBrandFilter] = useState<string>('all');
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -1454,6 +1515,34 @@ export function PortalCreateOrder() {
           setSuggestedItems(customerData.suggestedItems || []);
           const visibleSamples = (customerData.sampleItems || []).filter((item: any) => item.visible !== false);
           setSampleItems(visibleSamples);
+
+          const parentName = customerData.company || customerData.contactName || 'Company';
+          const ownRack = (Array.isArray(customerData.designerRack) ? customerData.designerRack : []).map((d: any) => ({
+            ...d,
+            _sourceCustomerId: customerId,
+            _sourceCustomerName: parentName,
+            _isSubBrand: false
+          }));
+          try {
+            const subBrandsSnap = await getDocs(query(collection(db, 'customers'), where('parentCustomerId', '==', customerId)));
+            const subBrandsList = subBrandsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            subBrandsList.sort((a: any, b: any) => (a.company || a.contactName || '').localeCompare(b.company || b.contactName || ''));
+            setPortalSubBrands(subBrandsList);
+            const subBrandRackItems = subBrandsList.flatMap((b: any) => {
+              const bName = b.company || b.contactName || 'Sub-Brand';
+              const bRack = Array.isArray(b.designerRack) ? b.designerRack : [];
+              return bRack.map((d: any) => ({
+                ...d,
+                _sourceCustomerId: b.id,
+                _sourceCustomerName: bName,
+                _isSubBrand: true
+              }));
+            });
+            setDesignerRackItems([...ownRack, ...subBrandRackItems]);
+          } catch (subErr) {
+            console.error("Error fetching sub-brand Design Racks in portal:", subErr);
+            setDesignerRackItems(ownRack);
+          }
           
           const searchParams = new URLSearchParams(window.location.search);
           const tabParam = searchParams.get('tab');
@@ -1706,6 +1795,12 @@ export function PortalCreateOrder() {
             tagSizeColor: item.tagSizeColor ?? null,
             tagSizeBold: item.tagSizeBold ?? null,
             tagSizeItalic: item.tagSizeItalic ?? null,
+            supplierUrl: item.supplierUrl || null,
+            psdDriveLink: item.psdDriveLink || null,
+            designerRackItemId: item.designerRackItemId || null,
+            brandCustomerId: item.brandCustomerId || null,
+            brandCustomerName: item.brandCustomerName || null,
+            referenceImages: Array.isArray(item.referenceImages) ? item.referenceImages : null,
          };
       }));
 
@@ -2298,6 +2393,19 @@ export function PortalCreateOrder() {
               Suggested ({suggestedItems.length})
             </button>
           )}
+          {designerRackItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveLibraryTab('designer_rack')}
+              className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeLibraryTab === 'designer_rack' 
+                  ? 'text-black border-black' 
+                  : 'text-neutral-450 hover:text-black hover:border-black border-transparent'
+              }`}
+            >
+              Design Rack ({designerRackItems.length})
+            </button>
+          )}
           {sampleItems.length > 0 && (
             <button
               type="button"
@@ -2351,6 +2459,67 @@ export function PortalCreateOrder() {
                 {catName}
               </button>
             ))}
+          </div>
+        )}
+
+        {activeLibraryTab === 'designer_rack' && portalSubBrands.length > 0 && (
+          <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
+            <button
+              type="button"
+              onClick={() => setActiveDesignerRackBrandFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeDesignerRackBrandFilter === 'all'
+                  ? 'bg-black text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              <span>All Brands</span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                activeDesignerRackBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+              }`}>
+                {designerRackItems.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDesignerRackBrandFilter(customerId || '')}
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeDesignerRackBrandFilter === customerId
+                  ? 'bg-black text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              <span>{customer?.company || customer?.contactName || 'Parent'}</span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                activeDesignerRackBrandFilter === customerId ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+              }`}>
+                {Array.isArray(customer?.designerRack) ? customer.designerRack.length : 0}
+              </span>
+            </button>
+            {portalSubBrands.map((b: any) => {
+              const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+              const bName = b.company || b.contactName || 'Sub-Brand';
+              const isSelected = activeDesignerRackBrandFilter === b.id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setActiveDesignerRackBrandFilter(b.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-black text-white'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                >
+                  <span>{bName}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                  }`}>
+                    {bCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -2587,7 +2756,92 @@ export function PortalCreateOrder() {
             )
           )}
 
-          {activeLibraryTab === 'types' && (
+          {activeLibraryTab === 'designer_rack' && (
+            (() => {
+              const filteredRack = activeDesignerRackBrandFilter === 'all'
+                ? designerRackItems
+                : designerRackItems.filter((d: any) => d._sourceCustomerId === activeDesignerRackBrandFilter);
+
+              if (filteredRack.length === 0) {
+                return (
+                  <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                    <p>No Design Rack items found for this selection.</p>
+                  </div>
+                );
+              }
+
+              return filteredRack.map((design: any, idx: number) => {
+                const legacyMockups = Array.isArray(design.mockups) ? design.mockups : [];
+                const frontSrc = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+                const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
+                const otherMockups = Array.isArray(design.otherMockups) ? design.otherMockups : [];
+                const image = frontSrc || backSrc || otherMockups[0]?.url || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                const style = design.title || design.name || 'Untitled Design';
+                const designLogos = Array.isArray(design.logos) ? design.logos : [];
+
+                return (
+                  <div
+                    key={`${design._sourceCustomerId || 'own'}-${design.id || idx}`}
+                    onClick={() => handleSelectDesignerRackItem(design)}
+                    className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-0"
+                  >
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in bg-transparent"
+                      title="Click to expand mockup"
+                    >
+                      <img
+                        src={image}
+                        alt={style}
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectDesignerRackItem(design);
+                        }}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-800 flex items-center justify-center shadow-md hover:bg-black hover:text-white hover:border-black opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        title="Add to Order"
+                      >
+                        <Plus size={16} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                    <div className="w-full flex flex-col mt-2">
+                      <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide w-full truncate" title={style}>
+                        {style}
+                      </h4>
+                      {design._sourceCustomerName && portalSubBrands.length > 0 && (
+                        <p className="text-[11px] font-bold text-indigo-700 mt-0.5 truncate">
+                          {design._sourceCustomerName}
+                        </p>
+                      )}
+                      <p className="text-[11.5px] font-medium text-neutral-500 font-inter leading-snug mt-0.5 w-full break-words">
+                        Design Rack {designLogos.length > 0 ? `• ${designLogos.length} ${designLogos.length === 1 ? 'Logo' : 'Logos'}` : ''}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectDesignerRackItem(design);
+                        }}
+                        className="mt-2 w-full py-2 bg-black hover:bg-neutral-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer select-none"
+                      >
+                        <Plus size={13} strokeWidth={2.5} />
+                        <span>Add to Order</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              });
+            })()
+          )}
+
+        {activeLibraryTab === 'types' && (
             (() => {
               const rawMatching = curatedPortalProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
               const matching = sortGarmentsByTypeOrder(rawMatching, activeGarmentType, garmentTypeOrders);
