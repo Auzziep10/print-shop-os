@@ -177,6 +177,7 @@ export function CustomerDetail() {
   const [designerRack, setDesignerRack] = useState<any[]>([]);
   const [isDesignerRackModalOpen, setIsDesignerRackModalOpen] = useState(false);
   const [editingDesignerRackId, setEditingDesignerRackId] = useState<string | null>(null);
+  const [editingDesignerRackSourceCustomerId, setEditingDesignerRackSourceCustomerId] = useState<string | null>(null);
   const [editingDesignerRackTargetCustomerId, setEditingDesignerRackTargetCustomerId] = useState<string | null>(null);
   const [selectedDesignerRackBrandFilter, setSelectedDesignerRackBrandFilter] = useState<string>('all');
   const [designerRackForm, setDesignerRackForm] = useState<{
@@ -1097,6 +1098,7 @@ export function CustomerDetail() {
 
   const handleOpenNewDesignerRackModal = () => {
     setEditingDesignerRackId(null);
+    setEditingDesignerRackSourceCustomerId(null);
     setEditingDesignerRackTargetCustomerId(
       selectedDesignerRackBrandFilter !== 'all' ? selectedDesignerRackBrandFilter : (id || null)
     );
@@ -1118,7 +1120,9 @@ export function CustomerDetail() {
 
   const handleOpenEditDesignerRackModal = (design: any) => {
     setEditingDesignerRackId(design.id);
-    setEditingDesignerRackTargetCustomerId(design._sourceCustomerId || id || null);
+    const sourceCustId = design._sourceCustomerId || id || null;
+    setEditingDesignerRackSourceCustomerId(sourceCustId);
+    setEditingDesignerRackTargetCustomerId(sourceCustId);
     const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
       ? design.mockups
       : [];
@@ -1148,8 +1152,12 @@ export function CustomerDetail() {
     setIsDesignerRackModalOpen(true);
   };
 
-  const autoPersistEditingDesignerRack = async (nextForm: typeof designerRackForm) => {
-    const targetCustomerId = editingDesignerRackTargetCustomerId || id;
+  const autoPersistEditingDesignerRack = async (
+    nextForm: typeof designerRackForm,
+    overrideTargetCustomerId?: string
+  ) => {
+    const targetCustomerId = overrideTargetCustomerId || editingDesignerRackTargetCustomerId || id;
+    const sourceCustomerId = editingDesignerRackSourceCustomerId || targetCustomerId;
     if (!targetCustomerId || !editingDesignerRackId) return;
     try {
       const custRef = doc(db, 'customers', targetCustomerId);
@@ -1182,44 +1190,71 @@ export function CustomerDetail() {
         ...nextForm.otherMockups
       ];
 
-      const updated = latestRack.map(d =>
-        d.id === editingDesignerRackId
-          ? {
-              ...d,
-              title: displayTitle || d.title || d.name || 'Untitled Design',
-              name: displayTitle || d.name || d.title || 'Untitled Design',
-              frontMockupUrl: nextForm.frontMockupUrl,
-              frontMockupName: nextForm.frontMockupName,
-              backMockupUrl: nextForm.backMockupUrl,
-              backMockupName: nextForm.backMockupName,
-              otherMockups: nextForm.otherMockups,
-              mockupUrl: primaryMockupUrl,
-              mockupName: primaryMockupName,
-              mockups: combinedMockups,
-              url: primaryMockupUrl,
-              logos: nextForm.logos,
-              psdDriveLink: nextForm.psdDriveLink.trim(),
-              garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
-              finalDesignApproved: Boolean(nextForm.finalDesignApproved),
-              finalDesignApprovedNotificationRead:
-                Boolean(nextForm.finalDesignApproved) && !d.finalDesignApproved
-                  ? false
-                  : Boolean(d.finalDesignApprovedNotificationRead),
-              approvedForOrder: Boolean(nextForm.approvedForOrder),
-              approvedForOrderNotificationRead:
-                Boolean(nextForm.approvedForOrder) && !d.approvedForOrder
-                  ? false
-                  : Boolean(d.approvedForOrderNotificationRead),
-              updatedAt: new Date().toISOString()
-            }
-          : d
-      );
+      let existingDesignItem: any = latestRack.find(d => d.id === editingDesignerRackId);
+
+      if (sourceCustomerId && sourceCustomerId !== targetCustomerId) {
+        const sourceRef = doc(db, 'customers', sourceCustomerId);
+        const sourceSnap = await getDoc(sourceRef);
+        const sourceFallbackRack = sourceCustomerId === id
+          ? designerRack
+          : (subBrands.find(b => b.id === sourceCustomerId)?.designerRack || []);
+        const sourceLatestRack: any[] = sourceSnap.exists() && Array.isArray(sourceSnap.data().designerRack)
+          ? sourceSnap.data().designerRack
+          : sourceFallbackRack;
+
+        if (!existingDesignItem) {
+          existingDesignItem = sourceLatestRack.find(d => d.id === editingDesignerRackId);
+        }
+
+        const filteredSourceRack = sourceLatestRack.filter(d => d.id !== editingDesignerRackId);
+        await updateDoc(sourceRef, { designerRack: filteredSourceRack });
+        if (sourceCustomerId === id) {
+          setDesignerRack(filteredSourceRack);
+          setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: filteredSourceRack } : prev));
+        }
+      }
+
+      const baseItem = existingDesignItem || { id: editingDesignerRackId, uploadedAt: new Date().toISOString() };
+      const updatedItem = {
+        ...baseItem,
+        title: displayTitle || baseItem.title || baseItem.name || 'Untitled Design',
+        name: displayTitle || baseItem.name || baseItem.title || 'Untitled Design',
+        frontMockupUrl: nextForm.frontMockupUrl,
+        frontMockupName: nextForm.frontMockupName,
+        backMockupUrl: nextForm.backMockupUrl,
+        backMockupName: nextForm.backMockupName,
+        otherMockups: nextForm.otherMockups,
+        mockupUrl: primaryMockupUrl,
+        mockupName: primaryMockupName,
+        mockups: combinedMockups,
+        url: primaryMockupUrl,
+        logos: nextForm.logos,
+        psdDriveLink: nextForm.psdDriveLink.trim(),
+        garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
+        finalDesignApproved: Boolean(nextForm.finalDesignApproved),
+        finalDesignApprovedNotificationRead:
+          Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
+            ? false
+            : Boolean(baseItem.finalDesignApprovedNotificationRead),
+        approvedForOrder: Boolean(nextForm.approvedForOrder),
+        approvedForOrderNotificationRead:
+          Boolean(nextForm.approvedForOrder) && !baseItem.approvedForOrder
+            ? false
+            : Boolean(baseItem.approvedForOrderNotificationRead),
+        updatedAt: new Date().toISOString()
+      };
+
+      const existsInTarget = latestRack.some(d => d.id === editingDesignerRackId);
+      const updated = existsInTarget
+        ? latestRack.map(d => (d.id === editingDesignerRackId ? updatedItem : d))
+        : [...latestRack, updatedItem];
 
       await updateDoc(custRef, { designerRack: updated });
       if (targetCustomerId === id) {
         setDesignerRack(updated);
         setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
       }
+      setEditingDesignerRackSourceCustomerId(targetCustomerId);
     } catch (err) {
       console.error("Failed to auto-persist Designer Rack edit:", err);
     }
@@ -1391,38 +1426,65 @@ export function CustomerDetail() {
 
       let updated: any[];
       if (editingDesignerRackId) {
-        updated = latestRack.map(d =>
-          d.id === editingDesignerRackId
-            ? {
-                ...d,
-                title: displayTitle,
-                name: displayTitle,
-                frontMockupUrl: designerRackForm.frontMockupUrl,
-                frontMockupName: designerRackForm.frontMockupName,
-                backMockupUrl: designerRackForm.backMockupUrl,
-                backMockupName: designerRackForm.backMockupName,
-                otherMockups: designerRackForm.otherMockups,
-                mockupUrl: primaryMockupUrl,
-                mockupName: primaryMockupName,
-                mockups: combinedMockups,
-                url: primaryMockupUrl,
-                logos: designerRackForm.logos,
-                psdDriveLink: designerRackForm.psdDriveLink.trim(),
-                garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
-                finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
-                finalDesignApprovedNotificationRead:
-                  Boolean(designerRackForm.finalDesignApproved) && !d.finalDesignApproved
-                    ? false
-                    : Boolean(d.finalDesignApprovedNotificationRead),
-                approvedForOrder: Boolean(designerRackForm.approvedForOrder),
-                approvedForOrderNotificationRead:
-                  Boolean(designerRackForm.approvedForOrder) && !d.approvedForOrder
-                    ? false
-                    : Boolean(d.approvedForOrderNotificationRead),
-                updatedAt: new Date().toISOString()
-              }
-            : d
-        );
+        const sourceCustomerId = editingDesignerRackSourceCustomerId || targetCustomerId;
+        let existingDesignItem: any = latestRack.find(d => d.id === editingDesignerRackId);
+
+        if (sourceCustomerId && sourceCustomerId !== targetCustomerId) {
+          const sourceRef = doc(db, 'customers', sourceCustomerId);
+          const sourceSnap = await getDoc(sourceRef);
+          const sourceFallbackRack = sourceCustomerId === id
+            ? designerRack
+            : (subBrands.find(b => b.id === sourceCustomerId)?.designerRack || []);
+          const sourceLatestRack: any[] = sourceSnap.exists() && Array.isArray(sourceSnap.data().designerRack)
+            ? sourceSnap.data().designerRack
+            : sourceFallbackRack;
+
+          if (!existingDesignItem) {
+            existingDesignItem = sourceLatestRack.find(d => d.id === editingDesignerRackId);
+          }
+
+          const filteredSourceRack = sourceLatestRack.filter(d => d.id !== editingDesignerRackId);
+          await updateDoc(sourceRef, { designerRack: filteredSourceRack });
+          if (sourceCustomerId === id) {
+            setDesignerRack(filteredSourceRack);
+            setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: filteredSourceRack } : prev));
+          }
+        }
+
+        const baseItem = existingDesignItem || { id: editingDesignerRackId, uploadedAt: new Date().toISOString() };
+        const updatedItem = {
+          ...baseItem,
+          title: displayTitle,
+          name: displayTitle,
+          frontMockupUrl: designerRackForm.frontMockupUrl,
+          frontMockupName: designerRackForm.frontMockupName,
+          backMockupUrl: designerRackForm.backMockupUrl,
+          backMockupName: designerRackForm.backMockupName,
+          otherMockups: designerRackForm.otherMockups,
+          mockupUrl: primaryMockupUrl,
+          mockupName: primaryMockupName,
+          mockups: combinedMockups,
+          url: primaryMockupUrl,
+          logos: designerRackForm.logos,
+          psdDriveLink: designerRackForm.psdDriveLink.trim(),
+          garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+          finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
+          finalDesignApprovedNotificationRead:
+            Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
+              ? false
+              : Boolean(baseItem.finalDesignApprovedNotificationRead),
+          approvedForOrder: Boolean(designerRackForm.approvedForOrder),
+          approvedForOrderNotificationRead:
+            Boolean(designerRackForm.approvedForOrder) && !baseItem.approvedForOrder
+              ? false
+              : Boolean(baseItem.approvedForOrderNotificationRead),
+          updatedAt: new Date().toISOString()
+        };
+
+        const existsInTarget = latestRack.some(d => d.id === editingDesignerRackId);
+        updated = existsInTarget
+          ? latestRack.map(d => (d.id === editingDesignerRackId ? updatedItem : d))
+          : [...latestRack, updatedItem];
       } else {
         const newItem = {
           id: `design-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -1458,6 +1520,7 @@ export function CustomerDetail() {
       }
       setIsDesignerRackModalOpen(false);
       setEditingDesignerRackId(null);
+      setEditingDesignerRackSourceCustomerId(null);
       setEditingDesignerRackTargetCustomerId(null);
       setIsDesignerRackCollapsed(false);
     } catch (err) {
@@ -1670,11 +1733,14 @@ export function CustomerDetail() {
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{
+    src: string;
+    alt: string;
+    images?: { src: string; alt?: string; label?: string }[];
+  } | null>(null);
   
   // Right Column Tab (Asset Vault vs Chat vs Team Roster)
   const [activeRightTab, setActiveRightTab] = useState<'vault' | 'chat' | 'roster'>('vault');
-  const location = useLocation();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -2340,9 +2406,14 @@ export function CustomerDetail() {
                   </label>
                   <select
                     value={editingDesignerRackTargetCustomerId || id || ''}
-                    onChange={(e) => setEditingDesignerRackTargetCustomerId(e.target.value)}
-                    disabled={Boolean(editingDesignerRackId)}
-                    className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm font-medium text-brand-primary focus:outline-none transition-all cursor-pointer disabled:opacity-60"
+                    onChange={(e) => {
+                      const nextTargetId = e.target.value;
+                      setEditingDesignerRackTargetCustomerId(nextTargetId);
+                      if (editingDesignerRackId) {
+                        void autoPersistEditingDesignerRack(designerRackForm, nextTargetId);
+                      }
+                    }}
+                    className="w-full bg-brand-bg/40 border border-brand-border focus:bg-white focus:border-brand-primary rounded-xl px-4 py-2.5 text-sm font-medium text-brand-primary focus:outline-none transition-all cursor-pointer"
                   >
                     <option value={id || ''}>
                       {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent Company'} (Parent)
@@ -3702,10 +3773,21 @@ export function CustomerDetail() {
                         : [];
 
                       const designMockups: { id: string; name: string; url: string }[] = [
-                        ...(frontSrc ? [{ id: 'front', name: frontName, url: frontSrc }] : []),
-                        ...(backSrc ? [{ id: 'back', name: backName, url: backSrc }] : []),
-                        ...otherMockups
+                        ...(frontSrc ? [{ id: 'front', name: 'Front Mock-up', url: frontSrc }] : []),
+                        ...(backSrc ? [{ id: 'back', name: 'Back Mock-up', url: backSrc }] : []),
+                        ...otherMockups.map((m, idx) => ({
+                          id: m.id || `other-${idx}`,
+                          name: m.name || `Other Mock-up ${idx + 1}`,
+                          url: m.url
+                        }))
                       ];
+                      const lightboxMockupImages = designMockups
+                        .filter((m) => Boolean(m.url && !m.url.match(/\.(pdf|ai|eps|psd)(\?.*)?$/i)))
+                        .map((m) => ({
+                          src: m.url,
+                          alt: `${ design.title || design.name || 'Untitled Design' } - ${m.name}`,
+                          label: m.name
+                        }));
                       const mockupSrc = frontSrc || designMockups[0]?.url || '';
                       const mockupLabel = frontSrc ? frontName : designMockups[0]?.name || 'Mock-up';
                       const displayTitle = design.title || design.name || 'Untitled Design';
@@ -3763,7 +3845,11 @@ export function CustomerDetail() {
                               onClick={() => {
                                 if (!mockupSrc) return;
                                 if (isMockupImage) {
-                                  setExpandedImage({ src: mockupSrc, alt: displayTitle });
+                                  setExpandedImage({
+                                    src: mockupSrc,
+                                    alt: displayTitle,
+                                    images: lightboxMockupImages.length > 0 ? lightboxMockupImages : undefined
+                                  });
                                 } else {
                                   window.open(mockupSrc, '_blank');
                                 }
@@ -7333,6 +7419,7 @@ export function CustomerDetail() {
         <ImageLightboxModal
           src={expandedImage.src}
           alt={expandedImage.alt}
+          images={expandedImage.images}
           onClose={() => setExpandedImage(null)}
         />
       )}
