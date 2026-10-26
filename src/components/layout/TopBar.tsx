@@ -1,14 +1,24 @@
-import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe } from 'lucide-react';
+import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe, Shirt } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect, useRef } from 'react';
-import { doc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
 
 interface TopBarProps {
   onOpenSidebar?: () => void;
+}
+
+interface DesignerRackApprovalNotification {
+  key: string;
+  customerId: string;
+  customerName: string;
+  designId: string;
+  designTitle: string;
+  mockupUrl: string;
+  type: 'final_design' | 'approved_for_order';
 }
 
 export function TopBar({ onOpenSidebar }: TopBarProps) {
@@ -19,47 +29,81 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [unreadSupportCustomers, setUnreadSupportCustomers] = useState<any[]>([]);
   const [unreadNewCustomers, setUnreadNewCustomers] = useState<any[]>([]);
+  const [designerRackApprovals, setDesignerRackApprovals] = useState<DesignerRackApprovalNotification[]>([]);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const unreadPayments = orders.filter(o => o.paymentStatus === 'paid' && o.paymentRead === false);
   const unreadResubmittedQuotes = orders.filter(o => o.hasUnreadCustomerUpdate === true);
   const unreadWebLeadOrders = orders.filter(o => o.hasUnreadWebLead === true);
-  const totalUnreadCount = unreadPayments.length + unreadSupportCustomers.length + unreadResubmittedQuotes.length + unreadWebLeadOrders.length + unreadNewCustomers.length;
+  const totalUnreadCount =
+    unreadPayments.length +
+    unreadSupportCustomers.length +
+    unreadResubmittedQuotes.length +
+    unreadWebLeadOrders.length +
+    unreadNewCustomers.length +
+    designerRackApprovals.length;
 
   useEffect(() => {
-    const qSupport = query(
+    const unsubCustomers = onSnapshot(
       collection(db, 'customers'),
-      where('hasUnreadSupport', '==', true)
+      (snapshot) => {
+        const allCustomers = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as any)
+        }));
+
+        setUnreadSupportCustomers(allCustomers.filter((c) => c.hasUnreadSupport === true));
+        setUnreadNewCustomers(allCustomers.filter((c) => c.hasUnreadCreation === true));
+
+        const approvals: DesignerRackApprovalNotification[] = [];
+        allCustomers.forEach((c) => {
+          const customerName = c.company || c.contactName || c.name || 'Customer';
+          const rack: any[] = Array.isArray(c.designerRack) ? c.designerRack : [];
+          rack.forEach((design) => {
+            if (!design || !design.id) return;
+            const designTitle = design.title || design.name || 'Untitled Design';
+            const legacyMockups = Array.isArray(design.mockups) ? design.mockups : [];
+            const mockupUrl =
+              design.frontMockupUrl ||
+              legacyMockups[0]?.url ||
+              design.mockupUrl ||
+              design.url ||
+              design.backMockupUrl ||
+              '';
+
+            if (Boolean(design.finalDesignApproved) && !design.finalDesignApprovedNotificationRead) {
+              approvals.push({
+                key: `${c.id}-${design.id}-final_design`,
+                customerId: c.id,
+                customerName,
+                designId: design.id,
+                designTitle,
+                mockupUrl,
+                type: 'final_design'
+              });
+            }
+            if (Boolean(design.approvedForOrder) && !design.approvedForOrderNotificationRead) {
+              approvals.push({
+                key: `${c.id}-${design.id}-approved_for_order`,
+                customerId: c.id,
+                customerName,
+                designId: design.id,
+                designTitle,
+                mockupUrl,
+                type: 'approved_for_order'
+              });
+            }
+          });
+        });
+        setDesignerRackApprovals(approvals);
+      },
+      (err) => {
+        console.error("Error fetching customers for notifications in TopBar:", err);
+      }
     );
-
-    const unsubSupport = onSnapshot(qSupport, (snapshot) => {
-      const customers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setUnreadSupportCustomers(customers);
-    }, (err) => {
-      console.error("Error fetching unread support customers in TopBar:", err);
-    });
-
-    const qNewCust = query(
-      collection(db, 'customers'),
-      where('hasUnreadCreation', '==', true)
-    );
-
-    const unsubNewCust = onSnapshot(qNewCust, (snapshot) => {
-      const customers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setUnreadNewCustomers(customers);
-    }, (err) => {
-      console.error("Error fetching unread new customers in TopBar:", err);
-    });
 
     return () => {
-      unsubSupport();
-      unsubNewCust();
+      unsubCustomers();
     };
   }, []);
 
@@ -153,6 +197,53 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                   <div className="p-6 text-center text-xs text-brand-secondary">No new notifications.</div>
                 ) : (
                   <>
+                    {/* Designer Rack Approvals */}
+                    {designerRackApprovals.map((item) => (
+                      <div
+                        key={item.key}
+                        className="p-3 hover:bg-emerald-50/60 transition-colors cursor-pointer"
+                        onClick={async () => {
+                          setShowNotifications(false);
+                          try {
+                            const custRef = doc(db, 'customers', item.customerId);
+                            const snap = await getDoc(custRef);
+                            if (snap.exists() && Array.isArray(snap.data().designerRack)) {
+                              const updatedRack = snap.data().designerRack.map((d: any) => {
+                                if (d.id !== item.designId) return d;
+                                return item.type === 'final_design'
+                                  ? { ...d, finalDesignApprovedNotificationRead: true }
+                                  : { ...d, approvedForOrderNotificationRead: true };
+                              });
+                              await updateDoc(custRef, { designerRack: updatedRack });
+                            }
+                          } catch (err) {
+                            console.error("Failed to mark Designer Rack approval notification as read:", err);
+                          }
+                          navigate(`/customers/${item.customerId}?rack=open`);
+                        }}
+                      >
+                        <p className="text-[11px] font-bold text-emerald-900 mb-1 flex items-center gap-1.5">
+                          <span className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0">
+                            <Check size={10} strokeWidth={3} />
+                          </span>
+                          <span>
+                            {item.type === 'final_design'
+                              ? 'Final Design Approved'
+                              : 'Garment Approved For Order'}
+                          </span>
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Shirt size={12} className="text-neutral-500 shrink-0" />
+                          <p className="text-[11px] text-neutral-800 line-clamp-1 font-semibold">
+                            {item.designTitle}
+                          </p>
+                        </div>
+                        <p className="text-[9px] text-neutral-500 mt-1">
+                          {item.customerName} • Designer Rack
+                        </p>
+                      </div>
+                    ))}
+
                     {/* Order Payments */}
                     {unreadPayments.map(order => (
                       <div key={order.id} className="p-3 hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => handleMarkAsRead(order.id)}>

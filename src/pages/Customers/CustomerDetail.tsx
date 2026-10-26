@@ -35,6 +35,7 @@ import { NewCustomerModal } from './NewCustomerModal';
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);
@@ -230,6 +231,12 @@ export function CustomerDetail() {
     });
     return () => unsub();
   }, [id]);
+
+  useEffect(() => {
+    if (location.search.includes('rack=open')) {
+      setIsDesignerRackCollapsed(false);
+    }
+  }, [location.search]);
 
   // Real-time sync for designerRack & assets so team members never overwrite each other
   useEffect(() => {
@@ -1194,7 +1201,15 @@ export function CustomerDetail() {
               psdDriveLink: nextForm.psdDriveLink.trim(),
               garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
               finalDesignApproved: Boolean(nextForm.finalDesignApproved),
+              finalDesignApprovedNotificationRead:
+                Boolean(nextForm.finalDesignApproved) && !d.finalDesignApproved
+                  ? false
+                  : Boolean(d.finalDesignApprovedNotificationRead),
               approvedForOrder: Boolean(nextForm.approvedForOrder),
+              approvedForOrderNotificationRead:
+                Boolean(nextForm.approvedForOrder) && !d.approvedForOrder
+                  ? false
+                  : Boolean(d.approvedForOrderNotificationRead),
               updatedAt: new Date().toISOString()
             }
           : d
@@ -1395,7 +1410,15 @@ export function CustomerDetail() {
                 psdDriveLink: designerRackForm.psdDriveLink.trim(),
                 garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
                 finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
+                finalDesignApprovedNotificationRead:
+                  Boolean(designerRackForm.finalDesignApproved) && !d.finalDesignApproved
+                    ? false
+                    : Boolean(d.finalDesignApprovedNotificationRead),
                 approvedForOrder: Boolean(designerRackForm.approvedForOrder),
+                approvedForOrderNotificationRead:
+                  Boolean(designerRackForm.approvedForOrder) && !d.approvedForOrder
+                    ? false
+                    : Boolean(d.approvedForOrderNotificationRead),
                 updatedAt: new Date().toISOString()
               }
             : d
@@ -1418,7 +1441,9 @@ export function CustomerDetail() {
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
+          finalDesignApprovedNotificationRead: false,
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
+          approvedForOrderNotificationRead: false,
           uploadedAt: new Date().toISOString()
         };
         updated = [...latestRack, newItem];

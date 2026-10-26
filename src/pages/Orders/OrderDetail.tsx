@@ -5261,19 +5261,6 @@ export function OrderDetail() {
                  >
                    <Plus size={14} /> Add Item
                  </PillButton>
-                 {allDesignerRackItems.length > 0 && (
-                   <PillButton
-                     variant="outline"
-                     onClick={() => {
-                       setDeckModalTab('designer_rack');
-                       setIsDeckModalOpen(true);
-                       handleFetchDecks();
-                     }}
-                     className="gap-2 shrink-0 px-4 py-2 text-xs border-[1.5px] border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors font-bold cursor-pointer"
-                   >
-                     <Sparkles size={14} /> Design Rack ({allDesignerRackItems.length})
-                   </PillButton>
-                 )}
                   <PillButton 
                     variant="filled" 
                     onClick={() => {
@@ -9494,19 +9481,6 @@ export function OrderDetail() {
               <div className="flex items-center gap-3 flex-wrap">
                  {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                    <>
-                     {allDesignerRackItems.length > 0 && (
-                       <button
-                         type="button"
-                         onClick={() => {
-                           setDeckModalTab('designer_rack');
-                           setIsDeckModalOpen(true);
-                           handleFetchDecks();
-                         }}
-                         className="text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white border border-neutral-900 px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-black transition-colors shadow-sm cursor-pointer"
-                       >
-                         <Sparkles size={14} /> Design Rack ({allDesignerRackItems.length})
-                       </button>
-                     )}
                      <button 
                        onClick={() => { setIsDeckModalOpen(true); handleFetchDecks(); }}
                        className="text-xs font-bold uppercase tracking-widest bg-brand-primary text-white border border-brand-primary px-3 py-1.5 rounded-lg flex items-center gap-2 hover:bg-brand-primary/90 transition-colors shadow-sm cursor-pointer"
