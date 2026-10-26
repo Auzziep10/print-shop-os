@@ -3765,7 +3765,6 @@ export function CustomerDetail() {
                       const frontSrc = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
                       const frontName = design.frontMockupName || legacyMockups[0]?.name || design.mockupName || design.name || 'Front Mock-up';
                       const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
-                      const backName = design.backMockupName || legacyMockups[1]?.name || 'Back Mock-up';
                       const otherMockups: { id: string; name: string; url: string }[] = Array.isArray(design.otherMockups)
                         ? design.otherMockups
                         : legacyMockups.length > 2
