@@ -2463,63 +2463,37 @@ export function PortalCreateOrder() {
         )}
 
         {activeLibraryTab === 'designer_rack' && portalSubBrands.length > 0 && (
-          <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
-            <button
-              type="button"
-              onClick={() => setActiveDesignerRackBrandFilter('all')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeDesignerRackBrandFilter === 'all'
-                  ? 'bg-black text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-              }`}
-            >
-              <span>All Brands</span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                activeDesignerRackBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-              }`}>
-                {designerRackItems.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveDesignerRackBrandFilter(customerId || '')}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeDesignerRackBrandFilter === customerId
-                  ? 'bg-black text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-              }`}
-            >
-              <span>{customer?.company || customer?.contactName || 'Parent'}</span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                activeDesignerRackBrandFilter === customerId ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-              }`}>
-                {Array.isArray(customer?.designerRack) ? customer.designerRack.length : 0}
-              </span>
-            </button>
-            {portalSubBrands.map((b: any) => {
-              const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
-              const bName = b.company || b.contactName || 'Sub-Brand';
-              const isSelected = activeDesignerRackBrandFilter === b.id;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => setActiveDesignerRackBrandFilter(b.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-black text-white'
-                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                  }`}
-                >
-                  <span>{bName}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                  }`}>
-                    {bCount}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2 pb-2 border-b border-neutral-100">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 shrink-0">
+              Brand Rack:
+            </label>
+            <div className="relative">
+              <select
+                value={activeDesignerRackBrandFilter}
+                onChange={(e) => setActiveDesignerRackBrandFilter(e.target.value)}
+                className="appearance-none bg-white border border-neutral-200 hover:border-black focus:border-black rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-neutral-900 focus:outline-none transition-all cursor-pointer shadow-2xs"
+              >
+                <option value="all">
+                  All Brands ({designerRackItems.length})
+                </option>
+                <option value={customerId || ''}>
+                  {customer?.company || customer?.contactName || 'Parent'} ({Array.isArray(customer?.designerRack) ? customer.designerRack.length : 0})
+                </option>
+                {portalSubBrands.map((b: any) => {
+                  const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                  const bName = b.company || b.contactName || 'Sub-Brand';
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {bName} ({bCount})
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown
+                size={14}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none"
+              />
+            </div>
           </div>
         )}
 

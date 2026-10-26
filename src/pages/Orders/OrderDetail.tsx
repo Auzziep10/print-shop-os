@@ -11703,65 +11703,39 @@ export function OrderDetail() {
                 </div>
               </div>
 
-              {/* Brand Filter Pills for Design Rack when Parent Company has Sub-Brands */}
+              {/* Brand Filter Dropdown for Design Rack when Parent Company has Sub-Brands */}
               {deckModalTab === 'designer_rack' && customerSubBrands.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs font-medium border-t border-neutral-100 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setDeckModalBrandFilter('all')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                      deckModalBrandFilter === 'all'
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                    }`}
-                  >
-                    <span>All Brands</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      deckModalBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                    }`}>
-                      {allDesignerRackItems.length}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeckModalBrandFilter(order?.customerId || '')}
-                    className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                      deckModalBrandFilter === order?.customerId
-                        ? 'bg-brand-primary text-white'
-                        : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                    }`}
-                  >
-                    <span>{liveCustomer?.company || liveCustomer?.contactName || order?.customer || 'Parent'}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      deckModalBrandFilter === order?.customerId ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                    }`}>
-                      {Array.isArray(liveCustomer?.designerRack) ? liveCustomer.designerRack.length : 0}
-                    </span>
-                  </button>
-                  {customerSubBrands.map((b: any) => {
-                    const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
-                    const bName = b.company || b.contactName || 'Sub-Brand';
-                    const isSelected = deckModalBrandFilter === b.id;
-                    return (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => setDeckModalBrandFilter(b.id)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'bg-brand-primary text-white'
-                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                        }`}
-                      >
-                        <span>{bName}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                        }`}>
-                          {bCount}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="flex items-center gap-2 border-t border-neutral-100 pt-3">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary shrink-0">
+                    Brand Rack:
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={deckModalBrandFilter}
+                      onChange={(e) => setDeckModalBrandFilter(e.target.value)}
+                      className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
+                    >
+                      <option value="all">
+                        All Brands ({allDesignerRackItems.length})
+                      </option>
+                      <option value={order?.customerId || ''}>
+                        {liveCustomer?.company || liveCustomer?.contactName || order?.customer || 'Parent'} ({Array.isArray(liveCustomer?.designerRack) ? liveCustomer.designerRack.length : 0})
+                      </option>
+                      {customerSubBrands.map((b: any) => {
+                        const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                        const bName = b.company || b.contactName || 'Sub-Brand';
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {bName} ({bCount})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
+                    />
+                  </div>
                 </div>
               )}
 

@@ -3675,65 +3675,38 @@ export function CustomerDetail() {
                   {subBrands.length > 0 && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="flex flex-wrap items-center gap-1.5 pt-1"
+                      className="flex items-center gap-2 pt-1"
                     >
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDesignerRackBrandFilter('all')}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          selectedDesignerRackBrandFilter === 'all'
-                            ? 'bg-neutral-900 text-white'
-                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                        }`}
-                      >
-                        <span>All Brands</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                          selectedDesignerRackBrandFilter === 'all' ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                        }`}>
-                          {combinedDesignerRack.length}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDesignerRackBrandFilter(id || '')}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          selectedDesignerRackBrandFilter === id
-                            ? 'bg-neutral-900 text-white'
-                            : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                        }`}
-                      >
-                        <span>{editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                          selectedDesignerRackBrandFilter === id ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                        }`}>
-                          {designerRack.length}
-                        </span>
-                      </button>
-                      {subBrands.map((b: any) => {
-                        const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
-                        const bName = b.company || b.contactName || 'Sub-Brand';
-                        const isSelected = selectedDesignerRackBrandFilter === b.id;
-                        return (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onClick={() => setSelectedDesignerRackBrandFilter(b.id)}
-                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                              isSelected
-                                ? 'bg-neutral-900 text-white'
-                                : 'bg-neutral-100 text-brand-secondary hover:bg-neutral-200'
-                            }`}
-                          >
-                            <Building2 size={11} />
-                            <span>{bName}</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                              isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
-                            }`}>
-                              {bCount}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary shrink-0">
+                        Brand Rack:
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={selectedDesignerRackBrandFilter}
+                          onChange={(e) => setSelectedDesignerRackBrandFilter(e.target.value)}
+                          className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
+                        >
+                          <option value="all">
+                            All Brands ({combinedDesignerRack.length})
+                          </option>
+                          <option value={id || ''}>
+                            {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'} ({designerRack.length})
+                          </option>
+                          {subBrands.map((b: any) => {
+                            const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                            const bName = b.company || b.contactName || 'Sub-Brand';
+                            return (
+                              <option key={b.id} value={b.id}>
+                                {bName} ({bCount})
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <ChevronDown
+                          size={14}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
