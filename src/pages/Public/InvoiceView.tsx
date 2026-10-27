@@ -623,7 +623,7 @@ export function InvoiceView() {
                             )}
                           </div>
                         )}
-                        <div className={`${hasAnyInHandsDate ? 'w-[26%] sm:w-[27%]' : 'w-[30%] sm:w-[32%]'} pr-2 sm:pr-4 flex flex-col`}>
+                        <div className={`${hasAnyInHandsDate ? 'w-[22%] sm:w-[23%]' : 'w-[25%] sm:w-[27%]'} pr-2 sm:pr-4 flex flex-col`}>
                           <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em] break-words">
                             {item.style || 'Custom Item'}
                           </span>
@@ -633,9 +633,9 @@ export function InvoiceView() {
                             </span>
                           )}
                         </div>
-                        <div className={`${hasAnyInHandsDate ? 'w-[26%] sm:w-[26%]' : 'w-[30%] sm:w-[30%]'} pr-2 flex flex-wrap items-start justify-start gap-x-2.5 sm:gap-x-3 gap-y-1.5`}>
+                        <div className={`${hasAnyInHandsDate ? 'w-[30%] sm:w-[30%]' : 'w-[35%] sm:w-[35%]'} pr-1 sm:pr-2 flex flex-nowrap items-start justify-start gap-x-1.5 sm:gap-x-2.5 md:gap-x-3`}>
                           {activeSizes.map(([sizeLabel, sizeQty]) => (
-                            <div key={sizeLabel} className="flex flex-col items-center text-center min-w-[14px]">
+                            <div key={sizeLabel} className="flex flex-col items-center text-center min-w-[12px] sm:min-w-[14px] shrink-0 whitespace-nowrap">
                               <span className="font-medium text-neutral-900 uppercase tracking-[0.02em]">
                                 {sizeLabel}
                               </span>
