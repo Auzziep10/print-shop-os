@@ -115,23 +115,27 @@ export function isPlacedOrder(order: any): boolean {
   return false;
 }
 
+export function getOrderCustomServicesTotal(order: any): number {
+  if (!order) return 0;
+  const showServices = order.invoiceSettings?.showComplimentaryServices !== false;
+  if (!showServices) return 0;
+  const rawServices = order.invoiceSettings?.customServices || order.customServices || [];
+  if (!Array.isArray(rawServices)) return 0;
+  return rawServices.reduce((sum: number, srv: any) => {
+    const sPrice = parseFloat(srv?.price || 0) || 0;
+    const sQty = parseInt(srv?.qty || 1) || 1;
+    const total = sPrice * sQty;
+    return total > 0 ? sum + total : sum;
+  }, 0);
+}
+
 export function calculateOrderFinalTotal(order: any): number {
   if (!order) return 0;
 
-  // 1. Explicit numeric total saved on the order document
-  if (typeof order.total === 'number') {
-    return Math.max(0, order.total);
-  }
-  if (typeof order.calculatedTotal === 'number') {
-    return Math.max(0, order.calculatedTotal);
-  }
-  if (order.totalFormatted) {
-    const parsed = parseFloat(String(order.totalFormatted).replace(/[^0-9.-]/g, ''));
-    if (!isNaN(parsed)) return Math.max(0, parsed);
-  }
+  const customServicesTotal = getOrderCustomServicesTotal(order);
 
-  // 2. Compute from line items and discounts
-  if (order.items && Array.isArray(order.items)) {
+  // Compute from line items, custom services, and discounts when items are available
+  if (order.items && Array.isArray(order.items) && order.items.length > 0) {
     let lineItemsDiscountTotal = 0;
     const rawItemsTotal = order.items.reduce((acc: number, i: any) => {
       const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
@@ -160,8 +164,35 @@ export function calculateOrderFinalTotal(order: any): number {
 
     const explicitDiscountAmt = Math.abs(parseFloat(order.discountAmount || 0) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount || 0) || 0);
     const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
-    return Math.max(0, rawItemsTotal - discountAmt);
+    const computedTotal = Math.max(0, rawItemsTotal + customServicesTotal - discountAmt);
+
+    if (customServicesTotal > 0) {
+      return computedTotal;
+    }
+    if (typeof order.total === 'number') {
+      return Math.max(0, order.total);
+    }
+    if (typeof order.calculatedTotal === 'number') {
+      return Math.max(0, order.calculatedTotal);
+    }
+    if (order.totalFormatted) {
+      const parsed = parseFloat(String(order.totalFormatted).replace(/[^0-9.-]/g, ''));
+      if (!isNaN(parsed)) return Math.max(0, parsed);
+    }
+    return computedTotal;
   }
 
-  return 0;
+  // Fallback to explicit numeric total saved on the order document
+  if (typeof order.total === 'number') {
+    return Math.max(0, order.total + customServicesTotal);
+  }
+  if (typeof order.calculatedTotal === 'number') {
+    return Math.max(0, order.calculatedTotal + customServicesTotal);
+  }
+  if (order.totalFormatted) {
+    const parsed = parseFloat(String(order.totalFormatted).replace(/[^0-9.-]/g, ''));
+    if (!isNaN(parsed)) return Math.max(0, parsed + customServicesTotal);
+  }
+
+  return customServicesTotal;
 }

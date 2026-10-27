@@ -1736,9 +1736,52 @@ export function OrderDetail() {
         }
       }
 
+      const nextCustomServices = Array.isArray((orderInvoiceForm as any).customServices) ? (orderInvoiceForm as any).customServices : [];
+      const nextShowServices = (orderInvoiceForm as any).showComplimentaryServices !== false;
+      const nextServicesTotal = nextShowServices
+        ? nextCustomServices.reduce((sum: number, srv: any) => {
+            const sPrice = parseFloat(srv?.price || 0) || 0;
+            const sQty = parseInt(srv?.qty || 1) || 1;
+            const val = sPrice * sQty;
+            return val > 0 ? sum + val : sum;
+          }, 0)
+        : 0;
+      const itemsToSum = updatedItems || order.items || [];
+      let shipLineTotal = 0;
+      const baseItemsTotal = itemsToSum.reduce((acc: number, i: any) => {
+        if (isDiscountItem(i)) return acc;
+        const sizeSum = (i.itemType === 'service' || isNonGarmentItem(i)) ? 0 : (i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0);
+        const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
+        let safePriceNum = 0;
+        if (i.price !== undefined && i.price !== null) {
+          const pString = i.price.toString().replace(/[^0-9.]/g, '');
+          if (pString !== '') safePriceNum = parseFloat(pString);
+        }
+        let itemVal = 0;
+        if (safeQty > 0 && safePriceNum > 0) {
+          itemVal = safeQty * safePriceNum;
+        } else {
+          const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
+          itemVal = parseFloat(priceMatch) || 0;
+        }
+        const styleLower = (i.style || '').toLowerCase();
+        if (styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping') {
+          shipLineTotal += itemVal;
+        }
+        return acc + itemVal;
+      }, 0);
+      const ordShipAmt = shipLineTotal || parseFloat(String(order.shipping || order.shippingCost || 0).replace(/[^0-9.]/g, '')) || 0;
+      const isFreeShip = Boolean(order.freeShipping || order.shippingDiscountType === 'free_shipping');
+      const effShipDisc = isFreeShip
+        ? Math.max(ordShipAmt, Math.abs(parseFloat(order.shippingDiscountAmount) || 0))
+        : Math.abs(parseFloat(order.shippingDiscountAmount) || 0);
+      const updatedTotal = Math.max(0, baseItemsTotal + nextServicesTotal - parsedInvDiscountAmount - effShipDisc);
+
       await updateDoc(doc(db, 'orders', order.id), {
         invoiceSettings: orderInvoiceForm,
-        customServices: Array.isArray((orderInvoiceForm as any).customServices) ? (orderInvoiceForm as any).customServices : [],
+        customServices: nextCustomServices,
+        total: updatedTotal,
+        calculatedTotal: updatedTotal,
         accountManager: (orderInvoiceForm as any).accountManager || '',
         accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
         accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
@@ -4861,7 +4904,7 @@ export function OrderDetail() {
 
   let lineItemsDiscountTotal = 0;
   let shippingLineItemsTotal = 0;
-  const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+  const itemsPriceRaw = order.items?.reduce((acc: number, i: any) => {
     const sizeSum = (i.itemType === 'service' || isNonGarmentItem(i)) ? 0 : (i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0);
     const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
     
@@ -4890,6 +4933,25 @@ export function OrderDetail() {
     return acc + itemVal;
   }, 0) || 0;
 
+  const showInvoiceServices = order.invoiceSettings?.showComplimentaryServices !== false;
+  const rawCustomServices = showInvoiceServices
+    ? (order.invoiceSettings?.customServices || order.customServices || [])
+    : [];
+  const pricedCustomServices = (Array.isArray(rawCustomServices) ? rawCustomServices : [])
+    .map((srv: any) => {
+      const sPrice = parseFloat(srv?.price || 0) || 0;
+      const sQty = parseInt(srv?.qty || 1) || 1;
+      return {
+        name: String(srv?.name || 'Service Fee').trim() || 'Service Fee',
+        qty: sQty,
+        price: sPrice,
+        total: sPrice * sQty
+      };
+    })
+    .filter((srv) => srv.total > 0);
+  const customServicesTotal = pricedCustomServices.reduce((sum, srv) => sum + srv.total, 0);
+  const totalPriceRaw = itemsPriceRaw + customServicesTotal;
+
   const orderShippingAmount = shippingLineItemsTotal || parseFloat(String(order.shipping || order.shippingCost || 0).replace(/[^0-9.]/g, '')) || 0;
   const isOrderFreeShipping = Boolean(order.freeShipping || order.shippingDiscountType === 'free_shipping');
   const effectiveShippingDiscountAmount = isOrderFreeShipping
@@ -4899,7 +4961,7 @@ export function OrderDetail() {
   const rawDiscountAmount = Math.max(explicitDiscountAmount, lineItemsDiscountTotal);
   const finalOrderTotal = Math.max(0, totalPriceRaw - rawDiscountAmount);
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalOrderTotal);
-  const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+  const rawSubtotalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsPriceRaw);
   const discountFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(rawDiscountAmount);
 
   // Costs & Receipts Calculations
@@ -5287,10 +5349,30 @@ export function OrderDetail() {
                  <div>
                     <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
                     <span className="font-serif text-lg block">{totalFormatted}</span>
-                    {rawDiscountAmount > 0 && (
-                      <span className="text-[10px] text-neutral-400 font-medium block">
-                        (Subtotal: {rawSubtotalFormatted})
-                      </span>
+                    {(rawDiscountAmount > 0 || pricedCustomServices.length > 0) && (
+                      <div className="mt-0.5 space-y-1">
+                        <span className="text-[10px] text-neutral-400 font-medium block">
+                          (Subtotal: {rawSubtotalFormatted})
+                        </span>
+                        {pricedCustomServices.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {pricedCustomServices.map((srv, idx) => {
+                              const srvFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(srv.total);
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setIsInvoiceEditorOpen(true)}
+                                  title={`Click to edit invoice fee (${srv.name}${srv.qty > 1 ? ` × ${srv.qty}` : ''}: +${srvFormatted})`}
+                                  className="text-[10px] uppercase font-extrabold tracking-wider bg-amber-100 text-amber-800 hover:bg-amber-200/80 px-2 py-0.5 rounded-md inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                >
+                                  <span>+{srvFormatted} {srv.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )}
                  </div>
                )}

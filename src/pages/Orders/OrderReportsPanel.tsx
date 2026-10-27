@@ -133,14 +133,27 @@ export function OrderReportsPanel({ liveCustomers = {} }: { liveCustomers?: Reco
       }, 0) || 0;
 
       // Calculate payout amount
+      const showServices = o.invoiceSettings?.showComplimentaryServices !== false;
+      const rawCustomServices = showServices
+        ? (o.invoiceSettings?.customServices || o.customServices || [])
+        : [];
+      const customServicesTotal = (Array.isArray(rawCustomServices) ? rawCustomServices : []).reduce((sum: number, srv: any) => {
+        const sPrice = parseFloat(srv?.price || 0) || 0;
+        const sQty = parseInt(srv?.qty || 1) || 1;
+        const val = sPrice * sQty;
+        return val > 0 ? sum + val : sum;
+      }, 0);
+
       let payoutAmount = 0;
-      if (typeof o.calculatedTotal === 'number' && o.calculatedTotal > 0) {
-        payoutAmount = o.calculatedTotal;
-      } else if (typeof o.total === 'number' && o.total > 0) {
-        payoutAmount = o.total;
-      } else if (o.totalFormatted) {
-        const parsed = parseFloat(String(o.totalFormatted).replace(/[^0-9.]/g, ''));
-        if (!isNaN(parsed)) payoutAmount = parsed;
+      if (customServicesTotal === 0) {
+        if (typeof o.calculatedTotal === 'number' && o.calculatedTotal > 0) {
+          payoutAmount = o.calculatedTotal;
+        } else if (typeof o.total === 'number' && o.total > 0) {
+          payoutAmount = o.total;
+        } else if (o.totalFormatted) {
+          const parsed = parseFloat(String(o.totalFormatted).replace(/[^0-9.]/g, ''));
+          if (!isNaN(parsed)) payoutAmount = parsed;
+        }
       }
 
       if (payoutAmount === 0 && o.items) {
@@ -168,7 +181,7 @@ export function OrderReportsPanel({ liveCustomers = {} }: { liveCustomers?: Reco
         }, 0);
         const explicitDiscountAmt = Math.abs(parseFloat(o.discountAmount || 0) || 0) + Math.abs(parseFloat(o.shippingDiscountAmount || 0) || 0);
         const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
-        payoutAmount = Math.max(0, rawSum - discountAmt);
+        payoutAmount = Math.max(0, rawSum + customServicesTotal - discountAmt);
       }
 
       const placedDateFormatted = placedDate 

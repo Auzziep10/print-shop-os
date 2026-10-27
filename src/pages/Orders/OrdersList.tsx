@@ -224,7 +224,7 @@ export function OrdersList() {
               }, 0) || 0;
 
               let lineItemsDiscountTotal = 0;
-              const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+              const itemsPriceRaw = order.items?.reduce((acc: number, i: any) => {
                 const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
                 const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
                 
@@ -248,6 +248,25 @@ export function OrdersList() {
                 }
                 return acc + itemVal;
               }, 0) || 0;
+
+              const showInvoiceServices = order.invoiceSettings?.showComplimentaryServices !== false;
+              const rawCustomServices = showInvoiceServices
+                ? (order.invoiceSettings?.customServices || order.customServices || [])
+                : [];
+              const pricedCustomServices = (Array.isArray(rawCustomServices) ? rawCustomServices : [])
+                .map((srv: any) => {
+                  const sPrice = parseFloat(srv?.price || 0) || 0;
+                  const sQty = parseInt(srv?.qty || 1) || 1;
+                  return {
+                    name: String(srv?.name || 'Service Fee').trim() || 'Service Fee',
+                    qty: sQty,
+                    price: sPrice,
+                    total: sPrice * sQty
+                  };
+                })
+                .filter((srv) => srv.total > 0);
+              const customServicesTotal = pricedCustomServices.reduce((sum, srv) => sum + srv.total, 0);
+              const totalPriceRaw = itemsPriceRaw + customServicesTotal;
 
               const explicitDiscountAmt = Math.abs(parseFloat(order.discountAmount || 0) || 0) + Math.abs(parseFloat(order.shippingDiscountAmount || 0) || 0);
               const discountAmt = Math.max(explicitDiscountAmt, lineItemsDiscountTotal);
@@ -319,6 +338,15 @@ export function OrdersList() {
                          {order.discountCode}
                        </span>
                      )}
+                     {hasPermission('viewPricing') && pricedCustomServices.map((srv, idx) => (
+                       <span
+                         key={idx}
+                         className="text-[9px] uppercase font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.5 rounded mt-0.5"
+                         title={`${srv.name}: +${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(srv.total)}`}
+                       >
+                         +{srv.name}
+                       </span>
+                     ))}
                   </div>
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">
                     {formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}
