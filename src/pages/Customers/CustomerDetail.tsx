@@ -151,6 +151,7 @@ export function CustomerDetail() {
   });
 
   const [invoiceForm, setInvoiceForm] = useState({
+    brandLogo: 'inktheory' as 'inktheory' | 'xcollab',
     subtitle: "For your Consideration",
     categoryTag: "VCG • ADHOC ORDERS",
     statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
@@ -163,7 +164,7 @@ export function CustomerDetail() {
     wireSwiftCode: "XXXXXXXX",
     wireAccountName: "Catalyst",
     wireAccountNumber: "XXXXXXXX",
-    showPayButton: true,
+    showPayButton: false,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: "https://stripe.com"
   });
@@ -1952,6 +1953,7 @@ export function CustomerDetail() {
           
           if (data.invoiceSettings) {
             setInvoiceForm({
+              brandLogo: data.invoiceSettings.brandLogo ?? 'inktheory',
               subtitle: data.invoiceSettings.subtitle ?? "For your Consideration",
               categoryTag: data.invoiceSettings.categoryTag ?? "VCG • ADHOC ORDERS",
               statementOfWork: data.invoiceSettings.statementOfWork ?? "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
@@ -1964,7 +1966,7 @@ export function CustomerDetail() {
               wireSwiftCode: data.invoiceSettings.wireSwiftCode ?? "XXXXXXXX",
               wireAccountName: data.invoiceSettings.wireAccountName ?? "Catalyst",
               wireAccountNumber: data.invoiceSettings.wireAccountNumber ?? "XXXXXXXX",
-              showPayButton: data.invoiceSettings.showPayButton ?? true,
+              showPayButton: data.invoiceSettings.showPayButton ?? false,
               payButtonText: data.invoiceSettings.payButtonText ?? "CLICK TO PAY BY CREDIT CARD +3.5%",
               payButtonUrl: data.invoiceSettings.payButtonUrl ?? "https://stripe.com"
             });
@@ -6023,6 +6025,39 @@ export function CustomerDetail() {
                        {/* Header & Branding Defaults */}
                        <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
                          <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Header & Branding</h4>
+
+                         <div>
+                           <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1.5">
+                             Default Header Logo
+                           </label>
+                           <div className="grid grid-cols-2 gap-2.5">
+                             <button
+                               type="button"
+                               onClick={() => setInvoiceForm({ ...invoiceForm, brandLogo: 'inktheory' })}
+                               className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                                 (invoiceForm.brandLogo || 'inktheory') === 'inktheory'
+                                   ? 'bg-white border-brand-primary ring-1 ring-brand-primary shadow-xs'
+                                   : 'bg-white/60 border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100'
+                               }`}
+                             >
+                               <img src="/inktheory-logo-black.png" alt="INKTHEORY" className="h-4 object-contain" />
+                               <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Ink Theory</span>
+                             </button>
+
+                             <button
+                               type="button"
+                               onClick={() => setInvoiceForm({ ...invoiceForm, brandLogo: 'xcollab' })}
+                               className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                                 invoiceForm.brandLogo === 'xcollab'
+                                   ? 'bg-white border-brand-primary ring-1 ring-brand-primary shadow-xs'
+                                   : 'bg-white/60 border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100'
+                               }`}
+                             >
+                               <img src="/xcollab-logo-black.png" alt="xCOLLAB" className="h-4 object-contain" />
+                               <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">xCollab</span>
+                             </button>
+                           </div>
+                         </div>
                          
                          <div>
                            <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">

@@ -1165,6 +1165,7 @@ export function OrderDetail() {
   const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
   const [orderInvoiceForm, setOrderInvoiceForm] = useState({
     documentType: 'invoice' as 'invoice' | 'estimate',
+    brandLogo: 'inktheory' as 'inktheory' | 'xcollab',
     poNumber: '',
     dueDate: '',
     shippingFee: 0,
@@ -1182,7 +1183,29 @@ export function OrderDetail() {
     wireSwiftCode: "XXXXXXXX",
     wireAccountName: "Catalyst",
     wireAccountNumber: "XXXXXXXX",
-    showPayButton: true,
+    showSubtitle: true,
+    showCategoryTag: true,
+    showAccountManager: true,
+    showAdditionalEmails: false,
+    showPoNumber: false,
+    showDueDate: false,
+    showFreight: false,
+    showTax: false,
+    showDiscount: false,
+    showFooterTagline: false,
+    showStatementOfWork: false,
+    showFeeSchedule: false,
+    showConfidentiality: false,
+    showDisclaimer: true,
+    showClientInfo: false,
+    showShippingAddress: false,
+    showIssueDate: false,
+    showOrderMeta: true,
+    showThumbnails: true,
+    showComplimentaryServices: false,
+    showTotals: true,
+    showWireInfo: false,
+    showPayButton: false,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: "https://stripe.com"
   });
@@ -1594,8 +1617,47 @@ export function OrderDetail() {
             console.error("Error loading customer invoice settings:", err);
           }
         }
+        let orderShippingFromItems = 0;
+        let orderTaxFromItems = 0;
+        (order.items || []).forEach((it: any) => {
+          const sLower = String(it?.style || '').toLowerCase();
+          const val = parseFloat(String(it?.total ?? it?.price ?? 0).replace(/[^0-9.]/g, '')) || 0;
+          if (sLower.includes('shipping') || sLower.includes('delivery') || (it?.id && String(it.id).startsWith('ship-')) || it?.itemType === 'shipping') {
+            orderShippingFromItems += val;
+          } else if (sLower.includes('tax') || it?.itemType === 'tax') {
+            orderTaxFromItems += val;
+          }
+        });
+
+        const defaultVisibilityToggles = {
+          showSubtitle: true,
+          showCategoryTag: true,
+          showAccountManager: true,
+          showAdditionalEmails: false,
+          showPoNumber: false,
+          showDueDate: false,
+          showFreight: false,
+          showTax: false,
+          showDiscount: false,
+          showFooterTagline: false,
+          showStatementOfWork: false,
+          showFeeSchedule: false,
+          showConfidentiality: false,
+          showDisclaimer: true,
+          showClientInfo: false,
+          showShippingAddress: false,
+          showIssueDate: false,
+          showOrderMeta: true,
+          showThumbnails: true,
+          showComplimentaryServices: false,
+          showTotals: true,
+          showWireInfo: false,
+          showPayButton: false,
+        };
+
         const merged = {
           documentType: (order.invoiceSettings?.documentType || custSettings.documentType || 'invoice') as 'invoice' | 'estimate',
+          brandLogo: (order.invoiceSettings?.brandLogo || custSettings.brandLogo || 'inktheory') as 'inktheory' | 'xcollab',
           accountManager: order.accountManager || custSettings.accountManager || order.invoiceSettings?.accountManager || '',
           accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
           accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
@@ -1603,8 +1665,8 @@ export function OrderDetail() {
           estimatedBoxCount: order.estimatedBoxCount || order.invoiceSettings?.estimatedBoxCount || '',
           poNumber: order.poNumber || '',
           dueDate: order.dueDate || '',
-          shippingFee: order.shippingFee || order.freight || 0,
-          taxAmount: order.taxAmount || order.tax || 0,
+          shippingFee: order.shippingFee || order.freight || orderShippingFromItems || 0,
+          taxAmount: order.taxAmount || order.tax || orderTaxFromItems || 0,
           discountCode: order.discountCode || '',
           discountAmount: order.discountAmount || 0,
           stripePaymentUrl: order.stripePaymentUrl || '',
@@ -1621,11 +1683,11 @@ export function OrderDetail() {
           wireSwiftCode: "XXXXXXXX",
           wireAccountName: "Catalyst",
           wireAccountNumber: "XXXXXXXX",
-          showPayButton: true,
           payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
           payButtonUrl: "https://stripe.com",
           servicesHeading: "SERVICES & QUALITY CONTROL",
           ...custSettings,
+          ...defaultVisibilityToggles,
           ...(order.invoiceSettings || {}),
           customServices: order.invoiceSettings?.customServices || order.customServices || custSettings.customServices || [
             { name: 'Collection Design', qty: 1, price: 0 },
@@ -5872,6 +5934,12 @@ export function OrderDetail() {
                                   }
                               }
 
+                              let msrpNum = 0;
+                              if (item.msrp !== undefined && item.msrp !== null && item.msrp.toString().trim() !== '') {
+                                  const mString = item.msrp.toString().replace(/[^0-9.]/g, '');
+                                  if (mString !== '') msrpNum = parseFloat(mString) || 0;
+                              }
+
                               return (
                                 <>
                                   <div className="w-12 text-center flex flex-col overflow-hidden">
@@ -5882,12 +5950,20 @@ export function OrderDetail() {
                                   </div>
                                   {hasPermission('viewPricing') && (
                                     <>
-                                      <div className="w-16 text-center flex flex-col overflow-hidden">
-                                        <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                        <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
+                                      <div className="min-w-[76px] text-center flex flex-col overflow-hidden">
+                                        <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Wholesale</div>
+                                        <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-2`}>
                                           {safePriceNum !== 0 ? (safePriceNum < 0 ? `-$${Math.abs(safePriceNum).toFixed(2)}` : `$${safePriceNum.toFixed(2)}`) : (item.price || '-')}
                                         </div>
                                       </div>
+                                      {msrpNum > 0 && (
+                                        <div className="min-w-[68px] text-center flex flex-col overflow-hidden">
+                                          <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">MSRP</div>
+                                          <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-2">
+                                            {`$${msrpNum.toFixed(2)}`}
+                                          </div>
+                                        </div>
+                                      )}
                                       <div className="w-20 text-center flex flex-col overflow-hidden">
                                         <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
                                         <div className={`bg-neutral-50 ${isDisc ? "text-emerald-700 font-extrabold" : "text-neutral-800"} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
@@ -8615,6 +8691,39 @@ export function OrderDetail() {
                     </button>
                   </div>
                 </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1.5">
+                    Main Header Logo
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, brandLogo: 'inktheory' } as any)}
+                      className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                        ((orderInvoiceForm as any).brandLogo || 'inktheory') === 'inktheory'
+                          ? 'bg-white border-brand-primary ring-1 ring-brand-primary shadow-xs'
+                          : 'bg-white/60 border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src="/inktheory-logo-black.png" alt="INKTHEORY" className="h-4 object-contain" />
+                      <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Ink Theory</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, brandLogo: 'xcollab' } as any)}
+                      className={`flex flex-col items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                        (orderInvoiceForm as any).brandLogo === 'xcollab'
+                          ? 'bg-white border-brand-primary ring-1 ring-brand-primary shadow-xs'
+                          : 'bg-white/60 border-neutral-200 hover:border-neutral-300 opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src="/xcollab-logo-black.png" alt="xCOLLAB" className="h-4 object-contain" />
+                      <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">xCollab</span>
+                    </button>
+                  </div>
+                </div>
                 
                 <div className={(orderInvoiceForm as any).showSubtitle === false ? 'opacity-50' : ''}>
                   <div className="flex items-center justify-between mb-1">
@@ -9068,8 +9177,11 @@ export function OrderDetail() {
                       { key: 'showShippingAddress', label: 'Shipping Address' },
                       { key: 'showIssueDate', label: 'Issued Date (Left Col)' },
                       { key: 'showOrderMeta', label: 'Estimate/Invoice # (Left Col)' },
+                      { key: 'showThumbnails', label: 'Garment Thumbnails' },
                       { key: 'showComplimentaryServices', label: 'Services & QC List' },
                       { key: 'showTotals', label: 'Totals & Amount Due' },
+                      { key: 'showFreight', label: 'Shipping' },
+                      { key: 'showTax', label: 'Taxes' },
                       { key: 'showDisclaimer', label: 'Legal Footer Disclaimer' },
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-neutral-200/80">
@@ -10088,7 +10200,7 @@ export function OrderDetail() {
                         </div>
                       </div>
                     ) : (
-                      <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' : 'grid-cols-1 md:grid-cols-2'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
+                      <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1 md:grid-cols-3'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
                         {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                           <div className="flex flex-col gap-1.5">
                             <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Gender</label>
@@ -10159,6 +10271,26 @@ export function OrderDetail() {
                             />
                           </div>
                         )}
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between pl-1">
+                            <label className="text-[10px] uppercase font-bold text-gray-400">In Hands Date</label>
+                            {editItemObj.inHandsDate && (
+                              <button
+                                type="button"
+                                onClick={() => setEditItemObj({...editItemObj, inHandsDate: ''})}
+                                className="text-[9px] font-bold uppercase text-red-500 hover:underline cursor-pointer"
+                              >
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <input 
+                            type="date" 
+                            value={editItemObj.inHandsDate || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, inHandsDate: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -10211,18 +10343,33 @@ export function OrderDetail() {
                       <div className="flex flex-col gap-3">
                         <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pricing Strategy</label>
                         <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 h-full">
-                          <div className="flex flex-col gap-1.5">
-                              <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Item ($)</label>
-                              <div className="relative">
-                                  <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                  <input 
-                                    type="text" 
-                                    value={editItemObj.price || ''}
-                                    onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
-                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
-                                    placeholder="0.00"
-                                  />
-                              </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Wholesale Price ($)</label>
+                                <div className="relative">
+                                    <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input 
+                                      type="text" 
+                                      value={editItemObj.price || ''}
+                                      onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
+                                      placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">MSRP ($)</label>
+                                <div className="relative">
+                                    <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input 
+                                      type="text" 
+                                      value={editItemObj.msrp || ''}
+                                      onChange={(e) => setEditItemObj({...editItemObj, msrp: e.target.value})}
+                                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
+                                      placeholder="Optional"
+                                    />
+                                </div>
+                            </div>
                           </div>
                           <button
                             type="button"

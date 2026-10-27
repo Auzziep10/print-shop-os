@@ -1408,6 +1408,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                             const priceDisplay = safePriceNum !== 0 
                               ? (safePriceNum < 0 ? `-$${Math.abs(safePriceNum).toFixed(2)}` : `$${safePriceNum.toFixed(2)}`)
                               : (item.price || '-');
+                            const msrpNum = item.msrp !== undefined && item.msrp !== null
+                              ? (parseFloat(String(item.msrp).replace(/[^0-9.]/g, '')) || 0)
+                              : 0;
 
                             return (
                               <>
@@ -1419,12 +1422,20 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                 </div>
                                 {showPricing && (
                                   <>
-                                    <div className="w-20 text-center flex flex-col overflow-hidden">
-                                      <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                      <div className={`bg-neutral-50 ${isDisc ? 'text-emerald-700 font-extrabold' : 'text-neutral-800'} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>
+                                    <div className="min-w-[76px] text-center flex flex-col overflow-hidden">
+                                      <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Wholesale</div>
+                                      <div className={`bg-neutral-50 ${isDisc ? 'text-emerald-700 font-extrabold' : 'text-neutral-800'} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1.5`}>
                                         {priceDisplay}
                                       </div>
                                     </div>
+                                    {msrpNum > 0 && (
+                                      <div className="min-w-[68px] text-center flex flex-col overflow-hidden">
+                                        <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">MSRP</div>
+                                        <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1.5">
+                                          {`$${msrpNum.toFixed(2)}`}
+                                        </div>
+                                      </div>
+                                    )}
                                     <div className="w-20 text-center flex flex-col overflow-hidden">
                                       <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
                                       <div className={`bg-neutral-50 ${isDisc ? 'text-emerald-700 font-extrabold' : 'text-neutral-800'} text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1`}>

@@ -136,7 +136,7 @@ export function InvoiceView() {
 
   if (loading) {
      return (
-       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-400">
+       <div className="min-h-screen bg-[#E9E9E9] flex flex-col items-center justify-center gap-4 text-neutral-400">
          <Loader2 className="animate-spin" size={32} />
          <p className="font-semibold uppercase tracking-widest text-xs">Retrieving Invoice...</p>
        </div>
@@ -145,7 +145,7 @@ export function InvoiceView() {
 
   if (!order) {
      return (
-       <div className="min-h-screen bg-[#FDFCF9] flex flex-col items-center justify-center gap-4 text-neutral-500">
+       <div className="min-h-screen bg-[#E9E9E9] flex flex-col items-center justify-center gap-4 text-neutral-500">
          <h2 className="text-2xl font-serif">Invoice Not Found</h2>
        </div>
      );
@@ -155,7 +155,34 @@ export function InvoiceView() {
 
   const defaultDisclaimerText = "**ESTIMATE TERMS & CONDITIONS** THIS ESTIMATE IS VALID FOR 15 DAYS AND SUBJECT TO PRODUCT AVAILABILITY, FINAL SPECIFICATIONS, AND PRICING CONFIRMATION. PRODUCTION BEGINS ONLY UPON WRITTEN APPROVAL AND SATISFACTION OF APPLICABLE DEPOSIT REQUIREMENTS. CHANGES TO APPROVED ARTWORK, QUANTITIES, SPECIFICATIONS, OR DELIVERY REQUIREMENTS MAY INCUR ADDITIONAL CHARGES WITH CUSTOMER AUTHORIZATION. REASONABLE PRODUCTION VARIATIONS MAY OCCUR WITHIN AGREED TOLERANCES. DELIVERY DATES ARE ESTIMATES UNLESS GUARANTEED IN WRITING. CANCELLATIONS AFTER APPROVAL MAY INCUR DOCUMENTED COSTS. APPROVAL CONSTITUTES ACCEPTANCE OF THESE TERMS.";
 
+  const defaultVisibilityToggles = {
+    showSubtitle: true,
+    showCategoryTag: true,
+    showAccountManager: true,
+    showAdditionalEmails: false,
+    showPoNumber: false,
+    showDueDate: false,
+    showFreight: false,
+    showTax: false,
+    showDiscount: false,
+    showFooterTagline: false,
+    showStatementOfWork: false,
+    showFeeSchedule: false,
+    showConfidentiality: false,
+    showDisclaimer: true,
+    showClientInfo: false,
+    showShippingAddress: false,
+    showIssueDate: false,
+    showOrderMeta: true,
+    showThumbnails: true,
+    showComplimentaryServices: false,
+    showTotals: true,
+    showWireInfo: false,
+    showPayButton: false,
+  };
+
   const defaultInvoiceSettings = {
+    brandLogo: 'inktheory' as 'inktheory' | 'xcollab',
     subtitle: "For your Consideration",
     categoryTag: "VCG • ADHOC ORDERS",
     statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
@@ -169,7 +196,7 @@ export function InvoiceView() {
     wireSwiftCode: globalSettings?.wireSwiftCode || "XXXXXXXX",
     wireAccountName: globalSettings?.wireAccountName || "Catalyst",
     wireAccountNumber: globalSettings?.wireAccountNumber || "XXXXXXXX",
-    showPayButton: true,
+    ...defaultVisibilityToggles,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
   };
@@ -177,6 +204,7 @@ export function InvoiceView() {
   const invSettings: any = {
     ...defaultInvoiceSettings,
     ...(customer?.invoiceSettings || {}),
+    ...defaultVisibilityToggles,
     ...(order?.invoiceSettings || {})
   };
 
@@ -191,9 +219,21 @@ export function InvoiceView() {
 
   const customServices = invSettings.customServices || order.customServices || (order.includeStandardDeliverables !== false ? defaultServices : []);
 
+  const isShippingLineItem = (item: any) => {
+    const styleLower = String(item?.style || '').toLowerCase();
+    return styleLower.includes('shipping') || styleLower.includes('delivery') || (item?.id && String(item.id).startsWith('ship-')) || item?.itemType === 'shipping';
+  };
+
+  const isTaxLineItem = (item: any) => {
+    const styleLower = String(item?.style || '').toLowerCase();
+    return styleLower.includes('tax') || item?.itemType === 'tax';
+  };
+
   // Calculate items subtotal
   let itemsSubtotal = 0;
   let lineItemsDiscountTotal = 0;
+  let shippingLineItemsTotal = 0;
+  let taxLineItemsTotal = 0;
   order.items?.forEach((item: any) => {
     const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
     const price = parseFloat(priceStr) || 0;
@@ -209,6 +249,14 @@ export function InvoiceView() {
       lineItemsDiscountTotal += Math.abs(price * qty);
       return;
     }
+    if (isShippingLineItem(item)) {
+      shippingLineItemsTotal += price * qty;
+      return;
+    }
+    if (isTaxLineItem(item)) {
+      taxLineItemsTotal += price * qty;
+      return;
+    }
     itemsSubtotal += price * qty;
   });
 
@@ -221,10 +269,10 @@ export function InvoiceView() {
   }
 
   // Calculate shipping, tax & discounts (respecting visibility toggles)
-  const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
+  const explicitShipping = parseFloat(String(invSettings.shippingFee ?? order.shippingFee ?? order.freight ?? order.shippingCost ?? 0)) || shippingLineItemsTotal;
   const rawShippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
   const shippingFee = invSettings.showFreight === false ? 0 : rawShippingFee;
-  const rawTaxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
+  const rawTaxAmount = parseFloat(String(invSettings.taxAmount ?? order.taxAmount ?? order.tax ?? 0)) || taxLineItemsTotal;
   const taxAmount = invSettings.showTax === false ? 0 : rawTaxAmount;
   const explicitDiscount = Math.abs(parseFloat(String(order.discountAmount || 0)) || 0);
   const rawDiscountAmount = Math.max(explicitDiscount, lineItemsDiscountTotal);
@@ -289,31 +337,33 @@ export function InvoiceView() {
   };
 
   return (
-    <div className="min-h-screen bg-white md:bg-[#f5f5f4] flex justify-center py-0 md:py-12 px-0 md:px-4 font-sans text-neutral-900 w-full overflow-x-hidden">
-      <div className="w-full max-w-[940px] bg-white min-h-screen md:min-h-[1180px] px-5 sm:px-8 md:px-14 pt-7 sm:pt-10 md:pt-12 pb-8 md:pb-10 flex flex-col justify-between md:shadow-[0_20px_60px_rgba(0,0,0,0.06)] relative">
+    <div className="min-h-screen bg-[#E9E9E9] flex justify-center py-0 md:py-12 px-0 md:px-4 font-sans text-neutral-900 w-full overflow-x-hidden">
+      <div className="w-full max-w-[940px] bg-[#E9E9E9] min-h-screen md:min-h-[1180px] px-5 sm:px-8 md:px-14 pt-7 sm:pt-10 md:pt-12 pb-8 md:pb-10 flex flex-col justify-between relative">
         <div className="flex-1 flex flex-col">
-          {/* Top Header: Massive INKTHEORY Wordmark + Vertical ESTIMATE / INVOICE & ID */}
+          {/* Top Header: Massive Wordmark + Vertical ESTIMATE / INVOICE & ID */}
           <div className="flex justify-between items-start gap-3 mb-8 md:mb-10">
             <img
-              src="/inktheory-logo-black.png"
-              alt="INKTHEORY"
+              src={invSettings.brandLogo === 'xcollab' ? '/xcollab-logo-black.png' : '/inktheory-logo-black.png'}
+              alt={invSettings.brandLogo === 'xcollab' ? 'xCOLLAB' : 'INKTHEORY'}
               className="w-[80%] sm:w-[70%] max-w-[580px] block object-contain object-left select-none"
             />
 
-            <div className="flex items-start gap-1 sm:gap-1.5 text-neutral-500 select-none shrink-0">
-              <span
-                className="text-[6px] sm:text-[9px] md:text-[11.5px] font-normal tracking-[0.06em] sm:tracking-[0.1em] md:tracking-[0.12em] uppercase leading-none"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-              >
-                {isEstimate ? 'ESTIMATE' : 'INVOICE'}
-              </span>
-              <span
-                className="text-[6px] sm:text-[8.5px] md:text-[10.5px] font-normal tracking-[0.05em] sm:tracking-[0.09em] md:tracking-[0.11em] uppercase leading-none"
-                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
-              >
-                {order.portalId || order.id.slice(0, 8)}
-              </span>
-            </div>
+            {invSettings.showOrderMeta !== false && (
+              <div className="flex items-start gap-1 sm:gap-1.5 text-neutral-500 select-none shrink-0">
+                <span
+                  className="text-[6px] sm:text-[9px] md:text-[11.5px] font-normal tracking-[0.06em] sm:tracking-[0.1em] md:tracking-[0.12em] uppercase leading-none"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                >
+                  {isEstimate ? 'ESTIMATE' : 'INVOICE'}
+                </span>
+                <span
+                  className="text-[6px] sm:text-[8.5px] md:text-[10.5px] font-normal tracking-[0.05em] sm:tracking-[0.09em] md:tracking-[0.11em] uppercase leading-none"
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                >
+                  {order.portalId || order.id.slice(0, 8)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Project Header & Account Manager Block (Top-Left under Logo) */}
@@ -355,9 +405,9 @@ export function InvoiceView() {
           </div>
 
           {/* Main Body: Left Meta/Terms Column + Offset Right Deliverables Column */}
-          <div className="flex-1 flex flex-col md:flex-row gap-8 md:gap-12 items-start md:items-stretch">
-            {/* Left Column (34% on Desktop, Full Width on Mobile) */}
-            <div className="w-full md:w-[34%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
+          <div className="flex-1 flex flex-col md:flex-row gap-8 md:gap-0 md:justify-between items-start md:items-stretch">
+            {/* Left Column (23% on Desktop, Full Width on Mobile) */}
+            <div className="w-full md:w-[23%] flex flex-col gap-5 md:gap-6 text-[10px] tracking-[0.04em] text-neutral-500 uppercase leading-[1.55]">
               {/* Issue Date / Due Date / PO */}
               {(invSettings.showIssueDate !== false || invSettings.showDueDate !== false || (invSettings.showPoNumber !== false && order.poNumber)) && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-col gap-x-4 gap-y-2 pb-4 md:pb-0 border-b md:border-b-0 border-black/10">
@@ -433,44 +483,168 @@ export function InvoiceView() {
               </h3>
 
               {/* Deliverables Rows */}
-              <div className="flex flex-col gap-5 md:gap-7">
-                {order.items?.filter((item: any) => !isDiscountItem(item)).map((item: any, idx: number) => {
-                  const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
-                  const price = parseFloat(priceStr) || 0;
-                  let qty = 0;
-                  if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
-                    qty = parseInt(item.qty || 1);
-                  } else {
-                    qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
-                  }
-                  const total = price * qty;
-                  const formattedItemTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total);
-                  const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+              <div className="flex flex-col gap-6 md:gap-8">
+                {(() => {
+                  const deliverableItems = (order.items || []).filter((item: any) => !isDiscountItem(item) && !isShippingLineItem(item) && !isTaxLineItem(item));
+                  const hasAnyInHandsDate = deliverableItems.some((it: any) => Boolean(it?.inHandsDate));
 
-                  return (
-                    <div key={idx} className="flex w-full items-start text-[11px] leading-snug">
-                      <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 flex flex-col">
-                        <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em] break-words">
-                          {item.style || 'Custom Item'}
-                        </span>
-                        {item.color && (
-                          <span className="text-[10px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5 break-words">
-                            {item.color}
+                  const formatInHandsDate = (raw: string | undefined | null) => {
+                    if (!raw) return '';
+                    const trimmed = String(raw).trim();
+                    if (!trimmed) return '';
+                    const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+                    if (isoMatch) {
+                      const yy = isoMatch[1].slice(-2);
+                      const mm = String(parseInt(isoMatch[2], 10)).padStart(2, '0');
+                      const dd = String(parseInt(isoMatch[3], 10)).padStart(2, '0');
+                      return `${mm}/${dd}/${yy}`;
+                    }
+                    const parsed = new Date(trimmed);
+                    if (!isNaN(parsed.getTime())) {
+                      const mm = String(parsed.getMonth() + 1).padStart(2, '0');
+                      const dd = String(parsed.getDate()).padStart(2, '0');
+                      const yy = String(parsed.getFullYear()).slice(-2);
+                      return `${mm}/${dd}/${yy}`;
+                    }
+                    return trimmed;
+                  };
+
+                  return deliverableItems.map((item: any, idx: number) => {
+                    const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
+                    const price = parseFloat(priceStr) || 0;
+                    let qty = 0;
+                    if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+                      qty = parseInt(item.qty || 1);
+                    } else {
+                      qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+                    }
+                    const total = price * qty;
+                    const formattedItemTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(total);
+                    const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+                    const msrpVal = item.msrp !== undefined && item.msrp !== null
+                      ? (parseFloat(String(item.msrp).replace(/[^0-9.]/g, '')) || 0)
+                      : 0;
+                    const formattedMsrp = msrpVal > 0
+                      ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(msrpVal)
+                      : '';
+
+                    const SIZE_ORDER = ['YXS', 'YS', 'YM', 'YL', 'YXL', 'XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'OSFA', 'ONE SIZE'];
+                    const getBaseSize = (s: string) => {
+                      const base = String(s).trim().split(' ')[0].toUpperCase();
+                      if (base === 'XXL') return '2XL';
+                      if (base === 'XXXL') return '3XL';
+                      if (base === 'XXXXL') return '4XL';
+                      return base;
+                    };
+                    const activeSizes = item.itemType !== 'service' && item.sizes
+                      ? Object.entries(item.sizes)
+                          .map(([sz, q]) => [sz, parseInt(String(q), 10) || 0] as [string, number])
+                          .filter(([, q]) => q > 0)
+                          .sort(([a], [b]) => {
+                            const iA = SIZE_ORDER.indexOf(getBaseSize(a));
+                            const iB = SIZE_ORDER.indexOf(getBaseSize(b));
+                            if (iA === -1 && iB === -1) return a.localeCompare(b);
+                            if (iA === -1) return 1;
+                            if (iB === -1) return -1;
+                            return iA - iB;
+                          })
+                      : [];
+
+                    const getActiveSidesCount = (it: any) => {
+                      if (!it.customized) return 1;
+                      let count = 0;
+                      if (it.logoUrl) count++;
+                      if (it.logoUrlBack) count++;
+                      if (it.logoUrlLeftSleeve) count++;
+                      if (it.logoUrlRightSleeve) count++;
+                      if (it.logoUrlTag) count++;
+                      return count || 1;
+                    };
+
+                    const thumbUrl = item.customizedFrontImage
+                      || item.image
+                      || (item.color && item.images?.[item.color])
+                      || item.originalFrontImage
+                      || '';
+                    const sidesCount = !item.customizedFrontImage && item.customized && item.image
+                      ? getActiveSidesCount(item)
+                      : 1;
+                    const formattedInHands = formatInHandsDate(item.inHandsDate);
+
+                    return (
+                      <div key={idx} className="relative flex w-full items-start text-[11px] leading-snug min-h-[44px]">
+                        {invSettings.showThumbnails !== false && thumbUrl && (
+                          <div className={`w-11 h-11 sm:w-12 sm:h-12 md:w-[52px] md:h-[52px] mr-3 md:mr-0 md:absolute md:-left-[72px] md:top-[-4px] shrink-0 overflow-hidden flex items-center ${sidesCount > 1 ? 'justify-start' : 'justify-center'} select-none`}>
+                            {sidesCount > 1 ? (
+                              <img
+                                src={thumbUrl}
+                                alt={item.style || 'Garment'}
+                                style={{ width: `${sidesCount * 100}%`, height: '100%', maxWidth: 'none' }}
+                                className="object-cover mix-blend-multiply"
+                              />
+                            ) : (
+                              <img
+                                src={thumbUrl}
+                                alt={item.style || 'Garment'}
+                                className="w-full h-full object-contain mix-blend-multiply"
+                              />
+                            )}
+                          </div>
+                        )}
+                        <div className={`${hasAnyInHandsDate ? 'w-[26%] sm:w-[27%]' : 'w-[30%] sm:w-[32%]'} pr-2 sm:pr-4 flex flex-col`}>
+                          <span className="font-semibold text-neutral-900 uppercase tracking-[0.03em] break-words">
+                            {item.style || 'Custom Item'}
                           </span>
+                          {item.color && (
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5 break-words">
+                              {item.color}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`${hasAnyInHandsDate ? 'w-[26%] sm:w-[26%]' : 'w-[30%] sm:w-[30%]'} pr-2 flex flex-wrap items-start justify-start gap-x-2.5 sm:gap-x-3 gap-y-1.5`}>
+                          {activeSizes.map(([sizeLabel, sizeQty]) => (
+                            <div key={sizeLabel} className="flex flex-col items-center text-center min-w-[14px]">
+                              <span className="font-medium text-neutral-900 uppercase tracking-[0.02em]">
+                                {sizeLabel}
+                              </span>
+                              <span className="font-medium text-neutral-800 mt-0.5">
+                                {sizeQty}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className={`${hasAnyInHandsDate ? 'w-[10%] sm:w-[11%]' : 'w-[12%] sm:w-[14%]'} text-center font-medium text-neutral-800 shrink-0`}>
+                          {qty}
+                        </div>
+                        <div className={`${hasAnyInHandsDate ? 'w-[21%] sm:w-[20%]' : 'w-[28%] sm:w-[24%]'} text-right flex flex-col items-end shrink-0`}>
+                          <span className="font-medium text-neutral-900">{formattedItemTotal}</span>
+                          <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.02em] mt-0.5">
+                            {formattedPrice}EA
+                          </span>
+                          {formattedMsrp && (
+                            <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.02em] mt-0.5">
+                              {formattedMsrp} MSRP
+                            </span>
+                          )}
+                        </div>
+                        {hasAnyInHandsDate && (
+                          <div className="w-[17%] sm:w-[16%] pl-2 sm:pl-3 text-right flex flex-col items-end shrink-0">
+                            {formattedInHands ? (
+                              <>
+                                <span className="font-normal text-neutral-500 tracking-[0.02em]">
+                                  {formattedInHands}
+                                </span>
+                                <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.03em] mt-0.5">
+                                  IN HANDS
+                                </span>
+                              </>
+                            ) : null}
+                          </div>
                         )}
                       </div>
-                      <div className="w-[16%] sm:w-[15%] text-center font-medium text-neutral-800 shrink-0">
-                        {qty}
-                      </div>
-                      <div className="w-[32%] sm:w-[30%] text-right flex flex-col items-end shrink-0">
-                        <span className="font-medium text-neutral-900">{formattedItemTotal}</span>
-                        <span className="text-[9.5px] text-neutral-500 uppercase tracking-[0.02em] mt-0.5">
-                          {formattedPrice}EA
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
 
               {/* Services & Quality Control List */}
@@ -486,13 +660,13 @@ export function InvoiceView() {
 
                     return (
                       <div key={sIdx} className="flex w-full items-center text-[10.5px] text-neutral-700 leading-snug">
-                        <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 font-medium uppercase tracking-[0.03em] break-words">
+                        <div className="w-[60%] sm:w-[62%] pr-2 sm:pr-4 font-medium uppercase tracking-[0.03em] break-words">
                           {srv.name}
                         </div>
-                        <div className="w-[16%] sm:w-[15%] text-center text-neutral-500 shrink-0">
+                        <div className="w-[12%] sm:w-[14%] text-center text-neutral-500 shrink-0">
                           {qtyVal}
                         </div>
-                        <div className="w-[32%] sm:w-[30%] text-right font-medium text-neutral-700 shrink-0">
+                        <div className="w-[28%] sm:w-[24%] text-right font-medium text-neutral-700 shrink-0">
                           {priceFormatted}
                         </div>
                       </div>
@@ -504,11 +678,11 @@ export function InvoiceView() {
               {/* Logistics Fee if present */}
               {order.logisticsFee && (
                 <div className="flex w-full items-center text-[11px] text-neutral-900 leading-snug mt-6 pt-4 border-t border-black/10">
-                  <div className="w-[52%] sm:w-[55%] pr-2 sm:pr-4 font-semibold uppercase tracking-[0.03em]">
+                  <div className="w-[60%] sm:w-[62%] pr-2 sm:pr-4 font-semibold uppercase tracking-[0.03em]">
                     Logistics (Kitting & Packaging)
                   </div>
-                  <div className="w-[16%] sm:w-[15%] text-center font-medium shrink-0">1</div>
-                  <div className="w-[32%] sm:w-[30%] text-right font-medium shrink-0">
+                  <div className="w-[12%] sm:w-[14%] text-center font-medium shrink-0">1</div>
+                  <div className="w-[28%] sm:w-[24%] text-right font-medium shrink-0">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(order.logisticsFee || 0))}
                   </div>
                 </div>
@@ -522,21 +696,21 @@ export function InvoiceView() {
                     <span className="font-medium text-neutral-900">{formattedItemsSubtotal}</span>
                   </div>
 
-                  {discountAmount > 0 && (
+                  {invSettings.showDiscount !== false && discountAmount > 0 && (
                     <div className="flex justify-between items-center text-emerald-700 font-semibold">
                       <span>Discount {order.discountCode ? `(${order.discountCode})` : ''}</span>
                       <span>−{formattedDiscountAmount}</span>
                     </div>
                   )}
 
-                  {shippingFee > 0 && (
+                  {invSettings.showFreight !== false && (
                     <div className="flex justify-between items-center text-neutral-500">
                       <span>Freight / Shipping & Handling</span>
                       <span className="font-medium text-neutral-900">{formattedShippingFee}</span>
                     </div>
                   )}
 
-                  {taxAmount > 0 && (
+                  {invSettings.showTax !== false && (
                     <div className="flex justify-between items-center text-neutral-500">
                       <span>Estimated Sales Tax</span>
                       <span className="font-medium text-neutral-900">{formattedTaxAmount}</span>
