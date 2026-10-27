@@ -171,6 +171,17 @@
   .slide.intro .next{background:transparent;border:1px solid rgba(243,237,225,.75);color:var(--paper);}
   .get-started{position:absolute;z-index:5;left:calc(var(--ox) + 29.3 * var(--u));top:calc(var(--oyb) + 127.2 * var(--u));
     width:calc(41.3 * var(--u));height:calc(12 * var(--u));}
+  /* real pill button on the closing frame (variants with .v-pill; the label is painted out of their frame) */
+  .v-pill .get-started{display:flex;align-items:center;justify-content:center;gap:.55em;border-radius:999px;background:#141210;color:#f3ede1;text-decoration:none;
+    font-family:var(--sans);font-weight:600;font-size:calc(2.75 * var(--u));letter-spacing:.16em;text-transform:uppercase;white-space:nowrap;
+    box-shadow:0 .9em 2.2em rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.14);animation:pillBreath 2.6s ease-in-out infinite;-webkit-tap-highlight-color:transparent;}
+  .v-pill .get-started span{padding-left:.16em;}
+  .v-pill .get-started svg{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .v-pill .get-started::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;animation:pillRing 2.6s ease-out infinite;}
+  .v-pill .get-started:active{animation:none;transform:scale(.97);}
+  @keyframes pillBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+  @keyframes pillRing{0%{box-shadow:0 0 0 0 rgba(20,18,16,.5)}75%{box-shadow:0 0 0 1.1em rgba(20,18,16,0)}100%{box-shadow:0 0 0 0 rgba(20,18,16,0)}}
+  @media (prefers-reduced-motion:reduce){ .v-pill .get-started,.v-pill .get-started::after{animation:none;} }
   .intro-logo{position:absolute;z-index:5;left:50%;top:50%;width:31.5%;height:auto;transform:translate(-50%,-50%);pointer-events:none;}
 
   .kicker,.stack span,.lines p{
@@ -220,6 +231,7 @@
     .slide.final .card img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
     .slide.final .backdrop{filter:blur(44px) brightness(.35);}
     .get-started{left:calc(50% - 9.52dvh);top:58.5dvh;width:19dvh;height:5.5dvh;}
+    .v-pill .get-started{font-size:1.3dvh;}
     .brand.is-final{left:calc(50% - 18.77dvh);top:7dvh;width:14.3dvh;right:auto;bottom:auto;}
     .slide.intro .next{left:50%;right:auto;top:79.2%;bottom:auto;transform:translate(-50%,-50%);}
     .intro-logo{width:14vw;}
@@ -256,7 +268,7 @@
   }
 </style>
 </head>
-<body class="v-c">
+<body class="v-c v-pill">
 
 <div class="grain" aria-hidden="true"></div>
 
@@ -437,12 +449,12 @@
 
     <section class="slide final" id="final" data-len="1.2" style="z-index:7">
       <div class="slide-inner">
-        <img class="backdrop" src="/artistxcollab/img/final-c.webp" alt="" aria-hidden="true">
+        <img class="backdrop" src="/artistxcollab/img/final-incolor.webp" alt="" aria-hidden="true">
         <div class="frame"><div class="card">
-          <img class="back" src="/artistxcollab/img/final-c.webp" alt="Ink Theory — a runway show; Your Collection; trusted by Balenciaga, Givenchy, Celine, Bon &amp; Blanc, Louis Vuitton and Khaite">
-          <img class="bleed bleed-top" src="/artistxcollab/img/final-c.webp" alt="" aria-hidden="true"><img class="bleed bleed-bot" src="/artistxcollab/img/final-c.webp" alt="" aria-hidden="true">
+          <img class="back" src="/artistxcollab/img/final-incolor.webp" alt="Ink Theory — a runway show; Your Collection; trusted by Balenciaga, Givenchy, Celine, Bon &amp; Blanc, Louis Vuitton and Khaite">
+          <img class="bleed bleed-top" src="/artistxcollab/img/final-incolor.webp" alt="" aria-hidden="true"><img class="bleed bleed-bot" src="/artistxcollab/img/final-incolor.webp" alt="" aria-hidden="true">
         </div></div>
-        <a class="get-started" href="/artistxcollab/incolor/collection/" aria-label="Your collection"></a>
+        <a class="get-started" href="/artistxcollab/incolor/collection/" aria-label="Your collection"><span>Your Collection</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
         <div class="shade"></div>
       </div>
     </section>
