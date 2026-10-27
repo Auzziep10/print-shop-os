@@ -64,6 +64,14 @@
       "destination": "/xcollab/index.html"
     },
     {
+      "source": "/invoice/:orderId",
+      "destination": "/api/invoice-meta?orderId=:orderId"
+    },
+    {
+      "source": "/invoice/:orderId/",
+      "destination": "/api/invoice-meta?orderId=:orderId"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

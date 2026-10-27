@@ -53,6 +53,15 @@ export function InvoiceView() {
 
   useEffect(() => {
     if (!order) return;
+    const isEst = String(order.invoiceSettings?.documentType || order.documentType || '').toLowerCase() === 'estimate';
+    const brand = (order.invoiceSettings?.brandLogo || '').toLowerCase() === 'xcollab' ? 'xCollab' : 'INKTHEORY';
+    const docLabel = isEst ? 'Estimate' : 'Invoice';
+    const customerLabel = customer?.company || customer?.name || order.shippingAddress?.company || order.shippingAddress?.name || order.title;
+    document.title = `${brand} | ${docLabel}${customerLabel ? ` · ${customerLabel}` : ''}`;
+  }, [order, customer]);
+
+  useEffect(() => {
+    if (!order) return;
     const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
     if (explicitShipping > 0 || order.deliveryOption === 'Local Delivery') {
       setAutoShippingFee(null);
@@ -196,6 +205,10 @@ export function InvoiceView() {
     wireSwiftCode: globalSettings?.wireSwiftCode || "XXXXXXXX",
     wireAccountName: globalSettings?.wireAccountName || "Catalyst",
     wireAccountNumber: globalSettings?.wireAccountNumber || "XXXXXXXX",
+    showSecondaryAccountManager: false,
+    secondaryAccountManager: '',
+    secondaryAccountManagerEmail: '',
+    secondaryAccountManagerPhone: '',
     ...defaultVisibilityToggles,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
@@ -302,6 +315,11 @@ export function InvoiceView() {
   const accountManagerEmail = invSettings.accountManagerEmail || order.accountManagerEmail || cust.accountManagerEmail;
   const accountManagerPhone = invSettings.accountManagerPhone || order.accountManagerPhone || cust.accountManagerPhone;
 
+  const secondaryAccountManagerName = invSettings.secondaryAccountManager || order.secondaryAccountManager || cust.secondaryAccountManager;
+  const secondaryAccountManagerEmail = invSettings.secondaryAccountManagerEmail || order.secondaryAccountManagerEmail || cust.secondaryAccountManagerEmail;
+  const secondaryAccountManagerPhone = invSettings.secondaryAccountManagerPhone || order.secondaryAccountManagerPhone || cust.secondaryAccountManagerPhone;
+  const showSecondaryManager = invSettings.showSecondaryAccountManager === true && !!(secondaryAccountManagerName || secondaryAccountManagerEmail || secondaryAccountManagerPhone);
+
   // Resolve all client billing emails
   const allClientEmails: string[] = [];
   if (cust.email) allClientEmails.push(cust.email);
@@ -387,6 +405,20 @@ export function InvoiceView() {
                   ))}
                 {(accountManagerPhone || clientPhone) && (
                   <p>{accountManagerPhone || clientPhone}</p>
+                )}
+              </div>
+            )}
+
+            {showSecondaryManager && (
+              <div className="mt-2.5 flex flex-col gap-0.5 text-[10.5px] font-normal tracking-[0.03em] text-neutral-500 uppercase leading-[1.45] break-words">
+                {secondaryAccountManagerName && (
+                  <p>{secondaryAccountManagerName}</p>
+                )}
+                {secondaryAccountManagerEmail && (
+                  <p className="break-all">{secondaryAccountManagerEmail}</p>
+                )}
+                {secondaryAccountManagerPhone && (
+                  <p>{secondaryAccountManagerPhone}</p>
                 )}
               </div>
             )}
@@ -795,8 +827,11 @@ export function InvoiceView() {
               {invSettings.footerTagline}
             </p>
           )}
-          <p className="text-[8.5px] sm:text-[9px] tracking-[0.08em] text-neutral-500 uppercase">
-            INKTHEORY &nbsp;2817 WEST END AVE &nbsp;NASHVILLE &nbsp;TN &nbsp;37203
+          <p className="text-[8.5px] sm:text-[9px] tracking-[0.08em] text-neutral-500">
+            <span className={invSettings.brandLogo === 'xcollab' ? 'normal-case font-semibold' : 'uppercase'}>
+              {invSettings.brandLogo === 'xcollab' ? 'xCollab' : 'INKTHEORY'}
+            </span>
+            &nbsp;&nbsp;<span className="uppercase">2817 WEST END AVE &nbsp;NASHVILLE &nbsp;TN &nbsp;37203</span>
           </p>
         </div>
       </div>

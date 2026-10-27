@@ -1186,6 +1186,10 @@ export function OrderDetail() {
     showSubtitle: true,
     showCategoryTag: true,
     showAccountManager: true,
+    showSecondaryAccountManager: false,
+    secondaryAccountManager: '',
+    secondaryAccountManagerEmail: '',
+    secondaryAccountManagerPhone: '',
     showAdditionalEmails: false,
     showPoNumber: false,
     showDueDate: false,
@@ -1661,6 +1665,10 @@ export function OrderDetail() {
           accountManager: order.accountManager || custSettings.accountManager || order.invoiceSettings?.accountManager || '',
           accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
           accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
+          showSecondaryAccountManager: order.invoiceSettings?.showSecondaryAccountManager ?? custSettings.showSecondaryAccountManager ?? false,
+          secondaryAccountManager: order.secondaryAccountManager || custSettings.secondaryAccountManager || order.invoiceSettings?.secondaryAccountManager || '',
+          secondaryAccountManagerEmail: order.secondaryAccountManagerEmail || custSettings.secondaryAccountManagerEmail || order.invoiceSettings?.secondaryAccountManagerEmail || '',
+          secondaryAccountManagerPhone: order.secondaryAccountManagerPhone || custSettings.secondaryAccountManagerPhone || order.invoiceSettings?.secondaryAccountManagerPhone || '',
           additionalEmails: order.additionalEmails || custSettings.additionalEmails || order.invoiceSettings?.additionalEmails || '',
           estimatedBoxCount: order.estimatedBoxCount || order.invoiceSettings?.estimatedBoxCount || '',
           poNumber: order.poNumber || '',
@@ -1734,6 +1742,9 @@ export function OrderDetail() {
         accountManager: (orderInvoiceForm as any).accountManager || '',
         accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
         accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
+        secondaryAccountManager: (orderInvoiceForm as any).secondaryAccountManager || '',
+        secondaryAccountManagerEmail: (orderInvoiceForm as any).secondaryAccountManagerEmail || '',
+        secondaryAccountManagerPhone: (orderInvoiceForm as any).secondaryAccountManagerPhone || '',
         additionalEmails: (orderInvoiceForm as any).additionalEmails || '',
         estimatedBoxCount: parseInt(String((orderInvoiceForm as any).estimatedBoxCount)) || 0,
         poNumber: orderInvoiceForm.poNumber,
@@ -8828,6 +8839,63 @@ export function OrderDetail() {
                         value={(orderInvoiceForm as any).accountManagerPhone || ''}
                         onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerPhone: e.target.value } as any)}
                         placeholder="e.g. 555-0192"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={!(orderInvoiceForm as any).showSecondaryAccountManager ? 'opacity-50' : ''}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider">Secondary Account Manager</span>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showSecondaryAccountManager: !(orderInvoiceForm as any).showSecondaryAccountManager } as any)}
+                      title={(orderInvoiceForm as any).showSecondaryAccountManager ? 'Visible on invoice (click to hide)' : 'Hidden on invoice (click to show)'}
+                      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${(orderInvoiceForm as any).showSecondaryAccountManager ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${(orderInvoiceForm as any).showSecondaryAccountManager ? 'translate-x-3' : 'translate-x-0'}`}
+                      />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Name
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).secondaryAccountManager || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, secondaryAccountManager: e.target.value } as any)}
+                        placeholder="e.g. Austin P"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Email
+                      </label>
+                      <input
+                        type="email"
+                        value={(orderInvoiceForm as any).secondaryAccountManagerEmail || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, secondaryAccountManagerEmail: e.target.value } as any)}
+                        placeholder="e.g. austin@company.com"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                        Manager Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={(orderInvoiceForm as any).secondaryAccountManagerPhone || ''}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, secondaryAccountManagerPhone: e.target.value } as any)}
+                        placeholder="e.g. 555-0193"
                         className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                       />
                     </div>

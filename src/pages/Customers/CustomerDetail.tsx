@@ -164,6 +164,10 @@ export function CustomerDetail() {
     wireSwiftCode: "XXXXXXXX",
     wireAccountName: "Catalyst",
     wireAccountNumber: "XXXXXXXX",
+    showSecondaryAccountManager: false,
+    secondaryAccountManager: '',
+    secondaryAccountManagerEmail: '',
+    secondaryAccountManagerPhone: '',
     showPayButton: false,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: "https://stripe.com"
@@ -1966,6 +1970,10 @@ export function CustomerDetail() {
               wireSwiftCode: data.invoiceSettings.wireSwiftCode ?? "XXXXXXXX",
               wireAccountName: data.invoiceSettings.wireAccountName ?? "Catalyst",
               wireAccountNumber: data.invoiceSettings.wireAccountNumber ?? "XXXXXXXX",
+              showSecondaryAccountManager: data.invoiceSettings.showSecondaryAccountManager ?? false,
+              secondaryAccountManager: data.invoiceSettings.secondaryAccountManager ?? '',
+              secondaryAccountManagerEmail: data.invoiceSettings.secondaryAccountManagerEmail ?? '',
+              secondaryAccountManagerPhone: data.invoiceSettings.secondaryAccountManagerPhone ?? '',
               showPayButton: data.invoiceSettings.showPayButton ?? false,
               payButtonText: data.invoiceSettings.payButtonText ?? "CLICK TO PAY BY CREDIT CARD +3.5%",
               payButtonUrl: data.invoiceSettings.payButtonUrl ?? "https://stripe.com"
@@ -6121,6 +6129,47 @@ export function CustomerDetail() {
                                value={(invoiceForm as any).accountManagerPhone || ''}
                                onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerPhone: e.target.value } as any)}
                                placeholder="e.g. 555-0192"
+                               className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                             />
+                           </div>
+                         </div>
+
+                         <div className="grid grid-cols-3 gap-2.5">
+                           <div>
+                             <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                               Default Secondary Manager
+                             </label>
+                             <input
+                               type="text"
+                               value={(invoiceForm as any).secondaryAccountManager || ''}
+                               onChange={(e) => setInvoiceForm({ ...invoiceForm, secondaryAccountManager: e.target.value } as any)}
+                               placeholder="e.g. Austin P"
+                               className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                             />
+                           </div>
+
+                           <div>
+                             <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                               Secondary Manager Email
+                             </label>
+                             <input
+                               type="email"
+                               value={(invoiceForm as any).secondaryAccountManagerEmail || ''}
+                               onChange={(e) => setInvoiceForm({ ...invoiceForm, secondaryAccountManagerEmail: e.target.value } as any)}
+                               placeholder="e.g. austin@company.com"
+                               className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                             />
+                           </div>
+
+                           <div>
+                             <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                               Secondary Manager Phone
+                             </label>
+                             <input
+                               type="text"
+                               value={(invoiceForm as any).secondaryAccountManagerPhone || ''}
+                               onChange={(e) => setInvoiceForm({ ...invoiceForm, secondaryAccountManagerPhone: e.target.value } as any)}
+                               placeholder="e.g. 555-0193"
                                className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                              />
                            </div>
