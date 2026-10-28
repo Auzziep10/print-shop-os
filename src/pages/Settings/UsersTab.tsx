@@ -39,7 +39,7 @@ export function UsersTab() {
   const [resetSent, setResetSent] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const ROLES: UserRole[] = ['Staff', 'Printer', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
+  const ROLES: UserRole[] = ['Staff', 'Sales', 'Printer', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
 
   const fetchData = async () => {
     try {
@@ -240,9 +240,10 @@ export function UsersTab() {
             Leadership: 2,
             Manager: 3,
             Staff: 4,
-            Printer: 5,
-            Client: 6,
-            Pending: 7,
+            Sales: 5,
+            Printer: 6,
+            Client: 7,
+            Pending: 8,
           };
           const rankA = roleOrder[a.role] ?? 99;
           const rankB = roleOrder[b.role] ?? 99;

@@ -31,11 +31,14 @@ import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { NewCustomerModal } from './NewCustomerModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { userData } = useAuth();
+  const isSales = userData?.role === 'Sales';
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);
@@ -3402,7 +3405,7 @@ export function CustomerDetail() {
                              />
                              <span className="tooltiptext whitespace-nowrap z-[110]">{style}</span>
                              
-                             {uploadingDeckItemKey === itemKey ? (
+                             {!isSales && (uploadingDeckItemKey === itemKey ? (
                                 <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-xl">
                                   <Loader2 size={14} className="animate-spin text-white" />
                                 </div>
@@ -3431,7 +3434,7 @@ export function CustomerDetail() {
                                     </button>
                                   )}
                                 </div>
-                              )}
+                              ))}
                            </div>
                         );
                       })}
@@ -3650,7 +3653,7 @@ export function CustomerDetail() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!isDesignerRackCollapsed && subBrands.length === 0 && (
+                  {!isSales && !isDesignerRackCollapsed && subBrands.length === 0 && (
                     <PillButton
                       variant="outline"
                       className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
@@ -3718,16 +3721,18 @@ export function CustomerDetail() {
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
                         />
                       </div>
-                      <PillButton
-                        variant="outline"
-                        className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenNewDesignerRackModal();
-                        }}
-                      >
-                        <Plus size={14} /> Design
-                      </PillButton>
+                      {!isSales && (
+                        <PillButton
+                          variant="outline"
+                          className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenNewDesignerRackModal();
+                          }}
+                        >
+                          <Plus size={14} /> Design
+                        </PillButton>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3738,17 +3743,19 @@ export function CustomerDetail() {
               <div className="mt-4">
                 {filteredDesignerRack.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
-                    <p>No designs uploaded to the Designer Rack yet. Click below to upload a design.</p>
-                    <PillButton
-                      variant="filled"
-                      className="gap-1.5 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNewDesignerRackModal();
-                      }}
-                    >
-                      <Upload size={14} /> Upload Design
-                    </PillButton>
+                    <p>{isSales ? 'No designs uploaded to the Designer Rack yet.' : 'No designs uploaded to the Designer Rack yet. Click below to upload a design.'}</p>
+                    {!isSales && (
+                      <PillButton
+                        variant="filled"
+                        className="gap-1.5 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenNewDesignerRackModal();
+                        }}
+                      >
+                        <Upload size={14} /> Upload Design
+                      </PillButton>
+                    )}
                   </div>
                 ) : (
                   <div className={`grid grid-cols-1 ${liveCustomerData?.parentCustomerId ? 'md:grid-cols-2 xl:grid-cols-3' : 'xl:grid-cols-2'} gap-5`}>
@@ -3812,10 +3819,10 @@ export function CustomerDetail() {
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenEditDesignerRackModal(design);
+                                if (!isSales) handleOpenEditDesignerRackModal(design);
                               }}
-                              className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer z-10"
-                              title="Final Design Approved — Click to edit"
+                              className={`absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md ring-2 ring-white ${isSales ? 'cursor-default' : 'cursor-pointer'} z-10`}
+                              title={isSales ? 'Final Design Approved' : 'Final Design Approved — Click to edit'}
                             >
                               <Check size={13} strokeWidth={3} />
                             </div>
@@ -3823,10 +3830,10 @@ export function CustomerDetail() {
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleOpenEditDesignerRackModal(design);
+                                if (!isSales) handleOpenEditDesignerRackModal(design);
                               }}
-                              className="absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center shadow-md ring-2 ring-white cursor-pointer z-10"
-                              title={`Incomplete — Missing: ${missingFields.join(', ')}. Click to edit.`}
+                              className={`absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center shadow-md ring-2 ring-white ${isSales ? 'cursor-default' : 'cursor-pointer'} z-10`}
+                              title={isSales ? `Incomplete — Missing: ${missingFields.join(', ')}` : `Incomplete — Missing: ${missingFields.join(', ')}. Click to edit.`}
                             >
                               !
                             </div>
@@ -3900,30 +3907,32 @@ export function CustomerDetail() {
                                       </p>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEditDesignerRackModal(design);
-                                      }}
-                                      className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
-                                      title="Edit Design"
-                                    >
-                                      <Edit3 size={15} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
-                                      }}
-                                      className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                      title="Remove Design"
-                                    >
-                                      <Trash2 size={15} />
-                                    </button>
-                                  </div>
+                                  {!isSales && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenEditDesignerRackModal(design);
+                                        }}
+                                        className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit Design"
+                                      >
+                                        <Edit3 size={15} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
+                                        }}
+                                        className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Remove Design"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Logos Row */}
@@ -4148,12 +4157,12 @@ export function CustomerDetail() {
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isGarmentsSectionCollapsed && activeGarmentTab === 'suggested' && (
+                    {!isSales && !isGarmentsSectionCollapsed && activeGarmentTab === 'suggested' && (
                       <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
                         <Plus size={14} /> Add Suggestion
                       </PillButton>
                     )}
-                    {!isGarmentsSectionCollapsed && activeGarmentTab === 'samples' && (
+                    {!isSales && !isGarmentsSectionCollapsed && activeGarmentTab === 'samples' && (
                       <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
                         <Plus size={14} /> Add Sample Item
                       </PillButton>
@@ -4206,6 +4215,7 @@ export function CustomerDetail() {
                           </div>
                           <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
                         </div>
+                        {!isSales && (
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => openEditModal(item, 'suggested')}
@@ -4222,6 +4232,7 @@ export function CustomerDetail() {
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -4246,6 +4257,7 @@ export function CustomerDetail() {
                             <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full shrink-0">
                               {item.gender || 'Unisex'}
                             </span>
+                            {!isSales && (
                             <button
                               type="button"
                               onClick={() => handleToggleSampleVisibility(item.id, item.visible ?? true)}
@@ -4259,9 +4271,11 @@ export function CustomerDetail() {
                               {(item.visible ?? true) ? <Eye size={10} /> : <EyeOff size={10} />}
                               <span>{(item.visible ?? true) ? 'Visible' : 'Hidden'}</span>
                             </button>
+                            )}
                           </div>
                           <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
                         </div>
+                        {!isSales && (
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
@@ -4280,6 +4294,7 @@ export function CustomerDetail() {
                             <Trash2 size={16} />
                           </button>
                         </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -4304,7 +4319,7 @@ export function CustomerDetail() {
                             <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
                             <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Past Item'} {item.price > 0 ? `• $${item.price.toFixed(2)}` : ''}</p>
                           </div>
-                          {!isAlreadySuggested ? (
+                          {!isSales && (!isAlreadySuggested ? (
                             <button
                               onClick={async () => {
                                 try {
@@ -4335,7 +4350,7 @@ export function CustomerDetail() {
                             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
                               Suggested
                             </span>
-                          )}
+                          ))}
                         </div>
                       );
                     })}
@@ -4869,7 +4884,7 @@ export function CustomerDetail() {
                     <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-brand-border py-2 z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <button 
                         className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors text-left"
-                        onClick={() => { setIsShopifyMenuOpen(false); setIsNewOrderDialogOpen(true); }}
+                        onClick={() => { setIsShopifyMenuOpen(false); setNewOrderForm(prev => ({ ...prev, statusIndex: 0 })); setIsNewOrderDialogOpen(true); }}
                       >
                         <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
                           <Plus size={16} />
@@ -4909,6 +4924,17 @@ export function CustomerDetail() {
                  <h2 className={tokens.typography.h2}>Active Orders</h2>
                  <p className="text-sm text-brand-secondary mt-1">Approved pipeline and history for this company.</p>
               </div>
+              <PillButton
+                variant="filled"
+                className="gap-2"
+                onClick={() => {
+                  setNewOrderForm(prev => ({ ...prev, statusIndex: 3 }));
+                  setIsNewOrderDialogOpen(true);
+                }}
+              >
+                <Plus size={16} />
+                New Order
+              </PillButton>
            </div>
            {/* Injecting the exact visual component the customer sees! */}
            <div className="w-full">

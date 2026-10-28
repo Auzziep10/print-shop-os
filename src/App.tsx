@@ -91,6 +91,14 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
   }
   
   if (!hasPermission(permission)) {
+    if (permission === 'viewDashboard') {
+      if (hasPermission('manageCustomers')) {
+        return <Navigate to="/customers" replace />;
+      }
+      if (hasPermission('manageOrders')) {
+        return <Navigate to="/orders" replace />;
+      }
+    }
     return <ErrorPage code={403} />;
   }
   

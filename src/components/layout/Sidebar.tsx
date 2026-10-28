@@ -192,7 +192,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
       <div className="p-6 flex justify-between items-start">
-        <Link to="/dashboard" className="flex-1 mr-4 hover:opacity-80 transition-opacity">
+        <Link to={hasPermission('viewDashboard') ? '/dashboard' : hasPermission('manageCustomers') ? '/customers' : '/orders'} className="flex-1 mr-4 hover:opacity-80 transition-opacity">
           <span className="font-sans text-2xl font-black tracking-tighter uppercase text-neutral-900 select-none">
             INKTHEORY
           </span>

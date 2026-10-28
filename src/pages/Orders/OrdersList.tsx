@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
-import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { ProductionCalendar } from '../Dashboard/ProductionCalendar';
 import { Production } from '../Production/Production';
@@ -34,6 +34,78 @@ export function OrdersList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'calendar';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+  const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const todayDefault = new Date();
+  const [newOrderForm, setNewOrderForm] = useState({
+    customerId: '',
+    title: '',
+    rawDate: todayDefault.toLocaleDateString('en-CA'),
+    date: todayDefault.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+    fulfillmentType: 'Standard',
+    statusIndex: 0
+  });
+
+  const handleCreateOrder = async () => {
+    if (!newOrderForm.customerId || !newOrderForm.title.trim()) return;
+    setIsCreatingOrder(true);
+    try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('createdAt', '>=', todayStart.toISOString()),
+        where('createdAt', '<=', todayEnd.toISOString())
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const prefix = `${yy}${mm}${dd}-`;
+
+      let maxCount = 0;
+      ordersSnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.portalId && data.portalId.startsWith(prefix)) {
+          const suffix = data.portalId.split('-')[1];
+          if (suffix) {
+            const numericCount = parseInt(suffix, 10);
+            if (!isNaN(numericCount) && numericCount > maxCount) {
+              maxCount = numericCount;
+            }
+          }
+        }
+      });
+
+      const portalId = `${prefix}${maxCount + 1}`;
+      const selectedCust = liveCustomers[newOrderForm.customerId];
+      const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (selectedCust?.fulfillmentType ?? 'Standard');
+
+      const docRef = await addDoc(collection(db, 'orders'), {
+        customerId: newOrderForm.customerId,
+        portalId,
+        title: newOrderForm.title.trim(),
+        date: newOrderForm.date,
+        fulfillmentType: fulfillmentTypeToUse,
+        statusIndex: newOrderForm.statusIndex,
+        tracking: { carrier: '', number: '', url: '' },
+        items: [],
+        activities: [],
+        createdAt: new Date().toISOString()
+      });
+
+      setIsNewOrderModalOpen(false);
+      navigate(`/orders/${docRef.id}`);
+    } catch (err) {
+      console.error('Error creating order:', err);
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
 
   const displayedOrders = nonTempOrders.filter(order => {
     // 1. Tab filter
@@ -103,7 +175,7 @@ export function OrdersList() {
             <FileDown size={16} />
             Export
           </PillButton>
-          <PillButton variant="filled" className="gap-2">
+          <PillButton variant="filled" className="gap-2" onClick={() => setIsNewOrderModalOpen(true)}>
             <Plus size={16} />
             New Order
           </PillButton>
@@ -357,6 +429,114 @@ export function OrdersList() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Create New Order Modal */}
+      {isNewOrderModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+              <h3 className="font-serif text-2xl text-brand-primary">Create New Order</h3>
+              <button
+                onClick={() => setIsNewOrderModalOpen(false)}
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Customer</label>
+                <select
+                  value={newOrderForm.customerId}
+                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, customerId: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                >
+                  <option value="">Select a Customer...</option>
+                  {Object.entries(liveCustomers)
+                    .sort(([, a], [, b]) => ((a?.company || a?.contactName || '')).localeCompare(b?.company || b?.contactName || ''))
+                    .map(([cid, cust]) => (
+                      <option key={cid} value={cid}>
+                        {cust?.company && cust.company !== '-' ? cust.company : (cust?.contactName || cid)}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
+                <input
+                  type="text"
+                  value={newOrderForm.title}
+                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. Polos, Jackets, Accessories"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
+                <input
+                  type="date"
+                  value={newOrderForm.rawDate || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setNewOrderForm(prev => ({ ...prev, rawDate: '', date: '' }));
+                      return;
+                    }
+                    const [y, m, d] = val.split('-');
+                    const formatted = `${m}/${d}/${y.substring(2)}`;
+                    setNewOrderForm(prev => ({ ...prev, rawDate: val, date: formatted }));
+                  }}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm text-brand-primary focus:border-brand-primary focus:outline-none transition-colors min-h-[46px]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                  <select
+                    value={newOrderForm.fulfillmentType}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="Standard">Delivered</option>
+                    <option value="Kitting">Inventory &amp; Kitting</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                  <select
+                    value={newOrderForm.statusIndex.toString()}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value, 10) }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="0">0 - Quote</option>
+                    <option value="1">1 - Mgmt Notified</option>
+                    <option value="2">2 - Quote Sent</option>
+                    <option value="3">3 - Approved</option>
+                    <option value="4">4 - Shopping</option>
+                    <option value="5">5 - Ordered</option>
+                    <option value="6">6 - Processing</option>
+                    <option value="7">7 - Shipped</option>
+                    <option value="8">8 - Received</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-4 pt-4 border-t border-brand-border">
+                <PillButton variant="outline" onClick={() => setIsNewOrderModalOpen(false)} className="flex-1 justify-center py-3">
+                  Cancel
+                </PillButton>
+                <PillButton
+                  variant="filled"
+                  onClick={handleCreateOrder}
+                  className="flex-1 justify-center py-3"
+                  disabled={isCreatingOrder || !newOrderForm.customerId || !newOrderForm.title.trim()}
+                >
+                  {isCreatingOrder ? <Loader2 className="animate-spin" size={18} /> : <span>Create Order</span>}
+                </PillButton>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as fir
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer';
+export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer' | 'Sales';
 
 export interface UserData {
   id: string; // Firestore document ID
@@ -57,6 +57,15 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageCustomers: true,
     manageInventory: true,
     manageTeam: true,
+    manageSettings: false,
+    viewPricing: true,
+  },
+  Sales: {
+    viewDashboard: false,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: false,
+    manageTeam: false,
     manageSettings: false,
     viewPricing: true,
   },
@@ -135,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onSnapshot(doc(db, 'settings', 'permissions'), async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data().roles as PermissionsData;
-        setPermissions(data);
+        setPermissions({ ...DEFAULT_PERMISSIONS, ...data });
       } else {
         setPermissions(DEFAULT_PERMISSIONS);
         // Seed default permissions if logged in user is Admin or Leadership

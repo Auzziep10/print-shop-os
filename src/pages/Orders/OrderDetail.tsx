@@ -1138,6 +1138,7 @@ export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, userData, hasPermission } = useAuth();
+  const isSales = userData?.role === 'Sales';
   const { orders, loading } = useOrders();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -4201,7 +4202,7 @@ export function OrderDetail() {
   };
 
   const handleSaveItemEdit = async () => {
-    if (!id || !editItemObj) return;
+    if (!id || !editItemObj || isSales) return;
     setIsItemSaving(true);
     try {
       const orderData = orders.find(o => o.id === id);
@@ -4295,7 +4296,7 @@ export function OrderDetail() {
     }
   };
   const handleDeleteItem = async () => {
-    if (!id || !editItemObj) return;
+    if (!id || !editItemObj || isSales) return;
     
     // Only process deletion if user clicks OK
     if (!window.confirm("Are you sure you want to delete this item?")) return;
@@ -4329,7 +4330,7 @@ export function OrderDetail() {
   };
 
   const handleDuplicateItem = async (itemToDuplicate: any) => {
-    if (!id || !order) return;
+    if (!id || !order || isSales) return;
     setIsItemSaving(true);
     try {
       const existingItems = [...(order.items || [])];
@@ -5397,6 +5398,7 @@ export function OrderDetail() {
           <div>
             <div className="flex justify-between items-center mb-4 relative z-[100]">
                <h2 className={tokens.typography.h2}>Details</h2>
+               {!isSales && (
                <div className="flex items-center gap-3 relative z-[110] flex-wrap">
                  <PillButton 
                    variant="outline" 
@@ -5430,6 +5432,7 @@ export function OrderDetail() {
                     <Shirt size={14} /> Select Garment / Catalog
                   </PillButton>
                </div>
+               )}
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {garmentItems.length > 0 ? garmentItems.map((item: any) => (
@@ -5445,6 +5448,7 @@ export function OrderDetail() {
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
                         {/* Item Actions */}
+                        {!isSales && (
                         <div className="absolute top-0 right-0 flex gap-1.5 opacity-0 group-hover:opacity-100 z-10">
                           <button 
                             onClick={() => {
@@ -5533,9 +5537,11 @@ export function OrderDetail() {
                             <Edit3 size={14} />
                           </button>
                         </div>
+                        )}
 
                        {/* Left Side: Visual & Specs & Artwork */}
                        <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0 relative pl-6">
+                         {!isSales && (
                          <div 
                            className="absolute left-[-8px] top-1/2 -translate-y-1/2 text-brand-border hover:text-brand-primary transition-colors cursor-grab active:cursor-grabbing p-2"
                            onMouseEnter={() => setDraggableItemId(item.id)}
@@ -5543,6 +5549,7 @@ export function OrderDetail() {
                          >
                            <GripVertical size={20} />
                          </div>
+                         )}
                          <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
                              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 flex-1 min-w-0 w-full text-center sm:text-left">
@@ -5675,7 +5682,7 @@ export function OrderDetail() {
                                           <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
                                         </button>
                                       )}
-                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && (
+                                      {!isSales && !isDiscountItem(item) && !isNonGarmentItem(item) && (
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -5687,7 +5694,7 @@ export function OrderDetail() {
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
                                       )}
-                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
+                                      {!isSales && !isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -5937,14 +5944,17 @@ export function OrderDetail() {
                              return (
                              <div 
                                key={size} 
-                               className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
-                               onClick={(e) => { e.stopPropagation(); handleSizeClick(item, size, qty); }}
+                               className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col ${isSales ? 'cursor-default' : 'cursor-pointer'} transition-all relative ${wrapperClass}`}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 if (!isSales) handleSizeClick(item, size, qty);
+                               }}
                                onContextMenu={(e) => { 
                                  e.preventDefault(); 
                                  e.stopPropagation(); 
-                                 setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
+                                 if (!isSales) setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
                                }}
-                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : (isOrdered ? "Ordered. Click to mark as received" : "Click to mark as received")))}
+                               title={isSales ? `${size}: ${qty}` : (isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : (isOrdered ? "Ordered. Click to mark as received" : "Click to mark as received"))))}
                              >
                                {/* Hover hints */}
                                {isReturned && (

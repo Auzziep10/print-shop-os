@@ -3928,7 +3928,7 @@ export function TeamMeetings() {
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Visible to Roles (Leave empty for everyone)</label>
                   <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-[#ded8ce] rounded-lg min-h-[40px]">
-                    {['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].map(role => {
+                    {['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer'].map(role => {
                       const isSelected = templateVisibleRolesInput.includes(role);
                       return (
                         <button

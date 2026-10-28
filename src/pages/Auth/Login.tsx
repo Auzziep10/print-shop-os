@@ -48,6 +48,10 @@ export function Login() {
         navigate(`/portal/${userData.customerId || ''}`);
       } else if (userData.role === 'Pending') {
         navigate('/waiting');
+      } else if (userData.role === 'Sales') {
+        const from = (location.state as any)?.from;
+        const destination = from && from.pathname !== '/dashboard' ? (from.pathname + from.search + from.hash) : '/customers';
+        navigate(destination, { replace: true });
       } else {
         const from = (location.state as any)?.from;
         const destination = from ? (from.pathname + from.search + from.hash) : '/';
