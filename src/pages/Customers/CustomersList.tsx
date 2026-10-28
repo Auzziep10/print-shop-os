@@ -65,7 +65,12 @@ export function CustomersList() {
       const liveData = liveCustomers[id] || {};
       const companyString = liveData.company || '-';
       
-      const customerOrders = orders.filter(o => o.customerId === id);
+      const subCustomerIds = new Set(
+        Object.entries(liveCustomers)
+          .filter(([, c]: [string, any]) => c?.parentCustomerId === id)
+          .map(([subId]) => subId)
+      );
+      const customerOrders = orders.filter(o => o.customerId === id || subCustomerIds.has(o.customerId));
       const placedCustomerOrders = customerOrders.filter(o => isPlacedOrder(o));
       const ordersToDate = placedCustomerOrders.length;
       

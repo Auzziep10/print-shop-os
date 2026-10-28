@@ -3442,13 +3442,14 @@ export function CustomerDetail() {
           </div>
         )}
 
-        {/* Brands (Sub-Customers) Full-Width Dropdown Box - Hidden on subcustomer pages */}
+        {/* Brands & Designer Rack Row - Side-by-side on parent companies, full-width Designer Rack on subcustomers */}
+        <div className={`grid grid-cols-1 ${!liveCustomerData?.parentCustomerId ? 'lg:grid-cols-2' : ''} gap-8 mt-4 items-start`}>
         {!liveCustomerData?.parentCustomerId && (
         <div
           onClick={() => {
             if (isBrandsSectionCollapsed) setIsBrandsSectionCollapsed(false);
           }}
-          className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4 ${
+          className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 ${
             isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
           }`}
         >
@@ -3523,7 +3524,7 @@ export function CustomerDetail() {
                   </PillButton>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   {subBrands.map((brand: any) => {
                     const brandName = brand.company && brand.company !== '-' ? brand.company : (brand.contactName || 'Unnamed Brand');
                     const shippingLine = brand.shippingStreet
@@ -3616,12 +3617,12 @@ export function CustomerDetail() {
         </div>
         )}
 
-        {/* Designer Rack Full-Width Dropdown Box - Shown on parent companies (under Brands) and subcustomers */}
+        {/* Designer Rack Dropdown Box - To the right of Brands on parent companies, full-width on subcustomers */}
           <div
             onClick={() => {
               if (isDesignerRackCollapsed) setIsDesignerRackCollapsed(false);
             }}
-            className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 mt-4 ${
+            className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 ${
               isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
             }`}
           >
@@ -3750,7 +3751,7 @@ export function CustomerDetail() {
                     </PillButton>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  <div className={`grid grid-cols-1 ${liveCustomerData?.parentCustomerId ? 'md:grid-cols-2 xl:grid-cols-3' : 'xl:grid-cols-2'} gap-5`}>
                     {filteredDesignerRack.map((design: any) => {
                       const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
                         ? design.mockups
@@ -4031,6 +4032,7 @@ export function CustomerDetail() {
               </div>
             )}
           </div>
+        </div>
 
         {/* Suggested Items & Asset Vault Row */}
         <div

@@ -281,7 +281,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   } | null>(null);
 
   useEffect(() => {
-    if (!overrideCustomerId || !currentCustomerId) {
+    if (!currentCustomerId) {
       setFamilyBrands([]);
       setParentCustomerDoc(null);
       return;
@@ -312,7 +312,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       }
     );
     return () => unsub();
-  }, [overrideCustomerId, currentCustomerId, customer?.parentCustomerId]);
+  }, [currentCustomerId, customer?.parentCustomerId]);
 
   useEffect(() => {
     if (!orderContextMenu) return;
@@ -331,6 +331,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   }, [orderContextMenu]);
 
   const moveTargets = (() => {
+    const orderOwnerId = orderContextMenu?.order?.customerId || currentCustomerId;
+    const rootParentId = customer?.parentCustomerId || currentCustomerId;
     const targets: Array<{
       id: string;
       name: string;
@@ -338,22 +340,26 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       isParent: boolean;
     }> = [];
 
-    if (customer?.parentCustomerId) {
-      const parentName =
-        parentCustomerDoc?.company ||
-        customer.parentCompanyName ||
-        parentCustomerDoc?.contactName ||
-        'Parent Customer';
+    if (orderOwnerId !== rootParentId) {
+      const parentName = customer?.parentCustomerId
+        ? (parentCustomerDoc?.company ||
+          customer.parentCompanyName ||
+          parentCustomerDoc?.contactName ||
+          'Parent Customer')
+        : (customer?.company || customer?.contactName || 'Parent Customer');
+      const parentLogo = customer?.parentCustomerId
+        ? (parentCustomerDoc?.croppedLogo || parentCustomerDoc?.logo || null)
+        : (customer?.croppedLogo || customer?.logo || null);
       targets.push({
-        id: customer.parentCustomerId,
+        id: rootParentId,
         name: parentName,
-        logo: parentCustomerDoc?.croppedLogo || parentCustomerDoc?.logo || null,
+        logo: parentLogo,
         isParent: true
       });
     }
 
     familyBrands.forEach((b: any) => {
-      if (b.id === currentCustomerId) return;
+      if (b.id === orderOwnerId) return;
       const bName = b.company && b.company !== '-' ? b.company : b.contactName || 'Unnamed Brand';
       targets.push({
         id: b.id,
@@ -968,6 +974,16 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
          // Calculate the percentage width for the progress bar fill
          const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
          const needsAction = order.statusIndex === 2 || order.statusIndex === 3;
+         const orderSubBrand =
+           order.customerId && order.customerId !== currentCustomerId
+             ? familyBrands.find((b: any) => b.id === order.customerId)
+             : null;
+         const orderOwnerLogo = orderSubBrand
+           ? (orderSubBrand.croppedLogo || orderSubBrand.logo || null)
+           : (customer?.croppedLogo || customer?.logo || null);
+         const orderOwnerName = orderSubBrand
+           ? (orderSubBrand.company && orderSubBrand.company !== '-' ? orderSubBrand.company : (orderSubBrand.contactName || 'Sub-Brand'))
+           : (customer?.company || customer?.contactName || 'Customer');
 
          return (
            <div 
@@ -1024,11 +1040,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           </div>
                         </div>
                       )}
-                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
+                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300" title={orderOwnerName}>
                      {fetchingLogo ? (
                        <Loader2 className="animate-spin text-neutral-300" size={24} />
-                     ) : (customer?.croppedLogo || customer?.logo) ? (
-                       <img src={customer.croppedLogo || customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
+                     ) : orderOwnerLogo ? (
+                       <img src={orderOwnerLogo} alt={`${orderOwnerName} Logo`} className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                      ) : (
                        <Building2 size={32} strokeWidth={1.5} />
                      )}
@@ -1928,7 +1944,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
       {payingOrder && (
         <StripePaymentModal 
-          customer={customer}
+          customer={(payingOrder.customerId && payingOrder.customerId !== currentCustomerId ? familyBrands.find((b: any) => b.id === payingOrder.customerId) : null) || customer}
           order={localOrders.find(o => o.id === payingOrder.id) || payingOrder} 
           onClose={() => setPayingOrder(null)} 
           onSuccess={() => {
