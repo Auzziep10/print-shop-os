@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
@@ -43,11 +43,38 @@ export function OrdersList() {
     rawDate: todayDefault.toLocaleDateString('en-CA'),
     date: todayDefault.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
     fulfillmentType: 'Standard',
-    statusIndex: 0
+    statusIndex: 0,
+    trackingCarrier: '',
+    trackingNumber: '',
+    orderNotes: '',
+    highPriority: false,
+    personalInfo: {
+      isIndividual: false,
+      gender: '',
+      size: ''
+    },
+    shippingAddress: {
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      notes: ''
+    }
   });
 
   const handleCreateOrder = async () => {
     if (!newOrderForm.customerId || !newOrderForm.title.trim()) return;
+    if (newOrderForm.personalInfo?.isIndividual) {
+      if (!newOrderForm.personalInfo.gender || !newOrderForm.personalInfo.size) {
+        alert('Please select both Gender and Size when "Individual?" is checked.');
+        return;
+      }
+    }
     setIsCreatingOrder(true);
     try {
       const todayStart = new Date();
@@ -84,6 +111,31 @@ export function OrdersList() {
       const portalId = `${prefix}${maxCount + 1}`;
       const selectedCust = liveCustomers[newOrderForm.customerId];
       const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (selectedCust?.fulfillmentType ?? 'Standard');
+      const addr = newOrderForm.shippingAddress;
+      const hasCustomAddr = Boolean(addr.street1 || addr.city || addr.name);
+      const finalShippingAddress = hasCustomAddr ? addr : {
+        name: selectedCust?.contactName || '',
+        company: selectedCust?.company || selectedCust?.name || '',
+        street1: selectedCust?.shippingStreet || '',
+        street2: '',
+        city: selectedCust?.shippingCity || '',
+        state: selectedCust?.shippingState || '',
+        zip: selectedCust?.shippingZip || '',
+        country: 'US',
+        phone: selectedCust?.phone || '',
+        notes: ''
+      };
+      const personalInfoToSave = newOrderForm.personalInfo?.isIndividual
+        ? {
+            isIndividual: true,
+            gender: newOrderForm.personalInfo.gender.trim(),
+            size: newOrderForm.personalInfo.size.trim()
+          }
+        : {
+            isIndividual: false,
+            gender: '',
+            size: ''
+          };
 
       const docRef = await addDoc(collection(db, 'orders'), {
         customerId: newOrderForm.customerId,
@@ -92,7 +144,26 @@ export function OrdersList() {
         date: newOrderForm.date,
         fulfillmentType: fulfillmentTypeToUse,
         statusIndex: newOrderForm.statusIndex,
-        tracking: { carrier: '', number: '', url: '' },
+        highPriority: Boolean(newOrderForm.highPriority),
+        orderNotes: (newOrderForm.orderNotes || '').trim(),
+        notes: (newOrderForm.orderNotes || '').trim(),
+        personalInfo: personalInfoToSave,
+        shippingAddress: finalShippingAddress,
+        shippingDestinations: [
+          {
+            id: 'dest-primary',
+            label: 'Primary Destination',
+            ...finalShippingAddress,
+            isDefault: true
+          }
+        ],
+        tracking: {
+          carrier: newOrderForm.trackingCarrier,
+          number: newOrderForm.trackingNumber,
+          url: ''
+        },
+        trackingCarrier: newOrderForm.trackingCarrier,
+        trackingNumber: newOrderForm.trackingNumber,
         items: [],
         activities: [],
         createdAt: new Date().toISOString()
@@ -433,107 +504,384 @@ export function OrdersList() {
 
       {/* Create New Order Modal */}
       {isNewOrderModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-brand-bg max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-4xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
-              <h3 className="font-serif text-2xl text-brand-primary">Create New Order</h3>
+              <div>
+                <h3 className="font-serif text-2xl text-brand-primary">Create New Order</h3>
+                <p className="text-xs text-brand-secondary mt-0.5">
+                  Configure order details, individual sizing, shipping destination, and internal notes.
+                </p>
+              </div>
               <button
                 onClick={() => setIsNewOrderModalOpen(false)}
-                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1 cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 flex flex-col gap-5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Customer</label>
-                <select
-                  value={newOrderForm.customerId}
-                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, customerId: e.target.value }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                >
-                  <option value="">Select a Customer...</option>
-                  {Object.entries(liveCustomers)
-                    .sort(([, a], [, b]) => ((a?.company || a?.contactName || '')).localeCompare(b?.company || b?.contactName || ''))
-                    .map(([cid, cust]) => (
-                      <option key={cid} value={cid}>
-                        {cust?.company && cust.company !== '-' ? cust.company : (cust?.contactName || cid)}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
-                <input
-                  type="text"
-                  value={newOrderForm.title}
-                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  placeholder="e.g. Polos, Jackets, Accessories"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
-                <input
-                  type="date"
-                  value={newOrderForm.rawDate || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) {
-                      setNewOrderForm(prev => ({ ...prev, rawDate: '', date: '' }));
-                      return;
-                    }
-                    const [y, m, d] = val.split('-');
-                    const formatted = `${m}/${d}/${y.substring(2)}`;
-                    setNewOrderForm(prev => ({ ...prev, rawDate: val, date: formatted }));
-                  }}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm text-brand-primary focus:border-brand-primary focus:outline-none transition-colors min-h-[46px]"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 overflow-y-auto max-h-[78vh] custom-scrollbar bg-white">
+              {/* Left Column: Core Order Info */}
+              <div className="flex flex-col gap-5">
+                <div className="pb-2 border-b border-brand-border flex items-center justify-between gap-3 flex-wrap">
+                  <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
+                    <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.highPriority)}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, highPriority: e.target.checked }))}
+                        className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
+                      />
+                      <span className="text-xs font-bold text-red-700">High Priority</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.personalInfo?.isIndividual)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setNewOrderForm(prev => ({
+                            ...prev,
+                            personalInfo: {
+                              ...prev.personalInfo,
+                              isIndividual: checked
+                            }
+                          }));
+                        }}
+                        className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-brand-primary">Individual?</span>
+                    </label>
+                  </div>
+                </div>
+
+                {newOrderForm.personalInfo?.isIndividual && (
+                  <div className="p-4 bg-pink-50/40 rounded-xl border border-pink-200/80 space-y-3">
+                    <p className="text-[11px] text-pink-900 font-semibold">
+                      🔒 Admin only — not shown on customer profile. Displayed next to the order title.
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Gender *</label>
+                        <select
+                          required
+                          value={newOrderForm.personalInfo?.gender || ''}
+                          onChange={(e) => setNewOrderForm(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, gender: e.target.value } }))}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary focus:outline-none transition-colors font-semibold"
+                        >
+                          <option value="">Select gender...</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Unisex">Unisex</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Size *</label>
+                        <select
+                          required
+                          value={newOrderForm.personalInfo?.size || ''}
+                          onChange={(e) => setNewOrderForm(prev => ({ ...prev, personalInfo: { ...prev.personalInfo, size: e.target.value } }))}
+                          className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary focus:outline-none transition-colors font-semibold"
+                        >
+                          <option value="">Select size...</option>
+                          {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Customer *</label>
                   <select
-                    value={newOrderForm.fulfillmentType}
-                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    value={newOrderForm.customerId}
+                    onChange={(e) => {
+                      const cid = e.target.value;
+                      const cust = cid ? liveCustomers[cid] : null;
+                      setNewOrderForm(prev => ({
+                        ...prev,
+                        customerId: cid,
+                        shippingAddress: cust ? {
+                          name: cust.contactName || '',
+                          company: cust.company && cust.company !== '-' ? cust.company : '',
+                          street1: cust.shippingStreet || '',
+                          street2: '',
+                          city: cust.shippingCity || '',
+                          state: cust.shippingState || '',
+                          zip: cust.shippingZip || '',
+                          country: 'US',
+                          phone: cust.phone || '',
+                          notes: ''
+                        } : prev.shippingAddress
+                      }));
+                    }}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                   >
-                    <option value="Standard">Delivered</option>
-                    <option value="Kitting">Inventory &amp; Kitting</option>
+                    <option value="">Select a Customer...</option>
+                    {Object.entries(liveCustomers)
+                      .sort(([, a], [, b]) => ((a?.company || a?.contactName || '')).localeCompare(b?.company || b?.contactName || ''))
+                      .map(([cid, cust]) => (
+                        <option key={cid} value={cid}>
+                          {cust?.company && cust.company !== '-' ? cust.company : (cust?.contactName || cid)}
+                        </option>
+                      ))}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
-                  <select
-                    value={newOrderForm.statusIndex.toString()}
-                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value, 10) }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  >
-                    <option value="0">0 - Quote</option>
-                    <option value="1">1 - Mgmt Notified</option>
-                    <option value="2">2 - Quote Sent</option>
-                    <option value="3">3 - Approved</option>
-                    <option value="4">4 - Shopping</option>
-                    <option value="5">5 - Ordered</option>
-                    <option value="6">6 - Processing</option>
-                    <option value="7">7 - Shipped</option>
-                    <option value="8">8 - Received</option>
-                  </select>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title *</label>
+                  <input
+                    type="text"
+                    value={newOrderForm.title}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    placeholder="e.g. Polos, Jackets, Accessories"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
+                  <input
+                    type="date"
+                    value={newOrderForm.rawDate || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) {
+                        setNewOrderForm(prev => ({ ...prev, rawDate: '', date: '' }));
+                        return;
+                      }
+                      const [y, m, d] = val.split('-');
+                      const formatted = `${m}/${d}/${y.substring(2)}`;
+                      setNewOrderForm(prev => ({ ...prev, rawDate: val, date: formatted }));
+                    }}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm text-brand-primary focus:border-brand-primary focus:outline-none transition-colors min-h-[46px]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                    <select
+                      value={newOrderForm.fulfillmentType}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    >
+                      <option value="Standard">Delivered</option>
+                      <option value="Kitting">Inventory &amp; Kitting</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                    <select
+                      value={newOrderForm.statusIndex.toString()}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value, 10) }))}
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    >
+                      <option value="0">0 - Quote</option>
+                      <option value="1">1 - Mgmt Notified</option>
+                      <option value="2">2 - Quote Sent</option>
+                      <option value="3">3 - Approved</option>
+                      <option value="4">4 - Shopping</option>
+                      <option value="5">5 - Ordered</option>
+                      <option value="6">6 - Processing</option>
+                      <option value="7">7 - Shipped</option>
+                      <option value="8">8 - Received</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Carrier</label>
+                    <select
+                      value={newOrderForm.trackingCarrier}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, trackingCarrier: e.target.value }))}
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    >
+                      <option value="">Pickup / Local</option>
+                      <option value="UPS">UPS</option>
+                      <option value="FedEx">FedEx</option>
+                      <option value="USPS">USPS</option>
+                      <option value="DHL">DHL</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Tracking Number</label>
+                    <input
+                      type="text"
+                      value={newOrderForm.trackingNumber}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                      placeholder="e.g. 1Z9999..."
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Notes (Internal)</label>
+                  <textarea
+                    rows={3}
+                    value={newOrderForm.orderNotes || ''}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, orderNotes: e.target.value }))}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors resize-none"
+                    placeholder="Add internal notes, sizing details, or instructions for this order..."
+                  />
                 </div>
               </div>
-              <div className="flex gap-4 pt-4 border-t border-brand-border">
-                <PillButton variant="outline" onClick={() => setIsNewOrderModalOpen(false)} className="flex-1 justify-center py-3">
-                  Cancel
-                </PillButton>
-                <PillButton
-                  variant="filled"
-                  onClick={handleCreateOrder}
-                  className="flex-1 justify-center py-3"
-                  disabled={isCreatingOrder || !newOrderForm.customerId || !newOrderForm.title.trim()}
-                >
-                  {isCreatingOrder ? <Loader2 className="animate-spin" size={18} /> : <span>Create Order</span>}
-                </PillButton>
+
+              {/* Right Column: Shipping Information */}
+              <div className="flex flex-col gap-4">
+                <div className="pb-2 border-b border-brand-border flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
+                    <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div> Shipping Information
+                  </h4>
+                  {newOrderForm.customerId && liveCustomers[newOrderForm.customerId] && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cust = liveCustomers[newOrderForm.customerId];
+                        if (!cust) return;
+                        setNewOrderForm(prev => ({
+                          ...prev,
+                          shippingAddress: {
+                            ...prev.shippingAddress,
+                            name: cust.contactName || prev.shippingAddress.name || '',
+                            company: cust.company && cust.company !== '-' ? cust.company : '',
+                            street1: cust.shippingStreet || '',
+                            street2: '',
+                            city: cust.shippingCity || '',
+                            state: cust.shippingState || '',
+                            zip: cust.shippingZip || '',
+                            country: 'US',
+                            phone: cust.phone || prev.shippingAddress.phone || ''
+                          }
+                        }));
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy size={11} /> Copy Company Address
+                    </button>
+                  )}
+                </div>
+
+                <div className="bg-neutral-50/70 p-4 rounded-xl border border-brand-border space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Recipient Name</label>
+                      <input
+                        type="text"
+                        placeholder="Recipient Name"
+                        value={newOrderForm.shippingAddress?.name || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, name: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Company (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Company (Optional)"
+                        value={newOrderForm.shippingAddress?.company || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, company: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      placeholder="Street Address"
+                      value={newOrderForm.shippingAddress?.street1 || ''}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, street1: e.target.value } }))}
+                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none mb-2"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Apt, Suite, Unit, Dock (Optional)"
+                      value={newOrderForm.shippingAddress?.street2 || ''}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, street2: e.target.value } }))}
+                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-12 gap-2">
+                    <div className="col-span-5">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">City</label>
+                      <input
+                        type="text"
+                        placeholder="City"
+                        value={newOrderForm.shippingAddress?.city || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, city: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">State</label>
+                      <input
+                        type="text"
+                        placeholder="ST"
+                        maxLength={3}
+                        value={newOrderForm.shippingAddress?.state || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, state: e.target.value.toUpperCase() } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none uppercase font-bold"
+                      />
+                    </div>
+                    <div className="col-span-4">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Zip</label>
+                      <input
+                        type="text"
+                        placeholder="Zip"
+                        value={newOrderForm.shippingAddress?.zip || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, zip: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Phone (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Phone"
+                        value={newOrderForm.shippingAddress?.phone || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, phone: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">Delivery Notes (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Loading dock code #1234"
+                        value={newOrderForm.shippingAddress?.notes || ''}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, shippingAddress: { ...prev.shippingAddress, notes: e.target.value } }))}
+                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
+            <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border">
+              <PillButton variant="outline" onClick={() => setIsNewOrderModalOpen(false)} className="flex-1 justify-center py-3">
+                Cancel
+              </PillButton>
+              <PillButton
+                variant="filled"
+                onClick={handleCreateOrder}
+                className="flex-1 justify-center py-3"
+                disabled={isCreatingOrder || !newOrderForm.customerId || !newOrderForm.title.trim()}
+              >
+                {isCreatingOrder ? <Loader2 className="animate-spin" size={18} /> : <span>Create Order</span>}
+              </PillButton>
             </div>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -1161,6 +1161,23 @@ export function OrderDetail() {
     highPriority: false
   });
   const [activeDestIndex, setActiveDestIndex] = useState(0);
+  const [isOrderNotesExpanded, setIsOrderNotesExpanded] = useState(false);
+  const [isEditingOrderNote, setIsEditingOrderNote] = useState(false);
+  const [savingOrderNote, setSavingOrderNote] = useState(false);
+  const [orderNoteText, setOrderNoteText] = useState('');
+
+  const handleSaveOrderNotes = async () => {
+    if (!id) return;
+    setSavingOrderNote(true);
+    try {
+      await setDoc(doc(db, 'orders', id), { orderNotes: orderNoteText, notes: orderNoteText }, { merge: true });
+      setIsEditingOrderNote(false);
+    } catch (err) {
+      console.error('Failed to save order notes:', err);
+    } finally {
+      setSavingOrderNote(false);
+    }
+  };
 
   const [isInvoiceEditorOpen, setIsInvoiceEditorOpen] = useState(false);
   const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
@@ -4470,6 +4487,7 @@ export function OrderDetail() {
         highPriority: Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high')
       });
       setActiveDestIndex(0);
+      setOrderNoteText(order.orderNotes !== undefined ? order.orderNotes : (order.notes || ''));
     }
   }, [orders, id, liveCustomer]);
 
@@ -5109,17 +5127,32 @@ export function OrderDetail() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-3 flex-wrap mb-2">
-                    <h1 
-                      onClick={() => {
-                        setTempTitle(order.title || 'Untitled Order');
-                        setIsEditingTitle(true);
-                      }}
-                      className="font-serif text-4xl text-brand-primary line-clamp-2 md:line-clamp-none leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-2 group"
-                      title="Click to edit order name"
-                    >
-                      {order.title || 'Untitled Order'}
-                      <Edit3 size={18} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    </h1>
+                      <div
+                        onClick={() => setIsOrderNotesExpanded(!isOrderNotesExpanded)}
+                        className="flex items-center gap-2.5 cursor-pointer group w-fit"
+                        title="Click to expand Shipping Info & Order Notes"
+                      >
+                        <h1 className="font-serif text-4xl text-brand-primary group-hover:text-black line-clamp-2 md:line-clamp-none leading-tight transition-colors">
+                          {order.title || 'Untitled Order'}
+                        </h1>
+                        <ChevronRight
+                          size={22}
+                          strokeWidth={3}
+                          className={`text-brand-secondary group-hover:text-brand-primary transition-all duration-300 ease-out shrink-0 ${isOrderNotesExpanded ? 'rotate-90' : ''}`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTempTitle(order.title || 'Untitled Order');
+                          setIsEditingTitle(true);
+                        }}
+                        className="p-1.5 rounded-lg text-neutral-300 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer shrink-0"
+                        title="Rename Order Title"
+                      >
+                        <Edit3 size={16} />
+                      </button>
                     {isHighPriority && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
                         <TriangleAlert size={11} />
@@ -5378,6 +5411,99 @@ export function OrderDetail() {
                  </div>
                )}
             </div>
+
+            {/* Expanded Shipping Info & Order Notes (Nested in Header Card, matching CustomerDetail) */}
+            <div className={`grid transition-all duration-500 ease-in-out ${isOrderNotesExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+              <div className="overflow-hidden">
+                <div className="bg-brand-bg/50 rounded-[1.5rem] p-6 lg:p-8 flex flex-col lg:flex-row gap-8 shadow-inner border border-brand-border/40 mt-6 lg:mt-8">
+                  <div className="flex-1">
+                    <h4 className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-brand-secondary mb-3">
+                      <Phone size={14} className="opacity-70" /> Shipping Info
+                    </h4>
+                    {(() => {
+                      const primaryDest = (order.shippingDestinations && order.shippingDestinations[0]) || order.shippingAddress || {};
+                      const street1 = primaryDest.street1 || liveCustomer?.shippingStreet || '';
+                      const street2 = primaryDest.street2 || '';
+                      const city = primaryDest.city || liveCustomer?.shippingCity || '';
+                      const state = primaryDest.state || liveCustomer?.shippingState || '';
+                      const zip = primaryDest.zip || liveCustomer?.shippingZip || '';
+                      const recName = primaryDest.name || liveCustomer?.contactName || '';
+                      const recPhone = primaryDest.phone || liveCustomer?.phone || '';
+                      const delivNotes = primaryDest.notes || '';
+                      if (street1 || city || recName) {
+                        return (
+                          <div className="text-brand-primary text-[15px] font-medium pl-6 leading-relaxed space-y-0.5">
+                            {recName && <p className="font-bold">{recName}</p>}
+                            {street1 && <p>{street1}{street2 ? `, ${street2}` : ''}</p>}
+                            {(city || state || zip) && (
+                              <p>{city}{state ? `, ${state}` : ''} {zip}</p>
+                            )}
+                            {recPhone && <p className="text-xs text-brand-secondary mt-1">{recPhone}</p>}
+                            {delivNotes && <p className="text-xs text-brand-secondary italic mt-1">Note: {delivNotes}</p>}
+                          </div>
+                        );
+                      }
+                      return (
+                        <p className="text-brand-primary text-[15px] font-medium pl-6 text-brand-secondary/60 italic">
+                          {liveCustomer?.location || 'No shipping address set'}
+                        </p>
+                      );
+                    })()}
+                  </div>
+
+                  <div className="hidden lg:block w-px bg-brand-border/60" />
+                  <div className="block lg:hidden h-px bg-brand-border/60" />
+
+                  <div className="flex-[2]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h4 className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary">Order Notes</h4>
+                      {!isEditingOrderNote && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setIsEditingOrderNote(true); }}
+                          className="text-sm bg-brand-border/40 hover:bg-brand-border p-1.5 rounded-md text-brand-secondary hover:text-brand-primary transition-colors inline-flex items-center cursor-pointer"
+                          title="Edit Order Notes"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {isEditingOrderNote ? (
+                      <div className="flex items-center gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          value={orderNoteText}
+                          onChange={e => setOrderNoteText(e.target.value)}
+                          className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
+                          placeholder="Add internal order notes..."
+                          autoFocus
+                          disabled={savingOrderNote}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveOrderNotes();
+                            if (e.key === 'Escape') {
+                              setOrderNoteText(order.orderNotes !== undefined ? order.orderNotes : (order.notes || ''));
+                              setIsEditingOrderNote(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveOrderNotes}
+                          disabled={savingOrderNote}
+                          className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50"
+                        >
+                          {savingOrderNote ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-brand-primary text-[15px] leading-relaxed pl-1 max-w-4xl whitespace-pre-wrap">
+                        {orderNoteText || 'No internal order notes added.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -5595,7 +5721,7 @@ export function OrderDetail() {
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )
                                 )}
-                                {item.image && (
+                                {!isSales && item.image && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -5662,7 +5788,7 @@ export function OrderDetail() {
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
-                                {(() => {
+                                {!isSales && (() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
@@ -5944,7 +6070,7 @@ export function OrderDetail() {
                              return (
                              <div 
                                key={size} 
-                               className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col ${isSales ? 'cursor-default' : 'cursor-pointer'} transition-all relative ${wrapperClass}`}
+                               className={`min-w-[44px] px-0.5 text-center flex flex-col ${isSales ? 'cursor-default' : `group/sizebtn cursor-pointer ${wrapperClass}`} transition-all relative`}
                                onClick={(e) => {
                                  e.stopPropagation();
                                  if (!isSales) handleSizeClick(item, size, qty);
