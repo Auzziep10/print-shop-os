@@ -3541,20 +3541,29 @@ export function CustomerDetail() {
         )}
 
         {/* Brands & Designer Rack Row - Side-by-side on parent companies, full-width Designer Rack on subcustomers */}
-        <div className={`grid grid-cols-1 ${!liveCustomerData?.parentCustomerId ? 'lg:grid-cols-2' : ''} gap-8 mt-4 items-start`}>
+        <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start w-full">
         {!liveCustomerData?.parentCustomerId && (
         <div
           onClick={() => {
-            if (isBrandsSectionCollapsed) setIsBrandsSectionCollapsed(false);
+            if (isBrandsSectionCollapsed) {
+              setIsBrandsSectionCollapsed(false);
+              setIsDesignerRackCollapsed(true);
+            }
           }}
-          className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 ${
-            isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
+          className={`w-full ${
+            !isDesignerRackCollapsed && isBrandsSectionCollapsed
+              ? 'lg:w-60 xl:w-64 shrink-0'
+              : 'lg:flex-1 min-w-0'
+          } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
+            isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
           }`}
         >
           <div
             onClick={(e) => {
               e.stopPropagation();
-              setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+              const nextCollapsed = !isBrandsSectionCollapsed;
+              setIsBrandsSectionCollapsed(nextCollapsed);
+              if (!nextCollapsed) setIsDesignerRackCollapsed(true);
             }}
             className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
           >
@@ -3564,9 +3573,11 @@ export function CustomerDetail() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+                    const nextCollapsed = !isBrandsSectionCollapsed;
+                    setIsBrandsSectionCollapsed(nextCollapsed);
+                    if (!nextCollapsed) setIsDesignerRackCollapsed(true);
                   }}
-                  className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer"
+                  className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
                 >
                   <span>Brands</span>
                   <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
@@ -3591,7 +3602,9 @@ export function CustomerDetail() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsBrandsSectionCollapsed(!isBrandsSectionCollapsed);
+                    const nextCollapsed = !isBrandsSectionCollapsed;
+                    setIsBrandsSectionCollapsed(nextCollapsed);
+                    if (!nextCollapsed) setIsDesignerRackCollapsed(true);
                   }}
                   className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                   title={isBrandsSectionCollapsed ? "Expand Brands" : "Collapse Brands"}
@@ -3718,16 +3731,25 @@ export function CustomerDetail() {
         {/* Designer Rack Dropdown Box - To the right of Brands on parent companies, full-width on subcustomers */}
           <div
             onClick={() => {
-              if (isDesignerRackCollapsed) setIsDesignerRackCollapsed(false);
+              if (isDesignerRackCollapsed) {
+                setIsDesignerRackCollapsed(false);
+                setIsBrandsSectionCollapsed(true);
+              }
             }}
-            className={`w-full bg-white rounded-card border border-brand-border shadow-sm p-6 ${
-              isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30 transition-colors' : ''
+            className={`w-full ${
+              !liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed && isDesignerRackCollapsed
+                ? 'lg:w-60 xl:w-64 shrink-0'
+                : 'lg:flex-1 min-w-0'
+            } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
+              isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
             }`}
           >
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+                const nextCollapsed = !isDesignerRackCollapsed;
+                setIsDesignerRackCollapsed(nextCollapsed);
+                if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
               }}
               className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
             >
@@ -3737,9 +3759,11 @@ export function CustomerDetail() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+                      const nextCollapsed = !isDesignerRackCollapsed;
+                      setIsDesignerRackCollapsed(nextCollapsed);
+                      if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
                     }}
-                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer"
+                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
                   >
                     <span>Designer Rack</span>
                     <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
@@ -3764,7 +3788,9 @@ export function CustomerDetail() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsDesignerRackCollapsed(!isDesignerRackCollapsed);
+                      const nextCollapsed = !isDesignerRackCollapsed;
+                      setIsDesignerRackCollapsed(nextCollapsed);
+                      if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
                     }}
                     className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                     title={isDesignerRackCollapsed ? 'Expand Designer Rack' : 'Collapse Designer Rack'}
@@ -3853,7 +3879,7 @@ export function CustomerDetail() {
                     )}
                   </div>
                 ) : (
-                  <div className={`grid grid-cols-1 ${liveCustomerData?.parentCustomerId ? 'md:grid-cols-2 xl:grid-cols-3' : 'xl:grid-cols-2'} gap-5`}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                     {filteredDesignerRack.map((design: any) => {
                       const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(design.mockups)
                         ? design.mockups
@@ -3907,7 +3933,7 @@ export function CustomerDetail() {
                       return (
                         <div
                           key={`${design._sourceCustomerId || 'own'}-${design.id}`}
-                          className="flex flex-col justify-between bg-white hover:bg-brand-bg/20 border border-brand-border rounded-2xl p-5 transition-all group relative gap-4 shadow-2xs"
+                          className="flex flex-col justify-between bg-white hover:bg-brand-bg/20 border border-brand-border rounded-2xl p-5 transition-all group relative gap-3.5 shadow-2xs"
                         >
                           {/* Top-Right Status Badge: Green Checkmark when Final Design Approved, or Red Exclamation when Incomplete */}
                           {design.finalDesignApproved ? (
@@ -3934,8 +3960,43 @@ export function CustomerDetail() {
                             </div>
                           ) : null}
 
-                          <div className="flex items-start gap-5">
-                            {/* Larger Front Mock-up Preview */}
+                          {/* Full-Width Card Header: Title + Edit/Delete */}
+                          <div className="flex items-start justify-between gap-2 pb-1">
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-base text-brand-primary truncate" title={displayTitle}>
+                                {displayTitle}
+                              </h4>
+                            </div>
+                            {!isSales && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditDesignerRackModal(design);
+                                  }}
+                                  className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit Design"
+                                >
+                                  <Edit3 size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
+                                  }}
+                                  className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Remove Design"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-start gap-4">
+                            {/* Front Mock-up Preview */}
                             <div
                               onClick={() => {
                                 if (!mockupSrc) return;
@@ -3949,7 +4010,7 @@ export function CustomerDetail() {
                                   window.open(mockupSrc, '_blank');
                                 }
                               }}
-                              className={`w-36 h-36 sm:w-40 sm:h-40 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
+                              className={`w-32 h-32 sm:w-36 sm:h-36 rounded-2xl border border-brand-border/60 bg-neutral-50/70 flex items-center justify-center p-2.5 overflow-hidden shrink-0 ${
                                 mockupSrc ? 'cursor-pointer' : ''
                               }`}
                               title={mockupSrc ? 'Click to view Front Mock-up' : 'No Front Mock-up uploaded'}
@@ -3974,100 +4035,65 @@ export function CustomerDetail() {
                               )}
                             </div>
 
-                            {/* Design Info & Logos */}
-                            <div className="min-w-0 flex-1 flex flex-col justify-between h-full">
-                              <div>
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <h4 className="font-bold text-base text-brand-primary truncate" title={displayTitle}>
-                                        {displayTitle}
-                                      </h4>
-                                    </div>
-                                    {subBrands.length > 0 && design._sourceCustomerName && (
-                                      <div className="mt-1">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                          design._isSubBrand
-                                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                            : 'bg-neutral-100 text-neutral-700 border-neutral-200'
-                                        }`}>
-                                          <Building2 size={10} />
-                                          <span className="truncate max-w-[140px]">{design._sourceCustomerName}</span>
-                                        </span>
-                                      </div>
-                                    )}
-                                    {design.uploadedAt && (
-                                      <p className="text-[11px] text-brand-secondary mt-0.5">
-                                        Added {new Date(design.uploadedAt).toLocaleDateString()}
-                                      </p>
-                                    )}
+                            {/* Design Metadata & Logos */}
+                            <div className="min-w-0 flex-1 flex flex-col justify-between h-full gap-2.5">
+                              <div className="flex flex-col gap-1.5">
+                                {subBrands.length > 0 && design._sourceCustomerName && (
+                                  <div>
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                      design._isSubBrand
+                                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                        : 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                                    }`}>
+                                      <Building2 size={10} className="shrink-0" />
+                                      <span className="truncate max-w-[140px]">{design._sourceCustomerName}</span>
+                                    </span>
                                   </div>
-                                  {!isSales && (
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenEditDesignerRackModal(design);
-                                        }}
-                                        className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
-                                        title="Edit Design"
-                                      >
-                                        <Edit3 size={15} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
-                                        }}
-                                        className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                        title="Remove Design"
-                                      >
-                                        <Trash2 size={15} />
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Logos Row */}
-                                <div className="mt-4">
-                                  <p className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5">
-                                    Logos ({designLogos.length})
+                                )}
+                                {design.uploadedAt && (
+                                  <p className="text-[11px] text-brand-secondary whitespace-nowrap">
+                                    Added {new Date(design.uploadedAt).toLocaleDateString()}
                                   </p>
-                                  {designLogos.length === 0 ? (
-                                    <p className="text-[11px] italic text-brand-secondary/60">No logos attached</p>
-                                  ) : (
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {designLogos.map((logo) => {
-                                        const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
-                                        return (
-                                          <div
-                                            key={logo.id}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (isLogoImg) {
-                                                setExpandedImage({ src: logo.url, alt: logo.name });
-                                              } else {
-                                                window.open(logo.url, '_blank');
-                                              }
-                                            }}
-                                            className="w-11 h-11 rounded-xl border border-brand-border/70 bg-checkerboard p-1.5 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
-                                            title={`Logo: ${logo.name}`}
-                                          >
-                                            {isLogoImg ? (
-                                              <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
-                                            ) : (
-                                              <span className="text-[8px] font-black uppercase text-neutral-600">
-                                                {logo.name?.split('.').pop() || 'FILE'}
-                                              </span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
+                                )}
+                              </div>
+
+                              {/* Logos Row */}
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 whitespace-nowrap">
+                                  Logos ({designLogos.length})
+                                </p>
+                                {designLogos.length === 0 ? (
+                                  <p className="text-[11px] italic text-brand-secondary/60">No logos attached</p>
+                                ) : (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {designLogos.map((logo) => {
+                                      const isLogoImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
+                                      return (
+                                        <div
+                                          key={logo.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isLogoImg) {
+                                              setExpandedImage({ src: logo.url, alt: logo.name });
+                                            } else {
+                                              window.open(logo.url, '_blank');
+                                            }
+                                          }}
+                                          className="w-11 h-11 rounded-xl border border-brand-border/70 bg-checkerboard p-1.5 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors overflow-hidden"
+                                          title={`Logo: ${logo.name}`}
+                                        >
+                                          {isLogoImg ? (
+                                            <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain" />
+                                          ) : (
+                                            <span className="text-[8px] font-black uppercase text-neutral-600">
+                                              {logo.name?.split('.').pop() || 'FILE'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
