@@ -131,6 +131,23 @@ export function CustomerSourcingPanel({
     combinedDesignerRack.forEach((d: any) => {
       const t = (d?.title || d?.name || '').trim().toLowerCase();
       if (t) map[t] = d;
+      if (Array.isArray(d?.previousTitles)) {
+        d.previousTitles.forEach((pt: any) => {
+          const prev = String(pt || '').trim().toLowerCase();
+          if (prev && !map[prev]) map[prev] = d;
+        });
+      }
+    });
+    return map;
+  }, [combinedDesignerRack]);
+
+  const designerRackByLink = useMemo(() => {
+    const map: Record<string, any> = {};
+    combinedDesignerRack.forEach((d: any) => {
+      const sLink = (d?.garmentSourcingLink || '').trim().toLowerCase();
+      if (sLink) map[sLink] = d;
+      const pLink = (d?.psdDriveLink || '').trim().toLowerCase();
+      if (pLink) map[pLink] = d;
     });
     return map;
   }, [combinedDesignerRack]);
@@ -172,33 +189,41 @@ export function CustomerSourcingPanel({
         if (!item || isDiscountItem(item) || isNonGarmentItem(item)) return;
         if (item.itemType === 'gang_sheet' || item.itemType === 'service') return;
 
-        const styleName = (item.title || item.style || 'Custom Garment').trim();
+        const rawStyleName = (item.title || item.style || 'Custom Garment').trim();
         const itemNum = (item.itemNum || '').trim();
+        const itemLinkKey = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim().toLowerCase();
+        const itemPsdKey = (item.psdDriveLink || '').trim().toLowerCase();
         const rackMatch =
           (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
-          designerRackByTitle[styleName.toLowerCase()];
+          designerRackByTitle[rawStyleName.toLowerCase()] ||
+          (itemPsdKey && designerRackByLink[itemPsdKey]) ||
+          (itemLinkKey && designerRackByLink[itemLinkKey]);
+        const styleName = (rackMatch?.title || rackMatch?.name || rawStyleName).trim();
         const rawItemColor = (item.color || '').trim();
         const rackColor = (rackMatch?.garmentColor || rackMatch?.color || '').trim();
-        const color =
-          !rawItemColor || rawItemColor.toLowerCase() === 'custom color'
-            ? rackColor || rawItemColor
-            : rawItemColor;
-        const sizingAdjustment = (item.sizingAdjustment || rackMatch?.sizingAdjustment || '').trim();
+        const color = rackColor || (rawItemColor.toLowerCase() === 'custom color' ? '' : rawItemColor);
+        const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+        const itemSizing = (item.sizingAdjustment || '').trim();
+        const sizingAdjustment =
+          rackSizing && rackSizing !== 'True to Size'
+            ? rackSizing
+            : itemSizing && itemSizing !== 'True to Size'
+              ? itemSizing
+              : rackSizing || itemSizing;
         const itemGenderNorm = normalizeGender(
           item.gender && item.gender !== 'Unisex' ? item.gender : (indGenderRaw || item.gender)
         );
         const genderBucketLabel = splitByGender ? itemGenderNorm : 'All Cuts';
 
-        let sourcingUrl = (item.sourcingLink || item.garmentSourcingLink || '').trim();
-        if (!sourcingUrl && rackMatch?.garmentSourcingLink) {
-          sourcingUrl = rackMatch.garmentSourcingLink.trim();
-        }
+        const rackSourcingUrl = (rackMatch?.garmentSourcingLink || '').trim();
+        const itemSourcingUrl = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim();
+        const sourcingUrl = rackSourcingUrl || itemSourcingUrl;
 
         const image =
-          item.image ||
-          item.frontMockupUrl ||
           rackMatch?.frontMockupUrl ||
           rackMatch?.mockupUrl ||
+          item.image ||
+          item.frontMockupUrl ||
           '';
 
         const rawSizesObj = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
@@ -1208,6 +1233,12 @@ export function CustomerSourcingPanel({
                         ) : (
                           <div className="flex flex-wrap items-center gap-1.5">
                             {garmentItems.map((it: any, idx: number) => {
+                              const rawItStyle = (it.title || it.style || '').trim();
+                              const itRackMatch =
+                                (it.designerRackItemId && designerRackById[it.designerRackItemId]) ||
+                                designerRackByTitle[rawItStyle.toLowerCase()];
+                              const displayTitle = (itRackMatch?.title || itRackMatch?.name || rawItStyle).trim();
+                              const itSizing = (itRackMatch?.sizingAdjustment || it.sizingAdjustment || '').trim();
                               const szEntries = Object.entries(it.sizes || {}).filter(
                                 ([, q]) => (parseInt(String(q), 10) || 0) > 0
                               );
@@ -1232,7 +1263,12 @@ export function CustomerSourcingPanel({
                                         : 'bg-white border-brand-border text-brand-primary'
                                   }`}
                                 >
-                                  <span className="truncate max-w-[160px]">{it.title || it.style}</span>
+                                  <span className="truncate max-w-[160px]">{displayTitle}</span>
+                                  {itSizing && itSizing !== 'True to Size' && (
+                                    <span className="font-bold text-[9.5px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                      {itSizing}
+                                    </span>
+                                  )}
                                   <span className="font-black text-[10px] px-1.5 py-0.2 rounded bg-black/5">
                                     {displaySz}
                                   </span>

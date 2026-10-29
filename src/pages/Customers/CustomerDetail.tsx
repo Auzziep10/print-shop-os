@@ -1260,6 +1260,62 @@ export function CustomerDetail() {
     setIsDesignerRackModalOpen(true);
   };
 
+  const syncDesignerRackItemToOrders = async (updatedDesign: any, previousTitle?: string) => {
+    if (!orders || orders.length === 0 || !updatedDesign) return;
+    const newTitle = (updatedDesign.title || updatedDesign.name || '').trim();
+    const oldTitle = (previousTitle || '').trim();
+    const matchTitles = new Set(
+      [newTitle.toLowerCase(), oldTitle.toLowerCase()].filter(Boolean)
+    );
+    const primaryMockup =
+      updatedDesign.frontMockupUrl ||
+      updatedDesign.mockupUrl ||
+      updatedDesign.backMockupUrl ||
+      '';
+    const nextColor = (updatedDesign.garmentColor || updatedDesign.color || '').trim();
+    const nextSizing = updatedDesign.sizingAdjustment || 'True to Size';
+    const nextLink = (updatedDesign.garmentSourcingLink || '').trim();
+    const nextPsd = (updatedDesign.psdDriveLink || '').trim();
+
+    await Promise.all(
+      orders.map(async (orderDoc: any) => {
+        if (!orderDoc?.id || !Array.isArray(orderDoc.items)) return;
+        let changed = false;
+        const nextItems = orderDoc.items.map((item: any) => {
+          if (!item) return item;
+          const itemTitleLower = (item.title || item.style || '').trim().toLowerCase();
+          const isMatch =
+            (item.designerRackItemId && item.designerRackItemId === updatedDesign.id) ||
+            (itemTitleLower && matchTitles.has(itemTitleLower));
+          if (!isMatch) return item;
+          changed = true;
+          return {
+            ...item,
+            designerRackItemId: updatedDesign.id,
+            title: newTitle || item.title,
+            style: newTitle || item.style,
+            color: nextColor || item.color || '',
+            sizingAdjustment: nextSizing,
+            image: primaryMockup || item.image || '',
+            originalFrontImage: updatedDesign.frontMockupUrl || primaryMockup || item.originalFrontImage || '',
+            originalBackImage: updatedDesign.backMockupUrl || item.originalBackImage || '',
+            supplierUrl: nextLink || item.supplierUrl || '',
+            sourcingLink: nextLink || item.sourcingLink || '',
+            garmentSourcingLink: nextLink || item.garmentSourcingLink || '',
+            psdDriveLink: nextPsd || item.psdDriveLink || ''
+          };
+        });
+        if (changed) {
+          try {
+            await updateDoc(doc(db, 'orders', orderDoc.id), { items: nextItems });
+          } catch (err) {
+            console.error('Failed to sync Design Rack update to order:', orderDoc.id, err);
+          }
+        }
+      })
+    );
+  };
+
   const autoPersistEditingDesignerRack = async (
     nextForm: typeof designerRackForm,
     overrideTargetCustomerId?: string
@@ -1323,10 +1379,18 @@ export function CustomerDetail() {
       }
 
       const baseItem = existingDesignItem || { id: editingDesignerRackId, uploadedAt: new Date().toISOString() };
+      const oldTitle = (baseItem.title || baseItem.name || '').trim();
+      const prevTitles: string[] = Array.from(
+        new Set([
+          ...(Array.isArray(baseItem.previousTitles) ? baseItem.previousTitles : []),
+          ...(oldTitle && oldTitle.toLowerCase() !== displayTitle.toLowerCase() ? [oldTitle] : [])
+        ])
+      );
       const updatedItem = {
         ...baseItem,
         title: displayTitle || baseItem.title || baseItem.name || 'Untitled Design',
         name: displayTitle || baseItem.name || baseItem.title || 'Untitled Design',
+        previousTitles: prevTitles,
         frontMockupUrl: nextForm.frontMockupUrl,
         frontMockupName: nextForm.frontMockupName,
         backMockupUrl: nextForm.backMockupUrl,
@@ -1364,8 +1428,13 @@ export function CustomerDetail() {
       if (targetCustomerId === id) {
         setDesignerRack(updated);
         setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      } else {
+        setSubBrands((prev) =>
+          prev.map((b: any) => (b.id === targetCustomerId ? { ...b, designerRack: updated } : b))
+        );
       }
       setEditingDesignerRackSourceCustomerId(targetCustomerId);
+      void syncDesignerRackItemToOrders(updatedItem, oldTitle);
     } catch (err) {
       console.error("Failed to auto-persist Designer Rack edit:", err);
     }
@@ -1536,6 +1605,7 @@ export function CustomerDetail() {
       ];
 
       let updated: any[];
+      let previousRackTitle = '';
       if (editingDesignerRackId) {
         const sourceCustomerId = editingDesignerRackSourceCustomerId || targetCustomerId;
         let existingDesignItem: any = latestRack.find(d => d.id === editingDesignerRackId);
@@ -1559,14 +1629,27 @@ export function CustomerDetail() {
           if (sourceCustomerId === id) {
             setDesignerRack(filteredSourceRack);
             setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: filteredSourceRack } : prev));
+          } else {
+            setSubBrands((prev) =>
+              prev.map((b: any) => (b.id === sourceCustomerId ? { ...b, designerRack: filteredSourceRack } : b))
+            );
           }
         }
 
         const baseItem = existingDesignItem || { id: editingDesignerRackId, uploadedAt: new Date().toISOString() };
+        const oldTitle = (baseItem.title || baseItem.name || '').trim();
+        previousRackTitle = oldTitle;
+        const prevTitles: string[] = Array.from(
+          new Set([
+            ...(Array.isArray(baseItem.previousTitles) ? baseItem.previousTitles : []),
+            ...(oldTitle && oldTitle.toLowerCase() !== displayTitle.toLowerCase() ? [oldTitle] : [])
+          ])
+        );
         const updatedItem = {
           ...baseItem,
           title: displayTitle,
           name: displayTitle,
+          previousTitles: prevTitles,
           frontMockupUrl: designerRackForm.frontMockupUrl,
           frontMockupName: designerRackForm.frontMockupName,
           backMockupUrl: designerRackForm.backMockupUrl,
@@ -1634,6 +1717,14 @@ export function CustomerDetail() {
       if (targetCustomerId === id) {
         setDesignerRack(updated);
         setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      } else {
+        setSubBrands((prev) =>
+          prev.map((b: any) => (b.id === targetCustomerId ? { ...b, designerRack: updated } : b))
+        );
+      }
+      const savedDesignItem = updated.find((d: any) => d.id === editingDesignerRackId) || updated[updated.length - 1];
+      if (savedDesignItem) {
+        void syncDesignerRackItemToOrders(savedDesignItem, previousRackTitle || savedDesignItem.title || savedDesignItem.name);
       }
       setIsDesignerRackModalOpen(false);
       setEditingDesignerRackId(null);
