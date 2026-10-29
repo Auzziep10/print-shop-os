@@ -3855,98 +3855,221 @@ export function CustomerDetail() {
         )}
 
         {/* Brands, Designer Rack & Sourcing Row */}
-        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-6 mt-4 items-start w-full">
-        {!liveCustomerData?.parentCustomerId && (
-        <div
-          onClick={() => {
-            if (isBrandsSectionCollapsed) {
-              setIsBrandsSectionCollapsed(false);
-              setIsDesignerRackCollapsed(true);
-              setIsSourcingCollapsed(true);
-            }
-          }}
-          className={`w-full ${
-            !isBrandsSectionCollapsed
-              ? 'lg:basis-full lg:order-last'
-              : 'lg:flex-1 lg:min-w-[240px]'
-          } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
-            isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
-          }`}
-        >
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              const nextCollapsed = !isBrandsSectionCollapsed;
-              setIsBrandsSectionCollapsed(nextCollapsed);
-              if (!nextCollapsed) {
-                setIsDesignerRackCollapsed(true);
-                setIsSourcingCollapsed(true);
-              }
-            }}
-            className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex gap-6 items-center">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const nextCollapsed = !isBrandsSectionCollapsed;
-                    setIsBrandsSectionCollapsed(nextCollapsed);
-                    if (!nextCollapsed) {
-                      setIsDesignerRackCollapsed(true);
-                      setIsSourcingCollapsed(true);
-                    }
-                  }}
-                  className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
-                >
-                  <span>Brands</span>
-                  <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
-                    {subBrands.length}
-                  </span>
-                </button>
+        <div id="customer-sourcing-section" className="flex flex-col mt-4 w-full">
+          {/* Top Selector Row — Cards stay anchored in place and never swap positions */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full">
+            {!liveCustomerData?.parentCustomerId && (
+              <div
+                onClick={() => {
+                  const nextCollapsed = !isBrandsSectionCollapsed;
+                  setIsBrandsSectionCollapsed(nextCollapsed);
+                  if (!nextCollapsed) {
+                    setIsDesignerRackCollapsed(true);
+                    setIsSourcingCollapsed(true);
+                  }
+                }}
+                className={`bg-white rounded-card border p-5 transition-all duration-300 ease-out cursor-pointer select-none ${
+                  !isBrandsSectionCollapsed
+                    ? 'border-neutral-900 shadow-md ring-2 ring-neutral-900/10 -translate-y-0.5'
+                    : 'border-brand-border shadow-sm hover:border-brand-primary/40 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between border-b border-brand-border/60 pb-3">
+                  <div className="flex gap-3 items-center">
+                    <span
+                      className={`flex items-center pb-2 -mb-[13px] text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${
+                        !isBrandsSectionCollapsed
+                          ? 'text-neutral-900 border-neutral-900'
+                          : 'text-brand-primary border-transparent'
+                      }`}
+                    >
+                      <span>Brands</span>
+                      <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                        {subBrands.length}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`p-1.5 rounded-lg transition-all duration-300 ${
+                        !isBrandsSectionCollapsed
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-400 hover:text-brand-primary hover:bg-neutral-100'
+                      }`}
+                      title={isBrandsSectionCollapsed ? 'Expand Brands' : 'Collapse Brands'}
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={`transition-transform duration-300 ease-out ${
+                          !isBrandsSectionCollapsed ? 'rotate-180' : 'rotate-0'
+                        }`}
+                      />
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {!isBrandsSectionCollapsed && (
-                  <PillButton
-                    variant="outline"
-                    className="px-4 text-xs font-bold gap-1 cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsNewBrandModalOpen(true);
-                    }}
+            )}
+
+            {/* Designer Rack Tab Card */}
+            <div
+              onClick={() => {
+                const nextCollapsed = !isDesignerRackCollapsed;
+                setIsDesignerRackCollapsed(nextCollapsed);
+                if (!nextCollapsed) {
+                  setIsBrandsSectionCollapsed(true);
+                  setIsSourcingCollapsed(true);
+                }
+              }}
+              className={`bg-white rounded-card border p-5 transition-all duration-300 ease-out cursor-pointer select-none ${
+                !isDesignerRackCollapsed
+                  ? 'border-neutral-900 shadow-md ring-2 ring-neutral-900/10 -translate-y-0.5'
+                  : 'border-brand-border shadow-sm hover:border-brand-primary/40 hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-brand-border/60 pb-3">
+                <div className="flex gap-3 items-center">
+                  <span
+                    className={`flex items-center pb-2 -mb-[13px] text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${
+                      !isDesignerRackCollapsed
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-brand-primary border-transparent'
+                    }`}
                   >
-                    <Plus size={14} /> Add Brand
-                  </PillButton>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const nextCollapsed = !isBrandsSectionCollapsed;
-                    setIsBrandsSectionCollapsed(nextCollapsed);
-                    if (!nextCollapsed) {
-                      setIsDesignerRackCollapsed(true);
-                      setIsSourcingCollapsed(true);
-                    }
-                  }}
-                  className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
-                  title={isBrandsSectionCollapsed ? "Expand Brands" : "Collapse Brands"}
-                >
-                  {isBrandsSectionCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                </button>
+                    <span>Designer Rack</span>
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                      {combinedDesignerRack.length}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`p-1.5 rounded-lg transition-all duration-300 ${
+                      !isDesignerRackCollapsed
+                        ? 'bg-neutral-900 text-white'
+                        : 'text-neutral-400 hover:text-brand-primary hover:bg-neutral-100'
+                    }`}
+                    title={isDesignerRackCollapsed ? 'Expand Designer Rack' : 'Collapse Designer Rack'}
+                  >
+                    <ChevronDown
+                      size={18}
+                      className={`transition-transform duration-300 ease-out ${
+                        !isDesignerRackCollapsed ? 'rotate-180' : 'rotate-0'
+                      }`}
+                    />
+                  </span>
+                </div>
               </div>
             </div>
 
-            {!isBrandsSectionCollapsed && (
-              <p className="text-xs text-brand-secondary">
-                Sub-customers and brands managed under this customer account, each with its own shipping address, assets, and orders.
-              </p>
+            {/* Sourcing Tab Card */}
+            {!isSales && (
+              <div
+                onClick={() => {
+                  const nextCollapsed = !isSourcingCollapsed;
+                  setIsSourcingCollapsed(nextCollapsed);
+                  if (!nextCollapsed) {
+                    setIsBrandsSectionCollapsed(true);
+                    setIsDesignerRackCollapsed(true);
+                  }
+                }}
+                className={`bg-white rounded-card border p-5 transition-all duration-300 ease-out cursor-pointer select-none ${
+                  !isSourcingCollapsed
+                    ? 'border-neutral-900 shadow-md ring-2 ring-neutral-900/10 -translate-y-0.5'
+                    : 'border-brand-border shadow-sm hover:border-brand-primary/40 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-brand-border/60 pb-3">
+                  <div className="flex gap-3 items-center min-w-0">
+                    <span
+                      className={`flex items-center pb-2 -mb-[13px] text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${
+                        !isSourcingCollapsed
+                          ? 'text-neutral-900 border-neutral-900'
+                          : 'text-brand-primary border-transparent'
+                      }`}
+                    >
+                      <span>Sourcing</span>
+                      <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                        {sourcingSummary.totalUnits}
+                      </span>
+                      {sourcingSummary.toOrderUnits > 0 && (
+                        <span
+                          className="ml-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                          title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
+                        >
+                          {sourcingSummary.toOrderUnits} To Order
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`p-1.5 rounded-lg transition-all duration-300 ${
+                        !isSourcingCollapsed
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-400 hover:text-brand-primary hover:bg-neutral-100'
+                      }`}
+                      title={isSourcingCollapsed ? 'Expand Sourcing' : 'Collapse Sourcing'}
+                    >
+                      <ChevronDown
+                        size={18}
+                        className={`transition-transform duration-300 ease-out ${
+                          !isSourcingCollapsed ? 'rotate-180' : 'rotate-0'
+                        }`}
+                      />
+                    </span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
 
-          {!isBrandsSectionCollapsed && (
-            <div className="mt-4">
+          {/* Smooth Animated Full-Width Drawer Below the Anchored Tab Row */}
+          <div
+            className={`grid transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              !isBrandsSectionCollapsed || !isDesignerRackCollapsed || !isSourcingCollapsed
+                ? 'grid-rows-[1fr] opacity-100 mt-5'
+                : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300">
+                {!liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border/60 pb-4 mb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-neutral-900">Brands</h3>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                            {subBrands.length}
+                          </span>
+                        </div>
+                        <p className="text-xs text-brand-secondary mt-1">
+                          Sub-customers and brands managed under this customer account, each with its own shipping address, assets, and orders.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <PillButton
+                          variant="outline"
+                          className="px-4 text-xs font-bold gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsNewBrandModalOpen(true);
+                          }}
+                        >
+                          <Plus size={14} /> Add Brand
+                        </PillButton>
+                        <button
+                          type="button"
+                          onClick={() => setIsBrandsSectionCollapsed(true)}
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                          title="Collapse Brands"
+                        >
+                          <ChevronUp size={18} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
               {subBrands.length === 0 ? (
                 <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
                   <p>No brands added under this customer yet. Click below to create a sub-brand.</p>
@@ -4048,62 +4171,22 @@ export function CustomerDetail() {
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
         )}
 
-        {/* Designer Rack Dropdown Box - Full width when expanded */}
-          <div
-            onClick={() => {
-              if (isDesignerRackCollapsed) {
-                setIsDesignerRackCollapsed(false);
-                setIsBrandsSectionCollapsed(true);
-                setIsSourcingCollapsed(true);
-              }
-            }}
-            className={`w-full ${
-              !isDesignerRackCollapsed
-                ? 'lg:basis-full lg:order-last'
-                : 'lg:flex-1 lg:min-w-[240px]'
-            } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
-              isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
-            }`}
-          >
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                const nextCollapsed = !isDesignerRackCollapsed;
-                setIsDesignerRackCollapsed(nextCollapsed);
-                if (!nextCollapsed) {
-                  setIsBrandsSectionCollapsed(true);
-                  setIsSourcingCollapsed(true);
-                }
-              }}
-              className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
-            >
+        {/* Designer Rack Panel inside Drawer */}
+        {!isDesignerRackCollapsed && (
+          <div className="animate-in fade-in duration-300">
+            <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex gap-6 items-center">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextCollapsed = !isDesignerRackCollapsed;
-                      setIsDesignerRackCollapsed(nextCollapsed);
-                      if (!nextCollapsed) {
-                        setIsBrandsSectionCollapsed(true);
-                        setIsSourcingCollapsed(true);
-                      }
-                    }}
-                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
-                  >
-                    <span>Designer Rack</span>
-                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
-                      {combinedDesignerRack.length}
-                    </span>
-                  </button>
+                <div className="flex gap-2 items-center">
+                  <h3 className="text-sm font-bold text-neutral-900">Designer Rack</h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                    {combinedDesignerRack.length}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {!isSales && !isDesignerRackCollapsed && subBrands.length === 0 && (
+                  {!isSales && subBrands.length === 0 && (
                     <PillButton
                       variant="outline"
                       className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
@@ -4117,85 +4200,74 @@ export function CustomerDetail() {
                   )}
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextCollapsed = !isDesignerRackCollapsed;
-                      setIsDesignerRackCollapsed(nextCollapsed);
-                      if (!nextCollapsed) {
-                        setIsBrandsSectionCollapsed(true);
-                        setIsSourcingCollapsed(true);
-                      }
-                    }}
+                    onClick={() => setIsDesignerRackCollapsed(true)}
                     className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
-                    title={isDesignerRackCollapsed ? 'Expand Designer Rack' : 'Collapse Designer Rack'}
+                    title="Collapse Designer Rack"
                   >
-                    {isDesignerRackCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    <ChevronUp size={18} />
                   </button>
                 </div>
               </div>
 
-              {!isDesignerRackCollapsed && (
-                <div className="flex flex-col gap-2.5">
-                  <p className="text-xs text-brand-secondary">
-                    {subBrands.length > 0
-                      ? 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated across this parent company and all its brands.'
-                      : 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated for this brand.'}
-                  </p>
-                  {subBrands.length > 0 && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex flex-wrap items-center gap-2.5 pt-1"
-                    >
-                      <label className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary shrink-0">
-                        Brand Rack:
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={selectedDesignerRackBrandFilter}
-                          onChange={(e) => setSelectedDesignerRackBrandFilter(e.target.value)}
-                          className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
-                        >
-                          <option value="all">
-                            All ({combinedDesignerRack.length})
-                          </option>
-                          <option value={id || ''}>
-                            {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'} ({designerRack.length})
-                          </option>
-                          {subBrands.map((b: any) => {
-                            const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
-                            const bName = b.company || b.contactName || 'Sub-Brand';
-                            return (
-                              <option key={b.id} value={b.id}>
-                                {bName} ({bCount})
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <ChevronDown
-                          size={14}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
-                        />
-                      </div>
-                      {!isSales && (
-                        <PillButton
-                          variant="outline"
-                          className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenNewDesignerRackModal();
-                          }}
-                        >
-                          <Plus size={14} /> Design
-                        </PillButton>
-                      )}
+              <div className="flex flex-col gap-2.5">
+                <p className="text-xs text-brand-secondary">
+                  {subBrands.length > 0
+                    ? 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated across this parent company and all its brands.'
+                    : 'Uploaded designs, mockups, logos, PSD links, and garment sourcing links curated for this brand.'}
+                </p>
+                {subBrands.length > 0 && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex flex-wrap items-center gap-2.5 pt-1"
+                  >
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary shrink-0">
+                      Brand Rack:
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedDesignerRackBrandFilter}
+                        onChange={(e) => setSelectedDesignerRackBrandFilter(e.target.value)}
+                        className="appearance-none bg-white border border-brand-border hover:border-brand-primary focus:border-brand-primary rounded-xl pl-3.5 pr-8 py-1.5 text-xs font-bold text-brand-primary focus:outline-none transition-all cursor-pointer shadow-2xs"
+                      >
+                        <option value="all">
+                          All ({combinedDesignerRack.length})
+                        </option>
+                        <option value={id || ''}>
+                          {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'} ({designerRack.length})
+                        </option>
+                        {subBrands.map((b: any) => {
+                          const bCount = Array.isArray(b.designerRack) ? b.designerRack.length : 0;
+                          const bName = b.company || b.contactName || 'Sub-Brand';
+                          return (
+                            <option key={b.id} value={b.id}>
+                              {bName} ({bCount})
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown
+                        size={14}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none"
+                      />
                     </div>
-                  )}
-                </div>
-              )}
+                    {!isSales && (
+                      <PillButton
+                        variant="outline"
+                        className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenNewDesignerRackModal();
+                        }}
+                      >
+                        <Plus size={14} /> Design
+                      </PillButton>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {!isDesignerRackCollapsed && (
-              <div className="mt-4">
+            <div className="mt-4">
                 {filteredDesignerRack.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
                     <p>{isSales ? 'No designs uploaded to the Designer Rack yet.' : 'No designs uploaded to the Designer Rack yet. Click below to upload a design.'}</p>
@@ -4525,97 +4597,44 @@ export function CustomerDetail() {
                   </div>
                 )}
               </div>
-            )}
           </div>
+        )}
 
-          {/* Sourcing Dropdown Box - Dedicated place on Customer or Brand page to aggregate & order garment sizes */}
-          {!isSales && (
-          <div
-            id="customer-sourcing-section"
-            onClick={() => {
-              if (isSourcingCollapsed) {
-                setIsSourcingCollapsed(false);
-                setIsBrandsSectionCollapsed(true);
-                setIsDesignerRackCollapsed(true);
-              }
-            }}
-            className={`w-full ${
-              !isSourcingCollapsed
-                ? 'lg:basis-full lg:order-last'
-                : 'lg:flex-1 lg:min-w-[240px]'
-            } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
-              isSourcingCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
-            }`}
-          >
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                const nextCollapsed = !isSourcingCollapsed;
-                setIsSourcingCollapsed(nextCollapsed);
-                if (!nextCollapsed) {
-                  setIsBrandsSectionCollapsed(true);
-                  setIsDesignerRackCollapsed(true);
-                }
-              }}
-              className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex gap-3 items-center min-w-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextCollapsed = !isSourcingCollapsed;
-                      setIsSourcingCollapsed(nextCollapsed);
-                      if (!nextCollapsed) {
-                        setIsBrandsSectionCollapsed(true);
-                        setIsDesignerRackCollapsed(true);
-                      }
-                    }}
-                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
-                  >
-                    <span>Sourcing</span>
-                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+          {/* Sourcing Panel inside Drawer */}
+          {!isSales && !isSourcingCollapsed && (
+            <div className="animate-in fade-in duration-300">
+              <div className="flex flex-col gap-2 border-b border-brand-border/60 pb-4 mb-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex gap-2 items-center min-w-0">
+                    <h3 className="text-sm font-bold text-neutral-900">Sourcing</h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
                       {sourcingSummary.totalUnits}
                     </span>
                     {sourcingSummary.toOrderUnits > 0 && (
                       <span
-                        className="ml-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                        className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
                         title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
                       >
                         {sourcingSummary.toOrderUnits} To Order
                       </span>
                     )}
-                  </button>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsSourcingCollapsed(true)}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                      title="Collapse Sourcing"
+                    >
+                      <ChevronUp size={18} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextCollapsed = !isSourcingCollapsed;
-                      setIsSourcingCollapsed(nextCollapsed);
-                      if (!nextCollapsed) {
-                        setIsBrandsSectionCollapsed(true);
-                        setIsDesignerRackCollapsed(true);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
-                    title={isSourcingCollapsed ? 'Expand Sourcing' : 'Collapse Sourcing'}
-                  >
-                    {isSourcingCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              {!isSourcingCollapsed && (
                 <p className="text-xs text-brand-secondary">
                   Consolidated supplier buy sheet across all individual &amp; active orders. View exact size totals per garment, open supplier links, copy size runs, and mark sizes as Ordered or Received across every order at once.
                 </p>
-              )}
-            </div>
+              </div>
 
-            {!isSourcingCollapsed && (
               <CustomerSourcingPanel
                 orders={orders || []}
                 customerId={id || ''}
@@ -4625,9 +4644,11 @@ export function CustomerDetail() {
                 isSales={isSales}
                 onPreviewImage={(img) => setExpandedImage(img)}
               />
-            )}
-          </div>
+            </div>
           )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Suggested Items & Asset Vault Row */}
