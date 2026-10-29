@@ -17,6 +17,7 @@ import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 export function Dashboard() {
   const navigate = useNavigate();
   const { userData } = useAuth();
+  const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
   const { orders } = useOrders();
   const [liveMeetings, setLiveMeetings] = useState<any[]>([]);
 
@@ -917,11 +918,11 @@ export function Dashboard() {
         <div>
           <h1 className={tokens.typography.h1}>Dashboard</h1>
           <p className={tokens.typography.bodyMuted + " mt-2"}>
-            Here is your daily production summary.
+            {isSales ? 'High priority customers and orders.' : 'Here is your daily production summary.'}
           </p>
         </div>
         
-        {userData && ['Admin', 'Leadership', 'Manager', 'Printer'].includes(userData.role) && (
+        {!isSales && userData && ['Admin', 'Leadership', 'Manager', 'Printer'].includes(userData.role) && (
           <div>
              <SegmentedControl 
                options={
@@ -937,7 +938,7 @@ export function Dashboard() {
       </div>
       
       {/* Live Meeting Alert Banner */}
-      {liveMeetings.length > 0 && (
+      {!isSales && liveMeetings.length > 0 && (
         <div className="mt-6 bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-pulse shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="w-3 h-3 rounded-full bg-red-600 animate-ping shrink-0" />
@@ -1315,8 +1316,15 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {isSales && highPriorityItems.length === 0 && (
+        <div className="mt-6 bg-white border border-brand-border rounded-card p-10 text-center text-sm font-medium text-brand-secondary shadow-2xs">
+          No high priority customers or orders right now.
+        </div>
+      )}
       
-      {roleView === 'Manager / Admin' ? (
+      {!isSales && (
+      roleView === 'Manager / Admin' ? (
         <div className="mt-6 flex flex-col gap-10 pb-12">
           
           {/* Top Row: Quick Stats & Command Center */}
@@ -1924,7 +1932,7 @@ export function Dashboard() {
              </div>
            </div>
         </div>
-      )}
+      ))}
 
       {/* Image Overlay Lightbox */}
       {expandedImage && (

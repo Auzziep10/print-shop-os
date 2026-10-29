@@ -50,7 +50,7 @@ export function Login() {
         navigate('/waiting');
       } else if (userData.role === 'Sales') {
         const from = (location.state as any)?.from;
-        const destination = from && from.pathname !== '/dashboard' ? (from.pathname + from.search + from.hash) : '/customers';
+        const destination = from ? (from.pathname + from.search + from.hash) : '/dashboard';
         navigate(destination, { replace: true });
       } else {
         const from = (location.state as any)?.from;

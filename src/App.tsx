@@ -84,10 +84,17 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PermissionGuard({ permission, children }: { permission: PermissionKey; children: React.ReactNode }) {
-  const { hasPermission, loading } = useAuth();
+  const { hasPermission, userData, loading } = useAuth();
+  const location = useLocation();
+  const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+
+  // Allow Sales role to access the main Dashboard route (where they see only High Priority customers & orders)
+  if (permission === 'viewDashboard' && isSales && (location.pathname === '/' || location.pathname === '/dashboard')) {
+    return <>{children}</>;
   }
   
   if (!hasPermission(permission)) {

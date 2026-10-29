@@ -99,20 +99,20 @@ export function getUpdatedTimelineMilestonesForStatusChange(
   nowIso: string = new Date().toISOString()
 ): TimelineMilestonesMap {
   const next: TimelineMilestonesMap = { ...(existing || {}) };
-  const stepName = statusIndexToTimelineStep(newStatusIndex);
-  const currentStepMilestone = next[stepName] || {};
+  const targetStepName = statusIndexToTimelineStep(newStatusIndex);
+  const targetStepIdx = TIMELINE_STEPS.indexOf(targetStepName);
 
-  next[stepName] = {
-    ...currentStepMilestone,
-    completedAt: nowIso
-  };
-
-  if (!next['Requested']?.completedAt) {
-    next['Requested'] = {
-      ...(next['Requested'] || {}),
-      completedAt: nowIso
-    };
-  }
+  TIMELINE_STEPS.forEach((step, idx) => {
+    if (idx <= targetStepIdx) {
+      const prevMilestone = next[step] || {};
+      next[step] = {
+        ...prevMilestone,
+        completedAt: prevMilestone.completedAt || (idx === targetStepIdx ? nowIso : prevMilestone.completedAt || nowIso),
+        // Automatically clear delay flag on steps that have now been completed/passed
+        delayed: idx < targetStepIdx ? false : prevMilestone.delayed
+      };
+    }
+  });
 
   return next;
 }
@@ -164,7 +164,11 @@ export function resolveStepMilestone(
 
   let completedAt = rawMilestone.completedAt;
   if (!completedAt && isCompleted) {
-    completedAt = inferCompletedAtFromActivities(order, step);
+    completedAt =
+      inferCompletedAtFromActivities(order, step) ||
+      (step === 'Requested'
+        ? order?.createdAt || order?.rawDate
+        : order?.updatedAt || order?.createdAt);
   }
 
   let expectedDate = rawMilestone.expectedDate;

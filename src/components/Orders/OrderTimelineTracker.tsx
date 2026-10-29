@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Calendar, Check, Sparkles, X } from 'lucide-react';
+import { Calendar, Check, Sparkles, X, Clock } from 'lucide-react';
 import {
   TIMELINE_STEPS,
   type TimelineStepName,
@@ -38,7 +38,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     TIMELINE_STEPS.forEach((s, idx) => {
       const resolved = resolveStepMilestone(order, s, idx, visualIndex);
       initialDraft[s] = {
-        completedAt: toDateInputValue(resolved.completedAt),
+        completedAt: resolved.completedAt || '',
         expectedDate: toDateInputValue(resolved.expectedDate),
         delayed: resolved.delayed,
         delayNote: resolved.delayNote || ''
@@ -49,44 +49,63 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     setIsEditorOpen(true);
   };
 
+  const formatYmd = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const handleQuickAddDays = (step: TimelineStepName, daysToAdd: number) => {
+    const baseStr = draftMilestones[step]?.expectedDate;
+    let baseDate = new Date();
+    if (baseStr && /^\d{4}-\d{2}-\d{2}$/.test(baseStr)) {
+      const [y, m, d] = baseStr.split('-').map(Number);
+      baseDate = new Date(y, m - 1, d);
+    }
+    const nextDate = new Date(baseDate.getTime() + daysToAdd * 86400000);
+    setDraftMilestones((prev) => ({
+      ...prev,
+      [step]: {
+        ...(prev[step] || {}),
+        expectedDate: formatYmd(nextDate)
+      }
+    }));
+  };
+
   const handleAutoFillPredictableDates = () => {
-    const startRaw =
-      draftMilestones['Requested']?.completedAt ||
-      toDateInputValue(order?.createdAt) ||
-      new Date().toLocaleDateString('en-CA');
+    const today = new Date();
     const endRaw =
       draftMilestones['Received']?.expectedDate ||
       toDateInputValue(order?.date || order?.targetCompletionDate || order?.neededByDate);
 
-    const [sy, sm, sd] = startRaw.split('-').map(Number);
-    const startDate = !isNaN(sy) ? new Date(sy, sm - 1, sd) : new Date();
-
     let endDate: Date;
-    if (endRaw) {
+    if (endRaw && /^\d{4}-\d{2}-\d{2}$/.test(endRaw)) {
       const [ey, em, ed] = endRaw.split('-').map(Number);
-      endDate = !isNaN(ey) ? new Date(ey, em - 1, ed) : new Date(startDate.getTime() + 14 * 86400000);
+      endDate = new Date(ey, em - 1, ed);
     } else {
-      endDate = new Date(startDate.getTime() + 14 * 86400000);
+      endDate = new Date(today.getTime() + 12 * 86400000);
     }
 
-    if (endDate.getTime() <= startDate.getTime()) {
-      endDate = new Date(startDate.getTime() + 12 * 86400000);
+    if (endDate.getTime() <= today.getTime()) {
+      endDate = new Date(today.getTime() + 10 * 86400000);
     }
 
-    const totalMs = endDate.getTime() - startDate.getTime();
+    const firstUpcomingIdx = Math.max(0, Math.floor(visualIndex) + 1);
+    const remainingStepsCount = Math.max(1, TIMELINE_STEPS.length - 1 - firstUpcomingIdx);
+    const totalMs = endDate.getTime() - today.getTime();
     const nextDraft: TimelineMilestonesMap = { ...draftMilestones };
 
     TIMELINE_STEPS.forEach((step, idx) => {
-      const ratio = idx / (TIMELINE_STEPS.length - 1);
-      const stepDate = new Date(startDate.getTime() + Math.round(totalMs * ratio));
-      const y = stepDate.getFullYear();
-      const m = String(stepDate.getMonth() + 1).padStart(2, '0');
-      const d = String(stepDate.getDate()).padStart(2, '0');
-      const formatted = `${y}-${m}-${d}`;
-
+      if (idx < firstUpcomingIdx) return;
+      const ratio =
+        remainingStepsCount === 0
+          ? 1
+          : Math.min(1, Math.max(0, (idx - firstUpcomingIdx + 1) / (TIMELINE_STEPS.length - firstUpcomingIdx)));
+      const stepDate = idx === TIMELINE_STEPS.length - 1 ? endDate : new Date(today.getTime() + Math.round(totalMs * ratio));
       nextDraft[step] = {
         ...(nextDraft[step] || {}),
-        expectedDate: nextDraft[step]?.expectedDate || formatted
+        expectedDate: formatYmd(stepDate)
       };
     });
 
@@ -98,15 +117,19 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     if (!order?.id) return;
     setIsSaving(true);
     try {
+      const existingMilestones: TimelineMilestonesMap = order?.timelineMilestones || {};
       const cleaned: TimelineMilestonesMap = {};
+
       TIMELINE_STEPS.forEach((step) => {
         const item = draftMilestones[step];
-        if (!item) return;
+        const prevItem = existingMilestones[step];
+        if (!item && !prevItem) return;
         cleaned[step] = {
-          completedAt: item.completedAt?.trim() || '',
-          expectedDate: item.expectedDate?.trim() || '',
-          delayed: Boolean(item.delayed),
-          delayNote: item.delayNote?.trim() || ''
+          // Keep automatic completedAt timestamp untouched
+          completedAt: prevItem?.completedAt || item?.completedAt || '',
+          expectedDate: item?.expectedDate?.trim() || '',
+          delayed: Boolean(item?.delayed),
+          delayNote: item?.delayed ? item?.delayNote?.trim() || '' : ''
         };
       });
 
@@ -176,31 +199,31 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                         )}
                       </div>
                       {isDelayed && milestone.delayNote && (
-                        <span className="text-[10px] text-red-300 font-semibold max-w-[200px] truncate">
+                        <span className="text-[10px] text-red-300 font-semibold max-w-[220px] truncate">
                           {milestone.delayNote}
                         </span>
                       )}
-                      {completedFormatted ? (
+                      {isCompleted && completedFormatted ? (
                         <span className="text-[10px] text-emerald-300 font-semibold">
                           Completed: {completedFormatted}
                         </span>
                       ) : expectedFormatted ? (
                         <span className="text-[10px] text-amber-300 font-semibold">
-                          Est. By: {expectedFormatted}
+                          Target: {expectedFormatted}
                         </span>
                       ) : (
                         <span className="text-[10px] text-neutral-400 font-medium">
-                          {isCompleted ? 'Completed' : 'No date set'}
+                          {isCompleted ? 'Completed' : 'No target date set'}
                         </span>
                       )}
-                      {completedFormatted && expectedFormatted && completedFormatted !== expectedFormatted && (
+                      {isCompleted && expectedFormatted && completedFormatted !== expectedFormatted && (
                         <span className="text-[9px] text-neutral-400">
-                          Target: {expectedFormatted}
+                          Target was: {expectedFormatted}
                         </span>
                       )}
                       {canEdit && (
                         <span className="text-[9px] text-neutral-400 border-t border-neutral-700/80 pt-0.5 mt-0.5">
-                          Click to set date or mark delay
+                          Click to set target date or flag delay
                         </span>
                       )}
                     </div>
@@ -327,73 +350,80 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
         </div>
       </div>
 
-      {/* Timeline Dates & Delay Editor Modal */}
+      {/* Compact, Intuitive Timeline & Delay Modal (No manual completed date, zero scrolling) */}
       {isEditorOpen && canEdit && (
         <div
           onClick={(e) => {
             e.stopPropagation();
             setIsEditorOpen(false);
           }}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white max-w-2xl w-full rounded-2xl border border-brand-border shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150"
+            className="bg-white max-w-2xl w-full rounded-2xl border border-brand-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
-            <div className="px-6 py-4 border-b border-brand-border flex items-center justify-between bg-neutral-50/70">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-neutral-900 text-white flex items-center justify-center">
-                  <Calendar size={18} />
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-brand-border flex items-center justify-between bg-neutral-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center shrink-0">
+                  <Calendar size={16} />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-brand-primary">
-                    Order Timeline & Delay Controls
+                  <h3 className="text-sm font-extrabold text-brand-primary leading-tight">
+                    Timeline Schedule &amp; Delay Alerts
                   </h3>
-                  <p className="text-xs text-brand-secondary">
-                    Set actual completion dates, target dates for predictable timelines, or flag delayed steps with a red <strong className="text-red-600">!</strong>
+                  <p className="text-[11px] text-brand-secondary">
+                    Completed steps log their date automatically. Set target dates for upcoming steps or flag a delay.
                   </p>
                 </div>
               </div>
+
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleAutoFillPredictableDates}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer"
-                  title="Automatically space target dates across all steps up to the order due date"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  title="Automatically space target dates across upcoming steps up to the final delivery date"
                 >
                   <Sparkles size={13} />
-                  <span>Auto-Fill Target Dates</span>
+                  <span>Auto-Fill Schedule</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditorOpen(false)}
-                  className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+                  className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
             </div>
 
             <form onSubmit={handleSaveTimeline}>
-              <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              {/* Clean Horizontal Table of Steps */}
+              <div className="divide-y divide-brand-border/60">
                 {TIMELINE_STEPS.map((step, idx) => {
                   const isStepCompleted = idx <= Math.floor(visualIndex);
                   const stepData = draftMilestones[step] || {};
                   const isFocused = focusedStep === step;
+                  const autoCompletedLabel = formatTimelineDate(stepData.completedAt);
 
                   return (
                     <div
                       key={step}
-                      className={`p-3.5 rounded-xl border transition-all ${
+                      className={`px-5 py-2.5 transition-colors ${
                         stepData.delayed
-                          ? 'bg-red-50/50 border-red-300'
+                          ? 'bg-red-50/60'
                           : isFocused
-                          ? 'bg-neutral-50 border-brand-primary ring-1 ring-brand-primary/20'
-                          : 'bg-white border-brand-border/80'
+                          ? 'bg-amber-50/40'
+                          : isStepCompleted
+                          ? 'bg-neutral-50/40'
+                          : 'bg-white hover:bg-neutral-50/50'
                       }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-[140px]">
+                      <div className="flex items-center justify-between gap-3">
+                        {/* Left: Step Badge + Name */}
+                        <div className="flex items-center gap-2.5 w-[165px] shrink-0">
                           {stepData.delayed ? (
                             <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center shrink-0 shadow-xs">
                               !
@@ -402,66 +432,101 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                             <span
                               className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 ${
                                 isStepCompleted
-                                  ? 'bg-black text-white'
+                                  ? 'bg-emerald-600 text-white'
                                   : 'bg-neutral-100 text-neutral-600 border border-neutral-300'
                               }`}
                             >
                               {isStepCompleted ? <Check size={12} strokeWidth={3} /> : idx + 1}
                             </span>
                           )}
-                          <div>
-                            <span className="text-sm font-bold text-brand-primary block leading-tight">
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-brand-primary block truncate">
                               {step}
                             </span>
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-brand-secondary">
-                              {stepData.delayed ? (
-                                <span className="text-red-600 font-bold">Delayed</span>
-                              ) : isStepCompleted ? (
-                                <span className="text-emerald-600">Reached</span>
-                              ) : (
-                                'Upcoming'
-                              )}
-                            </span>
+                            {stepData.delayed ? (
+                              <span className="text-[10px] font-extrabold uppercase text-red-600">
+                                Delayed
+                              </span>
+                            ) : isStepCompleted ? (
+                              <span className="text-[10px] font-bold text-emerald-700">
+                                Completed
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-neutral-400">
+                                Upcoming
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                              Action Completed Date
-                            </label>
-                            <input
-                              type="date"
-                              value={stepData.completedAt || ''}
-                              onChange={(e) =>
-                                setDraftMilestones((prev) => ({
-                                  ...prev,
-                                  [step]: { ...(prev[step] || {}), completedAt: e.target.value }
-                                }))
-                              }
-                              className="w-full bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-primary focus:border-brand-primary focus:outline-none"
-                            />
-                          </div>
+                        {/* Middle: Automatic Completed Timestamp OR Target Date Picker */}
+                        <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                          {isStepCompleted && !stepData.delayed ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs font-semibold">
+                              <Check size={12} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
+                              <span>
+                                Completed automatically{autoCompletedLabel ? ` on ${autoCompletedLabel}` : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={12} className="text-neutral-400 shrink-0" />
+                                <span className="text-[11px] font-bold text-brand-secondary whitespace-nowrap">
+                                  Target:
+                                </span>
+                                <input
+                                  type="date"
+                                  value={stepData.expectedDate || ''}
+                                  onChange={(e) =>
+                                    setDraftMilestones((prev) => ({
+                                      ...prev,
+                                      [step]: { ...(prev[step] || {}), expectedDate: e.target.value }
+                                    }))
+                                  }
+                                  className="bg-white border border-brand-border hover:border-neutral-400 focus:border-brand-primary rounded-lg px-2.5 py-1 text-xs font-bold text-brand-primary focus:outline-none"
+                                />
+                              </div>
 
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                              Target / Expected By Date
-                            </label>
-                            <input
-                              type="date"
-                              value={stepData.expectedDate || ''}
-                              onChange={(e) =>
-                                setDraftMilestones((prev) => ({
-                                  ...prev,
-                                  [step]: { ...(prev[step] || {}), expectedDate: e.target.value }
-                                }))
-                              }
-                              className="w-full bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-primary focus:border-brand-primary focus:outline-none"
-                            />
-                          </div>
+                              {/* Quick Date Bump Pills */}
+                              <div className="hidden sm:inline-flex items-center gap-1">
+                                {[
+                                  { label: '+2d', days: 2 },
+                                  { label: '+5d', days: 5 },
+                                  { label: '+1w', days: 7 }
+                                ].map((preset) => (
+                                  <button
+                                    key={preset.label}
+                                    type="button"
+                                    onClick={() => handleQuickAddDays(step, preset.days)}
+                                    className="px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold text-neutral-600 cursor-pointer transition-colors"
+                                    title={`Add ${preset.days} days to target date`}
+                                  >
+                                    {preset.label}
+                                  </button>
+                                ))}
+                                {stepData.expectedDate && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setDraftMilestones((prev) => ({
+                                        ...prev,
+                                        [step]: { ...(prev[step] || {}), expectedDate: '' }
+                                      }))
+                                    }
+                                    className="px-1 text-[10px] font-semibold text-neutral-400 hover:text-red-600 cursor-pointer"
+                                    title="Clear target date"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex items-center justify-end shrink-0">
+                        {/* Right: 1-Click Delay Toggle */}
+                        <div className="shrink-0">
                           <button
                             type="button"
                             onClick={() =>
@@ -473,21 +538,22 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                                 }
                               }))
                             }
-                            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
                               stepData.delayed
-                                ? 'bg-red-600 text-white border-red-600 shadow-xs'
-                                : 'bg-white text-neutral-600 border-brand-border hover:border-red-400 hover:text-red-600'
+                                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
+                                : 'bg-white text-neutral-500 border-brand-border hover:border-red-300 hover:text-red-600'
                             }`}
-                            title="Toggle Red Exclamation Mark (!) Delay Indicator on Timeline"
+                            title="Flag or unflag this step as Delayed (!)"
                           >
-                            <span className="font-black text-sm leading-none">!</span>
-                            <span>{stepData.delayed ? 'Delayed' : 'Mark Delay'}</span>
+                            <span className="font-black">!</span>
+                            <span>{stepData.delayed ? 'Delayed' : 'Delay'}</span>
                           </button>
                         </div>
                       </div>
 
+                      {/* Inline Delay Reason Input (Only shown when step is flagged Delayed) */}
                       {stepData.delayed && (
-                        <div className="mt-2.5 pt-2.5 border-t border-red-200/70">
+                        <div className="mt-2 pl-8">
                           <input
                             type="text"
                             value={stepData.delayNote || ''}
@@ -497,8 +563,8 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                                 [step]: { ...(prev[step] || {}), delayNote: e.target.value }
                               }))
                             }
-                            placeholder="Optional delay reason (shown on hover, e.g. Blank garments backordered until Friday)..."
-                            className="w-full bg-white border border-red-200 rounded-lg px-3 py-1.5 text-xs text-red-900 placeholder:text-red-300 focus:border-red-500 focus:outline-none font-medium"
+                            placeholder="Reason for delay (shown when hovering over the red ! on the timeline)..."
+                            className="w-full bg-white border border-red-200 rounded-lg px-2.5 py-1 text-xs text-red-900 placeholder:text-red-300 focus:border-red-500 focus:outline-none font-medium"
                           />
                         </div>
                       )}
@@ -507,18 +573,19 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                 })}
               </div>
 
-              <div className="px-6 py-4 border-t border-brand-border bg-neutral-50/70 flex items-center justify-end gap-3">
+              {/* Footer */}
+              <div className="px-5 py-3 border-t border-brand-border bg-neutral-50 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsEditorOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-brand-border bg-white hover:bg-neutral-50 text-xs font-bold text-brand-secondary cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl border border-brand-border bg-white hover:bg-neutral-50 text-xs font-bold text-brand-secondary cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                  className="px-5 py-1.5 rounded-xl bg-black hover:bg-neutral-800 text-white text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isSaving ? 'Saving...' : 'Save Timeline'}
                 </button>
