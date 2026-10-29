@@ -2486,6 +2486,7 @@ export function OrderDetail() {
       logoNameBack: designLogos[1]?.name || prev?.logoNameBack || null,
       supplierUrl: design.garmentSourcingLink || prev?.supplierUrl || '',
       psdDriveLink: design.psdDriveLink || prev?.psdDriveLink || '',
+      sizingAdjustment: design.sizingAdjustment || prev?.sizingAdjustment || 'True to Size',
       designerRackItemId: design.id,
       brandCustomerId: design._sourceCustomerId || order?.customerId || '',
       brandCustomerName: design._sourceCustomerName || ''

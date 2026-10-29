@@ -289,6 +289,7 @@ export function CustomerDetail() {
     psdDriveLink: string;
     garmentSourcingLink: string;
     garmentColor: string;
+    sizingAdjustment: string;
     finalDesignApproved: boolean;
     approvedForOrder: boolean;
   }>({
@@ -302,6 +303,7 @@ export function CustomerDetail() {
     psdDriveLink: '',
     garmentSourcingLink: '',
     garmentColor: '',
+    sizingAdjustment: 'True to Size',
     finalDesignApproved: false,
     approvedForOrder: false
   });
@@ -1214,6 +1216,7 @@ export function CustomerDetail() {
       psdDriveLink: '',
       garmentSourcingLink: '',
       garmentColor: '',
+      sizingAdjustment: 'True to Size',
       finalDesignApproved: false,
       approvedForOrder: false
     });
@@ -1250,6 +1253,7 @@ export function CustomerDetail() {
       psdDriveLink: design.psdDriveLink || '',
       garmentSourcingLink: design.garmentSourcingLink || '',
       garmentColor: design.garmentColor || design.color || '',
+      sizingAdjustment: design.sizingAdjustment || 'True to Size',
       finalDesignApproved: Boolean(design.finalDesignApproved),
       approvedForOrder: Boolean(design.approvedForOrder)
     });
@@ -1337,6 +1341,7 @@ export function CustomerDetail() {
         garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
         garmentColor: nextForm.garmentColor.trim(),
         color: nextForm.garmentColor.trim(),
+        sizingAdjustment: nextForm.sizingAdjustment || 'True to Size',
         finalDesignApproved: Boolean(nextForm.finalDesignApproved),
         finalDesignApprovedNotificationRead:
           Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
@@ -1576,6 +1581,7 @@ export function CustomerDetail() {
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
           garmentColor: designerRackForm.garmentColor.trim(),
           color: designerRackForm.garmentColor.trim(),
+          sizingAdjustment: designerRackForm.sizingAdjustment || 'True to Size',
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead:
             Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
@@ -1612,6 +1618,7 @@ export function CustomerDetail() {
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
           garmentColor: designerRackForm.garmentColor.trim(),
           color: designerRackForm.garmentColor.trim(),
+          sizingAdjustment: designerRackForm.sizingAdjustment || 'True to Size',
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead: false,
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
@@ -3139,12 +3146,21 @@ export function CustomerDetail() {
                       <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
                         4. Garment Sourcing Link
                       </span>
-                      {designerRackForm.garmentSourcingLink.trim() ? (
+                      {designerRackForm.garmentSourcingLink.trim() && designerRackForm.garmentColor.trim() ? (
                         <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
                           <Check size={12} strokeWidth={3} />
                         </span>
                       ) : (
-                        <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center shrink-0" title="Garment sourcing link not entered yet">
+                        <span
+                          className="w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center shrink-0"
+                          title={
+                            !designerRackForm.garmentSourcingLink.trim() && !designerRackForm.garmentColor.trim()
+                              ? 'Garment sourcing link and color not entered yet'
+                              : !designerRackForm.garmentSourcingLink.trim()
+                              ? 'Garment sourcing link not entered yet'
+                              : 'Garment color not entered yet'
+                          }
+                        >
                           !
                         </span>
                       )}
@@ -3156,17 +3172,42 @@ export function CustomerDetail() {
                       placeholder="https://www.sanmar.com/... or supplier URL"
                       className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
                     />
-                    <div className="mt-2.5">
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
-                        Garment Color
-                      </label>
-                      <input
-                        type="text"
-                        value={designerRackForm.garmentColor}
-                        onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentColor: e.target.value }))}
-                        placeholder="e.g. Black, Vintage Navy, Heather Grey"
-                        className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2 text-xs text-brand-primary focus:outline-none transition-all"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                          Garment Color
+                        </label>
+                        <input
+                          type="text"
+                          value={designerRackForm.garmentColor}
+                          onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentColor: e.target.value }))}
+                          placeholder="e.g. Black, Vintage Navy"
+                          className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2 text-xs text-brand-primary focus:outline-none transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                          Order Sizing
+                        </label>
+                        <select
+                          value={designerRackForm.sizingAdjustment || 'True to Size'}
+                          onChange={(e) => {
+                            const nextForm = {
+                              ...designerRackForm,
+                              sizingAdjustment: e.target.value
+                            };
+                            setDesignerRackForm(nextForm);
+                            void autoPersistEditingDesignerRack(nextForm);
+                          }}
+                          className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3 py-2 text-xs font-semibold text-brand-primary focus:outline-none transition-all cursor-pointer"
+                        >
+                          <option value="True to Size">True to Size</option>
+                          <option value="Size Up 1">Size Up 1 (+1 Larger)</option>
+                          <option value="Size Up 2">Size Up 2 (+2 Larger)</option>
+                          <option value="Size Down 1">Size Down 1 (-1 Smaller)</option>
+                          <option value="Size Down 2">Size Down 2 (-2 Smaller)</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <div className="mt-3">
@@ -4130,6 +4171,7 @@ export function CustomerDetail() {
                       if (designLogos.length === 0) missingFields.push('Logo(s)');
                       if (!design.psdDriveLink?.trim()) missingFields.push('PSD Drive Link');
                       if (!design.garmentSourcingLink?.trim()) missingFields.push('Garment Sourcing Link');
+                      if (!(design.garmentColor || design.color)?.trim()) missingFields.push('Garment Color');
                       const isIncomplete = missingFields.length > 0;
 
                       return (
@@ -4137,8 +4179,8 @@ export function CustomerDetail() {
                           key={`${design._sourceCustomerId || 'own'}-${design.id}`}
                           className="flex flex-col justify-between bg-white hover:bg-brand-bg/20 border border-brand-border rounded-2xl p-5 transition-all group relative gap-3.5 shadow-2xs"
                         >
-                          {/* Top-Right Status Badge: Green Checkmark when Final Design Approved, or Red Exclamation when Incomplete */}
-                          {design.finalDesignApproved ? (
+                          {/* Top-Right Status Badge: Green Checkmark when Complete & Final Design Approved, otherwise Red Exclamation */}
+                          {!isIncomplete && design.finalDesignApproved ? (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -4149,18 +4191,26 @@ export function CustomerDetail() {
                             >
                               <Check size={13} strokeWidth={3} />
                             </div>
-                          ) : isIncomplete ? (
+                          ) : (
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (!isSales) handleOpenEditDesignerRackModal(design);
                               }}
                               className={`absolute -top-2.5 -right-2.5 w-6 h-6 rounded-full bg-red-600 text-white text-xs font-black flex items-center justify-center shadow-md ring-2 ring-white ${isSales ? 'cursor-default' : 'cursor-pointer'} z-10`}
-                              title={isSales ? `Incomplete — Missing: ${missingFields.join(', ')}` : `Incomplete — Missing: ${missingFields.join(', ')}. Click to edit.`}
+                              title={
+                                isIncomplete
+                                  ? isSales
+                                    ? `Incomplete — Missing: ${missingFields.join(', ')}`
+                                    : `Incomplete — Missing: ${missingFields.join(', ')}. Click to edit.`
+                                  : isSales
+                                  ? 'Pending Final Design Approval'
+                                  : 'Pending Final Design Approval — Click to edit.'
+                              }
                             >
                               !
                             </div>
-                          ) : null}
+                          )}
 
                           {/* Full-Width Card Header: Title + Edit/Delete */}
                           <div className="flex items-start justify-between gap-2 pb-1">
@@ -4339,6 +4389,11 @@ export function CustomerDetail() {
                                     {design.garmentColor || design.color}
                                   </span>
                                 )}
+                                {design.sizingAdjustment && design.sizingAdjustment !== 'True to Size' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                                    {design.sizingAdjustment}
+                                  </span>
+                                )}
                                 {Boolean(design.approvedForOrder) && (
                                   <span
                                     className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0"
@@ -4354,6 +4409,11 @@ export function CustomerDetail() {
                                 {(design.garmentColor || design.color) && (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200 not-italic">
                                     {design.garmentColor || design.color}
+                                  </span>
+                                )}
+                                {design.sizingAdjustment && design.sizingAdjustment !== 'True to Size' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 not-italic">
+                                    {design.sizingAdjustment}
                                   </span>
                                 )}
                                 {Boolean(design.approvedForOrder) && (

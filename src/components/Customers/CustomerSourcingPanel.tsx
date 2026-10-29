@@ -64,6 +64,7 @@ interface AggregatedGarmentGroup {
   style: string;
   itemNum: string;
   color: string;
+  sizingAdjustment: string;
   genderLabel: string;
   image: string;
   sourcingUrl: string;
@@ -182,6 +183,7 @@ export function CustomerSourcingPanel({
           !rawItemColor || rawItemColor.toLowerCase() === 'custom color'
             ? rackColor || rawItemColor
             : rawItemColor;
+        const sizingAdjustment = (item.sizingAdjustment || rackMatch?.sizingAdjustment || '').trim();
         const itemGenderNorm = normalizeGender(
           item.gender && item.gender !== 'Unisex' ? item.gender : (indGenderRaw || item.gender)
         );
@@ -235,6 +237,7 @@ export function CustomerSourcingPanel({
             style: styleName,
             itemNum,
             color,
+            sizingAdjustment,
             genderLabel: genderBucketLabel,
             image,
             sourcingUrl,
@@ -251,6 +254,7 @@ export function CustomerSourcingPanel({
         const group = groupsMap[groupKey];
         if (!group.image && image) group.image = image;
         if (!group.sourcingUrl && sourcingUrl) group.sourcingUrl = sourcingUrl;
+        if (!group.sizingAdjustment && sizingAdjustment) group.sizingAdjustment = sizingAdjustment;
         if (!group.brandNames.includes(orderBrandName)) {
           group.brandNames.push(orderBrandName);
         }
@@ -485,6 +489,7 @@ export function CustomerSourcingPanel({
       group.style,
       group.itemNum ? `#${group.itemNum}` : '',
       group.color ? `(${group.color})` : '',
+      group.sizingAdjustment && group.sizingAdjustment !== 'True to Size' ? `[${group.sizingAdjustment}]` : '',
       group.genderLabel !== 'All Cuts' ? `[${group.genderLabel}]` : ''
     ]
       .filter(Boolean)
@@ -740,6 +745,11 @@ export function CustomerSourcingPanel({
                                     <span className="font-bold text-neutral-700">#{group.itemNum}</span>
                                   )}
                                   {group.color && <span className="truncate">• {group.color}</span>}
+                                  {group.sizingAdjustment && group.sizingAdjustment !== 'True to Size' && (
+                                    <span className="text-[9.5px] bg-amber-50 border border-amber-300 text-amber-800 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">
+                                      {group.sizingAdjustment}
+                                    </span>
+                                  )}
                                   {group.brandNames.map((bn) => (
                                     <span
                                       key={bn}
