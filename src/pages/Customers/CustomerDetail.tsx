@@ -2199,27 +2199,6 @@ export function CustomerDetail() {
     }
   };
 
-  const handleToggleCustomerMvp = async () => {
-    if (!id) return;
-    const isCurrentlyMvp = Boolean(liveCustomerData?.isMvp);
-    const nextMvp = !isCurrentlyMvp;
-    try {
-      await setDoc(doc(db, 'customers', id), {
-        isMvp: nextMvp
-      }, { merge: true });
-      setLiveCustomerData((prev: any) => ({
-        ...prev,
-        isMvp: nextMvp
-      }));
-      setEditCompanyForm(prev => ({
-        ...prev,
-        isMvp: nextMvp
-      }));
-    } catch (err) {
-      console.error('Failed to toggle customer MVP:', err);
-    }
-  };
-
   const handleSaveCompany = async () => {
     if (!id) return;
     setSavingCompany(true);
@@ -3233,19 +3212,6 @@ export function CustomerDetail() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2 justify-end">
-          <button
-            type="button"
-            onClick={handleToggleCustomerMvp}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-              liveCustomerData?.isMvp
-                ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 shadow-xs'
-                : 'bg-white text-brand-primary border-brand-border hover:border-amber-500 hover:text-amber-600'
-            }`}
-            title={liveCustomerData?.isMvp ? 'Remove VIP status from Customer' : 'Mark Customer as VIP'}
-          >
-            <MvpStarIcon size={14} className={liveCustomerData?.isMvp ? 'text-yellow-300' : 'text-yellow-400'} />
-            <span>{liveCustomerData?.isMvp ? 'VIP' : 'Mark VIP'}</span>
-          </button>
           <button
             type="button"
             onClick={handleToggleCustomerHighPriority}
