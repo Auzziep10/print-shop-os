@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shirt,
@@ -10,7 +10,6 @@ import {
   ChevronUp,
   Users,
   Layers,
-  AlertTriangle,
   RotateCcw,
   Star,
   Box,
@@ -77,6 +76,8 @@ interface AggregatedGarmentGroup {
   occurrences: OccurrenceRef[];
 }
 
+const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+
 const normalizeGender = (g?: string): 'Male' | 'Female' | 'Unisex' => {
   if (!g) return 'Unisex';
   const lower = g.trim().toLowerCase();
@@ -141,7 +142,6 @@ export function CustomerSourcingPanel({
 
       const sIdx = Number(o.statusIndex ?? 0);
       if (pipelineFilter === 'active_orders') {
-        // Placed / active orders (Approved through In Production; exclude archived/completed >= 7 unless needed)
         return sIdx >= 3 && sIdx < 7;
       }
       if (pipelineFilter === 'include_quotes') {
@@ -152,11 +152,12 @@ export function CustomerSourcingPanel({
   }, [orders, brandFilter, pipelineFilter]);
 
   // Build aggregated garment groups
-  const { garmentGroups, summaryStats } = useMemo(() => {
+  const { garmentGroups, summaryStats, allSizeColumns } = useMemo(() => {
     const groupsMap: Record<string, AggregatedGarmentGroup> = {};
     let totalUnits = 0;
     let totalOrdered = 0;
     let totalReceived = 0;
+    const discoveredSizes = new Set<string>(STANDARD_SIZES);
 
     filteredOrders.forEach((order: any) => {
       const items = Array.isArray(order.items) ? order.items : [];
@@ -174,54 +175,54 @@ export function CustomerSourcingPanel({
         const itemNum = (item.itemNum || '').trim();
         const color = (item.color || '').trim();
         const itemGenderNorm = normalizeGender(
-          item.gender && item.gender !== 'Unisex' ? item.gender : indGenderRaw
+          item.gender && item.gender !== 'Unisex' ? item.gender : (indGenderRaw || item.gender)
         );
+        const genderBucketLabel = splitByGender ? itemGenderNorm : 'All Cuts';
 
-        // Find matching Designer Rack item if any
-        const matchedRack =
+        let sourcingUrl = (item.sourcingLink || item.garmentSourcingLink || '').trim();
+        const rackMatch =
           (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
-          designerRackByTitle[styleName.toLowerCase()] ||
-          null;
-
-        const sourcingUrl =
-          item.supplierUrl ||
-          item.sourceUrl ||
-          item.productUrl ||
-          matchedRack?.garmentSourcingLink ||
-          (itemNum && /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(itemNum)
-            ? `https://www.sanmar.com/search/?text=${encodeURIComponent(itemNum)}`
-            : '');
+          designerRackByTitle[styleName.toLowerCase()];
+        if (!sourcingUrl && rackMatch?.garmentSourcingLink) {
+          sourcingUrl = rackMatch.garmentSourcingLink.trim();
+        }
 
         const image =
           item.image ||
-          item.originalFrontImage ||
-          matchedRack?.frontMockupUrl ||
-          matchedRack?.mockupUrl ||
-          matchedRack?.url ||
+          item.frontMockupUrl ||
+          rackMatch?.frontMockupUrl ||
+          rackMatch?.mockupUrl ||
           '';
 
-        // Extract size quantities
-        const explicitSizeEntries = Object.entries(item.sizes || {}).filter(
-          ([, q]) => (parseInt(String(q), 10) || 0) > 0
-        );
+        const rawSizesObj = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
+        const explicitSizeEntries = Object.entries(rawSizesObj)
+          .map(([sz, q]) => [sz.trim().toUpperCase(), parseInt(String(q), 10) || 0] as const)
+          .filter(([, q]) => q > 0);
 
-        let effectiveSizes: { size: string; qty: number; inferred: boolean }[] = [];
+        let effectiveSizeEntries: { size: string; qty: number; inferred: boolean }[] = [];
         if (explicitSizeEntries.length > 0) {
-          effectiveSizes = explicitSizeEntries.map(([sz, q]) => ({
-            size: sz.trim().toUpperCase(),
-            qty: parseInt(String(q), 10) || 0,
+          effectiveSizeEntries = explicitSizeEntries.map(([size, qty]) => ({
+            size,
+            qty,
             inferred: false
           }));
         } else if (indSizeRaw) {
-          // Fallback to individual's profile size if item size grid wasn't filled in yet
-          const fallbackQty = Math.max(1, parseInt(String(item.qty || item.quantity || 1), 10) || 1);
-          effectiveSizes = [{ size: indSizeRaw, qty: fallbackQty, inferred: true }];
+          const fallbackQty = Math.max(1, parseInt(String(item.qty || 1), 10) || 1);
+          effectiveSizeEntries = [{ size: indSizeRaw, qty: fallbackQty, inferred: true }];
+        } else if ((parseInt(String(item.qty || 0), 10) || 0) > 0) {
+          effectiveSizeEntries = [
+            { size: 'TBD', qty: parseInt(String(item.qty), 10) || 1, inferred: true }
+          ];
         }
 
-        if (effectiveSizes.length === 0) return;
+        if (effectiveSizeEntries.length === 0) return;
 
-        const genderKeyPart = splitByGender ? itemGenderNorm : 'ALL';
-        const groupKey = `${(matchedRack?.id || styleName).toLowerCase()}__${itemNum.toLowerCase()}__${color.toLowerCase()}__${genderKeyPart}`;
+        const groupKey = [
+          styleName.toLowerCase(),
+          itemNum.toLowerCase(),
+          color.toLowerCase(),
+          genderBucketLabel.toLowerCase()
+        ].join('__');
 
         if (!groupsMap[groupKey]) {
           groupsMap[groupKey] = {
@@ -229,10 +230,10 @@ export function CustomerSourcingPanel({
             style: styleName,
             itemNum,
             color,
-            genderLabel: splitByGender ? itemGenderNorm : 'All Cuts',
+            genderLabel: genderBucketLabel,
             image,
             sourcingUrl,
-            designerRackItemId: matchedRack?.id || item.designerRackItemId || '',
+            designerRackItemId: item.designerRackItemId || rackMatch?.id || '',
             brandNames: [],
             totalQty: 0,
             orderedQty: 0,
@@ -242,30 +243,21 @@ export function CustomerSourcingPanel({
           };
         }
 
-        const grp = groupsMap[groupKey];
-        if (!grp.image && image) grp.image = image;
-        if (!grp.sourcingUrl && sourcingUrl) grp.sourcingUrl = sourcingUrl;
-        if (orderBrandName && !grp.brandNames.includes(orderBrandName)) {
-          grp.brandNames.push(orderBrandName);
+        const group = groupsMap[groupKey];
+        if (!group.image && image) group.image = image;
+        if (!group.sourcingUrl && sourcingUrl) group.sourcingUrl = sourcingUrl;
+        if (!group.brandNames.includes(orderBrandName)) {
+          group.brandNames.push(orderBrandName);
         }
 
-        const orderedSizesArr: string[] = Array.isArray(item.orderedSizes)
-          ? item.orderedSizes.map((s: string) => s.toUpperCase())
-          : [];
-        const receivedSizesArr: string[] = Array.isArray(item.receivedSizes)
-          ? item.receivedSizes.map((s: string) => s.toUpperCase())
-          : [];
-        const completedSizesArr: string[] = Array.isArray(item.completedSizes)
-          ? item.completedSizes.map((s: string) => s.toUpperCase())
-          : [];
+        effectiveSizeEntries.forEach(({ size, qty, inferred }) => {
+          discoveredSizes.add(size);
+          const isCompleted = Boolean(item.completedSizes?.[size]);
+          const isReceived = isCompleted || Boolean(item.receivedSizes?.[size]);
+          const isOrdered = isReceived || Boolean(item.orderedSizes?.[size]);
 
-        effectiveSizes.forEach(({ size, qty, inferred }) => {
-          const isCompleted = completedSizesArr.includes(size);
-          const isReceived = isCompleted || receivedSizesArr.includes(size);
-          const isOrdered = isReceived || orderedSizesArr.includes(size) || Number(order.statusIndex ?? 0) >= 5;
-
-          if (!grp.sizesMap[size]) {
-            grp.sizesMap[size] = {
+          if (!group.sizesMap[size]) {
+            group.sizesMap[size] = {
               size,
               totalQty: 0,
               orderedQty: 0,
@@ -277,7 +269,7 @@ export function CustomerSourcingPanel({
             };
           }
 
-          const bucket = grp.sizesMap[size];
+          const bucket = group.sizesMap[size];
           bucket.totalQty += qty;
           if (isOrdered) bucket.orderedQty += qty;
           if (isReceived) bucket.receivedQty += qty;
@@ -288,15 +280,15 @@ export function CustomerSourcingPanel({
 
           const occ: OccurrenceRef = {
             orderId: order.id,
-            orderTitle: order.title || 'Custom Order',
-            portalId: order.portalId || order.id.substring(0, 8),
+            orderTitle: order.title || 'Untitled Order',
+            portalId: String(order.portalId || order.id).slice(0, 8),
             customerId: order.customerId,
             brandName: orderBrandName,
             isMvp: orderIsMvp,
             getsBox: orderGetsBox,
-            individualGender: indGenderRaw || item.gender || '',
-            individualSize: indSizeRaw,
-            itemId: item.id,
+            individualGender: itemGenderNorm,
+            individualSize: indSizeRaw || size,
+            itemId: String(item.id),
             size,
             qty,
             inferredFromProfile: inferred,
@@ -306,11 +298,11 @@ export function CustomerSourcingPanel({
           };
 
           bucket.occurrences.push(occ);
-          grp.occurrences.push(occ);
+          group.occurrences.push(occ);
 
-          grp.totalQty += qty;
-          if (isOrdered) grp.orderedQty += qty;
-          if (isReceived) grp.receivedQty += qty;
+          group.totalQty += qty;
+          if (isOrdered) group.orderedQty += qty;
+          if (isReceived) group.receivedQty += qty;
 
           totalUnits += qty;
           if (isOrdered) totalOrdered += qty;
@@ -319,23 +311,27 @@ export function CustomerSourcingPanel({
       });
     });
 
-    let list = Object.values(groupsMap).sort((a, b) => {
-      const aNeeds = a.totalQty - a.orderedQty;
-      const bNeeds = b.totalQty - b.orderedQty;
-      if ((aNeeds > 0) !== (bNeeds > 0)) return aNeeds > 0 ? -1 : 1;
-      return a.style.localeCompare(b.style);
+    let allGroups = Object.values(groupsMap).sort((a, b) => {
+      const aPending = a.totalQty - a.orderedQty;
+      const bPending = b.totalQty - b.orderedQty;
+      if (aPending > 0 && bPending === 0) return -1;
+      if (aPending === 0 && bPending > 0) return 1;
+      return b.totalQty - a.totalQty || a.style.localeCompare(b.style);
     });
 
     if (statusFilter === 'needs_ordering') {
-      list = list.filter((g) => g.orderedQty < g.totalQty);
+      allGroups = allGroups.filter((g) => g.orderedQty < g.totalQty);
     } else if (statusFilter === 'ordered') {
-      list = list.filter((g) => g.orderedQty > 0 && g.receivedQty < g.totalQty);
+      allGroups = allGroups.filter((g) => g.orderedQty > 0 && g.receivedQty < g.totalQty);
     } else if (statusFilter === 'received') {
-      list = list.filter((g) => g.receivedQty >= g.totalQty && g.totalQty > 0);
+      allGroups = allGroups.filter((g) => g.receivedQty >= g.totalQty && g.totalQty > 0);
     }
 
+    const sortedColumns = Array.from(discoveredSizes).sort(sortGarmentSizes);
+
     return {
-      garmentGroups: list,
+      garmentGroups: allGroups,
+      allSizeColumns: sortedColumns,
       summaryStats: {
         totalUnits,
         needsOrdering: Math.max(0, totalUnits - totalOrdered),
@@ -344,75 +340,73 @@ export function CustomerSourcingPanel({
         stylesCount: Object.keys(groupsMap).length
       }
     };
-  }, [filteredOrders, brandNameMap, customerName, designerRackById, designerRackByTitle, splitByGender, statusFilter]);
+  }, [filteredOrders, brandNameMap, customerName, splitByGender, designerRackById, designerRackByTitle, statusFilter]);
 
-  // Apply status change to a list of occurrences (supports batching multiple items in the same order)
   const applySourcingStatusToOccurrences = async (
     occurrences: OccurrenceRef[],
     targetState: 'to_order' | 'ordered' | 'received',
-    loadingId: string
+    actionKey: string
   ) => {
     if (isSales || occurrences.length === 0) return;
-    setUpdatingKey(loadingId);
+    setUpdatingKey(actionKey);
     try {
-      // Group occurrences by orderId so we update each order document once
       const byOrder: Record<string, OccurrenceRef[]> = {};
       occurrences.forEach((occ) => {
         if (!byOrder[occ.orderId]) byOrder[occ.orderId] = [];
         byOrder[occ.orderId].push(occ);
       });
 
-      await Promise.all(
-        Object.entries(byOrder).map(async ([ordId, occs]) => {
-          const targetOrder = orders.find((o: any) => o.id === ordId);
-          if (!targetOrder || !Array.isArray(targetOrder.items)) return;
+      const orderMap: Record<string, any> = {};
+      orders.forEach((o: any) => {
+        orderMap[o.id] = o;
+      });
 
-          const updatedItems = targetOrder.items.map((item: any) => {
-            const matchingOccs = occs.filter((o) => o.itemId === item.id);
+      await Promise.all(
+        Object.entries(byOrder).map(async ([orderId, occList]) => {
+          const orderDoc = orderMap[orderId];
+          if (!orderDoc || !Array.isArray(orderDoc.items)) return;
+
+          const updatedItems = orderDoc.items.map((item: any) => {
+            const matchingOccs = occList.filter((o) => String(o.itemId) === String(item.id));
             if (matchingOccs.length === 0) return item;
 
             const nextSizes = { ...(item.sizes || {}) };
-            let orderedSet = new Set<string>(
-              Array.isArray(item.orderedSizes) ? item.orderedSizes.map((s: string) => s.toUpperCase()) : []
-            );
-            let receivedSet = new Set<string>(
-              Array.isArray(item.receivedSizes) ? item.receivedSizes.map((s: string) => s.toUpperCase()) : []
-            );
+            const nextOrderedSizes = { ...(item.orderedSizes || {}) };
+            const nextReceivedSizes = { ...(item.receivedSizes || {}) };
 
             matchingOccs.forEach((occ) => {
-              const sz = occ.size.toUpperCase();
-              // Lock in the size quantity if it was inferred from the individual's profile
-              if (!nextSizes[sz] || Number(nextSizes[sz]) <= 0) {
-                nextSizes[sz] = occ.qty;
+              if (occ.inferredFromProfile && occ.size !== 'TBD') {
+                const existingSzQty = parseInt(String(nextSizes[occ.size] || 0), 10) || 0;
+                if (existingSzQty === 0) {
+                  nextSizes[occ.size] = occ.qty;
+                }
               }
+
               if (targetState === 'to_order') {
-                orderedSet.delete(sz);
-                receivedSet.delete(sz);
+                nextOrderedSizes[occ.size] = false;
+                nextReceivedSizes[occ.size] = false;
               } else if (targetState === 'ordered') {
-                orderedSet.add(sz);
-                receivedSet.delete(sz);
+                nextOrderedSizes[occ.size] = true;
+                nextReceivedSizes[occ.size] = false;
               } else if (targetState === 'received') {
-                orderedSet.add(sz);
-                receivedSet.add(sz);
+                nextOrderedSizes[occ.size] = true;
+                nextReceivedSizes[occ.size] = true;
               }
             });
 
             return {
               ...item,
               sizes: nextSizes,
-              orderedSizes: Array.from(orderedSet),
-              receivedSizes: Array.from(receivedSet)
+              orderedSizes: nextOrderedSizes,
+              receivedSizes: nextReceivedSizes
             };
           });
 
-          await updateDoc(doc(db, 'orders', ordId), {
-            items: updatedItems
-          });
+          await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
         })
       );
     } catch (err) {
-      console.error('Failed to update sourcing status:', err);
-      alert('Failed to update garment sourcing status.');
+      console.error('Failed to update garment sourcing status:', err);
     } finally {
       setUpdatingKey(null);
     }
@@ -420,66 +414,86 @@ export function CustomerSourcingPanel({
 
   const handleCycleSizeBucket = async (groupKey: string, bucket: AggregatedSizeBucket) => {
     if (isSales) return;
-    // Determine next state for the bucket:
-    // If not all ordered -> mark all 'ordered'
-    // Else if not all received -> mark all 'received'
-    // Else -> reset to 'to_order'
-    const allOrdered = bucket.orderedQty >= bucket.totalQty;
     const allReceived = bucket.receivedQty >= bucket.totalQty;
-    const nextState: 'to_order' | 'ordered' | 'received' = !allOrdered
-      ? 'ordered'
-      : !allReceived
-        ? 'received'
-        : 'to_order';
+    const allOrdered = bucket.orderedQty >= bucket.totalQty;
 
-    await applySourcingStatusToOccurrences(bucket.occurrences, nextState, `${groupKey}__${bucket.size}`);
+    let nextState: 'to_order' | 'ordered' | 'received' = 'ordered';
+    if (!allOrdered) {
+      nextState = 'ordered';
+    } else if (!allReceived) {
+      nextState = 'received';
+    } else {
+      nextState = 'to_order';
+    }
+
+    await applySourcingStatusToOccurrences(
+      bucket.occurrences,
+      nextState,
+      `${groupKey}__${bucket.size}`
+    );
   };
 
   const handleSaveGroupSourcingLink = async (group: AggregatedGarmentGroup) => {
     if (isSales) return;
-    const cleanUrl = linkInputVal.trim();
+    const trimmed = linkInputVal.trim();
     setUpdatingKey(`link_${group.key}`);
     try {
-      const byOrder: Record<string, Set<string>> = {};
-      group.occurrences.forEach((occ) => {
-        if (!byOrder[occ.orderId]) byOrder[occ.orderId] = new Set();
-        byOrder[occ.orderId].add(occ.itemId);
+      const orderIds = Array.from(new Set(group.occurrences.map((o) => o.orderId)));
+      const itemIdsByOrder: Record<string, Set<string>> = {};
+      group.occurrences.forEach((o) => {
+        if (!itemIdsByOrder[o.orderId]) itemIdsByOrder[o.orderId] = new Set();
+        itemIdsByOrder[o.orderId].add(String(o.itemId));
+      });
+
+      const orderMap: Record<string, any> = {};
+      orders.forEach((o: any) => {
+        orderMap[o.id] = o;
       });
 
       await Promise.all(
-        Object.entries(byOrder).map(async ([ordId, itemIds]) => {
-          const targetOrder = orders.find((o: any) => o.id === ordId);
-          if (!targetOrder || !Array.isArray(targetOrder.items)) return;
-          const updatedItems = targetOrder.items.map((it: any) =>
-            itemIds.has(it.id) ? { ...it, supplierUrl: cleanUrl } : it
-          );
-          await updateDoc(doc(db, 'orders', ordId), { items: updatedItems });
+        orderIds.map(async (orderId) => {
+          const orderDoc = orderMap[orderId];
+          if (!orderDoc || !Array.isArray(orderDoc.items)) return;
+          const updatedItems = orderDoc.items.map((item: any) => {
+            if (!itemIdsByOrder[orderId]?.has(String(item.id))) return item;
+            return {
+              ...item,
+              sourcingLink: trimmed,
+              garmentSourcingLink: trimmed
+            };
+          });
+          await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
         })
       );
       setEditingLinkGroupKey(null);
     } catch (err) {
-      console.error('Failed to save supplier link:', err);
+      console.error('Failed to save sourcing link:', err);
     } finally {
       setUpdatingKey(null);
     }
   };
 
   const handleCopyGroupBreakdown = (group: AggregatedGarmentGroup) => {
-    const sortedBuckets = Object.values(group.sizesMap).sort((a, b) => sortGarmentSizes(a.size, b.size));
-    const sizesStr = sortedBuckets.map((b) => `${b.size}: ${b.totalQty}`).join(', ');
-    const genderTag = group.genderLabel !== 'All Cuts' ? ` [${group.genderLabel}]` : '';
-    const colorTag = group.color ? ` (${group.color})` : '';
-    const styleTag = group.itemNum ? `${group.style} #${group.itemNum}` : group.style;
-    const text = `${styleTag}${colorTag}${genderTag} — ${sizesStr} (Total: ${group.totalQty})`;
+    const sortedSizes = Object.values(group.sizesMap).sort((a, b) => sortGarmentSizes(a.size, b.size));
+    const sizeParts = sortedSizes.map((b) => `${b.size}: ${b.totalQty}`).join(', ');
+    const headerParts = [
+      group.style,
+      group.itemNum ? `#${group.itemNum}` : '',
+      group.color ? `(${group.color})` : '',
+      group.genderLabel !== 'All Cuts' ? `[${group.genderLabel}]` : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const text = `${headerParts} — Total ${group.totalQty} [${sizeParts}]`;
     navigator.clipboard.writeText(text);
     setCopiedKey(group.key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleSyncMissingSizesForOrder = async (order: any) => {
+  const handleSyncIndividualSizeToOrderItems = async (order: any) => {
     if (isSales || !order?.personalInfo?.size) return;
-    const targetSize = order.personalInfo.size.trim().toUpperCase();
-    const targetGender = order.personalInfo.gender || order.personalInfo.sex || '';
+    const targetSize = String(order.personalInfo.size).trim().toUpperCase();
+    const targetGender = order.personalInfo?.gender || '';
     setUpdatingKey(`sync_${order.id}`);
     try {
       const updatedItems = (order.items || []).map((item: any) => {
@@ -510,106 +524,43 @@ export function CustomerSourcingPanel({
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      {/* Top KPI Summary Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-brand-bg/50 border border-brand-border/80 rounded-xl p-3.5 flex flex-col">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Total Units Needed</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-serif text-2xl font-bold text-brand-primary tabular-nums">{summaryStats.totalUnits}</span>
-            <span className="text-[11px] font-semibold text-brand-secondary">across {summaryStats.stylesCount} {summaryStats.stylesCount === 1 ? 'style' : 'styles'}</span>
-          </div>
-        </div>
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'needs_ordering' ? 'all' : 'needs_ordering')}
-          className={`border rounded-xl p-3.5 flex flex-col cursor-pointer transition-all ${
-            statusFilter === 'needs_ordering'
-              ? 'bg-red-50 border-red-300 ring-1 ring-red-300'
-              : 'bg-red-50/40 border-red-200/70 hover:bg-red-50'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase tracking-widest text-red-700 flex items-center justify-between">
-            <span>1. To Order from Supplier</span>
-            {summaryStats.needsOrdering > 0 && <AlertTriangle size={12} className="text-red-600" />}
-          </span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-serif text-2xl font-bold text-red-700 tabular-nums">{summaryStats.needsOrdering}</span>
-            <span className="text-[11px] font-semibold text-red-600/80">un-ordered units</span>
-          </div>
-        </div>
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'ordered' ? 'all' : 'ordered')}
-          className={`border rounded-xl p-3.5 flex flex-col cursor-pointer transition-all ${
-            statusFilter === 'ordered'
-              ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300'
-              : 'bg-amber-50/40 border-amber-200/70 hover:bg-amber-50'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase tracking-widest text-amber-800 flex items-center justify-between">
-            <span>2. Ordered / In Transit</span>
-            <ShoppingBag size={12} className="text-amber-600" />
-          </span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-serif text-2xl font-bold text-amber-800 tabular-nums">{summaryStats.orderedPendingDelivery}</span>
-            <span className="text-[11px] font-semibold text-amber-700/80">awaiting arrival</span>
-          </div>
-        </div>
-        <div
-          onClick={() => setStatusFilter(statusFilter === 'received' ? 'all' : 'received')}
-          className={`border rounded-xl p-3.5 flex flex-col cursor-pointer transition-all ${
-            statusFilter === 'received'
-              ? 'bg-emerald-50 border-emerald-300 ring-1 ring-emerald-300'
-              : 'bg-emerald-50/40 border-emerald-200/70 hover:bg-emerald-50'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-800 flex items-center justify-between">
-            <span>3. Received in Shop</span>
-            <Check size={12} strokeWidth={3} className="text-emerald-600" />
-          </span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="font-serif text-2xl font-bold text-emerald-800 tabular-nums">{summaryStats.received}</span>
-            <span className="text-[11px] font-semibold text-emerald-700/80">ready for production</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters & View Switcher Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 border border-brand-border/70 p-3 rounded-xl">
+    <div className="flex flex-col gap-3 mt-3 w-full">
+      {/* Compact Horizontal Toolbar + Status Filter Pills */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 border border-brand-border/70 px-3.5 py-2.5 rounded-xl">
+        {/* Left: View Switcher + Filters */}
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* View Mode */}
           <div className="inline-flex rounded-lg bg-white p-0.5 border border-brand-border shadow-2xs">
             <button
               type="button"
               onClick={() => setViewMode('by_garment')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'by_garment'
                   ? 'bg-neutral-900 text-white shadow-2xs'
                   : 'text-brand-secondary hover:text-brand-primary'
               }`}
             >
               <Layers size={13} />
-              <span>Supplier Buy List (By Garment)</span>
+              <span>By Garment ({garmentGroups.length})</span>
             </button>
             <button
               type="button"
               onClick={() => setViewMode('by_individual')}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'by_individual'
                   ? 'bg-neutral-900 text-white shadow-2xs'
                   : 'text-brand-secondary hover:text-brand-primary'
               }`}
             >
               <Users size={13} />
-              <span>By Individual / Order ({filteredOrders.length})</span>
+              <span>By Individual ({filteredOrders.length})</span>
             </button>
           </div>
 
-          {/* Sub-Brand Filter */}
           {subBrands.length > 0 && (
             <select
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
-              className="bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer"
+              className="bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer"
             >
               <option value="all">All Brands ({subBrands.length + 1})</option>
               <option value={customerId}>{customerName || 'Parent Account'}</option>
@@ -621,24 +572,20 @@ export function CustomerSourcingPanel({
             </select>
           )}
 
-          {/* Pipeline Stage Filter */}
           <select
             value={pipelineFilter}
             onChange={(e) => setPipelineFilter(e.target.value as any)}
-            className="bg-white border border-brand-border rounded-lg px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer"
+            className="bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer"
           >
-            <option value="active_orders">Active Orders (Approved – In Production)</option>
             <option value="include_quotes">Active Orders + Quotes</option>
-            <option value="all">All Orders (Including Shipped)</option>
+            <option value="active_orders">Approved / In Production Only</option>
+            <option value="all">All Orders (Incl. Shipped)</option>
           </select>
-        </div>
 
-        {/* Right Controls: Split by Gender & Status Reset */}
-        {viewMode === 'by_garment' && (
-          <div className="flex items-center gap-2.5 flex-wrap">
+          {viewMode === 'by_garment' && (
             <label
-              className="inline-flex items-center gap-2 bg-white border border-brand-border px-3 py-1.5 rounded-lg text-xs font-bold text-brand-primary cursor-pointer select-none hover:border-brand-primary/50 transition-colors"
-              title="Separate Male and Female orders into distinct rows so you can order Men's vs Women's cuts accurately"
+              className="inline-flex items-center gap-1.5 bg-white border border-brand-border px-2.5 py-1.5 rounded-lg text-xs font-bold text-brand-primary cursor-pointer select-none hover:border-brand-primary/50 transition-colors whitespace-nowrap"
+              title="Separate Male and Female orders into distinct rows"
             >
               <input
                 type="checkbox"
@@ -646,87 +593,165 @@ export function CustomerSourcingPanel({
                 onChange={(e) => setSplitByGender(e.target.checked)}
                 className="w-3.5 h-3.5 rounded accent-neutral-900 cursor-pointer"
               />
-              <span>Separate Male / Female Cuts</span>
+              <span>Split M/F Cuts</span>
             </label>
-            {statusFilter !== 'all' && (
-              <button
-                type="button"
-                onClick={() => setStatusFilter('all')}
-                className="text-xs font-bold text-brand-secondary hover:text-brand-primary underline cursor-pointer px-1"
-              >
-                Show All ({summaryStats.stylesCount})
-              </button>
-            )}
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Right: Horizontal Inline Status Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
+              statusFilter === 'all'
+                ? 'bg-neutral-900 text-white border-neutral-900'
+                : 'bg-white text-brand-primary border-brand-border hover:border-neutral-400'
+            }`}
+          >
+            <span>Total Units:</span>
+            <span className="font-black tabular-nums">{summaryStats.totalUnits}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'needs_ordering' ? 'all' : 'needs_ordering')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
+              statusFilter === 'needs_ordering'
+                ? 'bg-red-600 text-white border-red-600 shadow-2xs'
+                : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+            }`}
+          >
+            <span>To Order:</span>
+            <span className="font-black tabular-nums">{summaryStats.needsOrdering}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'ordered' ? 'all' : 'ordered')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
+              statusFilter === 'ordered'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <span>Ordered:</span>
+            <span className="font-black tabular-nums">{summaryStats.orderedPendingDelivery}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === 'received' ? 'all' : 'received')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer whitespace-nowrap ${
+              statusFilter === 'received'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+            }`}
+          >
+            <span>Received:</span>
+            <span className="font-black tabular-nums">{summaryStats.received}</span>
+          </button>
+        </div>
       </div>
 
-      {/* VIEW 1: SUPPLIER BUY LIST (BY GARMENT) */}
+      {/* VIEW 1: HORIZONTALLY ALIGNED GARMENT BUY SHEET SPREADSHEET */}
       {viewMode === 'by_garment' ? (
         garmentGroups.length === 0 ? (
-          <div className="bg-brand-bg/40 border border-dashed border-brand-border rounded-2xl p-10 text-center flex flex-col items-center justify-center gap-2">
-            <Shirt size={28} className="text-brand-secondary/50" />
+          <div className="bg-brand-bg/40 border border-dashed border-brand-border rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-1.5">
+            <Shirt size={24} className="text-brand-secondary/50" />
             <p className="text-sm font-bold text-brand-primary">No garments match the current sourcing filter.</p>
-            <p className="text-xs text-brand-secondary max-w-md">
-              Make sure your orders have garments added to them, or switch the filter above to "Active Orders + Quotes" to view unapproved quotes.
-            </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between px-1 text-[11px] text-brand-secondary font-medium">
-              <span>
-                💡 <strong>Tip:</strong> Click any size box below to cycle its status:{' '}
-                <span className="inline-block px-1.5 py-0.5 rounded bg-white border border-neutral-300 text-neutral-700 font-bold text-[10px]">To Order</span>
-                {' → '}
-                <span className="inline-block px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[10px]">Ordered</span>
-                {' → '}
-                <span className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold text-[10px]">Received</span>
-              </span>
-            </div>
-
-            {garmentGroups.map((group) => {
-              const sortedBuckets = Object.values(group.sizesMap).sort((a, b) => sortGarmentSizes(a.size, b.size));
-              const isExpanded = Boolean(expandedGroups[group.key]);
-              const allOrdered = group.orderedQty >= group.totalQty && group.totalQty > 0;
-              const allReceived = group.receivedQty >= group.totalQty && group.totalQty > 0;
-              const uniqueOrdersCount = new Set(group.occurrences.map((o) => o.orderId)).size;
-
-              return (
-                <div
-                  key={group.key}
-                  className={`rounded-2xl border transition-all overflow-hidden bg-white shadow-2xs ${
-                    allReceived
-                      ? 'border-emerald-300 bg-emerald-50/10'
-                      : allOrdered
-                        ? 'border-amber-300 bg-amber-50/10'
-                        : 'border-brand-border hover:border-brand-primary/40'
-                  }`}
-                >
-                  {/* Main Garment Row */}
-                  <div className="p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-                    {/* Left: Thumbnail + Garment Details + Supplier Link */}
-                    <div className="flex items-start sm:items-center gap-4 min-w-0 xl:w-[360px] shrink-0">
-                      <div
-                        onClick={() => group.image && onPreviewImage?.({ src: group.image, alt: group.style })}
-                        className={`w-16 h-16 rounded-xl border border-brand-border/70 bg-neutral-50 flex items-center justify-center p-1.5 shrink-0 overflow-hidden ${
-                          group.image ? 'cursor-zoom-in hover:scale-105 transition-transform' : ''
-                        }`}
+          <div className="w-full border border-brand-border rounded-xl overflow-hidden bg-white shadow-2xs">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-neutral-50 border-b border-brand-border text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
+                    <th className="py-2.5 pl-4 pr-3 min-w-[240px]">Garment Style</th>
+                    <th className="py-2.5 px-2 w-[86px] text-center">Cut</th>
+                    {allSizeColumns.map((sz) => (
+                      <th
+                        key={sz}
+                        className="py-2.5 px-1 w-[54px] min-w-[50px] text-center font-black text-neutral-800 border-l border-brand-border/50 bg-neutral-100/60"
                       >
-                        {group.image ? (
-                          <img src={group.image} alt={group.style} className="w-full h-full object-contain mix-blend-multiply" />
-                        ) : (
-                          <Shirt size={24} className="text-neutral-300" />
-                        )}
-                      </div>
+                        {sz}
+                      </th>
+                    ))}
+                    <th className="py-2.5 px-2.5 w-[68px] text-center border-l border-brand-border/60 font-black text-neutral-900">
+                      Total
+                    </th>
+                    <th className="py-2.5 px-3 w-[165px] border-l border-brand-border/60">Supplier Link</th>
+                    <th className="py-2.5 pl-3 pr-4 w-[210px] text-right">Status / People</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-border/60 text-xs">
+                  {garmentGroups.map((group) => {
+                    const isExpanded = Boolean(expandedGroups[group.key]);
+                    const allOrdered = group.orderedQty >= group.totalQty && group.totalQty > 0;
+                    const allReceived = group.receivedQty >= group.totalQty && group.totalQty > 0;
+                    const uniqueOrdersCount = new Set(group.occurrences.map((o) => o.orderId)).size;
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-base text-brand-primary truncate" title={group.style}>
-                            {group.style}
-                          </h4>
-                          {group.genderLabel !== 'All Cuts' && (
+                    return (
+                      <React.Fragment key={group.key}>
+                        <tr
+                          className={`transition-colors ${
+                            allReceived
+                              ? 'bg-emerald-50/20 hover:bg-emerald-50/40'
+                              : allOrdered
+                                ? 'bg-amber-50/20 hover:bg-amber-50/40'
+                                : 'hover:bg-neutral-50/80'
+                          }`}
+                        >
+                          {/* Col 1: Garment Thumbnail + Name + Item# + Brand */}
+                          <td className="py-2.5 pl-4 pr-3 align-middle">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                onClick={() => group.image && onPreviewImage?.({ src: group.image, alt: group.style })}
+                                className={`w-10 h-10 rounded-lg border border-brand-border/70 bg-neutral-50 flex items-center justify-center p-1 shrink-0 overflow-hidden ${
+                                  group.image ? 'cursor-zoom-in hover:border-brand-primary' : ''
+                                }`}
+                              >
+                                {group.image ? (
+                                  <img
+                                    src={group.image}
+                                    alt={group.style}
+                                    className="w-full h-full object-contain mix-blend-multiply"
+                                  />
+                                ) : (
+                                  <Shirt size={18} className="text-neutral-300" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="font-bold text-sm text-brand-primary truncate"
+                                    title={group.style}
+                                  >
+                                    {group.style}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-brand-secondary mt-0.5">
+                                  {group.itemNum && (
+                                    <span className="font-bold text-neutral-700">#{group.itemNum}</span>
+                                  )}
+                                  {group.color && <span className="truncate">• {group.color}</span>}
+                                  {group.brandNames.map((bn) => (
+                                    <span
+                                      key={bn}
+                                      className="text-[9px] bg-neutral-100 border border-neutral-200 text-neutral-700 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider"
+                                    >
+                                      {bn}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Col 2: Cut (Male / Female / Unisex) */}
+                          <td className="py-2.5 px-2 align-middle text-center">
                             <span
-                              className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                              className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap ${
                                 group.genderLabel === 'Female'
                                   ? 'bg-pink-50 text-pink-700 border-pink-200'
                                   : group.genderLabel === 'Male'
@@ -736,482 +761,494 @@ export function CustomerSourcingPanel({
                             >
                               {group.genderLabel}
                             </span>
-                          )}
-                        </div>
+                          </td>
 
-                        <div className="flex items-center gap-2 flex-wrap mt-1 text-xs text-brand-secondary font-medium">
-                          {group.itemNum && <span className="font-bold text-neutral-700">#{group.itemNum}</span>}
-                          {group.color && <span>• {group.color}</span>}
-                          {group.brandNames.map((bn) => (
-                            <span
-                              key={bn}
-                              className="text-[10px] bg-neutral-100 border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded font-bold"
-                            >
-                              {bn}
-                            </span>
-                          ))}
-                        </div>
-
-                        {/* Supplier Sourcing Link & Copy Breakdown */}
-                        {!isSales && (
-                          <div className="flex items-center gap-2 flex-wrap mt-2.5">
-                            {group.sourcingUrl ? (
-                              <a
-                                href={group.sourcingUrl.startsWith('http') ? group.sourcingUrl : `https://${group.sourcingUrl}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 px-2.5 py-1 rounded-lg transition-all"
-                              >
-                                <ExternalLink size={11} />
-                                <span>Open Supplier Link</span>
-                              </a>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingLinkGroupKey(group.key);
-                                  setLinkInputVal('');
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-500 hover:text-brand-primary bg-neutral-100 hover:bg-neutral-200/70 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                              >
-                                <LinkIcon size={11} />
-                                <span>+ Add Sourcing Link</span>
-                              </button>
-                            )}
-
-                            {group.sourcingUrl && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingLinkGroupKey(editingLinkGroupKey === group.key ? null : group.key);
-                                  setLinkInputVal(group.sourcingUrl);
-                                }}
-                                className="text-[10px] font-semibold text-neutral-400 hover:text-brand-primary underline cursor-pointer"
-                              >
-                                Edit Link
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleCopyGroupBreakdown(group)}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-600 hover:text-black bg-neutral-100 hover:bg-neutral-200/70 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                              title="Copy size breakdown to clipboard"
-                            >
-                              {copiedKey === group.key ? (
-                                <>
-                                  <Check size={11} className="text-emerald-600" />
-                                  <span className="text-emerald-700 font-bold">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy size={11} />
-                                  <span>Copy Sizes</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        )}
-
-                        {editingLinkGroupKey === group.key && !isSales && (
-                          <div className="mt-2 flex items-center gap-1.5">
-                            <input
-                              type="url"
-                              value={linkInputVal}
-                              onChange={(e) => setLinkInputVal(e.target.value)}
-                              placeholder="https://www.sanmar.com/..."
-                              className="flex-1 bg-white border border-brand-border rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-brand-primary"
-                            />
-                            <button
-                              type="button"
-                              disabled={updatingKey === `link_${group.key}`}
-                              onClick={() => handleSaveGroupSourcingLink(group)}
-                              className="bg-black text-white text-[11px] font-bold px-2.5 py-1 rounded-lg hover:bg-neutral-800 cursor-pointer"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingLinkGroupKey(null)}
-                              className="text-xs text-neutral-400 hover:text-neutral-700 px-1 cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Center: Interactive Size Breakdown Matrix */}
-                    <div className="flex-1 flex flex-wrap items-center gap-2">
-                      {sortedBuckets.map((bucket) => {
-                        const bucketAllReceived = bucket.receivedQty >= bucket.totalQty;
-                        const bucketAllOrdered = bucket.orderedQty >= bucket.totalQty;
-                        const bucketPartialOrdered = bucket.orderedQty > 0 && !bucketAllOrdered;
-                        const isUpdatingThis = updatingKey === `${group.key}__${bucket.size}`;
-
-                        let topBg = 'bg-neutral-800 text-white';
-                        let cardBorder = 'border-neutral-300 bg-white hover:border-black';
-                        let statusBadge = 'To Order';
-                        let statusColor = 'text-red-600 bg-red-50 border-red-200';
-
-                        if (bucketAllReceived) {
-                          topBg = 'bg-emerald-600 text-white';
-                          cardBorder = 'border-emerald-400 bg-emerald-50/40 hover:border-emerald-600';
-                          statusBadge = 'Received';
-                          statusColor = 'text-emerald-800 bg-emerald-100 border-emerald-300';
-                        } else if (bucketAllOrdered) {
-                          topBg = 'bg-amber-500 text-white';
-                          cardBorder = 'border-amber-400 bg-amber-50/40 hover:border-amber-600';
-                          statusBadge = 'Ordered';
-                          statusColor = 'text-amber-900 bg-amber-100 border-amber-300';
-                        } else if (bucketPartialOrdered) {
-                          topBg = 'bg-amber-500 text-white';
-                          cardBorder = 'border-amber-300 bg-white';
-                          statusBadge = `${bucket.orderedQty}/${bucket.totalQty} Ord`;
-                          statusColor = 'text-amber-800 bg-amber-50 border-amber-200';
-                        }
-
-                        return (
-                          <button
-                            key={bucket.size}
-                            type="button"
-                            disabled={isSales || isUpdatingThis}
-                            onClick={() => handleCycleSizeBucket(group.key, bucket)}
-                            title={`Size ${bucket.size}: ${bucket.totalQty} needed (${bucket.orderedQty} ordered, ${bucket.receivedQty} received). Click to cycle status.`}
-                            className={`min-w-[74px] rounded-xl border-2 transition-all flex flex-col overflow-hidden shadow-2xs ${cardBorder} ${
-                              isSales ? 'cursor-default' : 'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm'
-                            } ${isUpdatingThis ? 'opacity-50' : ''}`}
-                          >
-                            <div className={`px-2.5 py-1 text-xs font-extrabold uppercase tracking-wider flex items-center justify-between gap-1 w-full ${topBg}`}>
-                              <span>{bucket.size}</span>
-                              {bucketAllReceived ? (
-                                <Check size={11} strokeWidth={3} />
-                              ) : bucketAllOrdered ? (
-                                <ShoppingBag size={10} />
-                              ) : null}
-                            </div>
-                            <div className="px-2.5 py-2 flex flex-col items-center justify-center w-full">
-                              <span className="font-serif text-xl font-bold text-brand-primary leading-none tabular-nums">
-                                {bucket.totalQty}
-                              </span>
-                              {!splitByGender && (bucket.maleQty > 0 || bucket.femaleQty > 0) && (
-                                <span className="text-[9px] font-bold text-neutral-500 mt-1">
-                                  {[
-                                    bucket.maleQty > 0 ? `${bucket.maleQty}M` : '',
-                                    bucket.femaleQty > 0 ? `${bucket.femaleQty}F` : '',
-                                    bucket.unisexQty > 0 ? `${bucket.unisexQty}U` : ''
-                                  ]
-                                    .filter(Boolean)
-                                    .join(' • ')}
-                                </span>
-                              )}
-                              <span className={`mt-1.5 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border ${statusColor}`}>
-                                {statusBadge}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-
-                      {/* Total Pill */}
-                      <div className="min-w-[74px] rounded-xl border border-dashed border-brand-border bg-neutral-50 px-3 py-2 flex flex-col items-center justify-center">
-                        <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary">Total</span>
-                        <span className="font-serif text-xl font-bold text-brand-primary leading-tight mt-0.5 tabular-nums">
-                          {group.totalQty}
-                        </span>
-                        <span className="text-[9px] font-semibold text-brand-secondary mt-0.5">
-                          {uniqueOrdersCount} {uniqueOrdersCount === 1 ? 'order' : 'orders'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Right: Batch Actions & Expand Individuals */}
-                    <div className="flex flex-wrap xl:flex-col items-center xl:items-end justify-between gap-2 shrink-0 border-t xl:border-t-0 pt-3 xl:pt-0 border-brand-border/50">
-                      {!isSales && (
-                        <div className="flex items-center gap-1.5">
-                          {!allOrdered ? (
-                            <button
-                              type="button"
-                              disabled={updatingKey === `all_ord_${group.key}`}
-                              onClick={() =>
-                                applySourcingStatusToOccurrences(group.occurrences, 'ordered', `all_ord_${group.key}`)
-                              }
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              <ShoppingBag size={12} />
-                              <span>Mark All Ordered</span>
-                            </button>
-                          ) : !allReceived ? (
-                            <button
-                              type="button"
-                              disabled={updatingKey === `all_rec_${group.key}`}
-                              onClick={() =>
-                                applySourcingStatusToOccurrences(group.occurrences, 'received', `all_rec_${group.key}`)
-                              }
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              <Check size={12} strokeWidth={3} />
-                              <span>Mark All Received</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={updatingKey === `all_rst_${group.key}`}
-                              onClick={() =>
-                                applySourcingStatusToOccurrences(group.occurrences, 'to_order', `all_rst_${group.key}`)
-                              }
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Reset sourcing status for this garment"
-                            >
-                              <RotateCcw size={11} />
-                              <span>Reset</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedGroups((prev) => ({
-                            ...prev,
-                            [group.key]: !prev[group.key]
-                          }))
-                        }
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-secondary hover:text-brand-primary px-2.5 py-1 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
-                      >
-                        <Users size={13} />
-                        <span>
-                          {isExpanded ? 'Hide' : 'Show'} {uniqueOrdersCount}{' '}
-                          {uniqueOrdersCount === 1 ? 'Individual' : 'Individuals'}
-                        </span>
-                        {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded Breakdown of Which Individuals Need This Garment */}
-                  {isExpanded && (
-                    <div className="border-t border-brand-border/70 bg-neutral-50/70 px-4 py-3">
-                      <div className="grid grid-cols-1 md:grid-cols-[minmax(180px,1.5fr)_120px_110px_110px_160px] gap-2 text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary pb-2 border-b border-brand-border/60">
-                        <div>Individual / Order</div>
-                        <div>Brand</div>
-                        <div>Profile Info</div>
-                        <div>Size & Qty</div>
-                        <div className="text-right">Sourcing Status</div>
-                      </div>
-                      <div className="divide-y divide-brand-border/40">
-                        {group.occurrences.map((occ, idx) => (
-                          <div
-                            key={`${occ.orderId}-${occ.itemId}-${occ.size}-${idx}`}
-                            className="grid grid-cols-1 md:grid-cols-[minmax(180px,1.5fr)_120px_110px_110px_160px] gap-2 py-2.5 items-center text-xs"
-                          >
-                            <div
-                              onClick={() => navigate(`/orders/${occ.orderId}`)}
-                              className="font-bold text-brand-primary hover:underline cursor-pointer flex items-center gap-1.5 truncate"
-                            >
-                              <span className="truncate">{occ.orderTitle}</span>
-                              {occ.isMvp && <Star size={13} className="fill-amber-400 text-amber-500 shrink-0" />}
-                              {occ.getsBox && (
-                                <span className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
-                                  <Box size={10} />
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-brand-secondary font-medium truncate">{occ.brandName}</div>
-                            <div className="text-[11px] font-semibold text-neutral-600 uppercase">
-                              {[occ.individualGender, occ.individualSize ? `Sz ${occ.individualSize}` : '']
-                                .filter(Boolean)
-                                .join(' • ') || '—'}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="px-2 py-0.5 rounded bg-neutral-900 text-white font-extrabold text-[11px]">
-                                {occ.size} × {occ.qty}
-                              </span>
-                              {occ.inferredFromProfile && (
-                                <span
-                                  className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded"
-                                  title="Inferred from individual's profile size"
+                          {/* Cols 3..N: Aligned Size Matrix Cells */}
+                          {allSizeColumns.map((sz) => {
+                            const bucket = group.sizesMap[sz];
+                            if (!bucket || bucket.totalQty === 0) {
+                              return (
+                                <td
+                                  key={sz}
+                                  className="py-2.5 px-1 text-center align-middle border-l border-brand-border/40 text-neutral-300 select-none"
                                 >
-                                  Auto-Size
-                                </span>
+                                  —
+                                </td>
+                              );
+                            }
+
+                            const bucketAllReceived = bucket.receivedQty >= bucket.totalQty;
+                            const bucketAllOrdered = bucket.orderedQty >= bucket.totalQty;
+                            const isUpdatingThis = updatingKey === `${group.key}__${bucket.size}`;
+
+                            let cellClass =
+                              'bg-white border-red-300 text-neutral-900 hover:border-neutral-900 hover:bg-red-50/40';
+                            let statusLabel = 'To Order';
+                            if (bucketAllReceived) {
+                              cellClass =
+                                'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700';
+                              statusLabel = 'Received';
+                            } else if (bucketAllOrdered) {
+                              cellClass =
+                                'bg-amber-500 border-amber-500 text-white hover:bg-amber-600';
+                              statusLabel = 'Ordered';
+                            } else if (bucket.orderedQty > 0) {
+                              cellClass =
+                                'bg-amber-100 border-amber-400 text-amber-900 hover:bg-amber-200';
+                              statusLabel = `${bucket.orderedQty}/${bucket.totalQty} Ordered`;
+                            }
+
+                            return (
+                              <td
+                                key={sz}
+                                className="py-2 px-1 text-center align-middle border-l border-brand-border/40"
+                              >
+                                <button
+                                  type="button"
+                                  disabled={isUpdatingThis}
+                                  onClick={() => handleCycleSizeBucket(group.key, bucket)}
+                                  title={`${sz}: ${bucket.totalQty} (${statusLabel}) — Click to cycle To Order → Ordered → Received`}
+                                  className={`w-full min-w-[40px] py-1 px-1 rounded-lg border font-bold text-xs tabular-nums transition-all cursor-pointer inline-flex flex-col items-center justify-center leading-tight ${cellClass} ${
+                                    isUpdatingThis ? 'opacity-50' : ''
+                                  }`}
+                                >
+                                  <span>{bucket.totalQty}</span>
+                                </button>
+                              </td>
+                            );
+                          })}
+
+                          {/* Total Column */}
+                          <td className="py-2.5 px-2.5 text-center align-middle border-l border-brand-border/60 font-serif text-base font-bold text-brand-primary tabular-nums">
+                            {group.totalQty}
+                          </td>
+
+                          {/* Supplier Link + Copy Column */}
+                          <td className="py-2.5 px-3 align-middle border-l border-brand-border/60">
+                            {editingLinkGroupKey === group.key ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="url"
+                                  value={linkInputVal}
+                                  onChange={(e) => setLinkInputVal(e.target.value)}
+                                  placeholder="https://..."
+                                  className="w-28 bg-white border border-brand-border rounded px-2 py-1 text-[11px] focus:outline-none focus:border-brand-primary"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveGroupSourcingLink(group)}
+                                  className="bg-black text-white text-[10px] font-bold px-2 py-1 rounded cursor-pointer"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingLinkGroupKey(null)}
+                                  className="text-[10px] text-neutral-400 hover:text-neutral-700 px-1 cursor-pointer"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                {group.sourcingUrl ? (
+                                  <>
+                                    <a
+                                      href={
+                                        group.sourcingUrl.startsWith('http')
+                                          ? group.sourcingUrl
+                                          : `https://${group.sourcingUrl}`
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 px-2.5 py-1 rounded-lg transition-all"
+                                    >
+                                      <span>Supplier</span>
+                                      <ExternalLink size={11} />
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingLinkGroupKey(group.key);
+                                        setLinkInputVal(group.sourcingUrl);
+                                      }}
+                                      className="text-[10px] text-neutral-400 hover:text-neutral-800 px-1 cursor-pointer"
+                                      title="Edit Supplier Link"
+                                    >
+                                      Edit
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingLinkGroupKey(group.key);
+                                      setLinkInputVal('');
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-500 hover:text-brand-primary bg-neutral-100 hover:bg-neutral-200/70 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    <LinkIcon size={11} />
+                                    <span>+ Link</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyGroupBreakdown(group)}
+                                  className="p-1.5 rounded-lg text-neutral-500 hover:text-black hover:bg-neutral-100 transition-colors cursor-pointer"
+                                  title="Copy size breakdown to clipboard"
+                                >
+                                  {copiedKey === group.key ? (
+                                    <Check size={13} className="text-emerald-600" />
+                                  ) : (
+                                    <Copy size={13} />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Right Actions Column: Batch Status + Expand People */}
+                          <td className="py-2.5 pl-3 pr-4 align-middle text-right">
+                            <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
+                              {!allOrdered ? (
+                                <button
+                                  type="button"
+                                  disabled={updatingKey === `all_ord_${group.key}`}
+                                  onClick={() =>
+                                    applySourcingStatusToOccurrences(
+                                      group.occurrences,
+                                      'ordered',
+                                      `all_ord_${group.key}`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                  <ShoppingBag size={11} />
+                                  <span>Order All</span>
+                                </button>
+                              ) : !allReceived ? (
+                                <button
+                                  type="button"
+                                  disabled={updatingKey === `all_rec_${group.key}`}
+                                  onClick={() =>
+                                    applySourcingStatusToOccurrences(
+                                      group.occurrences,
+                                      'received',
+                                      `all_rec_${group.key}`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+                                >
+                                  <Check size={11} strokeWidth={3} />
+                                  <span>Receive All</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={updatingKey === `all_rst_${group.key}`}
+                                  onClick={() =>
+                                    applySourcingStatusToOccurrences(
+                                      group.occurrences,
+                                      'to_order',
+                                      `all_rst_${group.key}`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Reset status to To Order"
+                                >
+                                  <RotateCcw size={11} />
+                                  <span>Reset</span>
+                                </button>
                               )}
-                            </div>
-                            <div className="flex items-center justify-end gap-1.5">
+
                               <button
                                 type="button"
-                                disabled={isSales}
                                 onClick={() =>
-                                  applySourcingStatusToOccurrences(
-                                    [occ],
-                                    occ.isReceived ? 'to_order' : occ.isOrdered ? 'received' : 'ordered',
-                                    `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
-                                  )
+                                  setExpandedGroups((prev) => ({
+                                    ...prev,
+                                    [group.key]: !prev[group.key]
+                                  }))
                                 }
-                                className={`px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider border transition-colors ${
-                                  occ.isReceived
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
-                                    : occ.isOrdered
-                                      ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
-                                      : 'bg-white text-red-600 border-red-200 hover:bg-red-50'
-                                } ${isSales ? 'cursor-default' : 'cursor-pointer'}`}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                                  isExpanded
+                                    ? 'bg-neutral-900 text-white border-neutral-900'
+                                    : 'bg-white text-brand-primary border-brand-border hover:bg-neutral-100'
+                                }`}
                               >
-                                {occ.isReceived ? '✓ Received' : occ.isOrdered ? 'Ordered' : 'Mark Ordered'}
+                                <Users size={11} />
+                                <span>{uniqueOrdersCount}</span>
+                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                               </button>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          </td>
+                        </tr>
+
+                        {/* Expanded Sub-Rows: Individuals Receiving This Garment */}
+                        {isExpanded && (
+                          <tr className="bg-neutral-50/90">
+                            <td colSpan={allSizeColumns.length + 5} className="px-6 py-3">
+                              <div className="border border-brand-border/80 rounded-xl bg-white overflow-hidden">
+                                <table className="w-full border-collapse text-left text-xs">
+                                  <thead>
+                                    <tr className="bg-neutral-100/80 border-b border-brand-border/60 text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
+                                      <th className="py-1.5 px-3">Individual / Order</th>
+                                      <th className="py-1.5 px-3 w-[140px]">Brand</th>
+                                      <th className="py-1.5 px-3 w-[100px] text-center">Cut</th>
+                                      <th className="py-1.5 px-3 w-[90px] text-center">Size</th>
+                                      <th className="py-1.5 px-3 w-[70px] text-center">Qty</th>
+                                      <th className="py-1.5 px-3 w-[180px] text-right">Status</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-brand-border/40">
+                                    {group.occurrences.map((occ, idx) => (
+                                      <tr key={`${occ.orderId}_${occ.itemId}_${occ.size}_${idx}`} className="hover:bg-neutral-50">
+                                        <td className="py-2 px-3 font-bold text-brand-primary">
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => navigate(`/orders/${occ.orderId}`)}
+                                              className="hover:underline text-left flex items-center gap-1 cursor-pointer"
+                                            >
+                                              <span>{occ.orderTitle}</span>
+                                              <ExternalLink size={11} className="text-neutral-400" />
+                                            </button>
+                                            {occ.isMvp && (
+                                              <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                                            )}
+                                            {occ.getsBox && (
+                                              <Box size={12} className="text-amber-700 shrink-0" />
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="py-2 px-3 text-brand-secondary font-medium truncate">
+                                          {occ.brandName}
+                                        </td>
+                                        <td className="py-2 px-3 text-center">
+                                          <span
+                                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                              occ.individualGender === 'Female'
+                                                ? 'bg-pink-50 text-pink-700 border-pink-200'
+                                                : occ.individualGender === 'Male'
+                                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                  : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                                            }`}
+                                          >
+                                            {occ.individualGender}
+                                          </span>
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-black text-neutral-900">
+                                          {occ.size}
+                                        </td>
+                                        <td className="py-2 px-3 text-center font-bold tabular-nums">
+                                          {occ.qty}
+                                        </td>
+                                        <td className="py-2 px-3 text-right">
+                                          <div className="inline-flex rounded-lg border border-brand-border overflow-hidden bg-white">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                applySourcingStatusToOccurrences(
+                                                  [occ],
+                                                  'to_order',
+                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                )
+                                              }
+                                              className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer ${
+                                                !occ.isOrdered && !occ.isReceived
+                                                  ? 'bg-red-600 text-white'
+                                                  : 'text-neutral-500 hover:bg-neutral-100'
+                                              }`}
+                                            >
+                                              To Order
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                applySourcingStatusToOccurrences(
+                                                  [occ],
+                                                  'ordered',
+                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                )
+                                              }
+                                              className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
+                                                occ.isOrdered && !occ.isReceived
+                                                  ? 'bg-amber-500 text-white'
+                                                  : 'text-neutral-500 hover:bg-neutral-100'
+                                              }`}
+                                            >
+                                              Ordered
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                applySourcingStatusToOccurrences(
+                                                  [occ],
+                                                  'received',
+                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                )
+                                              }
+                                              className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
+                                                occ.isReceived
+                                                  ? 'bg-emerald-600 text-white'
+                                                  : 'text-neutral-500 hover:bg-neutral-100'
+                                              }`}
+                                            >
+                                              Received
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       ) : (
         /* VIEW 2: BY INDIVIDUAL / ORDER SPREADSHEET */
-        <div className="bg-white rounded-2xl border border-brand-border overflow-hidden shadow-2xs">
-          <div className="hidden md:grid md:grid-cols-[minmax(190px,1.3fr)_120px_130px_minmax(260px,2fr)_130px] bg-neutral-100/80 border-b border-brand-border text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary px-4 py-3">
-            <div>Individual / Order</div>
-            <div>Brand</div>
-            <div>Individual Size</div>
-            <div>Garments in Order</div>
-            <div className="text-right">Action</div>
-          </div>
-
-          {filteredOrders.length === 0 ? (
-            <div className="p-8 text-center text-sm text-brand-secondary">No active orders found.</div>
-          ) : (
-            <div className="divide-y divide-brand-border/60">
-              {filteredOrders.map((order: any) => {
-                const indGender = order.personalInfo?.gender || order.personalInfo?.sex || '';
-                const indSize = (order.personalInfo?.size || '').trim().toUpperCase();
-                const garmentItems = (order.items || []).filter(
-                  (it: any) =>
-                    it &&
-                    !isDiscountItem(it) &&
-                    !isNonGarmentItem(it) &&
-                    it.itemType !== 'gang_sheet' &&
-                    it.itemType !== 'service'
-                );
-                const hasUnassignedGarmentSizes =
-                  Boolean(indSize) &&
-                  garmentItems.some(
-                    (it: any) => !Object.values(it.sizes || {}).some((q) => (parseInt(String(q), 10) || 0) > 0)
+        <div className="w-full border border-brand-border rounded-xl overflow-hidden bg-white shadow-2xs">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-neutral-50 border-b border-brand-border text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
+                  <th className="py-2.5 pl-4 pr-3 w-[220px]">Individual / Order</th>
+                  <th className="py-2.5 px-3 w-[130px]">Brand</th>
+                  <th className="py-2.5 px-3 w-[110px] text-center">Cut</th>
+                  <th className="py-2.5 px-3 w-[80px] text-center">Profile Sz</th>
+                  <th className="py-2.5 px-3">Garments &amp; Sourcing Status</th>
+                  <th className="py-2.5 pl-3 pr-4 w-[110px] text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border/60 text-xs">
+                {filteredOrders.map((order: any) => {
+                  const brandName = brandNameMap[order.customerId] || customerName || 'Customer';
+                  const gender = order.personalInfo?.gender || '';
+                  const profileSize = (order.personalInfo?.size || '').toUpperCase();
+                  const isMvp = Boolean(order.isMvp || order.personalInfo?.isMvp);
+                  const getsBox = Boolean(order.getsBox || order.personalInfo?.getsBox);
+                  const garmentItems = (order.items || []).filter(
+                    (it: any) =>
+                      it &&
+                      !isDiscountItem(it) &&
+                      !isNonGarmentItem(it) &&
+                      it.itemType !== 'gang_sheet' &&
+                      it.itemType !== 'service'
                   );
+                  const hasUnassignedGarmentSizes =
+                    Boolean(profileSize) &&
+                    garmentItems.some(
+                      (it: any) =>
+                        !Object.values(it.sizes || {}).some((q) => (parseInt(String(q), 10) || 0) > 0)
+                    );
 
-                return (
-                  <div
-                    key={order.id}
-                    className="grid grid-cols-1 md:grid-cols-[minmax(190px,1.3fr)_120px_130px_minmax(260px,2fr)_130px] items-center gap-3 px-4 py-3.5 hover:bg-brand-bg/30 transition-colors"
-                  >
-                    <div
-                      onClick={() => navigate(`/orders/${order.id}`)}
-                      className="cursor-pointer group flex items-center gap-2 min-w-0"
-                    >
-                      <span className="font-serif text-base font-bold text-brand-primary group-hover:underline truncate">
-                        {order.title || 'Custom Order'}
-                      </span>
-                      {Boolean(order.isMvp || order.personalInfo?.isMvp) && (
-                        <Star size={15} className="fill-amber-400 text-amber-500 shrink-0" />
-                      )}
-                      {Boolean(order.getsBox || order.personalInfo?.getsBox) && (
-                        <span
-                          className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0"
-                          title="Gets a Box"
-                        >
-                          <Box size={11} />
-                        </span>
-                      )}
-                    </div>
+                  return (
+                    <tr key={order.id} className="hover:bg-neutral-50/80 transition-colors">
+                      <td className="py-2.5 pl-4 pr-3 align-middle font-bold text-brand-primary">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate">{order.title || 'Untitled Order'}</span>
+                          {isMvp && <Star size={13} className="fill-amber-400 text-amber-500 shrink-0" />}
+                          {getsBox && <Box size={13} className="text-amber-700 shrink-0" />}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 align-middle text-brand-secondary font-medium truncate">
+                        {brandName}
+                      </td>
+                      <td className="py-2.5 px-3 align-middle text-center">
+                        {gender ? (
+                          <span
+                            className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                              normalizeGender(gender) === 'Female'
+                                ? 'bg-pink-50 text-pink-700 border-pink-200'
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                            }`}
+                          >
+                            {gender}
+                          </span>
+                        ) : (
+                          <span className="text-neutral-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 align-middle text-center font-black text-neutral-900">
+                        {profileSize || <span className="text-neutral-300 font-normal">—</span>}
+                      </td>
+                      <td className="py-2.5 px-3 align-middle">
+                        {garmentItems.length === 0 ? (
+                          <span className="text-neutral-400 italic">No garments added</span>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {garmentItems.map((it: any, idx: number) => {
+                              const szEntries = Object.entries(it.sizes || {}).filter(
+                                ([, q]) => (parseInt(String(q), 10) || 0) > 0
+                              );
+                              const displaySz =
+                                szEntries.length > 0
+                                  ? szEntries.map(([s, q]) => `${s}:${q}`).join(', ')
+                                  : profileSize
+                                    ? `${profileSize}:1`
+                                    : 'No Sz';
+                              const checkSz = szEntries[0]?.[0] || profileSize;
+                              const isRec = Boolean(checkSz && (it.receivedSizes?.[checkSz] || it.completedSizes?.[checkSz]));
+                              const isOrd = isRec || Boolean(checkSz && it.orderedSizes?.[checkSz]);
 
-                    <div className="text-xs font-semibold text-brand-secondary truncate">
-                      {brandNameMap[order.customerId] || customerName}
-                    </div>
-
-                    <div>
-                      {indGender || indSize ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-neutral-100 text-brand-primary border border-brand-border">
-                          <span>{indGender || 'Unisex'}</span>
-                          {indSize && <span className="text-brand-primary">• Sz {indSize}</span>}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-neutral-400 italic">Bulk / Standard</span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {garmentItems.length === 0 ? (
-                        <span className="text-xs text-red-500 font-semibold">No garments added to order yet</span>
-                      ) : (
-                        garmentItems.map((it: any) => {
-                          const activeSizes = Object.entries(it.sizes || {}).filter(
-                            ([, q]) => (parseInt(String(q), 10) || 0) > 0
-                          );
-                          const sizeLabel =
-                            activeSizes.length > 0
-                              ? activeSizes.map(([s, q]) => `${s}×${q}`).join(', ')
-                              : indSize
-                                ? `${indSize}×1 (auto)`
-                                : 'No size';
-                          const orderedArr: string[] = Array.isArray(it.orderedSizes)
-                            ? it.orderedSizes.map((s: string) => s.toUpperCase())
-                            : [];
-                          const receivedArr: string[] = Array.isArray(it.receivedSizes)
-                            ? it.receivedSizes.map((s: string) => s.toUpperCase())
-                            : [];
-                          const checkSz = activeSizes[0]?.[0]?.toUpperCase() || indSize;
-                          const isRec = checkSz ? receivedArr.includes(checkSz) : false;
-                          const isOrd = isRec || (checkSz ? orderedArr.includes(checkSz) : false);
-
-                          return (
-                            <span
-                              key={it.id}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
-                                isRec
-                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                  : isOrd
-                                    ? 'bg-amber-50 border-amber-200 text-amber-900'
-                                    : 'bg-white border-brand-border text-brand-primary'
-                              }`}
+                              return (
+                                <span
+                                  key={it.id || idx}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${
+                                    isRec
+                                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                                      : isOrd
+                                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                        : 'bg-white border-brand-border text-brand-primary'
+                                  }`}
+                                >
+                                  <span className="truncate max-w-[160px]">{it.title || it.style}</span>
+                                  <span className="font-black text-[10px] px-1.5 py-0.2 rounded bg-black/5">
+                                    {displaySz}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2.5 pl-3 pr-4 align-middle text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          {hasUnassignedGarmentSizes && (
+                            <button
+                              type="button"
+                              disabled={updatingKey === `sync_${order.id}`}
+                              onClick={() => handleSyncIndividualSizeToOrderItems(order)}
+                              className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer"
                             >
-                              <span className="truncate max-w-[140px]">{it.title || it.style || 'Garment'}</span>
-                              <span className="px-1.5 py-0.25 rounded bg-black/80 text-white text-[10px]">
-                                {sizeLabel}
-                              </span>
-                            </span>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2">
-                      {hasUnassignedGarmentSizes && !isSales && (
-                        <button
-                          type="button"
-                          disabled={updatingKey === `sync_${order.id}`}
-                          onClick={() => handleSyncMissingSizesForOrder(order)}
-                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-extrabold uppercase tracking-wider cursor-pointer transition-colors"
-                          title={`Lock in Size ${indSize} on all garments in this order`}
-                        >
-                          Sync Sz {indSize}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                        className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-brand-primary text-xs font-bold cursor-pointer transition-colors"
-                      >
-                        Open Order
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                              Sync Sz
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-brand-border hover:border-brand-primary text-[11px] font-bold text-brand-primary bg-white cursor-pointer"
+                          >
+                            <span>Open</span>
+                            <ExternalLink size={11} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

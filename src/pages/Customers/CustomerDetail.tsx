@@ -3677,7 +3677,7 @@ export function CustomerDetail() {
         )}
 
         {/* Brands, Designer Rack & Sourcing Row */}
-        <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start w-full">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-6 mt-4 items-start w-full">
         {!liveCustomerData?.parentCustomerId && (
         <div
           onClick={() => {
@@ -3688,9 +3688,9 @@ export function CustomerDetail() {
             }
           }}
           className={`w-full ${
-            (!isDesignerRackCollapsed || !isSourcingCollapsed) && isBrandsSectionCollapsed
-              ? 'lg:w-56 xl:w-60 shrink-0'
-              : 'lg:flex-1 min-w-0'
+            !isBrandsSectionCollapsed
+              ? 'lg:basis-full lg:order-last'
+              : 'lg:flex-1 lg:min-w-[240px]'
           } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
             isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
           }`}
@@ -3874,7 +3874,7 @@ export function CustomerDetail() {
         </div>
         )}
 
-        {/* Designer Rack Dropdown Box - To the right of Brands on parent companies, full-width on subcustomers */}
+        {/* Designer Rack Dropdown Box - Full width when expanded */}
           <div
             onClick={() => {
               if (isDesignerRackCollapsed) {
@@ -3884,9 +3884,9 @@ export function CustomerDetail() {
               }
             }}
             className={`w-full ${
-              ((!liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed) || !isSourcingCollapsed) && isDesignerRackCollapsed
-                ? 'lg:w-56 xl:w-60 shrink-0'
-                : 'lg:flex-1 min-w-0'
+              !isDesignerRackCollapsed
+                ? 'lg:basis-full lg:order-last'
+                : 'lg:flex-1 lg:min-w-[240px]'
             } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
               isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
             }`}
@@ -4333,9 +4333,9 @@ export function CustomerDetail() {
               }
             }}
             className={`w-full ${
-              ((!liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed) || !isDesignerRackCollapsed) && isSourcingCollapsed
-                ? 'lg:w-56 xl:w-64 shrink-0'
-                : 'lg:flex-1 min-w-0'
+              !isSourcingCollapsed
+                ? 'lg:basis-full lg:order-last'
+                : 'lg:flex-1 lg:min-w-[240px]'
             } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
               isSourcingCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
             }`}
@@ -4352,7 +4352,7 @@ export function CustomerDetail() {
               }}
               className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex gap-3 items-center min-w-0">
                   <button
                     type="button"
@@ -4371,15 +4371,15 @@ export function CustomerDetail() {
                     <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
                       {sourcingSummary.totalUnits}
                     </span>
+                    {sourcingSummary.toOrderUnits > 0 && (
+                      <span
+                        className="ml-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                        title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
+                      >
+                        {sourcingSummary.toOrderUnits} To Order
+                      </span>
+                    )}
                   </button>
-                  {sourcingSummary.toOrderUnits > 0 && (
-                    <span
-                      className="mb-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
-                      title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
-                    >
-                      {sourcingSummary.toOrderUnits} To Order
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
