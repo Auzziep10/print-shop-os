@@ -9,6 +9,8 @@ import { tokens } from '../../lib/tokens';
 import { BoxLabelCustomizerModal } from './BoxLabelCustomizerModal';
 import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
+import { startLiveTracking, withoutLiveTracking } from '../../lib/liveTracking';
+import { LiveTrackingStatus } from './LiveTrackingStatus';
 import type { BoxLabelPreset } from '../../types/boxLabel';
 import { SHIPPING_COUNTRIES, isInternationalCountry, normalizeCountryCode } from '../../lib/countries';
 
@@ -368,7 +370,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       const updatedBoxes = order.boxes.map((b: any) => {
         if (b.id === shippingLabelBox.id) {
           return { 
-            ...b, 
+            ...withoutLiveTracking(b), 
             trackingNumber: data.trackingNumber, 
             trackingCarrier: data.carrier, 
             trackingService: data.service,
@@ -398,6 +400,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         activities: [newActivity, ...(order.activities || [])]
       }, { merge: true });
 
+      // Live carrier status updates (EasyPost webhook); never blocks the label flow
+      void startLiveTracking(order.id, shippingLabelBox.id, Boolean(shippingForm.isTest));
+
       setShippingLabelBox(null);
     } catch (err: any) {
       setShippingError(err.message);
@@ -412,7 +417,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       const updatedBoxes = order.boxes.map((b: any) => {
         if (b.id === boxId) {
           const { labelUrl, trackingNumber, trackingCarrier, easyPostShipmentId, customsForms, ...rest } = b;
-          return rest;
+          return withoutLiveTracking(rest);
         }
         return b;
       });
@@ -1034,6 +1039,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                               <ExternalLink size={10} className="shrink-0 opacity-75 group-hover/track:opacity-100" />
                             </a>
                           )}
+                          <LiveTrackingStatus orderId={order.id} box={box} />
                        </div>
                      </div>
                      
