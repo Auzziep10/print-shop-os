@@ -38,8 +38,11 @@ export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { userData } = useAuth();
-  const isSales = userData?.role?.toLowerCase() === 'sales';
+  const { userData, hasPermission } = useAuth();
+  const isSales = Boolean(
+    userData?.role?.trim().toLowerCase().includes('sales') ||
+    (userData?.role && userData.role !== 'Admin' && !hasPermission('manageInventory') && !hasPermission('viewDashboard'))
+  );
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);

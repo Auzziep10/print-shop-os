@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, setDoc, query, where } from 'firebase/firestore';
 import { db, auth, firebaseConfig } from '../../lib/firebase';
 import type { UserData, UserRole } from '../../contexts/AuthContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -173,14 +173,26 @@ export function UsersTab() {
 
       if (editingUser) {
         await updateDoc(doc(db, 'users', editingUser.id), dbObj);
-        setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...dbObj } : u));
+        // Also sync any duplicate user documents sharing the same email so AuthContext always sees the updated role
+        const dupSnap = await getDocs(query(collection(db, 'users'), where('email', '==', dbObj.email)));
+        await Promise.all(
+          dupSnap.docs
+            .filter(d => d.id !== editingUser.id)
+            .map(d => updateDoc(doc(db, 'users', d.id), { role: dbObj.role, name: dbObj.name, customerId: dbObj.customerId }))
+        );
+        setUsers(users.map(u => (u.id === editingUser.id || u.email?.toLowerCase() === dbObj.email) ? { ...u, ...dbObj, id: u.id } : u));
       } else {
         const newUser = {
           ...dbObj,
           createdAt: new Date().toISOString(),
         };
-        const docRef = await addDoc(collection(db, 'users'), newUser);
-        setUsers([...users, { id: docRef.id, ...newUser } as UserData]);
+        if (createdUid) {
+          await setDoc(doc(db, 'users', createdUid), newUser, { merge: true });
+          setUsers([...users, { id: createdUid, ...newUser } as UserData]);
+        } else {
+          const docRef = await addDoc(collection(db, 'users'), newUser);
+          setUsers([...users, { id: docRef.id, ...newUser } as UserData]);
+        }
       }
       
       setIsModalOpen(false);

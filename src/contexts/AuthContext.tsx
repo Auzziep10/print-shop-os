@@ -205,12 +205,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           let userDocRef = doc(db, 'users', currentUser.uid);
           let userDocSnap = await getDoc(userDocRef);
 
-          if (!userDocSnap.exists()) {
-            const q = query(collection(db, 'users'), where('email', '==', userEmail));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-              userDocSnap = querySnapshot.docs[0];
+          const emailQuery = query(collection(db, 'users'), where('email', '==', userEmail));
+          const emailSnapshot = await getDocs(emailQuery);
+
+          if (!emailSnapshot.empty) {
+            // If an explicit team/role record was created or updated in User Management with a different doc ID,
+            // prefer a non-Client/non-Pending record (or the email-matched record if uid doc doesn't exist).
+            const nonUidDocs = emailSnapshot.docs.filter(d => d.id !== currentUser.uid);
+            if (!userDocSnap.exists()) {
+              userDocSnap = emailSnapshot.docs[0];
               userDocRef = userDocSnap.ref;
+            } else if (nonUidDocs.length > 0) {
+              const uidRole = (userDocSnap.data()?.role || '').toString();
+              const betterDoc = nonUidDocs.find(d => {
+                const r = (d.data()?.role || '').toString();
+                return r && r !== 'Client' && r !== 'Pending' && r !== uidRole;
+              });
+              if (betterDoc) {
+                userDocSnap = betterDoc;
+                userDocRef = betterDoc.ref;
+              }
             }
           }
 
@@ -355,6 +369,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  // Keep current user's role & profile in sync in real-time if updated in Settings -> User Management
+  useEffect(() => {
+    if (!user || !userData?.id) return;
+    if (user.uid === 'mock-uid-123') return;
+
+    const unsubDoc = onSnapshot(
+      doc(db, 'users', userData.id),
+      (snap) => {
+        if (snap.exists()) {
+          const liveData = { id: snap.id, ...snap.data() } as UserData;
+          setUserData((prev) => {
+            if (
+              prev &&
+              prev.role === liveData.role &&
+              prev.name === liveData.name &&
+              prev.customerId === liveData.customerId
+            ) {
+              return prev;
+            }
+            return liveData;
+          });
+        }
+      },
+      (err) => {
+        console.error('Error listening to current user doc:', err);
+      }
+    );
+
+    return () => unsubDoc();
+  }, [user?.uid, userData?.id]);
 
   const signInWithGoogle = () => {
     const provider = new GoogleAuthProvider();

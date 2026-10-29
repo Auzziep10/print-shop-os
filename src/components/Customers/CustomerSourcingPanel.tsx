@@ -505,6 +505,10 @@ export function CustomerSourcingPanel({
     }
   };
 
+  if (isSales) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {/* Top KPI Summary Bar */}
