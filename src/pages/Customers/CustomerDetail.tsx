@@ -3184,6 +3184,7 @@ export function CustomerDetail() {
             <ExternalLink size={15} className="shrink-0" />
             <span>Login to Client Portal</span>
           </PillButton>
+          {!isSales && (
           <PillButton 
             variant="outline" 
             className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
@@ -3197,6 +3198,7 @@ export function CustomerDetail() {
             <Users size={15} className="shrink-0" />
             <span>Team Roster ({teamRoster.length})</span>
           </PillButton>
+          )}
           <PillButton
             variant="filled"
             className="px-4 py-2 text-xs whitespace-nowrap shrink-0"
@@ -4165,6 +4167,7 @@ export function CustomerDetail() {
         </div>
 
         {/* Suggested Items & Asset Vault Row */}
+        {!isSales && (
         <div
           className={`grid grid-cols-1 lg:grid-cols-2 gap-8 ${
             liveCustomerData?.parentCustomerId
@@ -4986,6 +4989,7 @@ export function CustomerDetail() {
           </div>
 
         </div>
+        )}
 
         {/* Quotes using Portal Component */}
         <div className="mt-4">
