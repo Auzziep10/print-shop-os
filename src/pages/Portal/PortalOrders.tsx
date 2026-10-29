@@ -941,12 +941,18 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   {/* Capsule Header Row */}
                   <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
                     
-                    {/* Left: Strictly Aligned Grid for Grip, VIP Star, Logo, Name/Location, and Gender/Size/Garments */}
-                    <div className="flex items-center gap-3 w-full xl:w-[460px] shrink-0 relative">
+                    {/* Left: Strictly Aligned 5-Column Grid (Grip | Star | Logo [Line 1] | Name & Location [Line 2] | Gender/Size & Garments [Line 3]) */}
+                    <div
+                      className={`grid ${
+                        overrideCustomerId
+                          ? 'grid-cols-[16px_20px_64px_170px_110px]'
+                          : 'grid-cols-[20px_64px_170px_110px]'
+                      } items-center gap-x-2.5 w-full xl:w-[430px] shrink-0 relative`}
+                    >
                       {/* Col 1: Grip handle for sorting visible only for admins */}
                       {overrideCustomerId && (
                         <div 
-                          className="w-5 flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors py-2 lg:-ml-3 xl:-ml-2" 
+                          className="w-4 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors py-2 -ml-1" 
                           title="Drag to reorder"
                           draggable={true}
                           onClick={(e) => e.stopPropagation()}
@@ -961,107 +967,106 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         </div>
                       )}
 
-                      {/* Col 2: Fixed-width VIP Star slot so logos always align vertically */}
-                      <div className="w-5 flex-shrink-0 flex items-center justify-center">
+                      {/* Col 2: Fixed 20px VIP Star slot (never shifts the logo column) */}
+                      <div className="w-5 flex items-center justify-center">
                         {orderIsMvp && (
-                          <MvpStarIcon size={20} title="VIP" />
+                          <MvpStarIcon size={18} title="VIP" />
                         )}
                       </div>
 
-                      {/* Col 3: Fixed-width Logo slot */}
-                      <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300" title={orderOwnerName}>
+                      {/* Col 3 (Blue Line 1): Fixed 64px Logo column */}
+                      <div className="w-16 h-16 flex items-center justify-center text-neutral-300" title={orderOwnerName}>
                         {fetchingLogo ? (
-                          <Loader2 className="animate-spin text-neutral-300" size={24} />
+                          <Loader2 className="animate-spin text-neutral-300" size={22} />
                         ) : orderOwnerLogo ? (
                           <img src={orderOwnerLogo} alt={`${orderOwnerName} Logo`} className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                         ) : (
-                          <Building2 size={32} strokeWidth={1.5} />
+                          <Building2 size={28} strokeWidth={1.5} />
                         )}
                       </div>
 
-                      {/* Col 4 & Col 5: Two-column aligned info grid (Left: Name + Location | Right: Gender/Size + Garment Count) */}
-                      <div className="flex flex-col justify-center flex-1 min-w-0">
+                      {/* Col 4 (Blue Line 2) & Col 5 (Blue Line 3) */}
+                      <div
+                        className="col-span-2 grid grid-cols-[170px_110px] items-center gap-x-2.5 gap-y-1 cursor-pointer group z-20 relative"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (overrideCustomerId) {
+                            navigate(`/orders/${order.id}`);
+                          } else {
+                            setExpandedId(isExpanded ? null : order.id);
+                          }
+                        }}
+                      >
                         {needsAction && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase bg-red-50 text-red-600 border border-red-100 mb-1.5 self-start w-fit">
-                            <span className="relative flex h-1.5 w-1.5">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                          <div className="col-span-2 mb-0.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase bg-red-50 text-red-600 border border-red-100 w-fit">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                              </span>
+                              Action Required
                             </span>
-                            Action Required
-                          </span>
+                          </div>
                         )}
 
-                        <div
-                          className="grid grid-cols-[185px_minmax(105px,1fr)] items-center gap-x-3 gap-y-1.5 cursor-pointer group z-20 relative"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (overrideCustomerId) {
-                              navigate(`/orders/${order.id}`);
-                            } else {
-                              setExpandedId(isExpanded ? null : order.id);
-                            }
-                          }}
-                        >
-                          {/* Row 1, Left: Order Name */}
-                          <div className="min-w-0 flex items-center gap-1.5 pr-1">
-                            <h2
-                              className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors truncate"
-                              title={order.title || 'Custom Order'}
+                        {/* Row 1, Col 4 (Blue Line 2): Order Name / Title */}
+                        <div className="min-w-0 flex items-center gap-1 pr-1">
+                          <h2
+                            className="text-[22px] leading-tight font-serif text-gray-900 hover:text-brand-primary transition-colors truncate"
+                            title={order.title || 'Custom Order'}
+                          >
+                            {order.title || 'Custom Order'}
+                          </h2>
+                          {!overrideCustomerId && (
+                            <span className="text-gray-400 group-hover:text-black transition-colors shrink-0">
+                              <ChevronRight size={18} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Row 1, Col 5 (Blue Line 3): Gender & Size */}
+                        <div className="border-l border-brand-border pl-2.5 min-h-[26px] flex flex-col justify-center leading-tight shrink-0" title="Individual info">
+                          {overrideCustomerId && ((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) ? (
+                            <>
+                              {(order.personalInfo?.gender || order.personalInfo?.sex) && (
+                                <span className="text-[11px] font-bold uppercase tracking-widest text-brand-primary">
+                                  {order.personalInfo.gender || order.personalInfo.sex}
+                                </span>
+                              )}
+                              {order.personalInfo?.size && (
+                                <span className="text-[11px] font-semibold uppercase tracking-widest text-brand-secondary">
+                                  Size {order.personalInfo.size}
+                                </span>
+                              )}
+                            </>
+                          ) : null}
+                        </div>
+
+                        {/* Row 2, Col 4 (Blue Line 2): Location & Box Icon */}
+                        <div className="min-w-0 flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider pr-1">
+                          <span className="truncate" title={destCityProvince}>{destCityProvince}</span>
+                          {orderGetsBox && (
+                            <span
+                              className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider shrink-0"
+                              title="Gets a Box"
                             >
-                              {order.title || 'Custom Order'}
-                            </h2>
-                            {!overrideCustomerId && (
-                              <span className="text-gray-400 group-hover:text-black transition-colors shrink-0">
-                                <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
-                              </span>
-                            )}
-                          </div>
+                              <Box size={12} strokeWidth={2.5} />
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Row 1, Right: Gender & Size (aligned vertically across all orders) */}
-                          <div className="border-l border-brand-border pl-3 min-h-[28px] flex flex-col justify-center leading-tight shrink-0" title="Individual info">
-                            {overrideCustomerId && ((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) ? (
-                              <>
-                                {(order.personalInfo?.gender || order.personalInfo?.sex) && (
-                                  <span className="text-[11px] font-bold uppercase tracking-widest text-brand-primary">
-                                    {order.personalInfo.gender || order.personalInfo.sex}
-                                  </span>
-                                )}
-                                {order.personalInfo?.size && (
-                                  <span className="text-[11px] font-semibold uppercase tracking-widest text-brand-secondary">
-                                    Size {order.personalInfo.size}
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-[11px] font-semibold uppercase tracking-widest text-neutral-300">—</span>
-                            )}
-                          </div>
-
-                          {/* Row 2, Left: Location & Box Icon (aligned vertically under Order Name) */}
-                          <div className="min-w-0 flex items-center gap-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider pr-1">
-                            <span className="truncate" title={destCityProvince}>{destCityProvince}</span>
-                            {orderGetsBox && (
-                              <span
-                                className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider shrink-0"
-                                title="Gets a Box"
-                              >
-                                <Box size={12} strokeWidth={2.5} />
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Row 2, Right: Garment Count & Paid Status (aligned vertically under Gender & Size) */}
-                          <div className="border-l border-gray-200 pl-3 flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        {/* Row 2, Col 5 (Blue Line 3): Garment Count & Paid Status */}
+                        <div className={`pl-2.5 flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap ${(totalGarments > 0 || order.paymentStatus === 'paid') ? 'border-l border-gray-200' : ''}`}>
+                          {totalGarments > 0 && (
                             <span>{totalGarments} {totalGarments === 1 ? 'Garment' : 'Garments'}</span>
-                            {order.paymentStatus === 'paid' && (
-                              <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">
-                                <Check size={11} strokeWidth={3} /> PAID
-                              </span>
-                            )}
-                          </div>
+                          )}
+                          {order.paymentStatus === 'paid' && (
+                            <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 text-[10px]">
+                              <Check size={11} strokeWidth={3} /> PAID
+                            </span>
+                          )}
                         </div>
                       </div>
-
                     </div>
 
                 {/* Right: Progress Tracker */}
