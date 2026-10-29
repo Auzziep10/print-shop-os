@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
 import { OrderReportsPanel } from './OrderReportsPanel';
-import { formatDisplayDate } from '../../lib/utils';
+import { formatDisplayDate, applyBulletNotesChange, handleBulletNotesKeyDown } from '../../lib/utils';
 import { isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
 import { getUpdatedTimelineMilestonesForStatusChange } from '../../lib/timelineUtils';
 
@@ -468,14 +468,14 @@ export function OrdersList() {
                   <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
                   <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-1.5">
                     {Boolean(liveCustomer?.isMvp) && (
-                      <MvpStarIcon size={14} title="MVP Customer" />
+                      <MvpStarIcon size={14} title="VIP Customer" />
                     )}
                     <span className="truncate">{customerName}</span>
                   </div>
                   <div className="text-sm text-brand-secondary truncate pr-4 flex items-center gap-2">
                     <span className="truncate flex items-center gap-1.5">
                       {Boolean(order.isMvp || order.personalInfo?.isMvp) && (
-                        <MvpStarIcon size={13} title="MVP" />
+                        <MvpStarIcon size={13} title="VIP" />
                       )}
                       <span>{order.title}</span>
                       {Boolean(order.getsBox || order.personalInfo?.getsBox) && (
@@ -558,7 +558,7 @@ export function OrdersList() {
                     <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                   </h4>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as VIP (shows star next to logo)">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.isMvp)}
@@ -566,7 +566,7 @@ export function OrdersList() {
                         className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                       />
                       <MvpStarIcon size={12} />
-                      <span className="text-xs font-bold text-amber-800">MVP</span>
+                      <span className="text-xs font-bold text-amber-800">VIP</span>
                     </label>
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
                       <input
@@ -777,9 +777,19 @@ export function OrdersList() {
                   <textarea
                     rows={3}
                     value={newOrderForm.orderNotes || ''}
-                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, orderNotes: e.target.value }))}
-                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors resize-none"
-                    placeholder="Add internal notes, sizing details, or instructions for this order..."
+                    onChange={(e) =>
+                      setNewOrderForm(prev => ({
+                        ...prev,
+                        orderNotes: applyBulletNotesChange(prev.orderNotes || '', e.target.value)
+                      }))
+                    }
+                    onKeyDown={(e) =>
+                      handleBulletNotesKeyDown(e, newOrderForm.orderNotes || '', (nextVal) =>
+                        setNewOrderForm(prev => ({ ...prev, orderNotes: nextVal }))
+                      )
+                    }
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors resize-y"
+                    placeholder="• Add internal notes, sizing details, or instructions (press Enter for next bullet)..."
                   />
                 </div>
               </div>

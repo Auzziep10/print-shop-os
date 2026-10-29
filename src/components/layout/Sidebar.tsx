@@ -101,6 +101,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { userData, hasPermission } = useAuth();
   const isAdmin = userData?.role === 'Admin';
   const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
+  const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
 
   const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(false);
   const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(false);
@@ -181,19 +182,19 @@ export function Sidebar({ onClose }: SidebarProps) {
   };
 
   const navItems = [
-    ...((hasPermission('viewDashboard') || isSales) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
-    ...(hasPermission('manageOrders') ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
-    ...(hasPermission('manageCustomers') ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
-    ...(hasPermission('manageInventory') ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
-    ...(hasPermission('manageTeam') ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
-    ...(hasPermission('manageTeam') ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
-    ...((hasPermission('viewDashboard') && !isSales) ? [{ label: 'Capacity Calc', icon: Calculator, path: '/capacity-calculator' }] : []),
+    ...((hasPermission('viewDashboard') || isSales || isDesigner) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
+    ...((hasPermission('manageOrders') || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
+    ...((hasPermission('manageCustomers') || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
+    ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
+    ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
+    ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
+    ...((hasPermission('viewDashboard') && !isSales && !isDesigner) ? [{ label: 'Capacity Calc', icon: Calculator, path: '/capacity-calculator' }] : []),
   ];
 
   return (
     <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
       <div className="p-6 flex justify-between items-start">
-        <Link to={(hasPermission('viewDashboard') || isSales) ? '/dashboard' : hasPermission('manageCustomers') ? '/customers' : '/orders'} className="flex-1 mr-4 hover:opacity-80 transition-opacity">
+        <Link to={(hasPermission('viewDashboard') || isSales || isDesigner) ? '/dashboard' : hasPermission('manageCustomers') ? '/customers' : '/orders'} className="flex-1 mr-4 hover:opacity-80 transition-opacity">
           <span className="font-sans text-2xl font-black tracking-tighter uppercase text-neutral-900 select-none">
             INKTHEORY
           </span>
@@ -541,7 +542,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </nav>
 
-      {hasPermission('manageSettings') && (
+      {(hasPermission('manageSettings') || isDesigner) && (
         <div className="p-4 border-t border-brand-border">
           <Link 
             to="/settings"

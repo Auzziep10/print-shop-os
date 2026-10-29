@@ -87,24 +87,35 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
   const { hasPermission, userData, canUseRolePreview, previewRole, loading } = useAuth();
   const location = useLocation();
   const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
+  const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
   }
 
-  // Always allow Admins/Leadership using Role Preview to stay on Settings so they can tweak permissions live
-  if (permission === 'manageSettings' && canUseRolePreview) {
+  // Designer role never sees Inventory or Team/CRM pages
+  if (isDesigner && (permission === 'manageInventory' || permission === 'manageTeam')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Always allow Admins/Leadership using Role Preview or Designer role to access Settings
+  if (permission === 'manageSettings' && (canUseRolePreview || isDesigner)) {
     return <>{children}</>;
   }
 
-  // Allow Sales role to access the main Dashboard route (where they see only High Priority customers & orders)
-  if (permission === 'viewDashboard' && isSales && (location.pathname === '/' || location.pathname === '/dashboard')) {
+  // Allow Sales and Designer roles to access the main Dashboard route (where they see only High Priority customers & orders)
+  if (permission === 'viewDashboard' && (isSales || isDesigner) && (location.pathname === '/' || location.pathname === '/dashboard')) {
+    return <>{children}</>;
+  }
+
+  // Allow Designer role to access Orders and Customers
+  if (isDesigner && (permission === 'manageOrders' || permission === 'manageCustomers')) {
     return <>{children}</>;
   }
   
   if (!hasPermission(permission)) {
     if (permission === 'viewDashboard' || (canUseRolePreview && previewRole)) {
-      if (hasPermission('viewDashboard') || isSales) {
+      if (hasPermission('viewDashboard') || isSales || isDesigner) {
         return <Navigate to="/dashboard" replace />;
       }
       if (hasPermission('manageCustomers')) {

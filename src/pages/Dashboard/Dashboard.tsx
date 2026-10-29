@@ -18,7 +18,11 @@ import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 export function Dashboard() {
   const navigate = useNavigate();
   const { userData } = useAuth();
-  const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
+  const isSales = Boolean(
+    userData?.role &&
+      (userData.role.trim().toLowerCase().includes('sales') ||
+        userData.role.trim().toLowerCase().includes('designer'))
+  );
   const { orders } = useOrders();
   const [liveMeetings, setLiveMeetings] = useState<any[]>([]);
 
@@ -1068,7 +1072,7 @@ export function Dashboard() {
                     {/* Col 2: Logo & Name */}
                     <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
                       {Boolean(c.isMvp) && (
-                        <MvpStarIcon size={14} title="MVP Customer" />
+                        <MvpStarIcon size={14} title="VIP Customer" />
                       )}
                       {c.croppedLogo || c.logo ? (
                         <div className="w-7 h-7 rounded-md border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-0.5">
@@ -1240,7 +1244,7 @@ export function Dashboard() {
                   {/* Col 2: Icon & Order Title */}
                   <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
                     {Boolean(o.isMvp || o.personalInfo?.isMvp) && (
-                      <MvpStarIcon size={14} title="MVP" />
+                      <MvpStarIcon size={14} title="VIP" />
                     )}
                     <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
                       <Package size={14} />

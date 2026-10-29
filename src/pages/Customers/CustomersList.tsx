@@ -219,7 +219,7 @@ export function CustomersList() {
               >
                 <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-4">
                   {customer.isMvp && (
-                    <MvpStarIcon size={16} title="MVP Customer" />
+                    <MvpStarIcon size={16} title="VIP Customer" />
                   )}
                   {customer.croppedLogo || customer.logo ? (
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">

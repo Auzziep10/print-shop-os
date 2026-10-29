@@ -20,14 +20,29 @@ import { MergeCustomersTab } from './MergeCustomersTab';
 import { ArtistCollabTab } from './ArtistCollabTab';
 import { XCollabTab } from './XCollabTab';
 
+const DESIGNER_ALLOWED_TABS = [
+  'storefront-catalog',
+  'brand-shop',
+  'artist-collab',
+  'xcollab',
+  'thank-you-card',
+  'signatures',
+];
+
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'users';
+  const { hasPermission, canUseRolePreview, userData } = useAuth();
+  const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
+  const rawTab = searchParams.get('tab');
+  const activeTab = isDesigner
+    ? rawTab && DESIGNER_ALLOWED_TABS.includes(rawTab)
+      ? rawTab
+      : 'storefront-catalog'
+    : rawTab || 'users';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
-  const { hasPermission, canUseRolePreview } = useAuth();
   
-  // Only users with manageSettings permission (or Admins/Leadership previewing another role) can view settings
-  if (!hasPermission('manageSettings') && !canUseRolePreview) {
+  // Only users with manageSettings permission (or Designer role / Admins previewing another role) can view settings
+  if (!hasPermission('manageSettings') && !isDesigner && !canUseRolePreview) {
     return (
       <div className={tokens.layout.container}>
         <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white mt-6 shrink-0">
@@ -56,76 +71,80 @@ export function Settings() {
         {/* Sidebar */}
         <div className="w-full md:w-64 shrink-0">
           <nav className="space-y-1">
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'users' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              User Management
-            </button>
-            <button
-              onClick={() => setActiveTab('merge-customers')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'merge-customers' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Merge Customer Accounts
-            </button>
-            <button
-              onClick={() => setActiveTab('permissions')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'permissions' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Role Permissions
-            </button>
-            <button
-              onClick={() => setActiveTab('business')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'business' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Business Profile
-            </button>
-            <button
-              onClick={() => setActiveTab('pricing')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'pricing' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Auto-Quoting & DTF Pricing
-            </button>
-            <button
-              onClick={() => setActiveTab('apps')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'apps' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              App Links & Integrations
-            </button>
-            <button
-              onClick={() => setActiveTab('meta-ads')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'meta-ads' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Meta Lead Ads Integration
-            </button>
+            {!isDesigner && (
+              <>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'users' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  User Management
+                </button>
+                <button
+                  onClick={() => setActiveTab('merge-customers')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'merge-customers' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Merge Customer Accounts
+                </button>
+                <button
+                  onClick={() => setActiveTab('permissions')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'permissions' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Role Permissions
+                </button>
+                <button
+                  onClick={() => setActiveTab('business')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'business' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Business Profile
+                </button>
+                <button
+                  onClick={() => setActiveTab('pricing')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'pricing' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Auto-Quoting & DTF Pricing
+                </button>
+                <button
+                  onClick={() => setActiveTab('apps')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'apps' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  App Links & Integrations
+                </button>
+                <button
+                  onClick={() => setActiveTab('meta-ads')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'meta-ads' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Meta Lead Ads Integration
+                </button>
+              </>
+            )}
             <button
               onClick={() => setActiveTab('storefront-catalog')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
@@ -166,26 +185,30 @@ export function Settings() {
             >
               xCollab
             </button>
-            <button
-              onClick={() => setActiveTab('studio-qr')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'studio-qr' || activeTab === 'qr-code'
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Studio QR Code
-            </button>
-            <button
-              onClick={() => setActiveTab('discounts')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'discounts'
-                  ? 'bg-brand-primary text-white'
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Discount Codes
-            </button>
+            {!isDesigner && (
+              <>
+                <button
+                  onClick={() => setActiveTab('studio-qr')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'studio-qr' || activeTab === 'qr-code'
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Studio QR Code
+                </button>
+                <button
+                  onClick={() => setActiveTab('discounts')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'discounts'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Discount Codes
+                </button>
+              </>
+            )}
             <button
               onClick={() => setActiveTab('thank-you-card')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
@@ -206,26 +229,30 @@ export function Settings() {
             >
               Email Signatures
             </button>
-            <button
-              onClick={() => setActiveTab('email')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'email' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Email Integration
-            </button>
-            <button
-              onClick={() => setActiveTab('sms')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'sms' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              SMS Integration (QUO)
-            </button>
+            {!isDesigner && (
+              <>
+                <button
+                  onClick={() => setActiveTab('email')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'email' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Email Integration
+                </button>
+                <button
+                  onClick={() => setActiveTab('sms')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'sms' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  SMS Integration (QUO)
+                </button>
+              </>
+            )}
           </nav>
         </div>
 

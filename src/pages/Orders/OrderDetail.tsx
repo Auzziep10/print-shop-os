@@ -18,7 +18,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { getTrackingLink, formatCarrierName, normalizeUser, formatDisplayDate } from '../../lib/utils';
+import { getTrackingLink, formatCarrierName, normalizeUser, formatDisplayDate, applyBulletNotesChange, handleBulletNotesKeyDown } from '../../lib/utils';
 import { SHIPPING_COUNTRIES, isInternationalCountry, normalizeCountryCode } from '../../lib/countries';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -5147,7 +5147,7 @@ export function OrderDetail() {
                       >
                         <h1 className="font-serif text-4xl text-brand-primary group-hover:text-black line-clamp-2 md:line-clamp-none leading-tight transition-colors flex items-center gap-2.5">
                           {Boolean(order.isMvp || order.personalInfo?.isMvp || liveCustomer?.isMvp) && (
-                            <MvpStarIcon size={24} title="MVP" />
+                            <MvpStarIcon size={24} title="VIP" />
                           )}
                           <span>{order.title || 'Untitled Order'}</span>
                         </h1>
@@ -5495,28 +5495,27 @@ export function OrderDetail() {
                       )}
                     </div>
                     {isEditingOrderNote ? (
-                      <div className="flex items-center gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="text"
+                      <div className="flex items-start gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
+                        <textarea
+                          rows={Math.max(3, (orderNoteText || '').split('\n').length)}
                           value={orderNoteText}
-                          onChange={e => setOrderNoteText(e.target.value)}
-                          className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
-                          placeholder="Add internal order notes..."
+                          onChange={e => setOrderNoteText(applyBulletNotesChange(orderNoteText, e.target.value))}
+                          className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] leading-relaxed focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm resize-y"
+                          placeholder="• Add internal order notes (press Enter for next bullet)..."
                           autoFocus
                           disabled={savingOrderNote}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveOrderNotes();
-                            if (e.key === 'Escape') {
+                          onKeyDown={(e) =>
+                            handleBulletNotesKeyDown(e, orderNoteText, setOrderNoteText, () => {
                               setOrderNoteText(order.orderNotes !== undefined ? order.orderNotes : (order.notes || ''));
                               setIsEditingOrderNote(false);
-                            }
-                          }}
+                            })
+                          }
                         />
                         <button
                           type="button"
                           onClick={handleSaveOrderNotes}
                           disabled={savingOrderNote}
-                          className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50"
+                          className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50 shrink-0"
                         >
                           {savingOrderNote ? 'Saving...' : 'Save'}
                         </button>
@@ -8184,7 +8183,7 @@ export function OrderDetail() {
                       <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                     </h4>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as VIP (shows star next to logo)">
                         <input
                           type="checkbox"
                           checked={Boolean(editForm.isMvp)}
@@ -8192,7 +8191,7 @@ export function OrderDetail() {
                           className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                         />
                         <MvpStarIcon size={12} />
-                        <span className="text-xs font-bold text-amber-800">MVP</span>
+                        <span className="text-xs font-bold text-amber-800">VIP</span>
                       </label>
                       <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
                         <input

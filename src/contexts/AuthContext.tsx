@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as fir
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer' | 'Sales';
+export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer' | 'Sales' | 'Designer';
 
 export interface UserData {
   id: string; // Firestore document ID
@@ -67,6 +67,15 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: false,
     manageTeam: false,
     manageSettings: false,
+    viewPricing: true,
+  },
+  Designer: {
+    viewDashboard: false,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: false,
+    manageTeam: false,
+    manageSettings: true,
     viewPricing: true,
   },
   Printer: {

@@ -196,3 +196,64 @@ export function calculateOrderFinalTotal(order: any): number {
 
   return customServicesTotal;
 }
+
+/**
+ * Automatically starts the first line with a bullet (`• `) when typing into an empty notes field.
+ */
+export function applyBulletNotesChange(prevValue: string, nextValue: string): string {
+  if (!prevValue && nextValue.length > 0 && !nextValue.trimStart().startsWith('•')) {
+    return `• ${nextValue}`;
+  }
+  return nextValue;
+}
+
+/**
+ * Handles pressing Enter inside a notes textarea to insert a new line with a bullet point (`• `),
+ * and ensures the current line also has a bullet prefix if it didn't already.
+ */
+export function handleBulletNotesKeyDown(
+  e: React.KeyboardEvent<HTMLTextAreaElement>,
+  value: string,
+  onChange: (nextValue: string) => void,
+  onEscape?: () => void
+) {
+  if (e.key === 'Escape' && onEscape) {
+    e.preventDefault();
+    onEscape();
+    return;
+  }
+
+  if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    const target = e.currentTarget;
+    const start = target.selectionStart ?? value.length;
+    const end = target.selectionEnd ?? value.length;
+
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const lines = before.split('\n');
+    const currentLine = lines[lines.length - 1] || '';
+
+    // Ensure the line we are leaving has a bullet prefix if it has text
+    if (currentLine.trim().length > 0 && !currentLine.trimStart().startsWith('•')) {
+      lines[lines.length - 1] = `• ${currentLine}`;
+    }
+
+    const updatedBefore = lines.join('\n');
+    const insertion = '\n• ';
+    const nextValue = `${updatedBefore}${insertion}${after}`;
+    const nextCursor = updatedBefore.length + insertion.length;
+
+    onChange(nextValue);
+
+    requestAnimationFrame(() => {
+      try {
+        target.selectionStart = nextCursor;
+        target.selectionEnd = nextCursor;
+      } catch {
+        // ignore selection errors
+      }
+    });
+  }
+}
+

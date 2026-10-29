@@ -21,7 +21,7 @@ interface DesignerRackApprovalNotification {
   type: 'final_design' | 'approved_for_order';
 }
 
-const PREVIEWABLE_ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer'];
+const PREVIEWABLE_ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Designer', 'Printer'];
 
 export function TopBar({ onOpenSidebar }: TopBarProps) {
   const { user, userData, actualUserData, previewRole, setPreviewRole, canUseRolePreview, signOut } = useAuth();

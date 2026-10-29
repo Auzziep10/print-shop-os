@@ -1014,7 +1014,7 @@ export function CustomerSourcingPanel({
                                               <ExternalLink size={11} className="text-neutral-400" />
                                             </button>
                                             {occ.isMvp && (
-                                              <MvpStarIcon size={12} title="MVP" />
+                                              <MvpStarIcon size={12} title="VIP" />
                                             )}
                                             {occ.getsBox && (
                                               <Box size={12} className="text-amber-700 shrink-0" />
@@ -1156,7 +1156,7 @@ export function CustomerSourcingPanel({
                       <td className="py-2.5 pl-4 pr-3 align-middle font-bold text-brand-primary">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate">{order.title || 'Untitled Order'}</span>
-                          {isMvp && <MvpStarIcon size={13} title="MVP" />}
+                          {isMvp && <MvpStarIcon size={13} title="VIP" />}
                           {getsBox && <Box size={13} className="text-amber-700 shrink-0" />}
                         </div>
                       </td>

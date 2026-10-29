@@ -26,7 +26,7 @@ import { AddressAutocompleteInput } from '../../components/ui/AddressAutocomplet
 import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
 import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
-import { isPlacedOrder, calculateOrderFinalTotal } from '../../lib/utils';
+import { isPlacedOrder, calculateOrderFinalTotal, applyBulletNotesChange, handleBulletNotesKeyDown } from '../../lib/utils';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
@@ -3241,10 +3241,10 @@ export function CustomerDetail() {
                 ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 shadow-xs'
                 : 'bg-white text-brand-primary border-brand-border hover:border-amber-500 hover:text-amber-600'
             }`}
-            title={liveCustomerData?.isMvp ? 'Remove MVP status from Customer' : 'Mark Customer as MVP'}
+            title={liveCustomerData?.isMvp ? 'Remove VIP status from Customer' : 'Mark Customer as VIP'}
           >
             <MvpStarIcon size={14} className={liveCustomerData?.isMvp ? 'text-yellow-300' : 'text-yellow-400'} />
-            <span>{liveCustomerData?.isMvp ? 'MVP' : 'Mark MVP'}</span>
+            <span>{liveCustomerData?.isMvp ? 'VIP' : 'Mark VIP'}</span>
           </button>
           <button
             type="button"
@@ -3374,7 +3374,7 @@ export function CustomerDetail() {
         <div className="flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
             {(liveCustomerData?.isMvp || customer?.isMvp) && (
-              <div className="h-24 flex items-center shrink-0" title="MVP Customer">
+              <div className="h-24 flex items-center shrink-0" title="VIP Customer">
                 <MvpStarIcon size={24} />
               </div>
             )}
@@ -3426,7 +3426,7 @@ export function CustomerDetail() {
                 <div className="flex flex-wrap items-center gap-2">
                   {(liveCustomerData?.isMvp || customer?.isMvp) && (
                     <span className="text-[10px] bg-amber-500 text-white px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                      <MvpStarIcon size={11} className="text-yellow-300" /> MVP
+                      <MvpStarIcon size={11} className="text-yellow-300" /> VIP
                     </span>
                   )}
                   {(liveCustomerData?.highPriority || customer?.highPriority) && (
@@ -3558,33 +3558,32 @@ export function CustomerDetail() {
                        )}
                     </div>
                     {isEditingNote ? (
-                      <div className="flex items-center gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
-                         <input 
-                           type="text" 
+                      <div className="flex items-start gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
+                         <textarea
+                           rows={Math.max(3, (noteText || '').split('\n').length)}
                            value={noteText}
-                           onChange={e => setNoteText(e.target.value)}
-                           className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
-                           placeholder="Add internal branding notes..."
+                           onChange={e => setNoteText(applyBulletNotesChange(noteText, e.target.value))}
+                           className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] leading-relaxed focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm resize-y"
+                           placeholder="• Add internal branding notes (press Enter for next bullet)..."
                            autoFocus
                            disabled={savingNote}
-                           onKeyDown={(e) => {
-                             if (e.key === 'Enter') handleSaveBrandingNotes();
-                             if (e.key === 'Escape') {
+                           onKeyDown={(e) =>
+                             handleBulletNotesKeyDown(e, noteText, setNoteText, () => {
                                setNoteText(liveCustomerData?.brandingNotes !== undefined ? liveCustomerData.brandingNotes : (liveCustomerData?.notes || ''));
                                setIsEditingNote(false);
-                             }
-                           }}
+                             })
+                           }
                          />
                          <button
                            onClick={handleSaveBrandingNotes}
                            disabled={savingNote}
-                           className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50"
+                           className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10 disabled:opacity-50 shrink-0"
                          >
                            {savingNote ? 'Saving...' : 'Save'}
                          </button>
                       </div>
                     ) : (
-                      <p className="text-brand-primary text-[15px] leading-relaxed pl-1 max-w-4xl">{noteText || 'No internal branding notes added.'}</p>
+                      <p className="text-brand-primary text-[15px] leading-relaxed pl-1 max-w-4xl whitespace-pre-wrap">{noteText || 'No internal branding notes added.'}</p>
                     )}
                  </div>
              </div>
@@ -7116,7 +7115,7 @@ export function CustomerDetail() {
                     <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                   </h4>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as VIP (shows star next to logo)">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.isMvp)}
@@ -7124,7 +7123,7 @@ export function CustomerDetail() {
                         className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                       />
                       <MvpStarIcon size={12} />
-                      <span className="text-xs font-bold text-amber-800">MVP</span>
+                      <span className="text-xs font-bold text-amber-800">VIP</span>
                     </label>
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
                       <input
@@ -7307,9 +7306,19 @@ export function CustomerDetail() {
                   <textarea
                     rows={3}
                     value={newOrderForm.orderNotes || ''}
-                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, orderNotes: e.target.value }))}
-                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors resize-none"
-                    placeholder="Add internal notes, sizing details, or instructions for this order..."
+                    onChange={(e) =>
+                      setNewOrderForm(prev => ({
+                        ...prev,
+                        orderNotes: applyBulletNotesChange(prev.orderNotes || '', e.target.value)
+                      }))
+                    }
+                    onKeyDown={(e) =>
+                      handleBulletNotesKeyDown(e, newOrderForm.orderNotes || '', (nextVal) =>
+                        setNewOrderForm(prev => ({ ...prev, orderNotes: nextVal }))
+                      )
+                    }
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors resize-y"
+                    placeholder="• Add internal notes, sizing details, or instructions (press Enter for next bullet)..."
                   />
                 </div>
               </div>

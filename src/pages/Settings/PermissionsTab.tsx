@@ -12,7 +12,7 @@ import { Shield, Lock, Save, Loader2, Check, Eye, RotateCcw } from 'lucide-react
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 
-const ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer', 'Client', 'Pending'];
+const ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Designer', 'Printer', 'Client', 'Pending'];
 
 interface PermissionMeta {
   key: PermissionKey;
@@ -170,7 +170,7 @@ export function PermissionsTab() {
               <Eye size={13} className="text-brand-primary" />
               Preview Platform As:
             </span>
-            {(['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer'] as UserRole[]).map((r) => {
+            {(['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Designer', 'Printer'] as UserRole[]).map((r) => {
               const activeRole = userData?.role || actualUserData?.role || 'Admin';
               const isActive = activeRole === r;
               return (
@@ -239,7 +239,15 @@ export function PermissionsTab() {
                       )}
                     </div>
                     <p className="text-xs text-brand-secondary mt-0.5">
-                      {role === 'Client' ? 'Client portal interface' : role === 'Pending' ? 'Waiting room restriction' : role === 'Sales' ? 'Sales & order creation' : 'Shop floor staff'}
+                      {role === 'Client'
+                        ? 'Client portal interface'
+                        : role === 'Pending'
+                          ? 'Waiting room restriction'
+                          : role === 'Sales'
+                            ? 'Sales & order creation'
+                            : role === 'Designer'
+                              ? 'Design, rack & catalog'
+                              : 'Shop floor staff'}
                     </p>
                   </div>
                   {canUseRolePreview && canPreviewThisRole && (
