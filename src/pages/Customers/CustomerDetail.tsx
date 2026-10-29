@@ -38,7 +38,7 @@ export function CustomerDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { userData } = useAuth();
-  const isSales = userData?.role === 'Sales';
+  const isSales = userData?.role?.toLowerCase() === 'sales';
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);
@@ -1124,6 +1124,7 @@ export function CustomerDetail() {
   }, [combinedDesignerRack, selectedDesignerRackBrandFilter]);
 
   const handleOpenNewDesignerRackModal = () => {
+    if (isSales) return;
     setEditingDesignerRackId(null);
     setEditingDesignerRackSourceCustomerId(null);
     setEditingDesignerRackTargetCustomerId(
@@ -1146,6 +1147,7 @@ export function CustomerDetail() {
   };
 
   const handleOpenEditDesignerRackModal = (design: any) => {
+    if (isSales) return;
     setEditingDesignerRackId(design.id);
     const sourceCustId = design._sourceCustomerId || id || null;
     setEditingDesignerRackSourceCustomerId(sourceCustId);
@@ -1559,6 +1561,7 @@ export function CustomerDetail() {
   };
 
   const handleDeleteDesignerRackItem = async (designId: string, sourceCustomerId?: string) => {
+    if (isSales) return;
     const targetCustomerId = sourceCustomerId || id;
     if (!targetCustomerId) return;
     if (!window.confirm("Remove this design from the Designer Rack?")) return;
@@ -4101,6 +4104,7 @@ export function CustomerDetail() {
                           </div>
 
                           {/* Plain Black Links Footer (PSD Drive Link & Garment Sourcing Link) */}
+                          {!isSales && (
                           <div className="flex flex-wrap items-center gap-5 pt-3 border-t border-brand-border/50">
                             {design.psdDriveLink ? (
                               <a
@@ -4156,6 +4160,7 @@ export function CustomerDetail() {
                               </span>
                             )}
                           </div>
+                          )}
                         </div>
                       );
                     })}

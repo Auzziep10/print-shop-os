@@ -10,6 +10,7 @@ import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import { getGarmentAvailableSizes, sortGarmentSizes, isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
+import { OrderTimelineTracker } from '../../components/Orders/OrderTimelineTracker';
 
 const sortSizes = sortGarmentSizes;
 
@@ -909,70 +910,19 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       )}
       {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
-        const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'In Production', 'Shipped', 'Received'];
-
-        let visualIndex = 0;
-        const statusIdx = typeof order.statusIndex === 'number' ? order.statusIndex : 0;
-        if (statusIdx === 0) {
-          visualIndex = 0; // Requested
-        } else if (statusIdx === 1) {
-          visualIndex = 1; // Quoted
-        } else if (statusIdx === 2) {
-          visualIndex = 1.5; // Between Quoted and Approved (Awaiting Payment / Quote Approved)
-        } else if (statusIdx === 3) {
-          visualIndex = 2; // Approved
-        } else if (statusIdx === 4) {
-          visualIndex = 2.5; // Between Approved and Sourced (Shopping/Sourcing)
-        } else if (statusIdx === 5) {
-          visualIndex = 3; // Sourced
-        } else if (statusIdx === 6) {
-          visualIndex = 4; // In Production
-        } else if (statusIdx === 7) {
-          visualIndex = 5; // Shipped
-        } else if (statusIdx === 8) {
-          visualIndex = 6; // Received
-        }
 
         let totalGarments = 0;
-        let completedGarments = 0;
         order.items?.forEach((item: any) => {
-            if (item.sizes && Object.keys(item.sizes).length > 0) {
-                Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
-                    const q = parseInt(qty) || 0;
-                    totalGarments += q;
-                    if (item.completedSizes?.includes(size)) {
-                        completedGarments += q;
-                    }
-                });
-            } else if (item.qty) {
-                totalGarments += parseInt(item.qty) || 0;
-                // Optional completion logic based on qty, but mostly we need totals
-            }
+          if (item.sizes && Object.keys(item.sizes).length > 0) {
+            Object.entries(item.sizes).forEach(([, qty]: [string, any]) => {
+              const q = parseInt(qty) || 0;
+              totalGarments += q;
+            });
+          } else if (item.qty) {
+            totalGarments += parseInt(item.qty) || 0;
+          }
         });
 
-        if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
-           const prodRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
-           
-           const kitGarments = order.boxes?.reduce((acc: number, box: any) => acc + (box.items?.reduce((iAcc: number, bi: any) => iAcc + (bi.qty || 0), 0) || 0), 0) || 0;
-           const kitRatio = totalGarments > 0 ? (kitGarments / totalGarments) : 0;
-
-           const hasBoxes = order.boxes && order.boxes.length > 0;
-           const allBoxesHaveTracking = hasBoxes && order.boxes.every((b: any) => b.trackingNumber || b.trackingCarrier === 'Pickup');
-
-           if (kitRatio >= 0.95 && allBoxesHaveTracking) {
-               visualIndex += 1; // Visually hit the Shipped node if almost fully packed + labels bought
-           } else {
-               // Blend them: 50% visual weight to Production, 50% to Kitting/Packing.
-               const completionRatio = (prodRatio * 0.5) + (kitRatio * 0.5);
-
-               // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
-               const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
-               visualIndex += scaledRatio;
-            }
-         }
-
-         // Calculate the percentage width for the progress bar fill
-         const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
          const needsAction = order.statusIndex === 2 || order.statusIndex === 3;
          const orderSubBrand =
            order.customerId && order.customerId !== currentCustomerId
@@ -1117,77 +1067,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   data-tour={idx === 0 ? "status-badge-0" : undefined}
                   className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative"
                 >
-                  {/* Desktop Horizontal Tracker */}
-                  <div className="hidden xl:block w-full overflow-visible relative z-10">
-                    <div className="relative w-full mt-8 mb-6 lg:mt-0 lg:mb-0">
-                      {/* The Track Base */}
-                      <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
-                      {/* The Fill */}
-                      <div className="absolute top-0 left-0 h-[12px] bg-neutral-400 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
-                      
-                      {/* Steps */}
-                      <div className="relative flex justify-between items-center z-10 px-0">
-                        {timelineSteps.map((step, idx) => {
-                          const isCompleted = idx <= Math.floor(visualIndex);
-                          const isLastStep = idx === timelineSteps.length - 1;
-                          return (
-                            <div key={step} className="flex flex-col items-center relative">
-                              {/* The Step Dot */}
-                              <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}>
-                              </div>
-                              {/* Step Label below */}
-                              <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
-                              
-                              {/* Completion Date */}
-                              {isLastStep && (
-                                 <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{formatDisplayDate(order.date)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mobile Vertical Tracker */}
-                  <div className="block xl:hidden w-full relative z-10 bg-neutral-50/50 rounded-3xl p-5 border border-neutral-100 mt-2">
-                    <div className="relative flex flex-col gap-5 pl-6">
-                      {/* Vertical line connector */}
-                      <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-neutral-200"></div>
-                      {/* Vertical line fill progress */}
-                      <div 
-                        className="absolute left-[7px] top-2 w-[2px] bg-black transition-all duration-700 ease-in-out animate-all" 
-                        style={{ 
-                          height: `${Math.min(100, (visualIndex / (timelineSteps.length - 1)) * 100)}%` 
-                        }}
-                      ></div>
-
-                      {timelineSteps.map((step, idx) => {
-                        const isCompleted = idx <= Math.floor(visualIndex);
-                        const isLastStep = idx === timelineSteps.length - 1;
-                        return (
-                          <div key={step} className="flex items-center gap-3 relative">
-                            {/* Dot */}
-                            <div className={`absolute -left-[23px] w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
-                              isCompleted ? 'bg-black ring-4 ring-white' : 'bg-white border-2 border-neutral-300 ring-4 ring-white'
-                            }`}>
-                            </div>
-                            {/* Content */}
-                            <div className="flex justify-between items-center w-full">
-                              <span className={`text-[12px] font-bold tracking-wide transition-colors ${isCompleted ? 'text-black font-extrabold' : 'text-neutral-400'}`}>
-                                {step}
-                              </span>
-                              {isLastStep && (
-                                <span className="text-[11px] font-bold text-neutral-500 bg-white border border-neutral-200 rounded px-2 py-0.5 shadow-2xs">
-                                  {formatDisplayDate(order.date)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <OrderTimelineTracker
+                    order={order}
+                    canEdit={Boolean(overrideCustomerId) && userData?.role?.toLowerCase() !== 'sales'}
+                  />
                 </div>
 
                 {/* Delete Icon on Hover (Admin Only) */}

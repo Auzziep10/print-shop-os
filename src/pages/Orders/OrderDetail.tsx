@@ -32,6 +32,8 @@ import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
 import { validateDiscountCode } from '../../lib/discountUtils';
+import { OrderTimelineTracker } from '../../components/Orders/OrderTimelineTracker';
+import { getUpdatedTimelineMilestonesForStatusChange } from '../../lib/timelineUtils';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const cleanGarmentTitle = (title: string, styleId?: string): string => {
@@ -1138,7 +1140,7 @@ export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, userData, hasPermission } = useAuth();
-  const isSales = userData?.role === 'Sales';
+  const isSales = userData?.role?.toLowerCase() === 'sales';
   const { orders, loading } = useOrders();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -2702,6 +2704,7 @@ export function OrderDetail() {
       })();
 
       const shouldResetPaid = newIndex <= 3 && order.paymentStatus === 'paid';
+      const nowIso = new Date().toISOString();
       const activity = {
         id: `act-${Date.now()}`,
         type: 'status_change',
@@ -2709,11 +2712,12 @@ export function OrderDetail() {
           ? `Status updated to ${newStatusLabel} (marked as Unpaid)`
           : `Status updated to ${newStatusLabel}`,
         user: user?.email || 'Team Member',
-        timestamp: new Date().toISOString()
+        timestamp: nowIso
       };
 
       await setDoc(doc(db, 'orders', id), {
         statusIndex: newIndex,
+        timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(order.timelineMilestones, newIndex, nowIso),
         ...(shouldResetPaid ? { paymentStatus: 'unpaid', paymentDate: null } : {}),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
@@ -5298,6 +5302,10 @@ export function OrderDetail() {
                </div>
             </div>
             
+            <div className="pt-6 pb-8 border-t border-brand-border/60">
+              <OrderTimelineTracker order={order} canEdit={!isSales} compact={true} />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-6 pt-6 border-t border-brand-border">
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">

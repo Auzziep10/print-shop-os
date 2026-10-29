@@ -15,6 +15,7 @@ import { sendOrderStatusEmail } from '../../lib/emailService';
 import { OrderReportsPanel } from './OrderReportsPanel';
 import { formatDisplayDate } from '../../lib/utils';
 import { isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
+import { getUpdatedTimelineMilestonesForStatusChange } from '../../lib/timelineUtils';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
@@ -213,7 +214,12 @@ export function OrdersList() {
     // Advance logic 
     const nextIndex = currentIndex < 8 ? currentIndex + 1 : 0;
     try {
-      await updateDoc(doc(db, 'orders', orderId), { statusIndex: nextIndex });
+      const targetOrder = orders.find(o => o.id === orderId);
+      const nextMilestones = getUpdatedTimelineMilestonesForStatusChange(targetOrder?.timelineMilestones, nextIndex);
+      await updateDoc(doc(db, 'orders', orderId), {
+        statusIndex: nextIndex,
+        timelineMilestones: nextMilestones
+      });
       sendOrderStatusSMS(orderId, nextIndex);
       sendOrderStatusEmail(orderId, nextIndex);
     } catch (err) {
