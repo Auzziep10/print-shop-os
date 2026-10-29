@@ -80,9 +80,21 @@ export function CustomerDetail() {
   }, [orders]);
 
   const sourcingSummary = useMemo(() => {
-    if (!orders) return { totalUnits: 0, toOrderUnits: 0 };
+    if (!orders) return { totalUnits: 0, toOrderUnits: 0, receivedUnits: 0 };
     let totalUnits = 0;
     let toOrderUnits = 0;
+    let receivedUnits = 0;
+    const sizeLadder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    const shiftSize = (rawSz: string, adj?: string) => {
+      const clean = (rawSz || '').trim().toUpperCase();
+      if (!clean || !adj || adj === 'True to Size') return clean;
+      const norm = clean === 'XXL' ? '2XL' : clean === 'XXXL' ? '3XL' : clean === 'XXXXL' ? '4XL' : clean;
+      const i = sizeLadder.indexOf(norm);
+      if (i === -1) return clean;
+      const lower = adj.trim().toLowerCase();
+      const delta = lower.includes('size up 1') ? 1 : lower.includes('size up 2') ? 2 : lower.includes('size down 1') ? -1 : lower.includes('size down 2') ? -2 : 0;
+      return delta === 0 ? clean : sizeLadder[Math.max(0, Math.min(sizeLadder.length - 1, i + delta))];
+    };
     orders.forEach((o: any) => {
       if (o.customerId === 'Shopify Temporary' || o.isProjectGroup) return;
       const idx = Number(o.statusIndex ?? 0);
@@ -98,27 +110,48 @@ export function CustomerDetail() {
         const isTax = styleLower.includes('tax');
         if (isShipping || isTax) return;
 
+        const adjSz = (sz: string) => shiftSize(sz, item.sizingAdjustment);
         const rawSizes = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
         const sizeEntries = Object.entries(rawSizes).filter(([, q]) => (Number(q) || 0) > 0);
         if (sizeEntries.length > 0) {
           sizeEntries.forEach(([sz, q]) => {
             const qty = Number(q) || 0;
+            const shifted = adjSz(sz);
             totalUnits += qty;
-            const isOrdered = hasSizeInList(item.orderedSizes, sz);
-            const isReceived = hasSizeInList(item.receivedSizes, sz) || hasSizeInList(item.completedSizes, sz);
+            const isReceived =
+              hasSizeInList(item.receivedSizes, sz) ||
+              hasSizeInList(item.receivedSizes, shifted) ||
+              hasSizeInList(item.completedSizes, sz) ||
+              hasSizeInList(item.completedSizes, shifted);
+            const isOrdered =
+              isReceived ||
+              hasSizeInList(item.orderedSizes, sz) ||
+              hasSizeInList(item.orderedSizes, shifted) ||
+              (sizeEntries.length === 1 && Array.isArray(item.orderedSizes) && item.orderedSizes.length > 0);
+            if (isReceived) receivedUnits += qty;
             if (!isOrdered && !isReceived) toOrderUnits += qty;
           });
         } else if (o.personalInfo?.size) {
           const sz = String(o.personalInfo.size).trim().toUpperCase();
+          const shifted = adjSz(sz);
           const qty = Number(item.qty) > 0 ? Number(item.qty) : 1;
           totalUnits += qty;
-          const isOrdered = hasSizeInList(item.orderedSizes, sz);
-          const isReceived = hasSizeInList(item.receivedSizes, sz) || hasSizeInList(item.completedSizes, sz);
+          const isReceived =
+            hasSizeInList(item.receivedSizes, sz) ||
+            hasSizeInList(item.receivedSizes, shifted) ||
+            hasSizeInList(item.completedSizes, sz) ||
+            hasSizeInList(item.completedSizes, shifted);
+          const isOrdered =
+            isReceived ||
+            hasSizeInList(item.orderedSizes, sz) ||
+            hasSizeInList(item.orderedSizes, shifted) ||
+            (Array.isArray(item.orderedSizes) && item.orderedSizes.length > 0);
+          if (isReceived) receivedUnits += qty;
           if (!isOrdered && !isReceived) toOrderUnits += qty;
         }
       });
     });
-    return { totalUnits, toOrderUnits };
+    return { totalUnits, toOrderUnits, receivedUnits };
   }, [orders]);
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
@@ -3991,14 +4024,21 @@ export function CustomerDetail() {
                       <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
                         {sourcingSummary.totalUnits}
                       </span>
-                      {sourcingSummary.toOrderUnits > 0 && (
+                      {sourcingSummary.toOrderUnits > 0 ? (
                         <span
                           className="ml-2 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
                           title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
                         >
                           {sourcingSummary.toOrderUnits} To Order
                         </span>
-                      )}
+                      ) : sourcingSummary.totalUnits > 0 ? (
+                        <span
+                          className="ml-2 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                          title="All garment units have been ordered"
+                        >
+                          {sourcingSummary.receivedUnits >= sourcingSummary.totalUnits ? 'Received' : 'Ordered'}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -4610,14 +4650,21 @@ export function CustomerDetail() {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
                       {sourcingSummary.totalUnits}
                     </span>
-                    {sourcingSummary.toOrderUnits > 0 && (
+                    {sourcingSummary.toOrderUnits > 0 ? (
                       <span
                         className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
                         title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
                       >
                         {sourcingSummary.toOrderUnits} To Order
                       </span>
-                    )}
+                    ) : sourcingSummary.totalUnits > 0 ? (
+                      <span
+                        className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                        title="All garment units have been ordered"
+                      >
+                        {sourcingSummary.receivedUnits >= sourcingSummary.totalUnits ? 'Received' : 'Ordered'}
+                      </span>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
@@ -4639,6 +4686,7 @@ export function CustomerDetail() {
                 orders={orders || []}
                 customerId={id || ''}
                 customerName={editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Customer'}
+                customerFulfillmentType={editCompanyForm.fulfillmentType || liveCustomerData?.fulfillmentType || 'Standard'}
                 subBrands={subBrands}
                 combinedDesignerRack={combinedDesignerRack}
                 isSales={isSales}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shirt,
@@ -18,10 +18,18 @@ import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { isDiscountItem, isNonGarmentItem, sortGarmentSizes, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
+import {
+  useFulfillmentPipelines,
+  getPipelineForFulfillmentType,
+  isCustomStatusPipeline,
+  getUpdatedTimelineMilestonesForStatusChange,
+  statusIndexToTimelineStep
+} from '../../lib/timelineUtils';
 
 interface CustomerSourcingPanelProps {
   customerId: string;
   customerName: string;
+  customerFulfillmentType?: string;
   orders: any[];
   subBrands: any[];
   combinedDesignerRack: any[];
@@ -112,6 +120,7 @@ const normalizeGender = (g?: string): 'Male' | 'Female' | 'Unisex' => {
 export function CustomerSourcingPanel({
   customerId,
   customerName,
+  customerFulfillmentType,
   orders,
   subBrands,
   combinedDesignerRack,
@@ -119,6 +128,8 @@ export function CustomerSourcingPanel({
   onPreviewImage
 }: CustomerSourcingPanelProps) {
   const navigate = useNavigate();
+  const { pipelines } = useFulfillmentPipelines();
+  const autoSyncedOrdersRef = useRef<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>('all');
   const [pipelineFilter, setPipelineFilter] = useState<'active_orders' | 'include_quotes' | 'all'>('include_quotes');
   const [statusFilter, setStatusFilter] = useState<'all' | 'needs_ordering' | 'ordered' | 'received'>('all');
@@ -407,6 +418,121 @@ export function CustomerSourcingPanel({
     };
   }, [filteredOrders, brandNameMap, customerName, splitByGender, designerRackById, designerRackByTitle, statusFilter]);
 
+  const evaluateOrderSourcingStatus = (orderDoc: any, itemsToInspect: any[]) => {
+    let orderTotalUnits = 0;
+    let orderOrderedUnits = 0;
+    let orderReceivedUnits = 0;
+    const indSizeRaw = (orderDoc?.personalInfo?.size || '').trim().toUpperCase();
+
+    (itemsToInspect || []).forEach((item: any) => {
+      if (!item || isDiscountItem(item) || isNonGarmentItem(item)) return;
+      if (item.itemType === 'gang_sheet' || item.itemType === 'service') return;
+
+      const rawStyleName = (item.title || item.style || 'Custom Garment').trim();
+      const itemLinkKey = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim().toLowerCase();
+      const itemPsdKey = (item.psdDriveLink || '').trim().toLowerCase();
+      const rackMatch =
+        (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
+        designerRackByTitle[rawStyleName.toLowerCase()] ||
+        (itemPsdKey && designerRackByLink[itemPsdKey]) ||
+        (itemLinkKey && designerRackByLink[itemLinkKey]);
+      const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+      const itemSizing = (item.sizingAdjustment || '').trim();
+      const sizingAdjustment =
+        rackSizing && rackSizing !== 'True to Size'
+          ? rackSizing
+          : itemSizing && itemSizing !== 'True to Size'
+            ? itemSizing
+            : rackSizing || itemSizing;
+
+      const rawSizesObj = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
+      const explicitSizeEntries = Object.entries(rawSizesObj)
+        .map(([sz, q]) => [sz.trim().toUpperCase(), parseInt(String(q), 10) || 0] as const)
+        .filter(([, q]) => q > 0);
+
+      let effectiveEntries: { size: string; qty: number }[] = [];
+      if (explicitSizeEntries.length > 0) {
+        effectiveEntries = explicitSizeEntries.map(([size, qty]) => ({ size, qty }));
+      } else if (indSizeRaw) {
+        const fallbackQty = Math.max(1, parseInt(String(item.qty || 1), 10) || 1);
+        effectiveEntries = [{ size: indSizeRaw, qty: fallbackQty }];
+      } else if ((parseInt(String(item.qty || 0), 10) || 0) > 0) {
+        effectiveEntries = [{ size: 'TBD', qty: parseInt(String(item.qty), 10) || 1 }];
+      }
+
+      effectiveEntries.forEach(({ size: rawOrderSize, qty }) => {
+        const adjustedSize = getAdjustedOrderSize(rawOrderSize, sizingAdjustment);
+        const isCompleted =
+          hasSizeInList(item.completedSizes, adjustedSize) ||
+          hasSizeInList(item.completedSizes, rawOrderSize);
+        const isReceived =
+          isCompleted ||
+          hasSizeInList(item.receivedSizes, adjustedSize) ||
+          hasSizeInList(item.receivedSizes, rawOrderSize);
+        const isOrdered =
+          isReceived ||
+          hasSizeInList(item.orderedSizes, adjustedSize) ||
+          hasSizeInList(item.orderedSizes, rawOrderSize);
+
+        orderTotalUnits += qty;
+        if (isOrdered) orderOrderedUnits += qty;
+        if (isReceived) orderReceivedUnits += qty;
+      });
+    });
+
+    const subBrand = subBrands.find((b: any) => b.id === orderDoc?.customerId);
+    const activeFt = orderDoc?.fulfillmentType || subBrand?.fulfillmentType || customerFulfillmentType || 'Standard';
+    let orderedStatusIndex = 5;
+    if (isCustomStatusPipeline(activeFt, pipelines)) {
+      const pipeline = getPipelineForFulfillmentType(activeFt, pipelines);
+      const steps = pipeline.steps || [];
+      let foundIdx = steps.findIndex((s) => s.trim().toLowerCase() === 'ordered');
+      if (foundIdx === -1) foundIdx = steps.findIndex((s) => s.trim().toLowerCase().includes('ordered'));
+      if (foundIdx === -1) foundIdx = steps.findIndex((s) => s.trim().toLowerCase() === 'sourced');
+      if (foundIdx === -1) foundIdx = steps.findIndex((s) => s.trim().toLowerCase().includes('source'));
+      orderedStatusIndex = foundIdx !== -1 ? foundIdx : Math.min(3, Math.max(0, steps.length - 1));
+    }
+
+    return {
+      totalUnits: orderTotalUnits,
+      orderedUnits: orderOrderedUnits,
+      receivedUnits: orderReceivedUnits,
+      allOrdered: orderTotalUnits > 0 && orderOrderedUnits >= orderTotalUnits,
+      allReceived: orderTotalUnits > 0 && orderReceivedUnits >= orderTotalUnits,
+      activeFt,
+      orderedStatusIndex
+    };
+  };
+
+  useEffect(() => {
+    if (isSales || !Array.isArray(orders) || orders.length === 0) return;
+    orders.forEach((orderDoc: any) => {
+      if (!orderDoc?.id || orderDoc.customerId === 'Shopify Temporary' || orderDoc.isProjectGroup) return;
+      const currentStatusIdx = Number(orderDoc.statusIndex ?? 0);
+      if (currentStatusIdx >= 7) return;
+      const evalResult = evaluateOrderSourcingStatus(orderDoc, orderDoc.items || []);
+      if (evalResult.allOrdered && currentStatusIdx < evalResult.orderedStatusIndex) {
+        const syncSig = `${orderDoc.id}__${evalResult.orderedUnits}__${evalResult.totalUnits}__${evalResult.orderedStatusIndex}`;
+        if (autoSyncedOrdersRef.current.has(syncSig)) return;
+        autoSyncedOrdersRef.current.add(syncSig);
+        const nowIso = new Date().toISOString();
+        updateDoc(doc(db, 'orders', orderDoc.id), {
+          statusIndex: evalResult.orderedStatusIndex,
+          status: 'Ordered',
+          timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(
+            orderDoc.timelineMilestones,
+            evalResult.orderedStatusIndex,
+            nowIso,
+            evalResult.activeFt,
+            pipelines
+          )
+        }).catch((err) => {
+          console.error('Failed to auto-sync order status to Ordered:', err);
+        });
+      }
+    });
+  }, [orders, combinedDesignerRack, pipelines, isSales, customerFulfillmentType, subBrands]);
+
   const applySourcingStatusToOccurrences = async (
     occurrences: OccurrenceRef[],
     targetState: 'to_order' | 'ordered' | 'received',
@@ -474,7 +600,45 @@ export function CustomerSourcingPanel({
             };
           });
 
-          await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
+          const updatePayload: Record<string, any> = { items: updatedItems };
+          const evalResult = evaluateOrderSourcingStatus(orderDoc, updatedItems);
+          const currentStatusIdx = Number(orderDoc.statusIndex ?? 0);
+          const nowIso = new Date().toISOString();
+
+          if (evalResult.allOrdered && currentStatusIdx < evalResult.orderedStatusIndex) {
+            updatePayload.statusIndex = evalResult.orderedStatusIndex;
+            updatePayload.status = 'Ordered';
+            updatePayload.timelineMilestones = getUpdatedTimelineMilestonesForStatusChange(
+              orderDoc.timelineMilestones,
+              evalResult.orderedStatusIndex,
+              nowIso,
+              evalResult.activeFt,
+              pipelines
+            );
+          } else if (!evalResult.allOrdered && currentStatusIdx === evalResult.orderedStatusIndex) {
+            const revertIdx = isCustomStatusPipeline(evalResult.activeFt, pipelines)
+              ? Math.max(0, evalResult.orderedStatusIndex - 1)
+              : evalResult.orderedUnits > 0
+                ? 4
+                : 3;
+            const orderedStepName = statusIndexToTimelineStep(
+              evalResult.orderedStatusIndex,
+              evalResult.activeFt,
+              pipelines
+            );
+            const nextMilestones = { ...(orderDoc.timelineMilestones || {}) };
+            if (nextMilestones[orderedStepName]) {
+              nextMilestones[orderedStepName] = {
+                ...nextMilestones[orderedStepName],
+                completedAt: ''
+              };
+            }
+            updatePayload.statusIndex = revertIdx;
+            updatePayload.status = evalResult.orderedUnits > 0 ? 'Shopping' : 'Approved';
+            updatePayload.timelineMilestones = nextMilestones;
+          }
+
+          await updateDoc(doc(db, 'orders', orderId), updatePayload);
         })
       );
     } catch (err) {
