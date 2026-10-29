@@ -292,14 +292,35 @@ export function getUpdatedTimelineMilestonesForStatusChange(
   steps.forEach((step, idx) => {
     if (idx <= targetStepIdx) {
       const prevMilestone = next[step] || {};
-      next[step] = {
+      const updatedMilestone: TimelineMilestone = {
         ...prevMilestone,
         completedAt:
           prevMilestone.completedAt ||
           (idx === targetStepIdx ? nowIso : prevMilestone.completedAt || nowIso),
-        delayed: idx < targetStepIdx ? false : prevMilestone.delayed
+        delayed: idx < targetStepIdx ? false : Boolean(prevMilestone.delayed)
       };
+      Object.keys(updatedMilestone).forEach((k) => {
+        if ((updatedMilestone as any)[k] === undefined) {
+          delete (updatedMilestone as any)[k];
+        }
+      });
+      next[step] = updatedMilestone;
     }
+  });
+
+  Object.keys(next).forEach((stepKey) => {
+    const val = next[stepKey];
+    if (!val) {
+      delete next[stepKey];
+      return;
+    }
+    const cleanStep: Record<string, any> = { ...val };
+    Object.keys(cleanStep).forEach((k) => {
+      if (cleanStep[k] === undefined) {
+        delete cleanStep[k];
+      }
+    });
+    next[stepKey] = cleanStep as TimelineMilestone;
   });
 
   return next;

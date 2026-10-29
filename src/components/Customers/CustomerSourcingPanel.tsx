@@ -507,28 +507,32 @@ export function CustomerSourcingPanel({
   useEffect(() => {
     if (isSales || !Array.isArray(orders) || orders.length === 0) return;
     orders.forEach((orderDoc: any) => {
-      if (!orderDoc?.id || orderDoc.customerId === 'Shopify Temporary' || orderDoc.isProjectGroup) return;
-      const currentStatusIdx = Number(orderDoc.statusIndex ?? 0);
-      if (currentStatusIdx >= 7) return;
-      const evalResult = evaluateOrderSourcingStatus(orderDoc, orderDoc.items || []);
-      if (evalResult.allOrdered && currentStatusIdx < evalResult.orderedStatusIndex) {
-        const syncSig = `${orderDoc.id}__${evalResult.orderedUnits}__${evalResult.totalUnits}__${evalResult.orderedStatusIndex}`;
-        if (autoSyncedOrdersRef.current.has(syncSig)) return;
-        autoSyncedOrdersRef.current.add(syncSig);
-        const nowIso = new Date().toISOString();
-        updateDoc(doc(db, 'orders', orderDoc.id), {
-          statusIndex: evalResult.orderedStatusIndex,
-          status: 'Ordered',
-          timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(
-            orderDoc.timelineMilestones,
-            evalResult.orderedStatusIndex,
-            nowIso,
-            evalResult.activeFt,
-            pipelines
-          )
-        }).catch((err) => {
-          console.error('Failed to auto-sync order status to Ordered:', err);
-        });
+      try {
+        if (!orderDoc?.id || orderDoc.customerId === 'Shopify Temporary' || orderDoc.isProjectGroup) return;
+        const currentStatusIdx = Number(orderDoc.statusIndex ?? 0);
+        if (currentStatusIdx >= 7) return;
+        const evalResult = evaluateOrderSourcingStatus(orderDoc, orderDoc.items || []);
+        if (evalResult.allOrdered && currentStatusIdx < evalResult.orderedStatusIndex) {
+          const syncSig = `${orderDoc.id}__${evalResult.orderedUnits}__${evalResult.totalUnits}__${evalResult.orderedStatusIndex}`;
+          if (autoSyncedOrdersRef.current.has(syncSig)) return;
+          autoSyncedOrdersRef.current.add(syncSig);
+          const nowIso = new Date().toISOString();
+          updateDoc(doc(db, 'orders', orderDoc.id), {
+            statusIndex: evalResult.orderedStatusIndex,
+            status: 'Ordered',
+            timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(
+              orderDoc.timelineMilestones,
+              evalResult.orderedStatusIndex,
+              nowIso,
+              evalResult.activeFt,
+              pipelines
+            )
+          }).catch((err) => {
+            console.error('Failed to auto-sync order status to Ordered:', err);
+          });
+        }
+      } catch (err) {
+        console.error('Error checking order sourcing status:', err);
       }
     });
   }, [orders, combinedDesignerRack, pipelines, isSales, customerFulfillmentType, subBrands]);
