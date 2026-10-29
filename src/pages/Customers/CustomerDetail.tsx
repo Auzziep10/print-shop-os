@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box, Star } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { DEFAULT_PORTAL_AGREEMENTS, type PortalAgreementPage } from '../../lib/portalAgreements';
 import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
 
@@ -3242,7 +3243,7 @@ export function CustomerDetail() {
             }`}
             title={liveCustomerData?.isMvp ? 'Remove MVP status from Customer' : 'Mark Customer as MVP'}
           >
-            <Star size={14} className={`shrink-0 ${liveCustomerData?.isMvp ? 'fill-white text-white' : ''}`} />
+            <MvpStarIcon size={14} className={liveCustomerData?.isMvp ? 'text-yellow-300' : 'text-yellow-400'} />
             <span>{liveCustomerData?.isMvp ? 'MVP' : 'Mark MVP'}</span>
           </button>
           <button
@@ -3372,6 +3373,11 @@ export function CustomerDetail() {
       <div className={`bg-white p-8 rounded-card border ${isNotesExpanded ? 'border-brand-primary/20 shadow-md pb-6' : 'border-brand-border shadow-sm'} transition-all duration-300 flex flex-col gap-6`}>
         <div className="flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
+            {(liveCustomerData?.isMvp || customer?.isMvp) && (
+              <div className="h-24 flex items-center shrink-0" title="MVP Customer">
+                <MvpStarIcon size={24} />
+              </div>
+            )}
             <div className={`relative w-24 h-24 rounded-xl flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.croppedLogo || customer?.logo ? '' : 'border border-brand-border bg-brand-bg'}`}>
                {uploadingLogo || fetchingLogo ? (
                  <Loader2 className="animate-spin text-brand-secondary" size={24} />
@@ -3407,13 +3413,8 @@ export function CustomerDetail() {
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2 cursor-pointer group w-fit" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
-                 <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors flex items-center gap-2">
-                   <span>{editCompanyForm.name || 'Unknown Company'}</span>
-                   {(liveCustomerData?.isMvp || customer?.isMvp) && (
-                     <span title="MVP Customer" className="inline-flex items-center shrink-0">
-                       <Star size={22} className="fill-amber-400 text-amber-500" />
-                     </span>
-                   )}
+                 <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors">
+                   {editCompanyForm.name || 'Unknown Company'}
                  </h1>
                  <ChevronRight size={22} strokeWidth={3} className={`text-brand-secondary group-hover:text-brand-primary transition-all duration-300 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
                </div>
@@ -3425,7 +3426,7 @@ export function CustomerDetail() {
                 <div className="flex flex-wrap items-center gap-2">
                   {(liveCustomerData?.isMvp || customer?.isMvp) && (
                     <span className="text-[10px] bg-amber-500 text-white px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                      <Star size={11} className="fill-white text-white" /> MVP
+                      <MvpStarIcon size={11} className="text-yellow-300" /> MVP
                     </span>
                   )}
                   {(liveCustomerData?.highPriority || customer?.highPriority) && (
@@ -7122,7 +7123,7 @@ export function CustomerDetail() {
                         onChange={(e) => setNewOrderForm(prev => ({ ...prev, isMvp: e.target.checked }))}
                         className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                       />
-                      <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                      <MvpStarIcon size={12} />
                       <span className="text-xs font-bold text-amber-800">MVP</span>
                     </label>
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Star } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -959,6 +960,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           </div>
                         </div>
                       )}
+                      {orderIsMvp && (
+                        <MvpStarIcon size={20} title="MVP" />
+                      )}
                    <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300" title={orderOwnerName}>
                      {fetchingLogo ? (
                        <Loader2 className="animate-spin text-neutral-300" size={24} />
@@ -989,13 +993,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         }
                       }}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words flex items-center gap-2" title={order.title}>
-                        <span>{order.title || 'Custom Order'}</span>
-                        {orderIsMvp && (
-                          <span title="MVP" className="inline-flex items-center shrink-0">
-                            <Star size={18} className="fill-amber-400 text-amber-500" />
-                          </span>
-                        )}
+                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words" title={order.title}>
+                        {order.title || 'Custom Order'}
                       </h2>
                       {overrideCustomerId && ((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
                         <div className="flex flex-col leading-tight border-l border-brand-border pl-3 py-0.5 shrink-0" title="Individual info (admin only)">

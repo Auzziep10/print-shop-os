@@ -6,7 +6,8 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin, Star } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -5145,12 +5146,10 @@ export function OrderDetail() {
                         title="Click to expand Shipping Info & Order Notes"
                       >
                         <h1 className="font-serif text-4xl text-brand-primary group-hover:text-black line-clamp-2 md:line-clamp-none leading-tight transition-colors flex items-center gap-2.5">
-                          <span>{order.title || 'Untitled Order'}</span>
                           {Boolean(order.isMvp || order.personalInfo?.isMvp || liveCustomer?.isMvp) && (
-                            <span title="MVP" className="inline-flex items-center shrink-0">
-                              <Star size={24} className="fill-amber-400 text-amber-500" />
-                            </span>
+                            <MvpStarIcon size={24} title="MVP" />
                           )}
+                          <span>{order.title || 'Untitled Order'}</span>
                         </h1>
                         <ChevronRight
                           size={22}
@@ -8192,7 +8191,7 @@ export function OrderDetail() {
                           onChange={(e) => setEditForm(prev => ({ ...prev, isMvp: e.target.checked }))}
                           className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                         />
-                        <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                        <MvpStarIcon size={12} />
                         <span className="text-xs font-bold text-amber-800">MVP</span>
                       </label>
                       <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">

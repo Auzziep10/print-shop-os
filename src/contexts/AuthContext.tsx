@@ -101,6 +101,10 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
 interface AuthContextType {
   user: User | null;
   userData: UserData | null;
+  actualUserData: UserData | null;
+  previewRole: UserRole | null;
+  setPreviewRole: (role: UserRole | null) => void;
+  canUseRolePreview: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<any>;
   signInWithEmail: (email: string, password: string) => Promise<any>;
@@ -131,8 +135,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [previewRole, setPreviewRoleState] = useState<UserRole | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('wovn_role_preview');
+      return saved ? (saved as UserRole) : null;
+    } catch {
+      return null;
+    }
+  });
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const setPreviewRole = (role: UserRole | null) => {
+    setPreviewRoleState(role);
+    try {
+      if (role) {
+        sessionStorage.setItem('wovn_role_preview', role);
+      } else {
+        sessionStorage.removeItem('wovn_role_preview');
+      }
+    } catch {
+      // ignore storage errors
+    }
+  };
 
   // Subscribe to role permissions
   useEffect(() => {
@@ -485,23 +510,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const hasPermission = (permission: PermissionKey): boolean => {
-    if (!userData) return false;
-    // Safety check: Admin always has access to all permissions
-    if (userData.role === 'Admin') return true;
+  const canUseRolePreview = Boolean(
+    userData && (userData.role === 'Admin' || userData.role === 'Leadership')
+  );
 
-    const rolePermissions = permissions?.[userData.role];
+  const effectiveRole: UserRole | undefined =
+    canUseRolePreview && previewRole ? previewRole : userData?.role;
+
+  const effectiveUserData: UserData | null =
+    userData && effectiveRole ? { ...userData, role: effectiveRole } : userData;
+
+  const hasPermission = (permission: PermissionKey): boolean => {
+    if (!effectiveUserData) return false;
+    // Safety check: Admin always has access to all permissions
+    if (effectiveUserData.role === 'Admin') return true;
+
+    const rolePermissions = permissions?.[effectiveUserData.role];
     if (rolePermissions) {
       return !!rolePermissions[permission];
     }
 
     // Fallback to hardcoded defaults
-    return !!DEFAULT_PERMISSIONS[userData.role]?.[permission];
+    return !!DEFAULT_PERMISSIONS[effectiveUserData.role]?.[permission];
   };
 
   const value = {
     user,
-    userData,
+    userData: effectiveUserData,
+    actualUserData: userData,
+    previewRole: canUseRolePreview ? previewRole : null,
+    setPreviewRole,
+    canUseRolePreview,
     loading,
     signInWithGoogle,
     signInWithEmail,

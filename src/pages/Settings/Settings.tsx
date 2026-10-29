@@ -24,10 +24,10 @@ export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'users';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
-  const { hasPermission } = useAuth();
+  const { hasPermission, canUseRolePreview } = useAuth();
   
-  // Only users with manageSettings permission can view settings
-  if (!hasPermission('manageSettings')) {
+  // Only users with manageSettings permission (or Admins/Leadership previewing another role) can view settings
+  if (!hasPermission('manageSettings') && !canUseRolePreview) {
     return (
       <div className={tokens.layout.container}>
         <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white mt-6 shrink-0">

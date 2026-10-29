@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy, Box, Star } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy, Box } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
@@ -466,21 +467,17 @@ export function OrdersList() {
                 >
                   <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
                   <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-1.5">
-                    <span className="truncate">{customerName}</span>
                     {Boolean(liveCustomer?.isMvp) && (
-                      <span title="MVP Customer" className="inline-flex items-center shrink-0">
-                        <Star size={14} className="fill-amber-400 text-amber-500" />
-                      </span>
+                      <MvpStarIcon size={14} title="MVP Customer" />
                     )}
+                    <span className="truncate">{customerName}</span>
                   </div>
                   <div className="text-sm text-brand-secondary truncate pr-4 flex items-center gap-2">
                     <span className="truncate flex items-center gap-1.5">
-                      <span>{order.title}</span>
                       {Boolean(order.isMvp || order.personalInfo?.isMvp) && (
-                        <span title="MVP" className="inline-flex items-center shrink-0">
-                          <Star size={13} className="fill-amber-400 text-amber-500" />
-                        </span>
+                        <MvpStarIcon size={13} title="MVP" />
                       )}
+                      <span>{order.title}</span>
                       {Boolean(order.getsBox || order.personalInfo?.getsBox) && (
                         <span title="Gets a Box" className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
                           <Box size={11} strokeWidth={2.5} />
@@ -568,7 +565,7 @@ export function OrdersList() {
                         onChange={(e) => setNewOrderForm(prev => ({ ...prev, isMvp: e.target.checked }))}
                         className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
                       />
-                      <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                      <MvpStarIcon size={12} />
                       <span className="text-xs font-bold text-amber-800">MVP</span>
                     </label>
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">

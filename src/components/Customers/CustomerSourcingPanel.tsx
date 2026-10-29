@@ -11,10 +11,10 @@ import {
   Users,
   Layers,
   RotateCcw,
-  Star,
   Box,
   Link as LinkIcon
 } from 'lucide-react';
+import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { isDiscountItem, isNonGarmentItem, sortGarmentSizes } from '../../lib/garmentUtils';
@@ -1014,7 +1014,7 @@ export function CustomerSourcingPanel({
                                               <ExternalLink size={11} className="text-neutral-400" />
                                             </button>
                                             {occ.isMvp && (
-                                              <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                                              <MvpStarIcon size={12} title="MVP" />
                                             )}
                                             {occ.getsBox && (
                                               <Box size={12} className="text-amber-700 shrink-0" />
@@ -1156,7 +1156,7 @@ export function CustomerSourcingPanel({
                       <td className="py-2.5 pl-4 pr-3 align-middle font-bold text-brand-primary">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate">{order.title || 'Untitled Order'}</span>
-                          {isMvp && <Star size={13} className="fill-amber-400 text-amber-500 shrink-0" />}
+                          {isMvp && <MvpStarIcon size={13} title="MVP" />}
                           {getsBox && <Box size={13} className="text-amber-700 shrink-0" />}
                         </div>
                       </td>

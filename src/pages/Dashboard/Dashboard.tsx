@@ -10,7 +10,8 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight, Star, Box } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight, Box } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
@@ -1066,6 +1067,9 @@ export function Dashboard() {
 
                     {/* Col 2: Logo & Name */}
                     <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
+                      {Boolean(c.isMvp) && (
+                        <MvpStarIcon size={14} title="MVP Customer" />
+                      )}
                       {c.croppedLogo || c.logo ? (
                         <div className="w-7 h-7 rounded-md border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-0.5">
                           <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
@@ -1095,11 +1099,6 @@ export function Dashboard() {
                         title={companyName}
                       >
                         <span className="truncate">{companyName}</span>
-                        {Boolean(c.isMvp) && (
-                          <span title="MVP Customer" className="inline-flex items-center shrink-0">
-                            <Star size={14} className="fill-amber-400 text-amber-500" />
-                          </span>
-                        )}
                       </span>
                     </div>
 
@@ -1240,6 +1239,9 @@ export function Dashboard() {
 
                   {/* Col 2: Icon & Order Title */}
                   <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
+                    {Boolean(o.isMvp || o.personalInfo?.isMvp) && (
+                      <MvpStarIcon size={14} title="MVP" />
+                    )}
                     <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
                       <Package size={14} />
                     </div>
@@ -1248,11 +1250,6 @@ export function Dashboard() {
                       title={o.title || 'Untitled Order'}
                     >
                       <span className="truncate">{o.title || 'Untitled Order'}</span>
-                      {Boolean(o.isMvp || o.personalInfo?.isMvp) && (
-                        <span title="MVP" className="inline-flex items-center shrink-0">
-                          <Star size={14} className="fill-amber-400 text-amber-500" />
-                        </span>
-                      )}
                       {Boolean(o.getsBox || o.personalInfo?.getsBox) && (
                         <span title="Gets a Box" className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
                           <Box size={11} strokeWidth={2.5} />

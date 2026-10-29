@@ -1,5 +1,5 @@
-import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe, Shirt } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe, Shirt, Eye, RotateCcw, Shield } from 'lucide-react';
+import { useAuth, type UserRole } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
@@ -21,8 +21,10 @@ interface DesignerRackApprovalNotification {
   type: 'final_design' | 'approved_for_order';
 }
 
+const PREVIEWABLE_ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer'];
+
 export function TopBar({ onOpenSidebar }: TopBarProps) {
-  const { user, signOut } = useAuth();
+  const { user, userData, actualUserData, previewRole, setPreviewRole, canUseRolePreview, signOut } = useAuth();
   const { orders } = useOrders();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -167,6 +169,72 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
       <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">
+        {canUseRolePreview && (
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs transition-all ${
+              previewRole && previewRole !== actualUserData?.role
+                ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
+                : 'bg-neutral-50 border-brand-border text-brand-secondary'
+            }`}
+            title="Switch which role view you are seeing across the platform without logging out"
+          >
+            <Eye
+              size={14}
+              className={
+                previewRole && previewRole !== actualUserData?.role
+                  ? 'text-amber-600 shrink-0'
+                  : 'text-neutral-400 shrink-0'
+              }
+            />
+            <span className="hidden md:inline text-[10px] font-extrabold uppercase tracking-wider opacity-80">
+              View as:
+            </span>
+            <select
+              value={userData?.role || actualUserData?.role || 'Admin'}
+              onChange={(e) => {
+                const selected = e.target.value as UserRole;
+                if (selected === actualUserData?.role) {
+                  setPreviewRole(null);
+                } else {
+                  setPreviewRole(selected);
+                }
+              }}
+              className={`bg-transparent font-extrabold text-xs focus:outline-none cursor-pointer pr-1 ${
+                previewRole && previewRole !== actualUserData?.role
+                  ? 'text-amber-950'
+                  : 'text-brand-primary'
+              }`}
+            >
+              {PREVIEWABLE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r} {r === actualUserData?.role ? '(Your Role)' : ''}
+                </option>
+              ))}
+            </select>
+            {previewRole && previewRole !== actualUserData?.role && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings?tab=permissions')}
+                  className="p-1 rounded-md bg-amber-200/60 hover:bg-amber-200 text-amber-900 transition-colors cursor-pointer"
+                  title="Open Role Permissions Settings"
+                >
+                  <Shield size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewRole(null)}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  title={`Exit role preview and return to ${actualUserData?.role || 'Admin'}`}
+                >
+                  <RotateCcw size={10} />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         <button 
           onClick={() => navigate('/start')}
           className="relative p-2 text-brand-secondary hover:text-brand-primary transition-colors"

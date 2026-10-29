@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge, AlertTriangle, Star } from 'lucide-react';
+import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge, AlertTriangle } from 'lucide-react';
+import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 
 import { useEffect, useMemo } from 'react';
 
@@ -217,6 +218,9 @@ export function CustomersList() {
                 className="grid grid-cols-[minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
               >
                 <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-4">
+                  {customer.isMvp && (
+                    <MvpStarIcon size={16} title="MVP Customer" />
+                  )}
                   {customer.croppedLogo || customer.logo ? (
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">
                       <img src={customer.croppedLogo || customer.logo} alt={customer.company} className="w-full h-full object-contain mix-blend-multiply" />
@@ -234,11 +238,6 @@ export function CustomersList() {
                     {customer.company !== '-' ? (
                       <span className="truncate flex items-center gap-1.5">
                         <span className="truncate">{customer.company}</span>
-                        {customer.isMvp && (
-                          <span title="MVP Customer" className="inline-flex items-center shrink-0">
-                            <Star size={16} className="fill-amber-400 text-amber-500" />
-                          </span>
-                        )}
                       </span>
                     ) : (
                       <span className="text-brand-secondary italic text-sm">Individual</span>

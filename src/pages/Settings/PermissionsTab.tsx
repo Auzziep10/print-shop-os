@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { 
+  useAuth,
   type UserRole, 
   type PermissionKey, 
   type PermissionsData, 
   DEFAULT_PERMISSIONS 
 } from '../../contexts/AuthContext';
-import { Shield, Lock, Save, Loader2, Check } from 'lucide-react';
+import { Shield, Lock, Save, Loader2, Check, Eye, RotateCcw } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 
@@ -58,6 +59,7 @@ const PERMISSIONS_META: PermissionMeta[] = [
 ];
 
 export function PermissionsTab() {
+  const { userData, actualUserData, previewRole, setPreviewRole, canUseRolePreview } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -94,17 +96,30 @@ export function PermissionsTab() {
     fetchPermissions();
   }, []);
 
-  const handleToggle = (role: UserRole, permissionKey: PermissionKey) => {
+  const handleToggle = async (role: UserRole, permissionKey: PermissionKey) => {
     // Admin has a hard-coded absolute safeguard and cannot be modified
     if (role === 'Admin') return;
 
-    setPermissions(prev => ({
-      ...prev,
-      [role]: {
-        ...prev[role],
-        [permissionKey]: !prev[role]?.[permissionKey]
-      }
-    }));
+    const nextRolePerms = {
+      ...permissions[role],
+      [permissionKey]: !permissions[role]?.[permissionKey]
+    };
+    const nextPermissions: PermissionsData = {
+      ...permissions,
+      [role]: nextRolePerms,
+      Admin: DEFAULT_PERMISSIONS.Admin
+    };
+
+    setPermissions(nextPermissions);
+
+    // Auto-save immediately so live role preview reflects changes right away
+    try {
+      await setDoc(doc(db, 'settings', 'permissions'), { roles: nextPermissions });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      console.error('Error auto-saving role permissions:', err);
+    }
   };
 
   const handleSave = async () => {
@@ -138,34 +153,119 @@ export function PermissionsTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h2 className={tokens.typography.h2 + " mb-1 flex items-center gap-2"}>
-          <Shield className="text-brand-primary" size={20} />
-          Role Permissions
-        </h2>
-        <p className={tokens.typography.bodyMuted}>
-          Customize access levels for the different roles. Changes propagate immediately across all active user sessions.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h2 className={tokens.typography.h2 + " mb-1 flex items-center gap-2"}>
+            <Shield className="text-brand-primary" size={20} />
+            Role Permissions
+          </h2>
+          <p className={tokens.typography.bodyMuted}>
+            Customize access levels for the different roles. Changes save and propagate immediately across all active sessions.
+          </p>
+        </div>
+
+        {canUseRolePreview && (
+          <div className="flex flex-wrap items-center gap-1.5 bg-neutral-100/90 p-1.5 rounded-xl border border-brand-border shrink-0">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
+              <Eye size={13} className="text-brand-primary" />
+              Preview Platform As:
+            </span>
+            {(['Admin', 'Leadership', 'Manager', 'Staff', 'Sales', 'Printer'] as UserRole[]).map((r) => {
+              const activeRole = userData?.role || actualUserData?.role || 'Admin';
+              const isActive = activeRole === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => {
+                    if (r === actualUserData?.role) {
+                      setPreviewRole(null);
+                    } else {
+                      setPreviewRole(r);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? r === actualUserData?.role
+                        ? 'bg-brand-primary text-white shadow-xs'
+                        : 'bg-amber-500 text-white shadow-xs'
+                      : 'text-brand-secondary hover:text-brand-primary hover:bg-white'
+                  }`}
+                >
+                  {r}
+                </button>
+              );
+            })}
+            {previewRole && previewRole !== actualUserData?.role && (
+              <button
+                type="button"
+                onClick={() => setPreviewRole(null)}
+                className="ml-1 px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider bg-white border border-brand-border text-brand-primary hover:bg-neutral-50 flex items-center gap-1 cursor-pointer"
+                title="Reset to your actual role"
+              >
+                <RotateCcw size={11} />
+                Exit Preview
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ROLES.map(role => {
           const isAdmin = role === 'Admin';
+          const activeRole = userData?.role || actualUserData?.role || 'Admin';
+          const isCurrentlyViewing = activeRole === role;
+          const canPreviewThisRole = role !== 'Client' && role !== 'Pending';
           
           return (
-            <div key={role} className="bg-white border border-brand-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+            <div
+              key={role}
+              className={`bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between ${
+                isCurrentlyViewing && previewRole
+                  ? 'border-amber-400 ring-2 ring-amber-400/20'
+                  : 'border-brand-border'
+              }`}
+            >
               <div>
-                <div className="flex items-center justify-between pb-3 border-b border-brand-border/50">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-brand-border/50">
                   <div>
-                    <h3 className="font-bold text-lg text-brand-primary">{role}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-lg text-brand-primary">{role}</h3>
+                      {isAdmin && (
+                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-primary text-white uppercase tracking-wider">
+                          System Root
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-brand-secondary mt-0.5">
                       {role === 'Client' ? 'Client portal interface' : role === 'Pending' ? 'Waiting room restriction' : role === 'Sales' ? 'Sales & order creation' : 'Shop floor staff'}
                     </p>
                   </div>
-                  {isAdmin && (
-                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-primary text-white uppercase tracking-wider">
-                      System Root
-                    </span>
+                  {canUseRolePreview && canPreviewThisRole && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCurrentlyViewing && previewRole) {
+                          setPreviewRole(null);
+                        } else if (role === actualUserData?.role) {
+                          setPreviewRole(null);
+                        } else {
+                          setPreviewRole(role);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border transition-all cursor-pointer shrink-0 ${
+                        isCurrentlyViewing
+                          ? role === actualUserData?.role
+                            ? 'bg-neutral-900 text-white border-neutral-900'
+                            : 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                          : 'bg-neutral-50 text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary'
+                      }`}
+                      title={`Preview platform as ${role}`}
+                    >
+                      <Eye size={11} />
+                      <span>{isCurrentlyViewing ? 'Viewing' : 'Preview'}</span>
+                    </button>
                   )}
                 </div>
 

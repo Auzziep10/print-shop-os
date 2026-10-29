@@ -84,12 +84,17 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PermissionGuard({ permission, children }: { permission: PermissionKey; children: React.ReactNode }) {
-  const { hasPermission, userData, loading } = useAuth();
+  const { hasPermission, userData, canUseRolePreview, previewRole, loading } = useAuth();
   const location = useLocation();
   const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+
+  // Always allow Admins/Leadership using Role Preview to stay on Settings so they can tweak permissions live
+  if (permission === 'manageSettings' && canUseRolePreview) {
+    return <>{children}</>;
   }
 
   // Allow Sales role to access the main Dashboard route (where they see only High Priority customers & orders)
@@ -98,12 +103,18 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
   }
   
   if (!hasPermission(permission)) {
-    if (permission === 'viewDashboard') {
+    if (permission === 'viewDashboard' || (canUseRolePreview && previewRole)) {
+      if (hasPermission('viewDashboard') || isSales) {
+        return <Navigate to="/dashboard" replace />;
+      }
       if (hasPermission('manageCustomers')) {
         return <Navigate to="/customers" replace />;
       }
       if (hasPermission('manageOrders')) {
         return <Navigate to="/orders" replace />;
+      }
+      if (canUseRolePreview) {
+        return <Navigate to="/settings?tab=permissions" replace />;
       }
     }
     return <ErrorPage code={403} />;
