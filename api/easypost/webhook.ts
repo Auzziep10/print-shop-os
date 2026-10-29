@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getAdminDb } from '../_lib/firebaseAdmin';
+import { getServerDb } from '../_lib/serverFirestore';
 import { applyTrackerToOrder } from '../_lib/easypostTracking';
 
 /**
@@ -11,9 +11,9 @@ import { applyTrackerToOrder } from '../_lib/easypostTracking';
  *     Webhook secret: any long random string
  *     (add one in Production mode, and one in Test mode if you test labels)
  *  2. Vercel env var EASYPOST_WEBHOOK_SECRET = that same secret
- *  3. Vercel env var FIREBASE_SERVICE_ACCOUNT (see api/_lib/firebaseAdmin.ts)
+ *  3. Server database access env vars (see api/_lib/serverFirestore.ts)
  *
- * Node runtime (no edge) so it can use firebase-admin.
+ * Node runtime (no edge) so it can use the Firestore server SDK.
  */
 
 function verifySignature(rawBody: string, header: string | null, secret: string): boolean {
@@ -57,7 +57,7 @@ export default async function handler(req: Request) {
   }
 
   try {
-    const matched = await applyTrackerToOrder(getAdminDb(), tracker);
+    const matched = await applyTrackerToOrder(getServerDb(), tracker);
     return new Response(JSON.stringify({ ok: true, matched }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

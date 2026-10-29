@@ -1,4 +1,4 @@
-import { getAdminDb } from '../_lib/firebaseAdmin';
+import { getServerDb } from '../_lib/serverFirestore';
 import {
   SHIPMENTS_COLLECTION,
   applyTrackerToOrder,
@@ -31,7 +31,7 @@ export default async function handler(req: Request) {
     const { orderId, boxId, isTest } = await req.json();
     if (!orderId || !boxId) return json({ error: 'orderId and boxId are required' }, 400);
 
-    const db = getAdminDb();
+    const db = getServerDb();
     const orderSnap = await db.collection('orders').doc(String(orderId)).get();
     if (!orderSnap.exists) return json({ error: 'Order not found' }, 404);
 

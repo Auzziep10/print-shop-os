@@ -1,4 +1,4 @@
-import type { Firestore } from 'firebase-admin/firestore';
+import type { Firestore } from '@google-cloud/firestore';
 
 /**
  * Shared helpers for EasyPost live tracking.
