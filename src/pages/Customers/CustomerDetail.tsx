@@ -6923,7 +6923,7 @@ export function CustomerDetail() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title *</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title / Individuals Name *</label>
                   <input 
                     type="text" 
                     value={newOrderForm.title}

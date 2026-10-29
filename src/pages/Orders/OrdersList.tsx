@@ -634,13 +634,13 @@ export function OrdersList() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title *</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title / Individuals Name *</label>
                   <input
                     type="text"
                     value={newOrderForm.title}
                     onChange={(e) => setNewOrderForm(prev => ({ ...prev, title: e.target.value }))}
                     className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                    placeholder="e.g. Polos, Jackets, Accessories"
+                    placeholder="e.g. Polos, Jackets, Accessories (or Individual's Name)"
                   />
                 </div>
 
