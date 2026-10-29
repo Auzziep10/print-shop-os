@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Activity, ChevronDown, Loader2, Radio } from 'lucide-react';
-import { formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+import { formatEstDelivery, formatEventTime, startInboundTracking, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
 
 const TONE_CLASSES: Record<TrackingTone, { pill: string; dot: string }> = {
   neutral: { pill: 'bg-neutral-100 text-neutral-700 border-neutral-200', dot: 'bg-neutral-400' },
@@ -11,16 +11,17 @@ const TONE_CLASSES: Record<TrackingTone, { pill: string; dot: string }> = {
 };
 
 /**
- * Live carrier status for one box, updated by the EasyPost webhook.
- * Shows a status pill with an expandable scan history, or a button to
- * start tracking for boxes that don't have live status yet.
+ * Live carrier status for one package, updated by the EasyPost webhook.
+ * Works for outgoing boxes (kind "box") and incoming garment packages
+ * (kind "inbound"). Shows a status pill with an expandable scan history,
+ * or a button to start tracking when there's no live status yet.
  */
-export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any }) {
+export function LiveTrackingStatus({ orderId, box, kind = 'box' }: { orderId: string; box: any; kind?: 'box' | 'inbound' }) {
   const [open, setOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
 
-  if (!box?.trackingNumber || !box?.trackingCarrier || box.trackingCarrier === 'Pickup') return null;
+  if (!box?.trackingNumber || box.trackingCarrier === 'Pickup') return null;
 
   if (!box.trackingStatus) {
     return (
@@ -32,7 +33,7 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
             e.stopPropagation();
             setStarting(true);
             setError('');
-            const result = await startLiveTracking(orderId, box.id);
+            const result = kind === 'inbound' ? await startInboundTracking(orderId, box.id) : await startLiveTracking(orderId, box.id);
             if (!result.ok) setError(result.error || 'Could not start tracking');
             setStarting(false);
           }}

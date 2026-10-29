@@ -3,9 +3,12 @@ import type { Firestore } from '@google-cloud/firestore';
 /**
  * Shared helpers for EasyPost live tracking.
  *
- * Lookup collection: shipments/{trackingCode} → { orderId, boxId, ... }
- * Orders keep boxes in an array, so this lets the webhook find the right
- * order + box from a tracking number in one read.
+ * Lookup collection: shipments/{trackingCode} → { targets: [{ orderId, kind, id }], ... }
+ *   kind "box"     → order.boxes[] (outgoing shipments to the customer)
+ *   kind "inbound" → order.inboundShipments[] (garments coming from a supplier)
+ * Orders keep these in arrays, so this lets the webhook find every entry
+ * linked to a tracking number in one read. One supplier package can feed
+ * several customer orders, so a code can have many targets.
  */
 
 export const SHIPMENTS_COLLECTION = 'shipments';
@@ -91,55 +94,65 @@ const ANNOUNCE_STATUSES = new Set([
   'failure',
 ]);
 
-/**
- * Writes the tracker's latest status onto the matching order box.
- * Returns false when no order is linked to this tracking number.
- */
-export async function applyTrackerToOrder(db: Firestore, tracker: any): Promise<boolean> {
-  const code = tracker?.tracking_code;
-  if (!code) return false;
+/** What a tracking number is attached to: an outgoing box or an incoming garment package. */
+export type TrackingTarget = { orderId: string; kind: 'box' | 'inbound'; id: string };
 
-  const lookupRef = db.collection(SHIPMENTS_COLLECTION).doc(trackingDocId(code));
-  const lookup = await lookupRef.get();
-  if (!lookup.exists) return false;
+const ARRAY_FIELD: Record<TrackingTarget['kind'], 'boxes' | 'inboundShipments'> = {
+  box: 'boxes',
+  inbound: 'inboundShipments',
+};
 
-  const { orderId, boxId } = lookup.data() as { orderId: string; boxId: string };
-  if (!orderId || !boxId) return false;
+/** Reads the targets from a shipments/{code} doc (also accepts the older { orderId, boxId } shape). */
+export function targetsFromLookup(data: any): TrackingTarget[] {
+  const list: TrackingTarget[] = Array.isArray(data?.targets) ? data.targets : [];
+  if (data?.orderId && data?.boxId && !list.some((t) => t.kind === 'box' && t.id === data.boxId)) {
+    list.push({ orderId: data.orderId, kind: 'box', id: data.boxId });
+  }
+  return list.filter((t) => t?.orderId && t?.id && (t.kind === 'box' || t.kind === 'inbound'));
+}
 
-  const orderRef = db.collection('orders').doc(orderId);
-  const summary = summarizeTracker(tracker);
+function entryLabel(kind: TrackingTarget['kind'], entry: any): string {
+  if (kind === 'box') return entry?.name || 'Box';
+  const supplier = entry?.supplier ? String(entry.supplier) : 'Supplier';
+  const po = entry?.supplierOrderNumber ? ` #${entry.supplierOrderNumber}` : '';
+  return `Incoming garments (${supplier}${po})`;
+}
+
+async function applyToTarget(db: Firestore, target: TrackingTarget, code: string, summary: ReturnType<typeof summarizeTracker>, carrier?: string) {
+  const orderRef = db.collection('orders').doc(target.orderId);
+  const field = ARRAY_FIELD[target.kind];
+  let found = false;
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(orderRef);
     if (!snap.exists) return;
     const order = snap.data() || {};
-    const boxes: any[] = Array.isArray(order.boxes) ? order.boxes : [];
+    const entries: any[] = Array.isArray(order[field]) ? order[field] : [];
 
     let previousStatus: string | undefined;
-    let boxName = 'Box';
-    let found = false;
+    let label = '';
 
-    const updatedBoxes = boxes.map((b) => {
-      if (b?.id !== boxId) return b;
-      // Ignore stale updates if the box's tracking number was changed since
-      if (b.trackingNumber && trackingDocId(b.trackingNumber) !== trackingDocId(code)) return b;
+    const updated = entries.map((e) => {
+      if (e?.id !== target.id) return e;
+      // Ignore stale updates if this entry's tracking number was changed since
+      if (e.trackingNumber && trackingDocId(e.trackingNumber) !== trackingDocId(code)) return e;
       found = true;
-      previousStatus = b.trackingStatus;
-      boxName = b.name || boxName;
-      return { ...b, ...summary };
+      previousStatus = e.trackingStatus;
+      label = entryLabel(target.kind, e);
+      return { ...e, ...summary, ...(carrier && !e.trackingCarrier ? { trackingCarrierDetected: carrier } : {}) };
     });
 
     if (!found) return;
 
-    const update: Record<string, any> = { boxes: updatedBoxes };
+    const update: Record<string, any> = { [field]: updated };
 
     if (summary.trackingStatus !== previousStatus && ANNOUNCE_STATUSES.has(summary.trackingStatus)) {
       const where = summary.trackingLastEvent?.location ? ` (${summary.trackingLastEvent.location})` : '';
       update.activities = [
         {
-          id: `act-${Date.now()}`,
+          id: `act-${Date.now()}-${target.kind}-${target.id}`,
           type: 'system',
-          message: `${boxName}: ${summary.trackingStatusLabel}${where} — ${code}`,
+          message: `${label}: ${summary.trackingStatusLabel}${where} — ${code}`,
           user: 'EasyPost Tracking',
           timestamp: new Date().toISOString(),
         },
@@ -150,10 +163,35 @@ export async function applyTrackerToOrder(db: Firestore, tracker: any): Promise<
     tx.update(orderRef, update);
   });
 
+  return found;
+}
+
+/**
+ * Writes the tracker's latest status onto every order box / incoming
+ * garment package linked to this tracking number.
+ * Returns how many entries were updated (0 = nothing linked).
+ */
+export async function applyTrackerToOrder(db: Firestore, tracker: any): Promise<number> {
+  const code = tracker?.tracking_code;
+  if (!code) return 0;
+
+  const lookupRef = db.collection(SHIPMENTS_COLLECTION).doc(trackingDocId(code));
+  const lookup = await lookupRef.get();
+  if (!lookup.exists) return 0;
+
+  const targets = targetsFromLookup(lookup.data());
+  if (!targets.length) return 0;
+
+  const summary = summarizeTracker(tracker);
+  let matched = 0;
+  for (const target of targets) {
+    if (await applyToTarget(db, target, code, summary, tracker?.carrier)) matched++;
+  }
+
   await lookupRef.set(
     { status: summary.trackingStatus, updatedAt: summary.trackingUpdatedAt },
     { merge: true },
   );
 
-  return true;
+  return matched;
 }

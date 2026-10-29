@@ -15,6 +15,7 @@ export const LIVE_TRACKING_FIELDS = [
   'trackingLastEvent',
   'trackingMode',
   'trackingUpdatedAt',
+  'trackingCarrierDetected',
 ] as const;
 
 export function withoutLiveTracking<T extends Record<string, any>>(box: T): T {
@@ -28,12 +29,21 @@ export function withoutLiveTracking<T extends Record<string, any>>(box: T): T {
  * Safe to call more than once — EasyPost reuses the existing tracker.
  * The box must already be saved with its trackingNumber.
  */
-export async function startLiveTracking(orderId: string, boxId: string, isTest = false): Promise<{ ok: boolean; error?: string }> {
+export function startLiveTracking(orderId: string, boxId: string, isTest = false) {
+  return requestTracking({ orderId, boxId, isTest });
+}
+
+/** Same as startLiveTracking, for an incoming garment package (order.inboundShipments[]). */
+export function startInboundTracking(orderId: string, inboundId: string) {
+  return requestTracking({ orderId, inboundId });
+}
+
+async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/easypost/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, boxId, isTest }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) {

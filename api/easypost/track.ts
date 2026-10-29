@@ -1,3 +1,4 @@
+import { FieldValue } from '@google-cloud/firestore';
 import { getServerDb } from '../_lib/serverFirestore';
 import {
   SHIPMENTS_COLLECTION,
@@ -6,16 +7,19 @@ import {
   normalizeEasyPostCarrier,
   summarizeTracker,
   trackingDocId,
+  type TrackingTarget,
 } from '../_lib/easypostTracking';
 
 /**
- * Starts live tracking for one box.
+ * Starts live tracking for one package on an order.
  *
- * POST { orderId, boxId, isTest? }
+ * POST { orderId, boxId }      → outgoing box (order.boxes[])
+ * POST { orderId, inboundId }  → incoming garment package (order.inboundShipments[])
+ * optional: isTest
  *
- * Reads the tracking number and carrier from the saved box (not from the
+ * Reads the tracking number and carrier from the saved entry (not from the
  * request), registers it with EasyPost, links it to the order for the
- * webhook, and saves the current status onto the box.
+ * webhook, and saves the current status onto the entry.
  *
  * Labels bought through EasyPost already have a tracker — EasyPost returns
  * that same tracker instead of creating a new one.
@@ -28,17 +32,21 @@ export default async function handler(req: Request) {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    const { orderId, boxId, isTest } = await req.json();
-    if (!orderId || !boxId) return json({ error: 'orderId and boxId are required' }, 400);
+    const { orderId, boxId, inboundId, isTest } = await req.json();
+    if (!orderId || (!boxId && !inboundId)) return json({ error: 'orderId and boxId or inboundId are required' }, 400);
+
+    const kind: TrackingTarget['kind'] = inboundId ? 'inbound' : 'box';
+    const entryId = String(inboundId || boxId);
+    const field = kind === 'inbound' ? 'inboundShipments' : 'boxes';
 
     const db = getServerDb();
     const orderSnap = await db.collection('orders').doc(String(orderId)).get();
     if (!orderSnap.exists) return json({ error: 'Order not found' }, 404);
 
-    const box = (orderSnap.data()?.boxes || []).find((b: any) => b?.id === boxId);
-    const trackingCode = String(box?.trackingNumber || '').replace(/\s+/g, '');
-    if (!box || !trackingCode) return json({ error: 'This box has no tracking number yet' }, 400);
-    if (box.trackingCarrier === 'Pickup') return json({ error: 'Pickup/local deliveries are not tracked' }, 400);
+    const entry = (orderSnap.data()?.[field] || []).find((e: any) => e?.id === entryId);
+    const trackingCode = String(entry?.trackingNumber || '').replace(/\s+/g, '');
+    if (!entry || !trackingCode) return json({ error: 'No tracking number saved for this package yet' }, 400);
+    if (entry.trackingCarrier === 'Pickup') return json({ error: 'Pickup/local deliveries are not tracked' }, 400);
 
     // EasyPost test-mode tracking codes look like EZ1000000001
     const testMode = Boolean(isTest) || /^EZ\d+$/i.test(trackingCode);
@@ -47,7 +55,8 @@ export default async function handler(req: Request) {
       return json({ error: `${testMode ? 'EASYPOST_TEST_KEY' : 'EASYPOST_PROD_KEY'} is not set in Vercel` }, 500);
     }
 
-    const carrier = normalizeEasyPostCarrier(box.trackingCarrier);
+    // Carrier is optional — EasyPost detects it from the number when blank
+    const carrier = normalizeEasyPostCarrier(entry.trackingCarrier);
     const epRes = await fetch('https://api.easypost.com/v2/trackers', {
       method: 'POST',
       headers: {
@@ -61,15 +70,16 @@ export default async function handler(req: Request) {
       return json({ error: `EasyPost: ${tracker?.error?.message || 'could not create tracker'}` }, 400);
     }
 
-    // Link tracking number → order/box so webhook updates find their way back
+    // Link tracking number → this order entry so webhook updates find their way back.
+    // arrayUnion keeps other orders sharing the same supplier package linked too.
+    const target: TrackingTarget = { orderId: String(orderId), kind, id: entryId };
     await db.collection(SHIPMENTS_COLLECTION).doc(trackingDocId(trackingCode)).set(
       {
-        orderId: String(orderId),
-        boxId: String(boxId),
         trackingCode,
         carrier: tracker.carrier || carrier || null,
         easyPostTrackerId: tracker.id,
         mode: tracker.mode || (testMode ? 'test' : 'production'),
+        targets: FieldValue.arrayUnion(target),
         createdAt: new Date().toISOString(),
       },
       { merge: true },
@@ -77,7 +87,7 @@ export default async function handler(req: Request) {
 
     await applyTrackerToOrder(db, tracker);
 
-    return json({ ok: true, ...summarizeTracker(tracker) });
+    return json({ ok: true, carrier: tracker.carrier || null, ...summarizeTracker(tracker) });
   } catch (err: any) {
     console.error('Start tracking failed:', err);
     return json({ error: err?.message || 'Internal server error' }, 500);
