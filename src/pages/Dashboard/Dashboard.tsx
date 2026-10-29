@@ -13,6 +13,7 @@ import { normalizeUser } from '../../lib/utils';
 import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight, Box } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
+import { normalizeSizeList } from '../../lib/garmentUtils';
 
 
 export function Dashboard() {
@@ -603,7 +604,7 @@ export function Dashboard() {
          }
      });
      (order.items || []).forEach((item: any) => {
-        const completed = item.completedSizes || [];
+        const completed = normalizeSizeList(item.completedSizes);
         completed.forEach((size: string) => {
            const qty = parseInt(item.sizes?.[size]) || 0;
            const stat = item.sizeStats?.[size];

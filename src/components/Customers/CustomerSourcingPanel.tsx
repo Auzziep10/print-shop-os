@@ -17,7 +17,7 @@ import {
 import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { isDiscountItem, isNonGarmentItem, sortGarmentSizes } from '../../lib/garmentUtils';
+import { isDiscountItem, isNonGarmentItem, sortGarmentSizes, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
 
 interface CustomerSourcingPanelProps {
   customerId: string;
@@ -252,9 +252,9 @@ export function CustomerSourcingPanel({
 
         effectiveSizeEntries.forEach(({ size, qty, inferred }) => {
           discoveredSizes.add(size);
-          const isCompleted = Boolean(item.completedSizes?.[size]);
-          const isReceived = isCompleted || Boolean(item.receivedSizes?.[size]);
-          const isOrdered = isReceived || Boolean(item.orderedSizes?.[size]);
+          const isCompleted = hasSizeInList(item.completedSizes, size);
+          const isReceived = isCompleted || hasSizeInList(item.receivedSizes, size);
+          const isOrdered = isReceived || hasSizeInList(item.orderedSizes, size);
 
           if (!group.sizesMap[size]) {
             group.sizesMap[size] = {
@@ -371,8 +371,8 @@ export function CustomerSourcingPanel({
             if (matchingOccs.length === 0) return item;
 
             const nextSizes = { ...(item.sizes || {}) };
-            const nextOrderedSizes = { ...(item.orderedSizes || {}) };
-            const nextReceivedSizes = { ...(item.receivedSizes || {}) };
+            const orderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
+            const receivedSet = new Set<string>(normalizeSizeList(item.receivedSizes));
 
             matchingOccs.forEach((occ) => {
               if (occ.inferredFromProfile && occ.size !== 'TBD') {
@@ -383,22 +383,22 @@ export function CustomerSourcingPanel({
               }
 
               if (targetState === 'to_order') {
-                nextOrderedSizes[occ.size] = false;
-                nextReceivedSizes[occ.size] = false;
+                orderedSet.delete(occ.size);
+                receivedSet.delete(occ.size);
               } else if (targetState === 'ordered') {
-                nextOrderedSizes[occ.size] = true;
-                nextReceivedSizes[occ.size] = false;
+                orderedSet.add(occ.size);
+                receivedSet.delete(occ.size);
               } else if (targetState === 'received') {
-                nextOrderedSizes[occ.size] = true;
-                nextReceivedSizes[occ.size] = true;
+                orderedSet.add(occ.size);
+                receivedSet.add(occ.size);
               }
             });
 
             return {
               ...item,
               sizes: nextSizes,
-              orderedSizes: nextOrderedSizes,
-              receivedSizes: nextReceivedSizes
+              orderedSizes: Array.from(orderedSet),
+              receivedSizes: Array.from(receivedSet)
             };
           });
 
@@ -1203,8 +1203,8 @@ export function CustomerSourcingPanel({
                                     ? `${profileSize}:1`
                                     : 'No Sz';
                               const checkSz = szEntries[0]?.[0] || profileSize;
-                              const isRec = Boolean(checkSz && (it.receivedSizes?.[checkSz] || it.completedSizes?.[checkSz]));
-                              const isOrd = isRec || Boolean(checkSz && it.orderedSizes?.[checkSz]);
+                              const isRec = Boolean(checkSz && (hasSizeInList(it.receivedSizes, checkSz) || hasSizeInList(it.completedSizes, checkSz)));
+                              const isOrd = isRec || Boolean(checkSz && hasSizeInList(it.orderedSizes, checkSz));
 
                               return (
                                 <span

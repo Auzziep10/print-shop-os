@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { hasSizeInList } from './garmentUtils';
 
 export const TIMELINE_STEPS = [
   'Requested',
@@ -241,7 +242,7 @@ export function computeOrderVisualTimelineIndex(
       Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
         const q = parseInt(qty, 10) || 0;
         totalGarments += q;
-        if (item.completedSizes?.includes(size)) {
+        if (hasSizeInList(item.completedSizes, size)) {
           completedGarments += q;
         }
       });

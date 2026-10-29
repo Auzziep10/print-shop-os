@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
+import { hasSizeInList } from '../../lib/garmentUtils';
 
 const COLUMNS = [
   { id: 'quote', title: 'Quote', matchStatuses: [0, 1, 2] },
@@ -26,7 +27,7 @@ const getOrderProgress = (order: any) => {
         Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
           const q = parseInt(qty as string) || 0;
           sizeSum += q;
-          if (item.completedSizes?.includes(size)) {
+          if (hasSizeInList(item.completedSizes, size)) {
             completedGarments += q;
           }
         });

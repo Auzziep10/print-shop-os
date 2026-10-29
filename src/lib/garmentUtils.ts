@@ -983,3 +983,25 @@ export const getGarmentAvailableSizes = (item: any, styleHint = ''): string[] =>
 };
 
 
+export const normalizeSizeList = (val: any): string[] => {
+  if (Array.isArray(val)) {
+    return val.filter((s): s is string => typeof s === 'string');
+  }
+  if (val && typeof val === 'object') {
+    return Object.entries(val)
+      .filter(([, v]) => Boolean(v))
+      .map(([k]) => k);
+  }
+  return [];
+};
+
+export const hasSizeInList = (val: any, size: string): boolean => {
+  if (!val || !size) return false;
+  if (Array.isArray(val)) {
+    return val.includes(size);
+  }
+  if (typeof val === 'object') {
+    return Boolean(val[size]);
+  }
+  return false;
+};

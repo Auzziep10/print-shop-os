@@ -35,6 +35,7 @@ import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { NewCustomerModal } from './NewCustomerModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFulfillmentPipelines, getPipelineStatusOptions } from '../../lib/timelineUtils';
+import { hasSizeInList } from '../../lib/garmentUtils';
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -103,16 +104,16 @@ export function CustomerDetail() {
           sizeEntries.forEach(([sz, q]) => {
             const qty = Number(q) || 0;
             totalUnits += qty;
-            const isOrdered = Boolean(item.orderedSizes?.[sz]);
-            const isReceived = Boolean(item.receivedSizes?.[sz]);
+            const isOrdered = hasSizeInList(item.orderedSizes, sz);
+            const isReceived = hasSizeInList(item.receivedSizes, sz) || hasSizeInList(item.completedSizes, sz);
             if (!isOrdered && !isReceived) toOrderUnits += qty;
           });
         } else if (o.personalInfo?.size) {
           const sz = String(o.personalInfo.size).trim().toUpperCase();
           const qty = Number(item.qty) > 0 ? Number(item.qty) : 1;
           totalUnits += qty;
-          const isOrdered = Boolean(item.orderedSizes?.[sz]);
-          const isReceived = Boolean(item.receivedSizes?.[sz]);
+          const isOrdered = hasSizeInList(item.orderedSizes, sz);
+          const isReceived = hasSizeInList(item.receivedSizes, sz) || hasSizeInList(item.completedSizes, sz);
           if (!isOrdered && !isReceived) toOrderUnits += qty;
         }
       });
@@ -5216,8 +5217,33 @@ export function CustomerDetail() {
         </div>
         )}
 
-        {/* Quotes using Portal Component */}
+        {/* Active Orders using Portal Component */}
         <div className="mt-4">
+           <div className="flex items-center justify-between mb-8">
+              <div>
+                 <h2 className={tokens.typography.h2}>Active Orders</h2>
+                 <p className="text-sm text-brand-secondary mt-1">Approved pipeline and history for this company.</p>
+              </div>
+              <PillButton
+                variant="filled"
+                className="gap-2"
+                onClick={() => {
+                  setNewOrderForm(prev => ({ ...prev, statusIndex: 3 }));
+                  setIsNewOrderDialogOpen(true);
+                }}
+              >
+                <Plus size={16} />
+                New Order
+              </PillButton>
+           </div>
+           {/* Injecting the exact visual component the customer sees! */}
+           <div className="w-full">
+             <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="orders" />
+           </div>
+        </div>
+
+        {/* Quotes using Portal Component */}
+        <div className="mt-8 border-t border-brand-border pt-12">
            <div className="flex items-center justify-between mb-8">
               <div>
                  <h2 className={tokens.typography.h2}>Active Quotes</h2>
@@ -5264,31 +5290,6 @@ export function CustomerDetail() {
            {/* Injecting the exact visual component the customer sees! */}
            <div className="w-full">
              <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="quotes" />
-           </div>
-        </div>
-
-        {/* Active Orders using Portal Component */}
-        <div className="mt-8 border-t border-brand-border pt-12">
-           <div className="flex items-center justify-between mb-8">
-              <div>
-                 <h2 className={tokens.typography.h2}>Active Orders</h2>
-                 <p className="text-sm text-brand-secondary mt-1">Approved pipeline and history for this company.</p>
-              </div>
-              <PillButton
-                variant="filled"
-                className="gap-2"
-                onClick={() => {
-                  setNewOrderForm(prev => ({ ...prev, statusIndex: 3 }));
-                  setIsNewOrderDialogOpen(true);
-                }}
-              >
-                <Plus size={16} />
-                New Order
-              </PillButton>
-           </div>
-           {/* Injecting the exact visual component the customer sees! */}
-           <div className="w-full">
-             <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="orders" />
            </div>
         </div>
       </div>

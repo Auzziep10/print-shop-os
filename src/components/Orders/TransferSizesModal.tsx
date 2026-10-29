@@ -4,6 +4,7 @@ import { PillButton } from '../ui/PillButton';
 import { db } from '../../lib/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
+import { normalizeSizeList } from '../../lib/garmentUtils';
 
 const NEW_ORDER_TARGET_ID = '__NEW_ORDER__';
 
@@ -214,7 +215,9 @@ export function TransferSizesModal({
         total: `$${(newSourceQty * price).toFixed(2)}`
       };
       SIZE_LIST_KEYS.forEach(k => {
-        if (Array.isArray(item[k])) updatedSourceItem[k] = item[k].filter((s: string) => !fullyMovedSizes.includes(s));
+        if (item[k] !== undefined) {
+          updatedSourceItem[k] = normalizeSizeList(item[k]).filter((s: string) => !fullyMovedSizes.includes(s));
+        }
       });
       SIZE_MAP_KEYS.forEach(k => {
         if (item[k] && typeof item[k] === 'object') {
@@ -259,8 +262,8 @@ export function TransferSizesModal({
       const carriedStatus = (base: any) => {
         const out: any = {};
         SIZE_LIST_KEYS.forEach(k => {
-          const carried = (item[k] || []).filter((s: string) => fullyMovedSizes.includes(s));
-          out[k] = Array.from(new Set([...(base?.[k] || []), ...carried]));
+          const carried = normalizeSizeList(item[k]).filter((s: string) => fullyMovedSizes.includes(s));
+          out[k] = Array.from(new Set([...normalizeSizeList(base?.[k]), ...carried]));
         });
         SIZE_MAP_KEYS.forEach(k => {
           const m = { ...(base?.[k] || {}) };

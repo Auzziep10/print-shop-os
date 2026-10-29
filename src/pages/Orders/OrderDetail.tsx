@@ -27,7 +27,7 @@ import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
-import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric, isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
+import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric, isDiscountItem, isNonGarmentItem, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
@@ -3014,10 +3014,10 @@ export function OrderDetail() {
 
    const handleSizeClick = async (item: any, size: string, qty: number) => {
       if (!id || !order) return;
-      const currentCompleted = item.completedSizes || [];
+      const currentCompleted = normalizeSizeList(item.completedSizes);
       const inProgress = item.inProgressSizes || {};
-      const receivedSizes = item.receivedSizes || [];
-      const returnedSizes = item.returnedSizes || [];
+      const receivedSizes = normalizeSizeList(item.receivedSizes);
+      const returnedSizes = normalizeSizeList(item.returnedSizes);
       
       if (returnedSizes.includes(size)) {
           alert(`Size ${size} of ${item.style} is marked for return. Please right-click to unmark it first.`);
@@ -3136,42 +3136,42 @@ export function OrderDetail() {
        updatedItems = updatedItems.map((i: any) => 
            i.id === item.id ? { 
                ...i, 
-               completedSizes: (i.completedSizes || []).filter((s: string) => s !== size) 
+               completedSizes: normalizeSizeList(i.completedSizes).filter((s: string) => s !== size) 
            } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
     } else if (action === 'mark_ordered') {
-       const newOrdered = [...(item.orderedSizes || []), size];
+       const newOrdered = Array.from(new Set([...normalizeSizeList(item.orderedSizes), size]));
        updatedItems = updatedItems.map((i: any) => 
            i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
        );
        activityMessage = `Marked size ${size} for ${item.style} as ordered`;
     } else if (action === 'unorder') {
-       const newOrdered = (item.orderedSizes || []).filter((s: string) => s !== size);
+       const newOrdered = normalizeSizeList(item.orderedSizes).filter((s: string) => s !== size);
        updatedItems = updatedItems.map((i: any) => 
            i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style} as ordered`;
     } else if (action === 'mark_received') {
-       const newReceived = [...(item.receivedSizes || []), size];
+       const newReceived = Array.from(new Set([...normalizeSizeList(item.receivedSizes), size]));
        updatedItems = updatedItems.map((i: any) => 
            i.id === item.id ? { ...i, receivedSizes: newReceived } : i
        );
        activityMessage = `Marked size ${size} for ${item.style} as received`;
      } else if (action === 'unreceive') {
-        const newReceived = (item.receivedSizes || []).filter((s: string) => s !== size);
+        const newReceived = normalizeSizeList(item.receivedSizes).filter((s: string) => s !== size);
         updatedItems = updatedItems.map((i: any) => 
             i.id === item.id ? { ...i, receivedSizes: newReceived } : i
         );
         activityMessage = `Unmarked size ${size} for ${item.style} as received`;
      } else if (action === 'mark_return') {
-        const newReturned = [...(item.returnedSizes || []), size];
+        const newReturned = Array.from(new Set([...normalizeSizeList(item.returnedSizes), size]));
         updatedItems = updatedItems.map((i: any) => 
             i.id === item.id ? { ...i, returnedSizes: newReturned } : i
         );
         activityMessage = `Marked size ${size} of ${item.style} for return`;
      } else if (action === 'unmark_return') {
-        const newReturned = (item.returnedSizes || []).filter((s: string) => s !== size);
+        const newReturned = normalizeSizeList(item.returnedSizes).filter((s: string) => s !== size);
         updatedItems = updatedItems.map((i: any) => 
             i.id === item.id ? { ...i, returnedSizes: newReturned } : i
         );
@@ -6055,12 +6055,12 @@ export function OrderDetail() {
                           {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.keys(item.sizes).length > 0 && (
                           <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans overflow-x-auto max-w-full scrollbar-none shrink-0 sm:shrink">
                            {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
-                             const isCompleted = item.completedSizes?.includes(size);
+                             const isCompleted = hasSizeInList(item.completedSizes, size);
                              const inProgress = item.inProgressSizes?.[size];
                              const isPacked = isSizeFullyBoxed(item, size, qty);
-                             const isReceived = item.receivedSizes?.includes(size);
-                             const isReturned = item.returnedSizes?.includes(size);
-                             const isOrdered = item.orderedSizes?.includes(size);
+                             const isReceived = hasSizeInList(item.receivedSizes, size);
+                             const isReturned = hasSizeInList(item.returnedSizes, size);
+                             const isOrdered = hasSizeInList(item.orderedSizes, size);
 
                              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                              let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
@@ -7686,7 +7686,7 @@ export function OrderDetail() {
                             });
                         }
 
-                        const completed = item.completedSizes || [];
+                        const completed = normalizeSizeList(item.completedSizes);
                         completed.forEach((size: string) => {
                            const qty = parseInt(item.sizes?.[size]) || 0;
                            trueTotalGarmentsCompleted += qty;
@@ -7990,7 +7990,7 @@ export function OrderDetail() {
                              const key = `${size}_${style}`;
                              
                              const itemMatches = (order.items || []).filter((i: any) => i.style === style || (i.style === "" && style === "Custom Garment"));
-                             const isStillCompleted = itemMatches.some((i: any) => i.completedSizes?.includes(size));
+                             const isStillCompleted = itemMatches.some((i: any) => hasSizeInList(i.completedSizes, size));
                              
                              if (isStillCompleted) {
                                  if (!seenKeys.has(key)) {
@@ -11988,7 +11988,7 @@ export function OrderDetail() {
                </>
             )}
 
-            {contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')) && (
+            {hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')) && (
                <button 
                  onClick={() => handleContextMenuAction('uncomplete')}
                  className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
@@ -11997,9 +11997,9 @@ export function OrderDetail() {
                </button>
             )}
 
-            {!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+            {!hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
                <>
-                 {contextMenu.item.orderedSizes?.includes(contextMenu.size) ? (
+                 {hasSizeInList(contextMenu.item.orderedSizes, contextMenu.size) ? (
                    <button 
                      onClick={() => handleContextMenuAction('unorder')}
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2"
@@ -12015,7 +12015,7 @@ export function OrderDetail() {
                    </button>
                  )}
 
-                 {contextMenu.item.receivedSizes?.includes(contextMenu.size) ? (
+                 {hasSizeInList(contextMenu.item.receivedSizes, contextMenu.size) ? (
                    <button 
                      onClick={() => handleContextMenuAction('unreceive')}
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
@@ -12031,7 +12031,7 @@ export function OrderDetail() {
                    </button>
                  )}
 
-                 {contextMenu.item.returnedSizes?.includes(contextMenu.size) ? (
+                 {hasSizeInList(contextMenu.item.returnedSizes, contextMenu.size) ? (
                    <button 
                      onClick={() => handleContextMenuAction('unmark_return')}
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-2"
@@ -12050,8 +12050,8 @@ export function OrderDetail() {
             )}
 
             {((contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member')) || 
-               (contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member'))) ||
-               (!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size])) && (
+               (hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member'))) ||
+               (!hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size])) && (
                <div className="my-1 border-t border-brand-border/30"></div>
             )}
 
