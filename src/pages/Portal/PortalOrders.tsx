@@ -1047,10 +1047,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           <span className="truncate" title={destCityProvince}>{destCityProvince}</span>
                           {orderGetsBox && (
                             <span
-                              className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider shrink-0"
-                              title="Gets a Box"
+                              className="inline-flex items-center text-black shrink-0"
+                              title="Artist Box"
                             >
-                              <Box size={12} strokeWidth={2.5} />
+                              <Box size={13} strokeWidth={2.5} />
                             </span>
                           )}
                         </div>

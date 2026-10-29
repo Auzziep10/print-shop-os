@@ -1255,8 +1255,8 @@ export function Dashboard() {
                     >
                       <span className="truncate">{o.title || 'Untitled Order'}</span>
                       {Boolean(o.getsBox || o.personalInfo?.getsBox) && (
-                        <span title="Gets a Box" className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
-                          <Box size={11} strokeWidth={2.5} />
+                        <span title="Artist Box" className="inline-flex items-center text-black shrink-0">
+                          <Box size={12} strokeWidth={2.5} />
                         </span>
                       )}
                     </span>

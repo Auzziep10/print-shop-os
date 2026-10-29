@@ -1017,7 +1017,9 @@ export function CustomerSourcingPanel({
                                               <MvpStarIcon size={12} title="VIP" />
                                             )}
                                             {occ.getsBox && (
-                                              <Box size={12} className="text-amber-700 shrink-0" />
+                                              <span title="Artist Box" className="inline-flex items-center text-black shrink-0">
+                                                <Box size={12} strokeWidth={2.5} />
+                                              </span>
                                             )}
                                           </div>
                                         </td>
@@ -1157,7 +1159,11 @@ export function CustomerSourcingPanel({
                         <div className="flex items-center gap-1.5">
                           <span className="truncate">{order.title || 'Untitled Order'}</span>
                           {isMvp && <MvpStarIcon size={13} title="VIP" />}
-                          {getsBox && <Box size={13} className="text-amber-700 shrink-0" />}
+                          {getsBox && (
+                            <span title="Artist Box" className="inline-flex items-center text-black shrink-0">
+                              <Box size={13} strokeWidth={2.5} />
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="py-2.5 px-3 align-middle text-brand-secondary font-medium truncate">

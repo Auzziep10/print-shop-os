@@ -7094,15 +7094,15 @@ export function CustomerDetail() {
                       <MvpStarIcon size={12} />
                       <span className="text-xs font-bold text-amber-800">VIP</span>
                     </label>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-neutral-300 transition-colors" title="Select if this person gets an Artist Box (shows black box icon next to city)">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.getsBox)}
                         onChange={(e) => setNewOrderForm(prev => ({ ...prev, getsBox: e.target.checked }))}
-                        className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                        className="w-3.5 h-3.5 rounded border-neutral-400 text-black focus:ring-black cursor-pointer accent-black"
                       />
-                      <Box size={12} className="text-amber-700 shrink-0" />
-                      <span className="text-xs font-bold text-amber-800">Gets a Box?</span>
+                      <Box size={12} className="text-black shrink-0" strokeWidth={2.5} />
+                      <span className="text-xs font-bold text-black">Artist Box</span>
                     </label>
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
                       <input
