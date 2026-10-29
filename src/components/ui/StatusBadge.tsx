@@ -4,6 +4,7 @@ export type StatusType = 'quote' | 'notified' | 'quote_sent' | 'approved' | 'awa
 
 interface StatusBadgeProps {
   status: StatusType;
+  customLabel?: string;
   subStatus?: string;
   className?: string;
 }
@@ -23,14 +24,14 @@ const statusConfig: Record<StatusType, { label: string; bg: string; text: string
   live: { label: 'Live', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
 };
 
-export function StatusBadge({ status, subStatus, className }: StatusBadgeProps) {
+export function StatusBadge({ status, customLabel, subStatus, className }: StatusBadgeProps) {
   const config = statusConfig[status] || statusConfig.quote;
 
   return (
     <div className={cn("inline-flex flex-col gap-1 items-start", className)}>
       <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border border-transparent", config.bg, config.text)}>
         <span className={cn("w-1.5 h-1.5 rounded-full", config.dot)}></span>
-        {config.label}
+        {customLabel || config.label}
       </div>
       {subStatus && (
         <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary font-semibold uppercase tracking-wide">

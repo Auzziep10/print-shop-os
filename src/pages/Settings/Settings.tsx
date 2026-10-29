@@ -19,6 +19,7 @@ import { StudioQrTab } from './StudioQrTab';
 import { MergeCustomersTab } from './MergeCustomersTab';
 import { ArtistCollabTab } from './ArtistCollabTab';
 import { XCollabTab } from './XCollabTab';
+import { FulfillmentPipelinesTab } from './FulfillmentPipelinesTab';
 
 const DESIGNER_ALLOWED_TABS = [
   'storefront-catalog',
@@ -102,6 +103,16 @@ export function Settings() {
                   }`}
                 >
                   Role Permissions
+                </button>
+                <button
+                  onClick={() => setActiveTab('fulfillment-pipelines')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'fulfillment-pipelines' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Fulfillment &amp; Timelines
                 </button>
                 <button
                   onClick={() => setActiveTab('business')}
@@ -261,6 +272,7 @@ export function Settings() {
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'merge-customers' && <MergeCustomersTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
+          {activeTab === 'fulfillment-pipelines' && <FulfillmentPipelinesTab />}
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'pricing' && <DtfPricingSettingsTab />}
           {activeTab === 'apps' && <AppsTab />}

@@ -1076,6 +1076,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                 >
                   <OrderTimelineTracker
                     order={order}
+                    customerFulfillmentType={orderSubBrand?.fulfillmentType || customer?.fulfillmentType || 'Standard'}
                     canEdit={Boolean(overrideCustomerId) && userData?.role?.toLowerCase() !== 'sales'}
                   />
                 </div>

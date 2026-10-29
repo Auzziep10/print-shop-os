@@ -3,9 +3,10 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Calendar, Check, Sparkles, X, Clock } from 'lucide-react';
 import {
-  TIMELINE_STEPS,
   type TimelineStepName,
   type TimelineMilestonesMap,
+  useFulfillmentPipelines,
+  getOrderTimelineSteps,
   computeOrderVisualTimelineIndex,
   resolveStepMilestone,
   formatTimelineDate,
@@ -14,29 +15,34 @@ import {
 
 interface OrderTimelineTrackerProps {
   order: any;
+  customerFulfillmentType?: string;
   canEdit?: boolean;
   compact?: boolean;
 }
 
 export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   order,
+  customerFulfillmentType,
   canEdit = false,
   compact = false
 }) => {
+  const { pipelines } = useFulfillmentPipelines();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [focusedStep, setFocusedStep] = useState<TimelineStepName | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draftMilestones, setDraftMilestones] = useState<TimelineMilestonesMap>({});
 
-  const visualIndex = computeOrderVisualTimelineIndex(order);
-  const fillWidth = `${(visualIndex / (TIMELINE_STEPS.length - 1)) * 100}%`;
+  const activeSteps = getOrderTimelineSteps(order, customerFulfillmentType, pipelines);
+  const lastStepName = activeSteps[activeSteps.length - 1] || 'Received';
+  const visualIndex = computeOrderVisualTimelineIndex(order, customerFulfillmentType, pipelines);
+  const fillWidth = `${(visualIndex / Math.max(1, activeSteps.length - 1)) * 100}%`;
 
   const openEditorForStep = (e: React.MouseEvent, step: TimelineStepName) => {
     if (!canEdit) return;
     e.stopPropagation();
     const initialDraft: TimelineMilestonesMap = {};
-    TIMELINE_STEPS.forEach((s, idx) => {
-      const resolved = resolveStepMilestone(order, s, idx, visualIndex);
+    activeSteps.forEach((s, idx) => {
+      const resolved = resolveStepMilestone(order, s, idx, visualIndex, activeSteps.length);
       initialDraft[s] = {
         completedAt: resolved.completedAt || '',
         expectedDate: toDateInputValue(resolved.expectedDate),
@@ -76,6 +82,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   const handleAutoFillPredictableDates = () => {
     const today = new Date();
     const endRaw =
+      draftMilestones[lastStepName]?.expectedDate ||
       draftMilestones['Received']?.expectedDate ||
       toDateInputValue(order?.date || order?.targetCompletionDate || order?.neededByDate);
 
@@ -92,17 +99,17 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     }
 
     const firstUpcomingIdx = Math.max(0, Math.floor(visualIndex) + 1);
-    const remainingStepsCount = Math.max(1, TIMELINE_STEPS.length - 1 - firstUpcomingIdx);
+    const remainingStepsCount = Math.max(1, activeSteps.length - 1 - firstUpcomingIdx);
     const totalMs = endDate.getTime() - today.getTime();
     const nextDraft: TimelineMilestonesMap = { ...draftMilestones };
 
-    TIMELINE_STEPS.forEach((step, idx) => {
+    activeSteps.forEach((step, idx) => {
       if (idx < firstUpcomingIdx) return;
       const ratio =
         remainingStepsCount === 0
           ? 1
-          : Math.min(1, Math.max(0, (idx - firstUpcomingIdx + 1) / (TIMELINE_STEPS.length - firstUpcomingIdx)));
-      const stepDate = idx === TIMELINE_STEPS.length - 1 ? endDate : new Date(today.getTime() + Math.round(totalMs * ratio));
+          : Math.min(1, Math.max(0, (idx - firstUpcomingIdx + 1) / (activeSteps.length - firstUpcomingIdx)));
+      const stepDate = idx === activeSteps.length - 1 ? endDate : new Date(today.getTime() + Math.round(totalMs * ratio));
       nextDraft[step] = {
         ...(nextDraft[step] || {}),
         expectedDate: formatYmd(stepDate)
@@ -118,14 +125,13 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     setIsSaving(true);
     try {
       const existingMilestones: TimelineMilestonesMap = order?.timelineMilestones || {};
-      const cleaned: TimelineMilestonesMap = {};
+      const cleaned: TimelineMilestonesMap = { ...existingMilestones };
 
-      TIMELINE_STEPS.forEach((step) => {
+      activeSteps.forEach((step) => {
         const item = draftMilestones[step];
         const prevItem = existingMilestones[step];
         if (!item && !prevItem) return;
         cleaned[step] = {
-          // Keep automatic completedAt timestamp untouched
           completedAt: prevItem?.completedAt || item?.completedAt || '',
           expectedDate: item?.expectedDate?.trim() || '',
           delayed: Boolean(item?.delayed),
@@ -133,12 +139,12 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
         };
       });
 
-      const receivedExpected = cleaned['Received']?.expectedDate;
+      const finalExpected = cleaned[lastStepName]?.expectedDate || cleaned['Received']?.expectedDate;
       const updatePayload: Record<string, any> = {
         timelineMilestones: cleaned
       };
-      if (receivedExpected && /^\d{4}-\d{2}-\d{2}$/.test(receivedExpected)) {
-        const [y, m, d] = receivedExpected.split('-');
+      if (finalExpected && /^\d{4}-\d{2}-\d{2}$/.test(finalExpected)) {
+        const [y, m, d] = finalExpected.split('-');
         updatePayload.date = `${m}/${d}/${y.substring(2)}`;
       }
 
@@ -167,11 +173,11 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
 
           {/* Steps */}
           <div className="relative flex justify-between items-center z-10 px-0">
-            {TIMELINE_STEPS.map((step, idx) => {
-              const milestone = resolveStepMilestone(order, step, idx, visualIndex);
+            {activeSteps.map((step, idx) => {
+              const milestone = resolveStepMilestone(order, step, idx, visualIndex, activeSteps.length);
               const isCompleted = milestone.isCompleted;
               const isDelayed = milestone.delayed;
-              const isLastStep = idx === TIMELINE_STEPS.length - 1;
+              const isLastStep = idx === activeSteps.length - 1;
 
               const completedFormatted = formatTimelineDate(milestone.completedAt);
               const expectedFormatted = formatTimelineDate(milestone.expectedDate);
@@ -181,7 +187,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
 
               return (
                 <div
-                  key={step}
+                  key={`${step}-${idx}`}
                   onClick={(e) => openEditorForStep(e, step)}
                   className={`flex flex-col items-center relative group/step ${
                     canEdit ? 'cursor-pointer' : 'cursor-default'
@@ -282,15 +288,15 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
           <div
             className="absolute left-[7px] top-2 w-[2px] bg-black transition-all duration-700 ease-in-out animate-all"
             style={{
-              height: `${Math.min(100, (visualIndex / (TIMELINE_STEPS.length - 1)) * 100)}%`
+              height: `${Math.min(100, (visualIndex / Math.max(1, activeSteps.length - 1)) * 100)}%`
             }}
           ></div>
 
-          {TIMELINE_STEPS.map((step, idx) => {
-            const milestone = resolveStepMilestone(order, step, idx, visualIndex);
+          {activeSteps.map((step, idx) => {
+            const milestone = resolveStepMilestone(order, step, idx, visualIndex, activeSteps.length);
             const isCompleted = milestone.isCompleted;
             const isDelayed = milestone.delayed;
-            const isLastStep = idx === TIMELINE_STEPS.length - 1;
+            const isLastStep = idx === activeSteps.length - 1;
             const completedFormatted = formatTimelineDate(milestone.completedAt);
             const expectedFormatted = formatTimelineDate(milestone.expectedDate);
             const badgeDate =
@@ -300,7 +306,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
 
             return (
               <div
-                key={step}
+                key={`${step}-${idx}`}
                 onClick={(e) => openEditorForStep(e, step)}
                 className={`flex items-center gap-3 relative ${canEdit ? 'cursor-pointer' : ''}`}
               >
@@ -350,7 +356,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
         </div>
       </div>
 
-      {/* Compact, Intuitive Timeline & Delay Modal (No manual completed date, zero scrolling) */}
+      {/* Compact, Intuitive Timeline & Delay Modal */}
       {isEditorOpen && canEdit && (
         <div
           onClick={(e) => {
@@ -401,8 +407,8 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
 
             <form onSubmit={handleSaveTimeline}>
               {/* Clean Horizontal Table of Steps */}
-              <div className="divide-y divide-brand-border/60">
-                {TIMELINE_STEPS.map((step, idx) => {
+              <div className="divide-y divide-brand-border/60 max-h-[65vh] overflow-y-auto">
+                {activeSteps.map((step, idx) => {
                   const isStepCompleted = idx <= Math.floor(visualIndex);
                   const stepData = draftMilestones[step] || {};
                   const isFocused = focusedStep === step;
@@ -410,7 +416,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
 
                   return (
                     <div
-                      key={step}
+                      key={`${step}-${idx}`}
                       className={`px-5 py-2.5 transition-colors ${
                         stepData.delayed
                           ? 'bg-red-50/60'

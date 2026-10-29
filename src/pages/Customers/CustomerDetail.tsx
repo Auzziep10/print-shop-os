@@ -34,12 +34,14 @@ import { CustomerSourcingPanel } from '../../components/Customers/CustomerSourci
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { NewCustomerModal } from './NewCustomerModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { useFulfillmentPipelines, getPipelineStatusOptions } from '../../lib/timelineUtils';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { userData, hasPermission } = useAuth();
+  const { pipelines: fulfillmentPipelines } = useFulfillmentPipelines();
   const isSales = Boolean(
     userData?.role?.trim().toLowerCase().includes('sales') ||
     (userData?.role && userData.role !== 'Admin' && !hasPermission('manageInventory') && !hasPermission('viewDashboard'))
@@ -5649,8 +5651,9 @@ export function CustomerDetail() {
                  <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Fulfillment Type</label>
                     <select className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors font-medium text-brand-primary" value={editCompanyForm.fulfillmentType} onChange={e => setEditCompanyForm({...editCompanyForm, fulfillmentType: e.target.value})}>
-                      <option value="Standard">Delivered</option>
-                      <option value="Kitting">Inventory & Kitting</option>
+                      {fulfillmentPipelines.map((fp) => (
+                        <option key={fp.id} value={fp.id}>{fp.name}</option>
+                      ))}
                     </select>
                  </div>
                   <div className="col-span-2 flex flex-col gap-2.5 pt-2 pl-2 mb-2">
@@ -7204,12 +7207,13 @@ export function CustomerDetail() {
                     <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
                     <select 
                       value={newOrderForm.fulfillmentType}
-                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value, statusIndex: 0 }))}
                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                     >
                       <option value="">Default (From Customer)</option>
-                      <option value="Standard">Delivered</option>
-                      <option value="Kitting">Inventory &amp; Kitting</option>
+                      {fulfillmentPipelines.map((fp) => (
+                        <option key={fp.id} value={fp.id}>{fp.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -7221,20 +7225,13 @@ export function CustomerDetail() {
                     >
                       {(() => {
                         const custFulfillment = liveCustomerData?.fulfillmentType ?? 'Standard';
-                        const formIsKitting = newOrderForm.fulfillmentType === 'Kitting' || (!newOrderForm.fulfillmentType && custFulfillment === 'Kitting');
-                        return (
-                          <>
-                            <option value="0">0 - Quote</option>
-                            <option value="1">1 - Mgmt Notified</option>
-                            <option value="2">2 - Quote Sent</option>
-                            <option value="3">3 - Approved</option>
-                            <option value="4">4 - Shopping</option>
-                            <option value="5">5 - Ordered</option>
-                            <option value="6">6 - Processing</option>
-                            <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
-                            <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
-                          </>
-                        );
+                        const activeFt = newOrderForm.fulfillmentType || custFulfillment;
+                        const statusOptions = getPipelineStatusOptions(activeFt, fulfillmentPipelines);
+                        return statusOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value.toString()}>
+                            {opt.label}
+                          </option>
+                        ));
                       })()}
                     </select>
                   </div>

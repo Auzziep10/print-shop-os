@@ -16,10 +16,17 @@ import { sendOrderStatusEmail } from '../../lib/emailService';
 import { OrderReportsPanel } from './OrderReportsPanel';
 import { formatDisplayDate, applyBulletNotesChange, handleBulletNotesKeyDown } from '../../lib/utils';
 import { isDiscountItem, isNonGarmentItem } from '../../lib/garmentUtils';
-import { getUpdatedTimelineMilestonesForStatusChange } from '../../lib/timelineUtils';
+import {
+  getUpdatedTimelineMilestonesForStatusChange,
+  useFulfillmentPipelines,
+  getPipelineStatusOptions,
+  isCustomStatusPipeline,
+  statusIndexToTimelineStep
+} from '../../lib/timelineUtils';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
+  const { pipelines: fulfillmentPipelines } = useFulfillmentPipelines();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
@@ -220,11 +227,20 @@ export function OrdersList() {
 
   const handleNextStatus = async (e: React.MouseEvent, orderId: string, currentIndex: number) => {
     e.stopPropagation();
-    // Advance logic 
-    const nextIndex = currentIndex < 8 ? currentIndex + 1 : 0;
     try {
       const targetOrder = orders.find(o => o.id === orderId);
-      const nextMilestones = getUpdatedTimelineMilestonesForStatusChange(targetOrder?.timelineMilestones, nextIndex);
+      const targetCust = targetOrder?.customerId ? liveCustomers[targetOrder.customerId] : null;
+      const activeFt = targetOrder?.fulfillmentType || targetCust?.fulfillmentType || 'Standard';
+      const statusOpts = getPipelineStatusOptions(activeFt, fulfillmentPipelines);
+      const maxIdx = Math.max(0, statusOpts.length - 1);
+      const nextIndex = currentIndex < maxIdx ? currentIndex + 1 : 0;
+      const nextMilestones = getUpdatedTimelineMilestonesForStatusChange(
+        targetOrder?.timelineMilestones,
+        nextIndex,
+        new Date().toISOString(),
+        activeFt,
+        fulfillmentPipelines
+      );
       await updateDoc(doc(db, 'orders', orderId), {
         statusIndex: nextIndex,
         timelineMilestones: nextMilestones
@@ -434,7 +450,12 @@ export function OrdersList() {
 
               const liveCustomer = order.customerId ? liveCustomers[order.customerId] : null;
               
-              const isKitting = liveCustomer?.fulfillmentType === 'Kitting';
+              const activeOrderFt = order.fulfillmentType || liveCustomer?.fulfillmentType || 'Standard';
+              const isKitting = activeOrderFt === 'Kitting';
+              const isCustomFt = isCustomStatusPipeline(activeOrderFt, fulfillmentPipelines);
+              const customStatusLabel = isCustomFt
+                ? statusIndexToTimelineStep(order.statusIndex, activeOrderFt, fulfillmentPipelines)
+                : undefined;
 
               // Map flexible 9-step Admin pipeline Badge component
               let badgeStatus: StatusType = 'quote';
@@ -453,6 +474,9 @@ export function OrdersList() {
                  case 8: 
                     if (isKitting) { badgeStatus = 'live'; }
                     else { badgeStatus = 'received'; }
+                    break;
+                 default:
+                    badgeStatus = 'processing';
                     break;
               }
 
@@ -497,7 +521,7 @@ export function OrdersList() {
                   </div>
                   <div onClick={(e) => handleNextStatus(e, order.id, order.statusIndex)} className="group/badge" title="Click to bump status!">
                     <div className="group-hover/badge:scale-105 transition-transform origin-left">
-                       <StatusBadge status={badgeStatus} />
+                       <StatusBadge status={badgeStatus} customLabel={customStatusLabel} />
                     </div>
                   </div>
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
@@ -718,11 +742,12 @@ export function OrdersList() {
                     <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
                     <select
                       value={newOrderForm.fulfillmentType}
-                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                      onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value, statusIndex: 0 }))}
                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                     >
-                      <option value="Standard">Delivered</option>
-                      <option value="Kitting">Inventory &amp; Kitting</option>
+                      {fulfillmentPipelines.map((fp) => (
+                        <option key={fp.id} value={fp.id}>{fp.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -732,15 +757,11 @@ export function OrdersList() {
                       onChange={(e) => setNewOrderForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value, 10) }))}
                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                     >
-                      <option value="0">0 - Quote</option>
-                      <option value="1">1 - Mgmt Notified</option>
-                      <option value="2">2 - Quote Sent</option>
-                      <option value="3">3 - Approved</option>
-                      <option value="4">4 - Shopping</option>
-                      <option value="5">5 - Ordered</option>
-                      <option value="6">6 - Processing</option>
-                      <option value="7">7 - Shipped</option>
-                      <option value="8">8 - Received</option>
+                      {getPipelineStatusOptions(newOrderForm.fulfillmentType, fulfillmentPipelines).map((opt) => (
+                        <option key={opt.value} value={opt.value.toString()}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

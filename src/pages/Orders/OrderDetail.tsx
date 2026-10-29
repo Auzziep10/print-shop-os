@@ -34,7 +34,13 @@ import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
 import { validateDiscountCode } from '../../lib/discountUtils';
 import { OrderTimelineTracker } from '../../components/Orders/OrderTimelineTracker';
-import { getUpdatedTimelineMilestonesForStatusChange } from '../../lib/timelineUtils';
+import {
+  getUpdatedTimelineMilestonesForStatusChange,
+  useFulfillmentPipelines,
+  getPipelineStatusOptions,
+  isCustomStatusPipeline,
+  statusIndexToTimelineStep
+} from '../../lib/timelineUtils';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const cleanGarmentTitle = (title: string, styleId?: string): string => {
@@ -1141,6 +1147,7 @@ export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, userData, hasPermission } = useAuth();
+  const { pipelines: fulfillmentPipelines } = useFulfillmentPipelines();
   const isSales = userData?.role?.toLowerCase() === 'sales';
   const { orders, loading } = useOrders();
 
@@ -2700,13 +2707,13 @@ export function OrderDetail() {
   const handleStatusChange = async (newIndex: number) => {
     if (!id || !order) return;
     try {
-      const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
-      const newStatusLabel = (() => {
-         const labels = ['Request Created', 'Under Review', 'Quote Prepared', 'Awaiting Payment', 'Sourcing', 'Ordered', 'In Production', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live' : 'Received'];
-         return labels[newIndex] || 'Unknown';
-      })();
+      const activeFt = order.fulfillmentType || currentCustomer.fulfillmentType || 'Standard';
+      const statusOptions = getPipelineStatusOptions(activeFt, fulfillmentPipelines);
+      const matchedOpt = statusOptions.find(o => o.value === newIndex);
+      const newStatusLabel = matchedOpt ? matchedOpt.label.replace(/^\d+\s*-\s*/, '') : 'Unknown';
 
-      const shouldResetPaid = newIndex <= 3 && order.paymentStatus === 'paid';
+      const isCustomFt = isCustomStatusPipeline(activeFt, fulfillmentPipelines);
+      const shouldResetPaid = !isCustomFt && newIndex <= 3 && order.paymentStatus === 'paid';
       const nowIso = new Date().toISOString();
       const activity = {
         id: `act-${Date.now()}`,
@@ -2720,7 +2727,7 @@ export function OrderDetail() {
 
       await setDoc(doc(db, 'orders', id), {
         statusIndex: newIndex,
-        timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(order.timelineMilestones, newIndex, nowIso),
+        timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(order.timelineMilestones, newIndex, nowIso, activeFt, fulfillmentPipelines),
         ...(shouldResetPaid ? { paymentStatus: 'unpaid', paymentDate: null } : {}),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
@@ -5003,7 +5010,12 @@ export function OrderDetail() {
   const margin = finalOrderTotal > 0 ? (profit / finalOrderTotal) * 100 : 0;
 
   // Map strict 7-step Index to Admin pipeline Badge component
-  const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
+  const activeOrderFulfillmentType = order.fulfillmentType || customer.fulfillmentType || 'Standard';
+  const isKitting = activeOrderFulfillmentType === 'Kitting';
+  const isCustomFulfillment = isCustomStatusPipeline(activeOrderFulfillmentType, fulfillmentPipelines);
+  const customStatusLabel = isCustomFulfillment
+    ? statusIndexToTimelineStep(order.statusIndex, activeOrderFulfillmentType, fulfillmentPipelines)
+    : undefined;
   let badgeStatus: StatusType = 'quote';
   switch(order.statusIndex) {
      case 0: badgeStatus = 'quote'; break;
@@ -5020,6 +5032,9 @@ export function OrderDetail() {
      case 8: 
         if (isKitting) { badgeStatus = 'live'; }
         else { badgeStatus = 'received'; }
+        break;
+     default:
+        badgeStatus = 'processing';
         break;
   }
 
@@ -5260,7 +5275,7 @@ export function OrderDetail() {
                    <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
                    
                    <div className="flex items-center gap-3">
-                       <StatusBadge status={badgeStatus} />
+                       <StatusBadge status={badgeStatus} customLabel={customStatusLabel} />
                        
                        {order.paymentStatus === 'paid' && (
                          <button
@@ -5304,15 +5319,9 @@ export function OrderDetail() {
                               value={order.statusIndex.toString()}
                               onChange={(e) => handleStatusChange(Number(e.target.value))}
                           >
-                            <option value="0">0 - Request Created</option>
-                            <option value="1">1 - Under Review</option>
-                            <option value="2">2 - Quote Prepared</option>
-                            <option value="3">3 - Awaiting Payment</option>
-                            <option value="4">4 - Sourcing</option>
-                            <option value="5">5 - Ordered</option>
-                            <option value="6">6 - In Production</option>
-                            <option value="7">7 - {isKitting ? 'Inventory' : 'Shipped'}</option>
-                            <option value="8">8 - {isKitting ? 'Live' : 'Received'}</option>
+                            {getPipelineStatusOptions(activeOrderFulfillmentType, fulfillmentPipelines).map(opt => (
+                              <option key={opt.value} value={opt.value.toString()}>{opt.label}</option>
+                            ))}
                           </select>
                           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
                       </div>
@@ -5321,7 +5330,12 @@ export function OrderDetail() {
             </div>
             
             <div className="pt-6 pb-8 border-t border-brand-border/60">
-              <OrderTimelineTracker order={order} canEdit={!isSales} compact={true} />
+              <OrderTimelineTracker
+                order={order}
+                customerFulfillmentType={liveCustomer?.fulfillmentType || customer?.fulfillmentType || 'Standard'}
+                canEdit={!isSales}
+                compact={true}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-7 gap-6 pt-6 border-t border-brand-border">
@@ -8448,8 +8462,9 @@ export function OrderDetail() {
                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                         >
                           <option value="">Default (From Customer)</option>
-                          <option value="Standard">Delivered</option>
-                          <option value="Kitting">Inventory & Kitting</option>
+                          {fulfillmentPipelines.map((fp) => (
+                            <option key={fp.id} value={fp.id}>{fp.name}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -8467,20 +8482,13 @@ export function OrderDetail() {
                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                         >
                           {(() => {
-                            const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && customer.fulfillmentType === 'Kitting');
-                            return (
-                              <>
-                                <option value="0">0 - Quote</option>
-                                <option value="1">1 - Mgmt Notified</option>
-                                <option value="2">2 - Quote Sent</option>
-                                <option value="3">3 - Approved</option>
-                                <option value="4">4 - Shopping</option>
-                                <option value="5">5 - Ordered</option>
-                                <option value="6">6 - Processing</option>
-                                <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
-                                <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
-                              </>
-                            );
+                            const activeFt = editForm.fulfillmentType || liveCustomer?.fulfillmentType || customer.fulfillmentType || 'Standard';
+                            const statusOptions = getPipelineStatusOptions(activeFt, fulfillmentPipelines);
+                            return statusOptions.map((opt) => (
+                              <option key={opt.value} value={opt.value.toString()}>
+                                {opt.label}
+                              </option>
+                            ));
                           })()}
                         </select>
                       </div>
