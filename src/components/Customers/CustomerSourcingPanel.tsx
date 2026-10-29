@@ -173,16 +173,21 @@ export function CustomerSourcingPanel({
 
         const styleName = (item.title || item.style || 'Custom Garment').trim();
         const itemNum = (item.itemNum || '').trim();
-        const color = (item.color || '').trim();
+        const rackMatch =
+          (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
+          designerRackByTitle[styleName.toLowerCase()];
+        const rawItemColor = (item.color || '').trim();
+        const rackColor = (rackMatch?.garmentColor || rackMatch?.color || '').trim();
+        const color =
+          !rawItemColor || rawItemColor.toLowerCase() === 'custom color'
+            ? rackColor || rawItemColor
+            : rawItemColor;
         const itemGenderNorm = normalizeGender(
           item.gender && item.gender !== 'Unisex' ? item.gender : (indGenderRaw || item.gender)
         );
         const genderBucketLabel = splitByGender ? itemGenderNorm : 'All Cuts';
 
         let sourcingUrl = (item.sourcingLink || item.garmentSourcingLink || '').trim();
-        const rackMatch =
-          (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
-          designerRackByTitle[styleName.toLowerCase()];
         if (!sourcingUrl && rackMatch?.garmentSourcingLink) {
           sourcingUrl = rackMatch.garmentSourcingLink.trim();
         }

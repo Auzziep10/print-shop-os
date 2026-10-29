@@ -2466,7 +2466,7 @@ export function OrderDetail() {
       style: styleTitle,
       title: styleTitle,
       itemNum: prev?.itemNum || '',
-      color: prev?.color || '',
+      color: design.garmentColor || design.color || prev?.color || '',
       sizes: prev?.sizes && Object.values(prev.sizes).some((v: any) => (parseInt(v) || 0) > 0)
         ? prev.sizes
         : { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 },

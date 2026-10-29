@@ -136,6 +136,23 @@ export function CustomerDetail() {
   const [savingNote, setSavingNote] = useState(false);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [brandingStyle, setBrandingStyle] = useState('');
+
+  const BRANDING_STYLE_OPTIONS = [
+    'Elevated Streetwear',
+    'Hipster - Los Angeles',
+    'Hipster - Nashville',
+    'Hipster - New York City',
+    'Quiet Luxury / Modern',
+    'Executive / C-Suite',
+    'Modern Corporate / Professional',
+    'Heritage / Americana',
+    'Technical / Outdoor Lifestyle',
+    'Avant-Garde / Fashion Forward',
+    'Country-Bro',
+    'Country-Corporate',
+    'Country-South'
+  ];
 
   // New Order State
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
@@ -271,6 +288,7 @@ export function CustomerDetail() {
     logos: { id: string; name: string; url: string }[];
     psdDriveLink: string;
     garmentSourcingLink: string;
+    garmentColor: string;
     finalDesignApproved: boolean;
     approvedForOrder: boolean;
   }>({
@@ -283,6 +301,7 @@ export function CustomerDetail() {
     logos: [],
     psdDriveLink: '',
     garmentSourcingLink: '',
+    garmentColor: '',
     finalDesignApproved: false,
     approvedForOrder: false
   });
@@ -1194,6 +1213,7 @@ export function CustomerDetail() {
       logos: [],
       psdDriveLink: '',
       garmentSourcingLink: '',
+      garmentColor: '',
       finalDesignApproved: false,
       approvedForOrder: false
     });
@@ -1229,6 +1249,7 @@ export function CustomerDetail() {
       logos: Array.isArray(design.logos) ? design.logos : [],
       psdDriveLink: design.psdDriveLink || '',
       garmentSourcingLink: design.garmentSourcingLink || '',
+      garmentColor: design.garmentColor || design.color || '',
       finalDesignApproved: Boolean(design.finalDesignApproved),
       approvedForOrder: Boolean(design.approvedForOrder)
     });
@@ -1314,6 +1335,8 @@ export function CustomerDetail() {
         logos: nextForm.logos,
         psdDriveLink: nextForm.psdDriveLink.trim(),
         garmentSourcingLink: nextForm.garmentSourcingLink.trim(),
+        garmentColor: nextForm.garmentColor.trim(),
+        color: nextForm.garmentColor.trim(),
         finalDesignApproved: Boolean(nextForm.finalDesignApproved),
         finalDesignApprovedNotificationRead:
           Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
@@ -1551,6 +1574,8 @@ export function CustomerDetail() {
           logos: designerRackForm.logos,
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+          garmentColor: designerRackForm.garmentColor.trim(),
+          color: designerRackForm.garmentColor.trim(),
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead:
             Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
@@ -1585,6 +1610,8 @@ export function CustomerDetail() {
           logos: designerRackForm.logos,
           psdDriveLink: designerRackForm.psdDriveLink.trim(),
           garmentSourcingLink: designerRackForm.garmentSourcingLink.trim(),
+          garmentColor: designerRackForm.garmentColor.trim(),
+          color: designerRackForm.garmentColor.trim(),
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead: false,
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
@@ -1999,6 +2026,7 @@ export function CustomerDetail() {
           const data = d.data();
           setLiveCustomerData(data);
           setNoteText(data.brandingNotes !== undefined ? data.brandingNotes : (data.notes || ''));
+          setBrandingStyle(data.brandingStyle || '');
           setSuggestedItems(data.suggestedItems || []);
           setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
@@ -2156,6 +2184,22 @@ export function CustomerDetail() {
     e.target.value = ''; // Reset input so identical file can be picked again
   };
 
+  const handleBrandingStyleChange = async (nextStyle: string) => {
+    setBrandingStyle(nextStyle);
+    if (!id) return;
+    try {
+      await setDoc(doc(db, 'customers', id), {
+        brandingStyle: nextStyle
+      }, { merge: true });
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        brandingStyle: nextStyle
+      }));
+    } catch (err) {
+      console.error('Failed to save branding style:', err);
+    }
+  };
+
   const handleSaveBrandingNotes = async () => {
     if (!id) {
       setIsEditingNote(false);
@@ -2165,12 +2209,14 @@ export function CustomerDetail() {
     try {
       await setDoc(doc(db, 'customers', id), {
         brandingNotes: noteText,
-        notes: noteText
+        notes: noteText,
+        brandingStyle
       }, { merge: true });
       setLiveCustomerData((prev: any) => ({
         ...prev,
         brandingNotes: noteText,
-        notes: noteText
+        notes: noteText,
+        brandingStyle
       }));
       setIsEditingNote(false);
     } catch (err) {
@@ -3110,6 +3156,18 @@ export function CustomerDetail() {
                       placeholder="https://www.sanmar.com/... or supplier URL"
                       className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2.5 text-xs text-brand-primary focus:outline-none transition-all"
                     />
+                    <div className="mt-2.5">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1">
+                        Garment Color
+                      </label>
+                      <input
+                        type="text"
+                        value={designerRackForm.garmentColor}
+                        onChange={(e) => setDesignerRackForm((prev) => ({ ...prev, garmentColor: e.target.value }))}
+                        placeholder="e.g. Black, Vintage Navy, Heather Grey"
+                        className="w-full bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3.5 py-2 text-xs text-brand-primary focus:outline-none transition-all"
+                      />
+                    </div>
                   </div>
                   <div className="mt-3">
                     <button
@@ -3518,13 +3576,32 @@ export function CustomerDetail() {
                  <div className="block lg:hidden h-px bg-brand-border/60" />
                  
                  <div className="flex-[2]">
-                    <div className="flex items-center gap-2 mb-3">
-                       <h4 className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary">Branding Notes</h4>
-                       {!isEditingNote && (
-                         <button onClick={(e) => { e.stopPropagation(); setIsEditingNote(true); }} className="text-sm bg-brand-border/40 hover:bg-brand-border p-1.5 rounded-md text-brand-secondary hover:text-brand-primary transition-colors inline-flex items-center">
-                            <Edit3 size={14} />
-                         </button>
-                       )}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                       <div className="flex items-center gap-2">
+                          <h4 className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary">Branding Notes</h4>
+                          {!isEditingNote && (
+                            <button onClick={(e) => { e.stopPropagation(); setIsEditingNote(true); }} className="text-sm bg-brand-border/40 hover:bg-brand-border p-1.5 rounded-md text-brand-secondary hover:text-brand-primary transition-colors inline-flex items-center">
+                               <Edit3 size={14} />
+                            </button>
+                          )}
+                       </div>
+                       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          <label className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary whitespace-nowrap">
+                            Style
+                          </label>
+                          <select
+                            value={brandingStyle}
+                            onChange={(e) => void handleBrandingStyleChange(e.target.value)}
+                            className="bg-white border border-brand-border focus:border-brand-primary rounded-xl px-3 py-1.5 text-xs font-semibold text-brand-primary focus:outline-none shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <option value="">Select Style...</option>
+                            {BRANDING_STYLE_OPTIONS.map((styleOpt) => (
+                              <option key={styleOpt} value={styleOpt}>
+                                {styleOpt}
+                              </option>
+                            ))}
+                          </select>
+                       </div>
                     </div>
                     {isEditingNote ? (
                       <div className="flex items-start gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
@@ -4244,7 +4321,7 @@ export function CustomerDetail() {
                             )}
 
                             {design.garmentSourcingLink ? (
-                              <div className="inline-flex items-center gap-1.5">
+                              <div className="inline-flex items-center gap-1.5 flex-wrap">
                                 <a
                                   href={design.garmentSourcingLink.startsWith('http') ? design.garmentSourcingLink : `https://${design.garmentSourcingLink}`}
                                   target="_blank"
@@ -4257,6 +4334,11 @@ export function CustomerDetail() {
                                   <span>Garment Sourcing Link</span>
                                   <ExternalLink size={11} />
                                 </a>
+                                {(design.garmentColor || design.color) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200">
+                                    {design.garmentColor || design.color}
+                                  </span>
+                                )}
                                 {Boolean(design.approvedForOrder) && (
                                   <span
                                     className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0"
@@ -4267,8 +4349,13 @@ export function CustomerDetail() {
                                 )}
                               </div>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-brand-secondary/50 italic">
+                              <span className="inline-flex items-center gap-1.5 text-xs text-brand-secondary/50 italic flex-wrap">
                                 <span>No sourcing link</span>
+                                {(design.garmentColor || design.color) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200 not-italic">
+                                    {design.garmentColor || design.color}
+                                  </span>
+                                )}
                                 {Boolean(design.approvedForOrder) && (
                                   <span
                                     className="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0 not-italic"
