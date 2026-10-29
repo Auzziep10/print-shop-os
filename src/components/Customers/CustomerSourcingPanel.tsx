@@ -41,6 +41,7 @@ interface OccurrenceRef {
   individualSize: string;
   itemId: string;
   size: string;
+  rawOrderSize: string;
   qty: number;
   inferredFromProfile: boolean;
   isOrdered: boolean;
@@ -78,6 +79,27 @@ interface AggregatedGarmentGroup {
 }
 
 const STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+const SIZE_SHIFT_LADDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+
+const getAdjustedOrderSize = (rawSize: string, sizingAdjustment?: string): string => {
+  const clean = (rawSize || '').trim().toUpperCase();
+  if (!clean || !sizingAdjustment || sizingAdjustment === 'True to Size') return clean;
+  const normalized =
+    clean === 'XXL' ? '2XL' : clean === 'XXXL' ? '3XL' : clean === 'XXXXL' ? '4XL' : clean;
+  const idx = SIZE_SHIFT_LADDER.indexOf(normalized);
+  if (idx === -1) return clean;
+
+  let delta = 0;
+  const adjLower = sizingAdjustment.trim().toLowerCase();
+  if (adjLower.includes('size up 1')) delta = 1;
+  else if (adjLower.includes('size up 2')) delta = 2;
+  else if (adjLower.includes('size down 1')) delta = -1;
+  else if (adjLower.includes('size down 2')) delta = -2;
+
+  if (delta === 0) return clean;
+  const targetIdx = Math.max(0, Math.min(SIZE_SHIFT_LADDER.length - 1, idx + delta));
+  return SIZE_SHIFT_LADDER[targetIdx];
+};
 
 const normalizeGender = (g?: string): 'Male' | 'Female' | 'Unisex' => {
   if (!g) return 'Unisex';
@@ -284,11 +306,19 @@ export function CustomerSourcingPanel({
           group.brandNames.push(orderBrandName);
         }
 
-        effectiveSizeEntries.forEach(({ size, qty, inferred }) => {
+        effectiveSizeEntries.forEach(({ size: rawOrderSize, qty, inferred }) => {
+          const size = getAdjustedOrderSize(rawOrderSize, sizingAdjustment);
           discoveredSizes.add(size);
-          const isCompleted = hasSizeInList(item.completedSizes, size);
-          const isReceived = isCompleted || hasSizeInList(item.receivedSizes, size);
-          const isOrdered = isReceived || hasSizeInList(item.orderedSizes, size);
+          const isCompleted =
+            hasSizeInList(item.completedSizes, size) || hasSizeInList(item.completedSizes, rawOrderSize);
+          const isReceived =
+            isCompleted ||
+            hasSizeInList(item.receivedSizes, size) ||
+            hasSizeInList(item.receivedSizes, rawOrderSize);
+          const isOrdered =
+            isReceived ||
+            hasSizeInList(item.orderedSizes, size) ||
+            hasSizeInList(item.orderedSizes, rawOrderSize);
 
           if (!group.sizesMap[size]) {
             group.sizesMap[size] = {
@@ -321,9 +351,10 @@ export function CustomerSourcingPanel({
             isMvp: orderIsMvp,
             getsBox: orderGetsBox,
             individualGender: itemGenderNorm,
-            individualSize: indSizeRaw || size,
+            individualSize: indSizeRaw || rawOrderSize,
             itemId: String(item.id),
             size,
+            rawOrderSize,
             qty,
             inferredFromProfile: inferred,
             isOrdered,
@@ -409,22 +440,29 @@ export function CustomerSourcingPanel({
             const receivedSet = new Set<string>(normalizeSizeList(item.receivedSizes));
 
             matchingOccs.forEach((occ) => {
-              if (occ.inferredFromProfile && occ.size !== 'TBD') {
-                const existingSzQty = parseInt(String(nextSizes[occ.size] || 0), 10) || 0;
+              const rawSz = occ.rawOrderSize || occ.size;
+              if (occ.inferredFromProfile && rawSz !== 'TBD') {
+                const existingSzQty = parseInt(String(nextSizes[rawSz] || 0), 10) || 0;
                 if (existingSzQty === 0) {
-                  nextSizes[occ.size] = occ.qty;
+                  nextSizes[rawSz] = occ.qty;
                 }
               }
 
               if (targetState === 'to_order') {
                 orderedSet.delete(occ.size);
+                orderedSet.delete(rawSz);
                 receivedSet.delete(occ.size);
+                receivedSet.delete(rawSz);
               } else if (targetState === 'ordered') {
                 orderedSet.add(occ.size);
+                orderedSet.add(rawSz);
                 receivedSet.delete(occ.size);
+                receivedSet.delete(rawSz);
               } else if (targetState === 'received') {
                 orderedSet.add(occ.size);
+                orderedSet.add(rawSz);
                 receivedSet.add(occ.size);
+                receivedSet.add(rawSz);
               }
             });
 
@@ -1080,7 +1118,14 @@ export function CustomerSourcingPanel({
                                           </span>
                                         </td>
                                         <td className="py-2 px-3 text-center font-black text-neutral-900">
-                                          {occ.size}
+                                          {occ.rawOrderSize && occ.rawOrderSize !== occ.size ? (
+                                            <span title={`Profile/Order Size: ${occ.rawOrderSize} → Adjusted Order Size: ${occ.size}`}>
+                                              <span className="text-neutral-400 line-through font-semibold mr-1">{occ.rawOrderSize}</span>
+                                              <span>{occ.size}</span>
+                                            </span>
+                                          ) : (
+                                            occ.size
+                                          )}
                                         </td>
                                         <td className="py-2 px-3 text-center font-bold tabular-nums">
                                           {occ.qty}
@@ -1244,13 +1289,27 @@ export function CustomerSourcingPanel({
                               );
                               const displaySz =
                                 szEntries.length > 0
-                                  ? szEntries.map(([s, q]) => `${s}:${q}`).join(', ')
+                                  ? szEntries
+                                      .map(([s, q]) => {
+                                        const adjS = getAdjustedOrderSize(s.trim().toUpperCase(), itSizing);
+                                        return `${adjS}:${q}`;
+                                      })
+                                      .join(', ')
                                   : profileSize
-                                    ? `${profileSize}:1`
+                                    ? `${getAdjustedOrderSize(profileSize, itSizing)}:1`
                                     : 'No Sz';
-                              const checkSz = szEntries[0]?.[0] || profileSize;
-                              const isRec = Boolean(checkSz && (hasSizeInList(it.receivedSizes, checkSz) || hasSizeInList(it.completedSizes, checkSz)));
-                              const isOrd = isRec || Boolean(checkSz && hasSizeInList(it.orderedSizes, checkSz));
+                              const rawCheckSz = szEntries[0]?.[0] || profileSize;
+                              const adjCheckSz = rawCheckSz ? getAdjustedOrderSize(rawCheckSz, itSizing) : '';
+                              const isRec = Boolean(
+                                (rawCheckSz && (hasSizeInList(it.receivedSizes, rawCheckSz) || hasSizeInList(it.completedSizes, rawCheckSz))) ||
+                                (adjCheckSz && (hasSizeInList(it.receivedSizes, adjCheckSz) || hasSizeInList(it.completedSizes, adjCheckSz)))
+                              );
+                              const isOrd =
+                                isRec ||
+                                Boolean(
+                                  (rawCheckSz && hasSizeInList(it.orderedSizes, rawCheckSz)) ||
+                                  (adjCheckSz && hasSizeInList(it.orderedSizes, adjCheckSz))
+                                );
 
                               return (
                                 <span
