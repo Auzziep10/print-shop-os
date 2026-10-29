@@ -10,7 +10,7 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight, Star, Box } from 'lucide-react';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
 
@@ -977,7 +977,18 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-red-200 rounded-xl divide-y divide-red-100 overflow-hidden shadow-xs">
+          <div className="bg-white border border-red-200 rounded-xl divide-y divide-red-100 overflow-x-auto shadow-xs">
+            {/* Spreadsheet Column Header */}
+            <div className="hidden md:grid md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center bg-red-50/60 text-[10px] font-extrabold uppercase tracking-wider text-red-900/70 border-b border-red-200/80 select-none">
+              <div className="px-3 py-2 text-center">#</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Name</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Type</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Tier / Status</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Orders / Due</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Contact / Account</div>
+              <div className="px-3 py-2 border-l border-red-100/80 text-right">Action</div>
+            </div>
+
             {highPriorityItems.map((entry, idx) => {
               const isDragging = draggedPriorityKey === entry.key;
               const isDragOver = dragOverPriorityKey === entry.key && draggedPriorityKey !== entry.key;
@@ -1022,14 +1033,8 @@ export function Dashboard() {
                       setDragOverPriorityKey(null);
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
-                    className={`${
-                      isSubCustomer
-                        ? 'pl-10 sm:pl-12 pr-3.5 py-2 bg-red-50/20'
-                        : isNonPriorityParent
-                          ? 'px-3.5 py-2.5 bg-neutral-50/70'
-                          : 'px-3.5 py-2.5'
-                    } flex items-center justify-between gap-3 border-l-4 ${
-                      isNonPriorityParent ? 'border-l-neutral-300' : 'border-l-red-600'
+                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center border-l-4 ${
+                      isNonPriorityParent ? 'border-l-neutral-300 bg-neutral-50/70' : isSubCustomer ? 'border-l-red-600 bg-red-50/15' : 'border-l-red-600 bg-white'
                     } transition-all cursor-pointer group select-none ${
                       isDragging
                         ? 'opacity-40 bg-red-50'
@@ -1040,27 +1045,26 @@ export function Dashboard() {
                             : 'hover:bg-red-50/40'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {isSubCustomer && (
-                        <CornerDownRight size={14} className="text-red-400 shrink-0 -mr-1" />
-                      )}
-                      <div
-                        className={`flex items-center gap-1.5 text-neutral-400 ${
-                          isNonPriorityParent ? 'group-hover:text-neutral-700' : 'group-hover:text-red-600'
-                        } cursor-grab active:cursor-grabbing shrink-0`}
-                        title="Drag to reorder"
-                        onClick={(e) => e.stopPropagation()}
+                    {/* Col 1: Rank & Grip */}
+                    <div
+                      className={`px-3 py-2.5 flex items-center justify-center gap-1 text-neutral-400 ${
+                        isNonPriorityParent ? 'group-hover:text-neutral-700' : 'group-hover:text-red-600'
+                      } cursor-grab active:cursor-grabbing shrink-0`}
+                      title="Drag to reorder"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <GripVertical size={15} />
+                      <span
+                        className={`text-[11px] font-extrabold w-4 text-center tabular-nums ${
+                          isNonPriorityParent ? 'text-neutral-500' : 'text-red-700/80'
+                        }`}
                       >
-                        <GripVertical size={15} />
-                        <span
-                          className={`text-[11px] font-extrabold w-4 text-center ${
-                            isNonPriorityParent ? 'text-neutral-500' : 'text-red-700/80'
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                      </div>
+                        {idx + 1}
+                      </span>
+                    </div>
 
+                    {/* Col 2: Logo & Name */}
+                    <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
                       {c.croppedLogo || c.logo ? (
                         <div className="w-7 h-7 rounded-md border border-neutral-200 bg-white flex items-center justify-center shrink-0 p-0.5">
                           <img src={c.croppedLogo || c.logo} alt={companyName} className="w-full h-full object-contain mix-blend-multiply" />
@@ -1076,57 +1080,86 @@ export function Dashboard() {
                           <Building2 size={14} />
                         </div>
                       )}
-
-                      <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-                        <span
-                          className={`font-bold text-sm transition-colors truncate ${
-                            isNonPriorityParent
-                              ? 'text-neutral-700 group-hover:text-black'
-                              : 'text-brand-primary group-hover:text-red-700'
-                          }`}
-                        >
-                          {companyName}
+                      {isSubCustomer && (
+                        <span title="Sub-Brand" className="inline-flex shrink-0 -mr-1">
+                          <CornerDownRight size={13} className="text-red-400" />
                         </span>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ${
-                            isNonPriorityParent
-                              ? 'bg-neutral-200 text-neutral-700'
-                              : 'bg-red-600 text-white'
-                          }`}
-                        >
-                          {isSubCustomer ? 'Brand' : 'Customer'}
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
-                          {c.type || 'B2C'}
-                        </span>
-                        {activeCustOrders.length > 0 && (
-                          <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0 border ${
-                              isNonPriorityParent
-                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
-                                : 'text-red-700 bg-red-50 border-red-200'
-                            }`}
-                          >
-                            {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                      )}
+                      <span
+                        className={`font-bold text-sm transition-colors truncate flex items-center gap-1.5 ${
+                          isNonPriorityParent
+                            ? 'text-neutral-700 group-hover:text-black'
+                            : 'text-brand-primary group-hover:text-red-700'
+                        }`}
+                        title={companyName}
+                      >
+                        <span className="truncate">{companyName}</span>
+                        {Boolean(c.isMvp) && (
+                          <span title="MVP Customer" className="inline-flex items-center shrink-0">
+                            <Star size={14} className="fill-amber-400 text-amber-500" />
                           </span>
                         )}
-                        {subtext && (
-                          <span className="hidden md:inline text-xs text-brand-secondary truncate">
-                            • {subtext}
-                          </span>
-                        )}
-                      </div>
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Col 3: Type Badge */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
                       <span
-                        className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary transition-colors ${
+                        className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[108px] text-center truncate ${
+                          isNonPriorityParent
+                            ? 'bg-neutral-200 text-neutral-700'
+                            : 'bg-red-600 text-white'
+                        }`}
+                      >
+                        {isSubCustomer ? 'Brand' : 'Customer'}
+                      </span>
+                    </div>
+
+                    {/* Col 4: Tier / Status */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                      <span className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded w-full max-w-[100px] text-center truncate">
+                        {c.type || 'B2C'}
+                      </span>
+                    </div>
+
+                    {/* Col 5: Active Orders Count */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                      {activeCustOrders.length > 0 ? (
+                        <span
+                          className={`inline-flex items-center justify-center text-[10px] font-semibold px-2 py-0.5 rounded border w-full max-w-[110px] text-center truncate tabular-nums ${
+                            isNonPriorityParent
+                              ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
+                              : 'text-red-700 bg-red-50 border-red-200'
+                          }`}
+                        >
+                          {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
+                      )}
+                    </div>
+
+                    {/* Col 6: Contact / Subtext */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
+                      {subtext ? (
+                        <span className="text-xs text-brand-secondary truncate" title={subtext}>
+                          {subtext}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-300 font-medium">—</span>
+                      )}
+                    </div>
+
+                    {/* Col 7: Action & Remove */}
+                    <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary transition-colors ${
                           isNonPriorityParent ? 'group-hover:text-black' : 'group-hover:text-red-700'
                         }`}
                       >
                         Profile <ChevronRight size={13} />
                       </span>
-                      {!isNonPriorityParent && (
+                      {!isNonPriorityParent ? (
                         <button
                           type="button"
                           onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
@@ -1135,6 +1168,8 @@ export function Dashboard() {
                         >
                           <X size={14} />
                         </button>
+                      ) : (
+                        <span className="w-6" />
                       )}
                     </div>
                   </div>
@@ -1182,7 +1217,7 @@ export function Dashboard() {
                     setDragOverPriorityKey(null);
                   }}
                   onClick={() => navigate(`/orders/${o.id}`)}
-                  className={`px-3.5 py-2.5 flex items-center justify-between gap-3 border-l-4 border-l-red-600 transition-all cursor-pointer group select-none ${
+                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center border-l-4 border-l-red-600 bg-white transition-all cursor-pointer group select-none ${
                     isDragging
                       ? 'opacity-40 bg-red-50'
                       : isDragOver
@@ -1190,45 +1225,79 @@ export function Dashboard() {
                         : 'hover:bg-red-50/40'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div
-                      className="flex items-center gap-1.5 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
-                      title="Drag to reorder"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <GripVertical size={15} />
-                      <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center">
-                        {idx + 1}
-                      </span>
-                    </div>
+                  {/* Col 1: Rank & Grip */}
+                  <div
+                    className="px-3 py-2.5 flex items-center justify-center gap-1 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
+                    title="Drag to reorder"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <GripVertical size={15} />
+                    <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center tabular-nums">
+                      {idx + 1}
+                    </span>
+                  </div>
 
+                  {/* Col 2: Icon & Order Title */}
+                  <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
                     <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
                       <Package size={14} />
                     </div>
-
-                    <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-                      <span className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate">
-                        {o.title || 'Untitled Order'}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded shrink-0">
-                        Order #{displayId}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-neutral-100 text-neutral-700 rounded shrink-0">
-                        {getOrderStatusLabel(o.statusIndex)}
-                      </span>
-                      {dueStr && (
-                        <span className="text-[10px] font-semibold text-neutral-500 shrink-0">
-                          Due {dueStr}
+                    <span
+                      className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate flex items-center gap-1.5"
+                      title={o.title || 'Untitled Order'}
+                    >
+                      <span className="truncate">{o.title || 'Untitled Order'}</span>
+                      {Boolean(o.isMvp || o.personalInfo?.isMvp) && (
+                        <span title="MVP" className="inline-flex items-center shrink-0">
+                          <Star size={14} className="fill-amber-400 text-amber-500" />
                         </span>
                       )}
-                      <span className="hidden md:inline text-xs text-brand-secondary truncate">
-                        • {companyName}
-                      </span>
-                    </div>
+                      {Boolean(o.getsBox || o.personalInfo?.getsBox) && (
+                        <span title="Gets a Box" className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
+                          <Box size={11} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
+                  {/* Col 3: Order Badge */}
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                    <span
+                      className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded w-[108px] text-center truncate tabular-nums"
+                      title={`Order #${displayId}`}
+                    >
+                      Order #{displayId}
+                    </span>
+                  </div>
+
+                  {/* Col 4: Status */}
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                    <span className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded w-full max-w-[100px] text-center truncate">
+                      {getOrderStatusLabel(o.statusIndex)}
+                    </span>
+                  </div>
+
+                  {/* Col 5: Due Date */}
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                    {dueStr ? (
+                      <span className="text-[11px] font-semibold text-neutral-600 truncate tabular-nums">
+                        Due {dueStr}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
+                    )}
+                  </div>
+
+                  {/* Col 6: Company Name */}
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
+                    <span className="text-xs text-brand-secondary truncate" title={companyName}>
+                      {companyName}
+                    </span>
+                  </div>
+
+                  {/* Col 7: Action & Remove */}
+                  <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
+                    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
                       Order <ChevronRight size={13} />
                     </span>
                     <button

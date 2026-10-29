@@ -6,7 +6,7 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin, Star } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -1160,7 +1160,9 @@ export function OrderDetail() {
     shippingDestinations: [] as any[],
     thirdPartyBilling: { account: '', zip: '' },
     personalInfo: { isIndividual: false, gender: '', size: '' },
-    highPriority: false
+    highPriority: false,
+    getsBox: false,
+    isMvp: false
   });
   const [activeDestIndex, setActiveDestIndex] = useState(0);
   const [isOrderNotesExpanded, setIsOrderNotesExpanded] = useState(false);
@@ -4488,7 +4490,9 @@ export function OrderDetail() {
           gender: order.personalInfo?.gender || order.personalInfo?.sex || '',
           size: order.personalInfo?.size || ''
         },
-        highPriority: Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high')
+        highPriority: Boolean(order.highPriority || order.priority === 'rush' || order.priority === 'high'),
+        getsBox: Boolean(order.getsBox || order.personalInfo?.getsBox),
+        isMvp: Boolean(order.isMvp || order.personalInfo?.isMvp)
       });
       setActiveDestIndex(0);
       setOrderNoteText(order.orderNotes !== undefined ? order.orderNotes : (order.notes || ''));
@@ -4639,8 +4643,8 @@ export function OrderDetail() {
   const getPersonalInfoToSave = () => {
     const p = editForm.personalInfo;
     return p?.isIndividual
-      ? { isIndividual: true, gender: p.gender, size: p.size }
-      : { isIndividual: false, gender: '', size: '' };
+      ? { isIndividual: true, gender: p.gender, size: p.size, getsBox: Boolean(editForm.getsBox), isMvp: Boolean(editForm.isMvp) }
+      : { isIndividual: false, gender: '', size: '', getsBox: Boolean(editForm.getsBox), isMvp: Boolean(editForm.isMvp) };
   };
 
   const handleSaveEdit = async () => {
@@ -4720,7 +4724,9 @@ export function OrderDetail() {
         thirdPartyBilling: editForm.thirdPartyBilling,
         personalInfo: getPersonalInfoToSave(),
         highPriority: Boolean(editForm.highPriority),
-        priority: editForm.highPriority ? 'rush' : 'normal'
+        priority: editForm.highPriority ? 'rush' : 'normal',
+        getsBox: Boolean(editForm.getsBox),
+        isMvp: Boolean(editForm.isMvp)
       }, { merge: true });
       setIsEditDialogOpen(false);
 
@@ -4875,6 +4881,8 @@ export function OrderDetail() {
         personalInfo: getPersonalInfoToSave(),
         highPriority: Boolean(editForm.highPriority),
         priority: editForm.highPriority ? 'rush' : 'normal',
+        getsBox: Boolean(editForm.getsBox),
+        isMvp: Boolean(editForm.isMvp),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -5136,8 +5144,13 @@ export function OrderDetail() {
                         className="flex items-center gap-2.5 cursor-pointer group w-fit"
                         title="Click to expand Shipping Info & Order Notes"
                       >
-                        <h1 className="font-serif text-4xl text-brand-primary group-hover:text-black line-clamp-2 md:line-clamp-none leading-tight transition-colors">
-                          {order.title || 'Untitled Order'}
+                        <h1 className="font-serif text-4xl text-brand-primary group-hover:text-black line-clamp-2 md:line-clamp-none leading-tight transition-colors flex items-center gap-2.5">
+                          <span>{order.title || 'Untitled Order'}</span>
+                          {Boolean(order.isMvp || order.personalInfo?.isMvp || liveCustomer?.isMvp) && (
+                            <span title="MVP" className="inline-flex items-center shrink-0">
+                              <Star size={24} className="fill-amber-400 text-amber-500" />
+                            </span>
+                          )}
                         </h1>
                         <ChevronRight
                           size={22}
@@ -5157,6 +5170,12 @@ export function OrderDetail() {
                       >
                         <Edit3 size={16} />
                       </button>
+                    {Boolean(order.getsBox || order.personalInfo?.getsBox) && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-extrabold uppercase tracking-wider shadow-xs" title="Gets a Box">
+                        <Box size={12} strokeWidth={2.5} />
+                        Gets a Box
+                      </span>
+                    )}
                     {isHighPriority && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
                         <TriangleAlert size={11} />
@@ -8165,8 +8184,28 @@ export function OrderDetail() {
                     <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
                       <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                     </h4>
-                    <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editForm.isMvp)}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, isMvp: e.target.checked }))}
+                          className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                        />
+                        <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                        <span className="text-xs font-bold text-amber-800">MVP</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editForm.getsBox)}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, getsBox: e.target.checked }))}
+                          className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                        />
+                        <Box size={12} className="text-amber-700 shrink-0" />
+                        <span className="text-xs font-bold text-amber-800">Gets a Box?</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(editForm.highPriority)}
@@ -8174,11 +8213,11 @@ export function OrderDetail() {
                             const checked = e.target.checked;
                             setEditForm(prev => ({ ...prev, highPriority: checked }));
                           }}
-                          className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
+                          className="w-3.5 h-3.5 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
                         />
                         <span className="text-xs font-bold text-red-700">High Priority</span>
                       </label>
-                      <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(editForm.personalInfo?.isIndividual)}
@@ -8192,7 +8231,7 @@ export function OrderDetail() {
                               }
                             }));
                           }}
-                          className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
                         />
                         <span className="text-xs font-bold text-brand-primary">Individual?</span>
                       </label>

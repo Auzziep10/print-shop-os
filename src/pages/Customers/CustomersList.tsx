@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Plus, Building2, User, Trash2, UserPlus, QrCode, GitMerge, AlertTriangle, Star } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
@@ -97,6 +97,7 @@ export function CustomersList() {
         parentCompanyName: liveData.parentCompanyName || (liveData.parentCustomerId && liveCustomers[liveData.parentCustomerId]?.company) || '',
         brandsCount,
         highPriority: Boolean(liveData.highPriority),
+        isMvp: Boolean(liveData.isMvp),
         highPriorityRank: typeof liveData.highPriorityRank === 'number' ? liveData.highPriorityRank : 9999,
         ordersToDate,
         ltv: ltvFormatted,
@@ -231,7 +232,14 @@ export function CustomersList() {
                   )}
                   <div className="flex items-center gap-2 min-w-0">
                     {customer.company !== '-' ? (
-                      <span className="truncate">{customer.company}</span>
+                      <span className="truncate flex items-center gap-1.5">
+                        <span className="truncate">{customer.company}</span>
+                        {customer.isMvp && (
+                          <span title="MVP Customer" className="inline-flex items-center shrink-0">
+                            <Star size={16} className="fill-amber-400 text-amber-500" />
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-brand-secondary italic text-sm">Individual</span>
                     )}

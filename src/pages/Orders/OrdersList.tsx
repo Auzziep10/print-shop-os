@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy, Box, Star } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs, addDoc, query, where } from 'firebase/firestore';
@@ -49,6 +49,8 @@ export function OrdersList() {
     trackingNumber: '',
     orderNotes: '',
     highPriority: false,
+    getsBox: false,
+    isMvp: false,
     personalInfo: {
       isIndividual: false,
       gender: '',
@@ -130,12 +132,16 @@ export function OrdersList() {
         ? {
             isIndividual: true,
             gender: newOrderForm.personalInfo.gender.trim(),
-            size: newOrderForm.personalInfo.size.trim()
+            size: newOrderForm.personalInfo.size.trim(),
+            getsBox: Boolean(newOrderForm.getsBox),
+            isMvp: Boolean(newOrderForm.isMvp)
           }
         : {
             isIndividual: false,
             gender: '',
-            size: ''
+            size: '',
+            getsBox: Boolean(newOrderForm.getsBox),
+            isMvp: Boolean(newOrderForm.isMvp)
           };
 
       const docRef = await addDoc(collection(db, 'orders'), {
@@ -146,6 +152,8 @@ export function OrdersList() {
         fulfillmentType: fulfillmentTypeToUse,
         statusIndex: newOrderForm.statusIndex,
         highPriority: Boolean(newOrderForm.highPriority),
+        getsBox: Boolean(newOrderForm.getsBox),
+        isMvp: Boolean(newOrderForm.isMvp),
         orderNotes: (newOrderForm.orderNotes || '').trim(),
         notes: (newOrderForm.orderNotes || '').trim(),
         personalInfo: personalInfoToSave,
@@ -457,9 +465,28 @@ export function OrdersList() {
                   className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
                 >
                   <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
-                  <div className="font-serif text-lg text-brand-primary truncate pr-4">{customerName}</div>
+                  <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-1.5">
+                    <span className="truncate">{customerName}</span>
+                    {Boolean(liveCustomer?.isMvp) && (
+                      <span title="MVP Customer" className="inline-flex items-center shrink-0">
+                        <Star size={14} className="fill-amber-400 text-amber-500" />
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-brand-secondary truncate pr-4 flex items-center gap-2">
-                    <span className="truncate">{order.title}</span>
+                    <span className="truncate flex items-center gap-1.5">
+                      <span>{order.title}</span>
+                      {Boolean(order.isMvp || order.personalInfo?.isMvp) && (
+                        <span title="MVP" className="inline-flex items-center shrink-0">
+                          <Star size={13} className="fill-amber-400 text-amber-500" />
+                        </span>
+                      )}
+                      {Boolean(order.getsBox || order.personalInfo?.getsBox) && (
+                        <span title="Gets a Box" className="inline-flex items-center text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">
+                          <Box size={11} strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </span>
                     {order.hasUnreadCustomerUpdate && (
                       <span className="bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="Customer resubmitted new size quantities">
                         <RefreshCw size={10} className="text-amber-600" /> Updated Qty
@@ -533,17 +560,37 @@ export function OrdersList() {
                   <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
                     <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                   </h4>
-                  <div className="flex items-center gap-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.isMvp)}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, isMvp: e.target.checked }))}
+                        className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                      />
+                      <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800">MVP</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.getsBox)}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, getsBox: e.target.checked }))}
+                        className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                      />
+                      <Box size={12} className="text-amber-700 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800">Gets a Box?</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.highPriority)}
                         onChange={(e) => setNewOrderForm(prev => ({ ...prev, highPriority: e.target.checked }))}
-                        className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
+                        className="w-3.5 h-3.5 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
                       />
                       <span className="text-xs font-bold text-red-700">High Priority</span>
                     </label>
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.personalInfo?.isIndividual)}
@@ -557,7 +604,7 @@ export function OrdersList() {
                             }
                           }));
                         }}
-                        className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                        className="w-3.5 h-3.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
                       />
                       <span className="text-xs font-bold text-brand-primary">Individual?</span>
                     </label>

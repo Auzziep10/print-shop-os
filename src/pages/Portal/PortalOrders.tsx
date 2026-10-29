@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Star } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -14,48 +14,6 @@ import { OrderTimelineTracker } from '../../components/Orders/OrderTimelineTrack
 
 const sortSizes = sortGarmentSizes;
 
-const formatDisplayDate = (dateStr: string | undefined | null): string => {
-  if (!dateStr) return 'TBD';
-  
-  try {
-    let parsedDate: Date;
-    
-    if (dateStr.includes('/')) {
-      const parts = dateStr.split('/');
-      if (parts.length === 3) {
-        let month = parseInt(parts[0], 10) - 1;
-        let day = parseInt(parts[1], 10);
-        let year = parseInt(parts[2], 10);
-        if (year < 100) {
-          year += 2000;
-        }
-        parsedDate = new Date(year, month, day);
-      } else {
-        parsedDate = new Date(dateStr);
-      }
-    } else {
-      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        parsedDate = new Date(dateStr + 'T12:00:00');
-      } else {
-        parsedDate = new Date(dateStr);
-      }
-    }
-
-    if (isNaN(parsedDate.getTime())) {
-      return dateStr;
-    }
-
-    return parsedDate.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  } catch (err) {
-    console.error("Error formatting date:", dateStr, err);
-    return dateStr;
-  }
-};
-
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
   <div className="flex flex-col items-center justify-center bg-neutral-100 px-3 py-1.5 rounded-2xl min-w-[84px] max-w-[140px]">
@@ -67,7 +25,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'orders' | 'all' }) {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { hasPermission, userData } = useAuth();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
   const [dtfSettings, setDtfSettings] = useState<any>(null);
 
@@ -935,6 +893,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
            ? (orderSubBrand.company && orderSubBrand.company !== '-' ? orderSubBrand.company : (orderSubBrand.contactName || 'Sub-Brand'))
            : (customer?.company || customer?.contactName || 'Customer');
 
+         const primaryDest = order.shippingDestinations?.[0] || order.shippingAddress || {};
+         const destCityProvince = [primaryDest.city, primaryDest.state].filter(Boolean).join(', ')
+           || [orderSubBrand?.shippingCity, orderSubBrand?.shippingState].filter(Boolean).join(', ')
+           || [customer?.shippingCity, customer?.shippingState].filter(Boolean).join(', ')
+           || orderSubBrand?.location
+           || customer?.location
+           || `Order #${order.portalId || order.id.substring(0, 8)}`;
+
+         const orderGetsBox = Boolean(order.getsBox || order.personalInfo?.getsBox);
+         const orderIsMvp = Boolean(order.isMvp || order.personalInfo?.isMvp || orderSubBrand?.isMvp || customer?.isMvp);
+
          return (
            <div 
              key={order.id} 
@@ -1010,7 +979,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                        </span>
                      )}
                     <div 
-                      className="flex items-center gap-3 cursor-pointer group z-20 relative"
+                      className="flex items-center gap-2.5 cursor-pointer group z-20 relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (overrideCustomerId) {
@@ -1020,7 +989,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         }
                       }}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words" title={order.title}>{order.title || 'Custom Order'}</h2>
+                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words flex items-center gap-2" title={order.title}>
+                        <span>{order.title || 'Custom Order'}</span>
+                        {orderIsMvp && (
+                          <span title="MVP" className="inline-flex items-center shrink-0">
+                            <Star size={18} className="fill-amber-400 text-amber-500" />
+                          </span>
+                        )}
+                      </h2>
                       {overrideCustomerId && ((order.personalInfo?.gender || order.personalInfo?.sex) || order.personalInfo?.size) && (
                         <div className="flex flex-col leading-tight border-l border-brand-border pl-3 py-0.5 shrink-0" title="Individual info (admin only)">
                           {(order.personalInfo?.gender || order.personalInfo?.sex) && (
@@ -1041,8 +1017,18 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider flex items-center gap-2">
-                       <span>Order #{order.portalId || order.id.substring(0,8)}</span>
+                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                       <span className="inline-flex items-center gap-1.5">
+                         <span>{destCityProvince}</span>
+                         {orderGetsBox && (
+                           <span
+                             className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider"
+                             title="Gets a Box"
+                           >
+                             <Box size={12} strokeWidth={2.5} />
+                           </span>
+                         )}
+                       </span>
                        {totalGarments > 0 && (
                          <>
                            <span className="text-gray-300 font-light">|</span>

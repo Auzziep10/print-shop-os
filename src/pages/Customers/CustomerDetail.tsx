@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box, Star } from 'lucide-react';
 import { DEFAULT_PORTAL_AGREEMENTS, type PortalAgreementPage } from '../../lib/portalAgreements';
 import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
 
@@ -29,6 +29,7 @@ import { isPlacedOrder, calculateOrderFinalTotal } from '../../lib/utils';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
+import { CustomerSourcingPanel } from '../../components/Customers/CustomerSourcingPanel';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { NewCustomerModal } from './NewCustomerModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -71,6 +72,48 @@ export function CustomerDetail() {
     return Object.values(uniqueGarmentsMap);
   }, [orders]);
 
+  const sourcingSummary = useMemo(() => {
+    if (!orders) return { totalUnits: 0, toOrderUnits: 0 };
+    let totalUnits = 0;
+    let toOrderUnits = 0;
+    orders.forEach((o: any) => {
+      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup) return;
+      const idx = Number(o.statusIndex ?? 0);
+      if (idx >= 7) return;
+      const items = Array.isArray(o.items) ? o.items : [];
+      items.forEach((item: any) => {
+        const styleLower = (item.style || '').toLowerCase();
+        const isShipping =
+          styleLower.includes('shipping') ||
+          styleLower.includes('delivery') ||
+          (item.id && item.id.toString().startsWith('ship-')) ||
+          item.itemType === 'shipping';
+        const isTax = styleLower.includes('tax');
+        if (isShipping || isTax) return;
+
+        const rawSizes = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
+        const sizeEntries = Object.entries(rawSizes).filter(([, q]) => (Number(q) || 0) > 0);
+        if (sizeEntries.length > 0) {
+          sizeEntries.forEach(([sz, q]) => {
+            const qty = Number(q) || 0;
+            totalUnits += qty;
+            const isOrdered = Boolean(item.orderedSizes?.[sz]);
+            const isReceived = Boolean(item.receivedSizes?.[sz]);
+            if (!isOrdered && !isReceived) toOrderUnits += qty;
+          });
+        } else if (o.personalInfo?.size) {
+          const sz = String(o.personalInfo.size).trim().toUpperCase();
+          const qty = Number(item.qty) > 0 ? Number(item.qty) : 1;
+          totalUnits += qty;
+          const isOrdered = Boolean(item.orderedSizes?.[sz]);
+          const isReceived = Boolean(item.receivedSizes?.[sz]);
+          if (!isOrdered && !isReceived) toOrderUnits += qty;
+        }
+      });
+    });
+    return { totalUnits, toOrderUnits };
+  }, [orders]);
+
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [liveCroppedLogo, setLiveCroppedLogo] = useState<string | null>(null);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
@@ -106,6 +149,8 @@ export function CustomerDetail() {
     trackingNumber: '',
     orderNotes: '',
     highPriority: false,
+    getsBox: false,
+    isMvp: false,
     personalInfo: {
       isIndividual: false,
       gender: '',
@@ -137,6 +182,7 @@ export function CustomerDetail() {
     shippingZip: '',
     type: 'B2C',
     highPriority: false,
+    isMvp: false,
     net30Terms: true,
     fulfillmentType: 'Standard',
     disableRack: false,
@@ -201,6 +247,7 @@ export function CustomerDetail() {
   const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(true);
   const [isBrandsSectionCollapsed, setIsBrandsSectionCollapsed] = useState(true);
   const [isDesignerRackCollapsed, setIsDesignerRackCollapsed] = useState(true);
+  const [isSourcingCollapsed, setIsSourcingCollapsed] = useState(true);
   const [designerRack, setDesignerRack] = useState<any[]>([]);
   const [isDesignerRackModalOpen, setIsDesignerRackModalOpen] = useState(false);
   const [editingDesignerRackId, setEditingDesignerRackId] = useState<string | null>(null);
@@ -2016,6 +2063,7 @@ export function CustomerDetail() {
             shippingZip: data.shippingZip || '',
             type: data.type || 'B2C',
             highPriority: Boolean(data.highPriority),
+            isMvp: Boolean(data.isMvp),
             net30Terms: data.net30Terms ?? true,
             fulfillmentType: data.fulfillmentType ?? 'Standard',
             disableRack: data.disableRack ?? false,
@@ -2147,6 +2195,27 @@ export function CustomerDetail() {
     }
   };
 
+  const handleToggleCustomerMvp = async () => {
+    if (!id) return;
+    const isCurrentlyMvp = Boolean(liveCustomerData?.isMvp);
+    const nextMvp = !isCurrentlyMvp;
+    try {
+      await setDoc(doc(db, 'customers', id), {
+        isMvp: nextMvp
+      }, { merge: true });
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        isMvp: nextMvp
+      }));
+      setEditCompanyForm(prev => ({
+        ...prev,
+        isMvp: nextMvp
+      }));
+    } catch (err) {
+      console.error('Failed to toggle customer MVP:', err);
+    }
+  };
+
   const handleSaveCompany = async () => {
     if (!id) return;
     setSavingCompany(true);
@@ -2162,6 +2231,7 @@ export function CustomerDetail() {
         shippingZip: editCompanyForm.shippingZip,
         type: editCompanyForm.type,
         highPriority: Boolean(editCompanyForm.highPriority),
+        isMvp: Boolean(editCompanyForm.isMvp),
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
@@ -2187,6 +2257,7 @@ export function CustomerDetail() {
         location: editCompanyForm.location,
         type: editCompanyForm.type,
         highPriority: Boolean(editCompanyForm.highPriority),
+        isMvp: Boolean(editCompanyForm.isMvp),
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
@@ -2370,12 +2441,16 @@ export function CustomerDetail() {
         ? {
             isIndividual: true,
             gender: newOrderForm.personalInfo.gender.trim(),
-            size: newOrderForm.personalInfo.size.trim()
+            size: newOrderForm.personalInfo.size.trim(),
+            getsBox: Boolean(newOrderForm.getsBox),
+            isMvp: Boolean(newOrderForm.isMvp)
           }
         : {
             isIndividual: false,
             gender: '',
-            size: ''
+            size: '',
+            getsBox: Boolean(newOrderForm.getsBox),
+            isMvp: Boolean(newOrderForm.isMvp)
           };
       
       const newOrder = {
@@ -2386,6 +2461,8 @@ export function CustomerDetail() {
         fulfillmentType: fulfillmentTypeToUse,
         statusIndex: newOrderForm.statusIndex,
         highPriority: Boolean(newOrderForm.highPriority),
+        getsBox: Boolean(newOrderForm.getsBox),
+        isMvp: Boolean(newOrderForm.isMvp),
         orderNotes: (newOrderForm.orderNotes || '').trim(),
         notes: (newOrderForm.orderNotes || '').trim(),
         personalInfo: personalInfoToSave,
@@ -2424,6 +2501,8 @@ export function CustomerDetail() {
         trackingNumber: '',
         orderNotes: '',
         highPriority: false,
+        getsBox: false,
+        isMvp: false,
         personalInfo: {
           isIndividual: false,
           gender: '',
@@ -3152,6 +3231,19 @@ export function CustomerDetail() {
         <div className="flex flex-wrap items-center gap-2 justify-end">
           <button
             type="button"
+            onClick={handleToggleCustomerMvp}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              liveCustomerData?.isMvp
+                ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600 shadow-xs'
+                : 'bg-white text-brand-primary border-brand-border hover:border-amber-500 hover:text-amber-600'
+            }`}
+            title={liveCustomerData?.isMvp ? 'Remove MVP status from Customer' : 'Mark Customer as MVP'}
+          >
+            <Star size={14} className={`shrink-0 ${liveCustomerData?.isMvp ? 'fill-white text-white' : ''}`} />
+            <span>{liveCustomerData?.isMvp ? 'MVP' : 'Mark MVP'}</span>
+          </button>
+          <button
+            type="button"
             onClick={handleToggleCustomerHighPriority}
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-pill text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               liveCustomerData?.highPriority
@@ -3192,6 +3284,29 @@ export function CustomerDetail() {
             variant="outline" 
             className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
             onClick={() => {
+              setIsSourcingCollapsed(false);
+              setIsBrandsSectionCollapsed(true);
+              setIsDesignerRackCollapsed(true);
+              setTimeout(() => {
+                const el = document.getElementById('customer-sourcing-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 50);
+            }}
+          >
+            <ShoppingBag size={15} className="shrink-0" />
+            <span>Sourcing ({sourcingSummary.totalUnits})</span>
+            {sourcingSummary.toOrderUnits > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-black">
+                {sourcingSummary.toOrderUnits} to buy
+              </span>
+            )}
+          </PillButton>
+          )}
+          {!isSales && (
+          <PillButton 
+            variant="outline" 
+            className="gap-1.5 px-4 py-2 text-xs whitespace-nowrap shrink-0"
+            onClick={() => {
               setActiveRightTab('roster');
               setIsVaultSectionCollapsed(false);
               const el = document.getElementById('vault-roster-section');
@@ -3219,6 +3334,7 @@ export function CustomerDetail() {
                 shippingZip: liveCustomerData.shippingZip || prev.shippingZip,
                 type: liveCustomerData.type || prev.type,
                 highPriority: Boolean(liveCustomerData.highPriority),
+                isMvp: Boolean(liveCustomerData.isMvp),
                 net30Terms: liveCustomerData.net30Terms ?? prev.net30Terms,
                 fulfillmentType: liveCustomerData.fulfillmentType ?? prev.fulfillmentType,
                 disableRack: liveCustomerData.disableRack ?? prev.disableRack,
@@ -3288,7 +3404,14 @@ export function CustomerDetail() {
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2 cursor-pointer group w-fit" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
-                 <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors">{editCompanyForm.name || 'Unknown Company'}</h1>
+                 <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors flex items-center gap-2">
+                   <span>{editCompanyForm.name || 'Unknown Company'}</span>
+                   {(liveCustomerData?.isMvp || customer?.isMvp) && (
+                     <span title="MVP Customer" className="inline-flex items-center shrink-0">
+                       <Star size={22} className="fill-amber-400 text-amber-500" />
+                     </span>
+                   )}
+                 </h1>
                  <ChevronRight size={22} strokeWidth={3} className={`text-brand-secondary group-hover:text-brand-primary transition-all duration-300 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
                </div>
                <div className="flex items-center gap-4 text-sm text-brand-secondary mb-4">
@@ -3297,6 +3420,11 @@ export function CustomerDetail() {
                   <span className="flex items-center gap-1.5"><Mail size={14} /> {editCompanyForm.email}</span>
                </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {(liveCustomerData?.isMvp || customer?.isMvp) && (
+                    <span className="text-[10px] bg-amber-500 text-white px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                      <Star size={11} className="fill-white text-white" /> MVP
+                    </span>
+                  )}
                   {(liveCustomerData?.highPriority || customer?.highPriority) && (
                     <span className="text-[10px] bg-red-600 text-white px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1 shadow-xs">
                       <AlertTriangle size={11} /> High Priority
@@ -3545,7 +3673,7 @@ export function CustomerDetail() {
           </div>
         )}
 
-        {/* Brands & Designer Rack Row - Side-by-side on parent companies, full-width Designer Rack on subcustomers */}
+        {/* Brands, Designer Rack & Sourcing Row */}
         <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start w-full">
         {!liveCustomerData?.parentCustomerId && (
         <div
@@ -3553,11 +3681,12 @@ export function CustomerDetail() {
             if (isBrandsSectionCollapsed) {
               setIsBrandsSectionCollapsed(false);
               setIsDesignerRackCollapsed(true);
+              setIsSourcingCollapsed(true);
             }
           }}
           className={`w-full ${
-            !isDesignerRackCollapsed && isBrandsSectionCollapsed
-              ? 'lg:w-60 xl:w-64 shrink-0'
+            (!isDesignerRackCollapsed || !isSourcingCollapsed) && isBrandsSectionCollapsed
+              ? 'lg:w-56 xl:w-60 shrink-0'
               : 'lg:flex-1 min-w-0'
           } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
             isBrandsSectionCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
@@ -3568,7 +3697,10 @@ export function CustomerDetail() {
               e.stopPropagation();
               const nextCollapsed = !isBrandsSectionCollapsed;
               setIsBrandsSectionCollapsed(nextCollapsed);
-              if (!nextCollapsed) setIsDesignerRackCollapsed(true);
+              if (!nextCollapsed) {
+                setIsDesignerRackCollapsed(true);
+                setIsSourcingCollapsed(true);
+              }
             }}
             className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
           >
@@ -3580,7 +3712,10 @@ export function CustomerDetail() {
                     e.stopPropagation();
                     const nextCollapsed = !isBrandsSectionCollapsed;
                     setIsBrandsSectionCollapsed(nextCollapsed);
-                    if (!nextCollapsed) setIsDesignerRackCollapsed(true);
+                    if (!nextCollapsed) {
+                      setIsDesignerRackCollapsed(true);
+                      setIsSourcingCollapsed(true);
+                    }
                   }}
                   className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
                 >
@@ -3609,7 +3744,10 @@ export function CustomerDetail() {
                     e.stopPropagation();
                     const nextCollapsed = !isBrandsSectionCollapsed;
                     setIsBrandsSectionCollapsed(nextCollapsed);
-                    if (!nextCollapsed) setIsDesignerRackCollapsed(true);
+                    if (!nextCollapsed) {
+                      setIsDesignerRackCollapsed(true);
+                      setIsSourcingCollapsed(true);
+                    }
                   }}
                   className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                   title={isBrandsSectionCollapsed ? "Expand Brands" : "Collapse Brands"}
@@ -3739,11 +3877,12 @@ export function CustomerDetail() {
               if (isDesignerRackCollapsed) {
                 setIsDesignerRackCollapsed(false);
                 setIsBrandsSectionCollapsed(true);
+                setIsSourcingCollapsed(true);
               }
             }}
             className={`w-full ${
-              !liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed && isDesignerRackCollapsed
-                ? 'lg:w-60 xl:w-64 shrink-0'
+              ((!liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed) || !isSourcingCollapsed) && isDesignerRackCollapsed
+                ? 'lg:w-56 xl:w-60 shrink-0'
                 : 'lg:flex-1 min-w-0'
             } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
               isDesignerRackCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
@@ -3754,7 +3893,10 @@ export function CustomerDetail() {
                 e.stopPropagation();
                 const nextCollapsed = !isDesignerRackCollapsed;
                 setIsDesignerRackCollapsed(nextCollapsed);
-                if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
+                if (!nextCollapsed) {
+                  setIsBrandsSectionCollapsed(true);
+                  setIsSourcingCollapsed(true);
+                }
               }}
               className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
             >
@@ -3766,7 +3908,10 @@ export function CustomerDetail() {
                       e.stopPropagation();
                       const nextCollapsed = !isDesignerRackCollapsed;
                       setIsDesignerRackCollapsed(nextCollapsed);
-                      if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
+                      if (!nextCollapsed) {
+                        setIsBrandsSectionCollapsed(true);
+                        setIsSourcingCollapsed(true);
+                      }
                     }}
                     className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
                   >
@@ -3795,7 +3940,10 @@ export function CustomerDetail() {
                       e.stopPropagation();
                       const nextCollapsed = !isDesignerRackCollapsed;
                       setIsDesignerRackCollapsed(nextCollapsed);
-                      if (!nextCollapsed) setIsBrandsSectionCollapsed(true);
+                      if (!nextCollapsed) {
+                        setIsBrandsSectionCollapsed(true);
+                        setIsSourcingCollapsed(true);
+                      }
                     }}
                     className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
                     title={isDesignerRackCollapsed ? 'Expand Designer Rack' : 'Collapse Designer Rack'}
@@ -4169,6 +4317,107 @@ export function CustomerDetail() {
               </div>
             )}
           </div>
+
+          {/* Sourcing Dropdown Box - Dedicated place on Customer or Brand page to aggregate & order garment sizes */}
+          {!isSales && (
+          <div
+            id="customer-sourcing-section"
+            onClick={() => {
+              if (isSourcingCollapsed) {
+                setIsSourcingCollapsed(false);
+                setIsBrandsSectionCollapsed(true);
+                setIsDesignerRackCollapsed(true);
+              }
+            }}
+            className={`w-full ${
+              ((!liveCustomerData?.parentCustomerId && !isBrandsSectionCollapsed) || !isDesignerRackCollapsed) && isSourcingCollapsed
+                ? 'lg:w-56 xl:w-64 shrink-0'
+                : 'lg:flex-1 min-w-0'
+            } bg-white rounded-card border border-brand-border shadow-sm p-6 transition-all duration-300 ${
+              isSourcingCollapsed ? 'cursor-pointer hover:border-brand-primary/30' : ''
+            }`}
+          >
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                const nextCollapsed = !isSourcingCollapsed;
+                setIsSourcingCollapsed(nextCollapsed);
+                if (!nextCollapsed) {
+                  setIsBrandsSectionCollapsed(true);
+                  setIsDesignerRackCollapsed(true);
+                }
+              }}
+              className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 cursor-pointer select-none"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex gap-3 items-center min-w-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const nextCollapsed = !isSourcingCollapsed;
+                      setIsSourcingCollapsed(nextCollapsed);
+                      if (!nextCollapsed) {
+                        setIsBrandsSectionCollapsed(true);
+                        setIsDesignerRackCollapsed(true);
+                      }
+                    }}
+                    className="flex items-center pb-2 text-sm font-bold transition-all border-b-2 text-neutral-900 border-neutral-900 cursor-pointer whitespace-nowrap"
+                  >
+                    <span>Sourcing</span>
+                    <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-900 text-white">
+                      {sourcingSummary.totalUnits}
+                    </span>
+                  </button>
+                  {sourcingSummary.toOrderUnits > 0 && (
+                    <span
+                      className="mb-1.5 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider whitespace-nowrap shrink-0"
+                      title={`${sourcingSummary.toOrderUnits} units still need to be ordered from supplier`}
+                    >
+                      {sourcingSummary.toOrderUnits} To Order
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const nextCollapsed = !isSourcingCollapsed;
+                      setIsSourcingCollapsed(nextCollapsed);
+                      if (!nextCollapsed) {
+                        setIsBrandsSectionCollapsed(true);
+                        setIsDesignerRackCollapsed(true);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                    title={isSourcingCollapsed ? 'Expand Sourcing' : 'Collapse Sourcing'}
+                  >
+                    {isSourcingCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {!isSourcingCollapsed && (
+                <p className="text-xs text-brand-secondary">
+                  Consolidated supplier buy sheet across all individual &amp; active orders. View exact size totals per garment, open supplier links, copy size runs, and mark sizes as Ordered or Received across every order at once.
+                </p>
+              )}
+            </div>
+
+            {!isSourcingCollapsed && (
+              <CustomerSourcingPanel
+                orders={orders || []}
+                customerId={id || ''}
+                customerName={editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Customer'}
+                subBrands={subBrands}
+                combinedDesignerRack={combinedDesignerRack}
+                isSales={isSales}
+                onPreviewImage={(img) => setExpandedImage(img)}
+              />
+            )}
+          </div>
+          )}
         </div>
 
         {/* Suggested Items & Asset Vault Row */}
@@ -6862,17 +7111,37 @@ export function CustomerDetail() {
                   <h4 className="text-sm font-bold text-brand-primary flex items-center gap-2">
                     <div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details
                   </h4>
-                  <div className="flex items-center gap-2">
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 transition-colors" title="Mark this individual/order as MVP (shows star next to name)">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.isMvp)}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, isMvp: e.target.checked }))}
+                        className="w-3.5 h-3.5 rounded border-amber-300 text-amber-500 focus:ring-amber-500 cursor-pointer accent-amber-500"
+                      />
+                      <Star size={12} className="fill-amber-400 text-amber-500 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800">MVP</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition-colors" title="Select if this person gets a box (shows box icon next to city)">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(newOrderForm.getsBox)}
+                        onChange={(e) => setNewOrderForm(prev => ({ ...prev, getsBox: e.target.checked }))}
+                        className="w-3.5 h-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 cursor-pointer accent-amber-600"
+                      />
+                      <Box size={12} className="text-amber-700 shrink-0" />
+                      <span className="text-xs font-bold text-amber-800">Gets a Box?</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100/80 border border-red-200 transition-colors">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.highPriority)}
                         onChange={(e) => setNewOrderForm(prev => ({ ...prev, highPriority: e.target.checked }))}
-                        className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
+                        className="w-3.5 h-3.5 rounded border-red-300 text-red-600 focus:ring-red-500 cursor-pointer accent-red-600"
                       />
                       <span className="text-xs font-bold text-red-700">High Priority</span>
                     </label>
-                    <label className="inline-flex items-center gap-2 cursor-pointer select-none px-3 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200/80 border border-brand-border transition-colors">
                       <input
                         type="checkbox"
                         checked={Boolean(newOrderForm.personalInfo?.isIndividual)}
@@ -6886,7 +7155,7 @@ export function CustomerDetail() {
                             }
                           }));
                         }}
-                        className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
+                        className="w-3.5 h-3.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer"
                       />
                       <span className="text-xs font-bold text-brand-primary">Individual?</span>
                     </label>
