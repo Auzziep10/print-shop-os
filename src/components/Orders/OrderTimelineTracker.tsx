@@ -12,6 +12,25 @@ import {
   formatTimelineDate,
   toDateInputValue
 } from '../../lib/timelineUtils';
+import { formatEstDelivery, formatEventTime, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+
+const DARK_DOT: Record<TrackingTone, string> = {
+  neutral: 'bg-neutral-400',
+  blue: 'bg-blue-400',
+  amber: 'bg-amber-400',
+  green: 'bg-emerald-400',
+  red: 'bg-red-400',
+};
+const TONE_TEXT: Record<TrackingTone, string> = {
+  neutral: 'text-neutral-500',
+  blue: 'text-blue-700',
+  amber: 'text-amber-700',
+  green: 'text-emerald-700',
+  red: 'text-red-600',
+};
+
+const isShipStep = (step: string) => /ship/i.test(step);
+const shortEst = (iso?: string | null) => formatEstDelivery(iso)?.replace(/,.*$/, '') || null;
 
 interface OrderTimelineTrackerProps {
   order: any;
@@ -33,6 +52,10 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   const [draftMilestones, setDraftMilestones] = useState<TimelineMilestonesMap>({});
 
   const activeSteps = getOrderTimelineSteps(order, customerFulfillmentType, pipelines);
+  // Outgoing boxes with a carrier tracking number (live status comes from the EasyPost webhook)
+  const trackedBoxes: any[] = (Array.isArray(order?.boxes) ? order.boxes : []).filter(
+    (b: any) => b?.trackingNumber && b.trackingCarrier !== 'Pickup'
+  );
   const lastStepName = activeSteps[activeSteps.length - 1] || 'Received';
   const visualIndex = computeOrderVisualTimelineIndex(order, customerFulfillmentType, pipelines);
   const fillWidth = `${(visualIndex / Math.max(1, activeSteps.length - 1)) * 100}%`;
@@ -227,6 +250,35 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                           Target was: {expectedFormatted}
                         </span>
                       )}
+                      {isShipStep(step) && trackedBoxes.length > 0 && (
+                        <div className="w-full border-t border-neutral-700/80 pt-1.5 mt-1 flex flex-col gap-1.5 items-start">
+                          {trackedBoxes.slice(0, 3).map((b: any) => {
+                            const tone = trackingTone(b.trackingStatus);
+                            const est = b.trackingStatus !== 'delivered' ? shortEst(b.trackingEstDelivery) : null;
+                            const last = b.trackingLastEvent;
+                            return (
+                              <div key={b.id} className="flex flex-col items-start max-w-[240px]">
+                                <span className="flex items-center gap-1.5 text-[10px] font-bold">
+                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DARK_DOT[tone]} ${b.trackingStatus === 'out_for_delivery' ? 'animate-pulse' : ''}`} />
+                                  {trackedBoxes.length > 1 && <span className="text-neutral-400 font-semibold">{b.name || 'Box'}:</span>}
+                                  <span>{b.trackingStatusLabel || 'Awaiting carrier scan'}</span>
+                                  {est && <span className="text-neutral-400 font-semibold">· Est. {est}</span>}
+                                </span>
+                                {last?.message && (
+                                  <span className="text-[9px] text-neutral-400 pl-3 truncate max-w-[240px]">
+                                    {last.message}
+                                    {last.location ? ` — ${last.location}` : ''}
+                                    {last.datetime ? ` · ${formatEventTime(last.datetime)}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {trackedBoxes.length > 3 && (
+                            <span className="text-[9px] text-neutral-400 pl-3">+{trackedBoxes.length - 3} more boxes</span>
+                          )}
+                        </div>
+                      )}
                       {canEdit && (
                         <span className="text-[9px] text-neutral-400 border-t border-neutral-700/80 pt-0.5 mt-0.5">
                           Click to set target date or flag delay
@@ -308,16 +360,16 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
               <div
                 key={`${step}-${idx}`}
                 onClick={(e) => openEditorForStep(e, step)}
-                className={`flex items-center gap-3 relative ${canEdit ? 'cursor-pointer' : ''}`}
+                className={`flex flex-wrap items-center gap-3 relative ${canEdit ? 'cursor-pointer' : ''}`}
               >
                 {/* Dot */}
                 {isDelayed ? (
-                  <div className="absolute -left-[25px] w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white z-10 shadow-sm">
+                  <div className="absolute -left-[25px] top-[-1px] w-[18px] h-[18px] rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center ring-4 ring-white z-10 shadow-sm">
                     !
                   </div>
                 ) : (
                   <div
-                    className={`absolute -left-[23px] w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
+                    className={`absolute -left-[23px] top-[1px] w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
                       isCompleted
                         ? 'bg-black ring-4 ring-white'
                         : 'bg-white border-2 border-neutral-300 ring-4 ring-white'
@@ -350,6 +402,22 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
                     </span>
                   )}
                 </div>
+                {isShipStep(step) && trackedBoxes.some((b: any) => b.trackingStatus) && (
+                  <div className="basis-full w-full -mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {trackedBoxes.filter((b: any) => b.trackingStatus).slice(0, 3).map((b: any) => {
+                      const tone = trackingTone(b.trackingStatus);
+                      const est = b.trackingStatus !== 'delivered' ? shortEst(b.trackingEstDelivery) : null;
+                      return (
+                        <span key={b.id} className={`flex items-center gap-1 text-[10px] font-bold ${TONE_TEXT[tone]}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${DARK_DOT[tone]}`} />
+                          {trackedBoxes.length > 1 ? `${b.name || 'Box'}: ` : ''}
+                          {b.trackingStatusLabel}
+                          {est ? ` · Est. ${est}` : ''}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}

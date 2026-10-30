@@ -60,6 +60,21 @@ async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: 
   }
 }
 
+const autoStartAttempts = new Map<string, Promise<{ ok: boolean; error?: string }>>();
+
+/**
+ * Starts live tracking automatically, at most once per key per page load,
+ * so a list of chips rendering (and re-rendering) doesn't spam the server.
+ * Returns the same result to every caller that shares the key.
+ */
+export function autoStartOnce(key: string, start: () => Promise<{ ok: boolean; error?: string }>) {
+  const existing = autoStartAttempts.get(key);
+  if (existing) return existing;
+  const attempt = start();
+  autoStartAttempts.set(key, attempt);
+  return attempt;
+}
+
 export type TrackingTone = 'neutral' | 'blue' | 'amber' | 'green' | 'red';
 
 export function trackingTone(status?: string): TrackingTone {
