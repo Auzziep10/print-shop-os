@@ -25,11 +25,7 @@ function verifySignature(rawBody: string, header: string | null, secret: string)
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export default async function handler(req: Request) {
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
-  }
-
+export async function POST(req: Request) {
   const secret = (process.env.EASYPOST_WEBHOOK_SECRET || '').trim();
   if (!secret) {
     console.error('EASYPOST_WEBHOOK_SECRET is not set — rejecting webhook.');

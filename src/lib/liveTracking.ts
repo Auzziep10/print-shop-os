@@ -33,9 +33,12 @@ export function startLiveTracking(orderId: string, boxId: string, isTest = false
   return requestTracking({ orderId, boxId, isTest });
 }
 
-/** Same as startLiveTracking, for an incoming garment package (order.inboundShipments[]). */
-export function startInboundTracking(orderId: string, inboundId: string) {
-  return requestTracking({ orderId, inboundId });
+/**
+ * Same as startLiveTracking, for garments coming from a supplier (Sourcing tab).
+ * Items must already be saved with their sourcingTrackingNumber.
+ */
+export function startSourcingTracking(items: { orderId: string; itemId: string }[]) {
+  return requestTracking({ items });
 }
 
 async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {

@@ -3,7 +3,6 @@ import { tokens } from '../../lib/tokens';
 import { useState, useEffect, useMemo } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
-import { IncomingGarments } from '../../components/Orders/IncomingGarments';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
@@ -7138,8 +7137,6 @@ export function OrderDetail() {
             </div>
           )}
           
-          <IncomingGarments order={order} canEdit={!isSales} />
-
           <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
           
           {/* Costs & Receipts Tracker Section */}

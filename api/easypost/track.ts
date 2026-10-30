@@ -11,52 +11,75 @@ import {
 } from '../_lib/easypostTracking';
 
 /**
- * Starts live tracking for one package on an order.
+ * Starts live tracking for a package.
  *
- * POST { orderId, boxId }      → outgoing box (order.boxes[])
- * POST { orderId, inboundId }  → incoming garment package (order.inboundShipments[])
- * optional: isTest
+ * POST { orderId, boxId, isTest? }
+ *   → outgoing box (order.boxes[]); number from box.trackingNumber
  *
- * Reads the tracking number and carrier from the saved entry (not from the
- * request), registers it with EasyPost, links it to the order for the
- * webhook, and saves the current status onto the entry.
+ * POST { items: [{ orderId, itemId }, ...] }
+ *   → garments coming from a supplier (Sourcing tab); number from
+ *     item.sourcingTrackingNumber. One supplier package can cover garments
+ *     on several orders, so every listed item is linked.
  *
- * Labels bought through EasyPost already have a tracker — EasyPost returns
- * that same tracker instead of creating a new one.
+ * Reads tracking numbers from the saved records (not from the request),
+ * registers the number with EasyPost, links it for the webhook, and saves
+ * the current status. Labels bought through EasyPost already have a
+ * tracker — EasyPost returns that same tracker.
  */
 
 const json = (body: any, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-export default async function handler(req: Request) {
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-
+export async function POST(req: Request) {
   try {
-    const { orderId, boxId, inboundId, isTest } = await req.json();
-    if (!orderId || (!boxId && !inboundId)) return json({ error: 'orderId and boxId or inboundId are required' }, 400);
-
-    const kind: TrackingTarget['kind'] = inboundId ? 'inbound' : 'box';
-    const entryId = String(inboundId || boxId);
-    const field = kind === 'inbound' ? 'inboundShipments' : 'boxes';
-
+    const body = await req.json();
     const db = getServerDb();
-    const orderSnap = await db.collection('orders').doc(String(orderId)).get();
-    if (!orderSnap.exists) return json({ error: 'Order not found' }, 404);
 
-    const entry = (orderSnap.data()?.[field] || []).find((e: any) => e?.id === entryId);
-    const trackingCode = String(entry?.trackingNumber || '').replace(/\s+/g, '');
-    if (!entry || !trackingCode) return json({ error: 'No tracking number saved for this package yet' }, 400);
-    if (entry.trackingCarrier === 'Pickup') return json({ error: 'Pickup/local deliveries are not tracked' }, 400);
+    const targets: TrackingTarget[] = [];
+    let trackingCode = '';
+    let carrierHint: string | undefined;
+    let isTest = Boolean(body?.isTest);
+
+    if (Array.isArray(body?.items) && body.items.length) {
+      const refs = body.items
+        .filter((r: any) => r?.orderId && r?.itemId)
+        .slice(0, 100)
+        .map((r: any) => ({ orderId: String(r.orderId), itemId: String(r.itemId) }));
+      const orderIds = Array.from(new Set(refs.map((r: any) => r.orderId))) as string[];
+      const snaps = await Promise.all(orderIds.map((id) => db.collection('orders').doc(id).get()));
+      const ordersById = new Map(snaps.filter((s) => s.exists).map((s) => [s.id, s.data() || {}]));
+
+      for (const r of refs) {
+        const item = (ordersById.get(r.orderId)?.items || []).find((i: any) => String(i?.id) === r.itemId);
+        const code = String(item?.sourcingTrackingNumber || '').replace(/\s+/g, '');
+        if (!code) continue;
+        if (!trackingCode) trackingCode = code;
+        if (trackingDocId(code) !== trackingDocId(trackingCode)) continue;
+        targets.push({ orderId: r.orderId, kind: 'item', id: r.itemId });
+      }
+      if (!trackingCode) return json({ error: 'No supplier tracking number saved on these garments yet' }, 400);
+    } else if (body?.orderId && body?.boxId) {
+      const orderSnap = await db.collection('orders').doc(String(body.orderId)).get();
+      if (!orderSnap.exists) return json({ error: 'Order not found' }, 404);
+      const box = (orderSnap.data()?.boxes || []).find((b: any) => b?.id === body.boxId);
+      trackingCode = String(box?.trackingNumber || '').replace(/\s+/g, '');
+      if (!box || !trackingCode) return json({ error: 'This box has no tracking number yet' }, 400);
+      if (box.trackingCarrier === 'Pickup') return json({ error: 'Pickup/local deliveries are not tracked' }, 400);
+      carrierHint = box.trackingCarrier;
+      targets.push({ orderId: String(body.orderId), kind: 'box', id: String(body.boxId) });
+    } else {
+      return json({ error: 'Send { orderId, boxId } or { items: [{ orderId, itemId }] }' }, 400);
+    }
 
     // EasyPost test-mode tracking codes look like EZ1000000001
-    const testMode = Boolean(isTest) || /^EZ\d+$/i.test(trackingCode);
-    const apiKey = easyPostKey(testMode);
+    isTest = isTest || /^EZ\d+$/i.test(trackingCode);
+    const apiKey = easyPostKey(isTest);
     if (!apiKey) {
-      return json({ error: `${testMode ? 'EASYPOST_TEST_KEY' : 'EASYPOST_PROD_KEY'} is not set in Vercel` }, 500);
+      return json({ error: `${isTest ? 'EASYPOST_TEST_KEY' : 'EASYPOST_PROD_KEY'} is not set in Vercel` }, 500);
     }
 
     // Carrier is optional — EasyPost detects it from the number when blank
-    const carrier = normalizeEasyPostCarrier(entry.trackingCarrier);
+    const carrier = normalizeEasyPostCarrier(carrierHint);
     const epRes = await fetch('https://api.easypost.com/v2/trackers', {
       method: 'POST',
       headers: {
@@ -70,16 +93,15 @@ export default async function handler(req: Request) {
       return json({ error: `EasyPost: ${tracker?.error?.message || 'could not create tracker'}` }, 400);
     }
 
-    // Link tracking number → this order entry so webhook updates find their way back.
-    // arrayUnion keeps other orders sharing the same supplier package linked too.
-    const target: TrackingTarget = { orderId: String(orderId), kind, id: entryId };
+    // Link tracking number → these records so webhook updates find their way back.
+    // arrayUnion keeps anything else already sharing this package linked too.
     await db.collection(SHIPMENTS_COLLECTION).doc(trackingDocId(trackingCode)).set(
       {
         trackingCode,
         carrier: tracker.carrier || carrier || null,
         easyPostTrackerId: tracker.id,
-        mode: tracker.mode || (testMode ? 'test' : 'production'),
-        targets: FieldValue.arrayUnion(target),
+        mode: tracker.mode || (isTest ? 'test' : 'production'),
+        targets: FieldValue.arrayUnion(...targets),
         createdAt: new Date().toISOString(),
       },
       { merge: true },
@@ -87,7 +109,7 @@ export default async function handler(req: Request) {
 
     await applyTrackerToOrder(db, tracker);
 
-    return json({ ok: true, carrier: tracker.carrier || null, ...summarizeTracker(tracker) });
+    return json({ ok: true, linked: targets.length, carrier: tracker.carrier || null, ...summarizeTracker(tracker) });
   } catch (err: any) {
     console.error('Start tracking failed:', err);
     return json({ error: err?.message || 'Internal server error' }, 500);
