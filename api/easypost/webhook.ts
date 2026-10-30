@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { getServerDb } from '../_lib/serverFirestore';
-import { applyTrackerToOrder } from '../_lib/easypostTracking';
+import { getServerDb } from '../_lib/serverFirestore.js';
+import { applyTrackerToOrder } from '../_lib/easypostTracking.js';
 
 /**
  * EasyPost webhook receiver — live tracking updates.
