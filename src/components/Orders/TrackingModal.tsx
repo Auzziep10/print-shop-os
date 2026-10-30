@@ -3,6 +3,7 @@ import { X, Truck, MapPin, Copy } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { startLiveTracking, withoutLiveTracking } from '../../lib/liveTracking';
 
 export function TrackingModal({ order, boxId, onClose, customer }: { order: any, boxId: string, onClose: () => void, customer?: any }) {
     const box = order.boxes?.find((b: any) => b.id === boxId);
@@ -135,10 +136,15 @@ export function TrackingModal({ order, boxId, onClose, customer }: { order: any,
                 }
             }
 
+            const trackingChanged =
+                (box?.trackingNumber || '').trim() !== number.trim() ||
+                (box?.trackingCarrier || '') !== carrier;
+            const isTrackable = Boolean(number.trim() && carrier && carrier !== 'Pickup');
+
             const updatedBoxes = (order.boxes || []).map((b: any) => {
                 if (b.id === boxId) {
                     return { 
-                        ...b, 
+                        ...(trackingChanged ? withoutLiveTracking(b) : b), 
                         name: boxName.trim() || b.name,
                         trackingCarrier: carrier, 
                         trackingNumber: number, 
@@ -163,6 +169,10 @@ export function TrackingModal({ order, boxId, onClose, customer }: { order: any,
                 ...(saveToOrderDestinations && isCustom && (address.street1 || address.name) ? { shippingDestinations: updatedDestinations } : {}),
                 activities: [activity, ...(order.activities || [])]
             }, { merge: true });
+            if (isTrackable && (trackingChanged || !box?.trackingStatus)) {
+                // Live carrier status updates (EasyPost webhook); runs in the background
+                void startLiveTracking(order.id, boxId);
+            }
             onClose();
         } catch(e) {
             console.error("Error saving tracking", e);

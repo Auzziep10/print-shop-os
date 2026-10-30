@@ -13,12 +13,14 @@ import {
   RotateCcw,
   Box,
   Link as LinkIcon,
-  Truck,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { startSourcingTracking } from '../../lib/liveTracking';
+import { SourcingTrackingChip } from './SourcingTrackingChip';
 import { isDiscountItem, isNonGarmentItem, sortGarmentSizes, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
 import {
   useFulfillmentPipelines,
@@ -86,6 +88,8 @@ interface AggregatedGarmentGroup {
   receivedQty: number;
   sourcingOrderedAt: string;
   sourcingTrackingNumber: string;
+  /** Live carrier status from the EasyPost webhook (saved on the items as sourcingTracking) */
+  sourcingTracking: any;
   sizesMap: Record<string, AggregatedSizeBucket>;
   occurrences: OccurrenceRef[];
 }
@@ -326,6 +330,7 @@ export function CustomerSourcingPanel({
             receivedQty: 0,
             sourcingOrderedAt: '',
             sourcingTrackingNumber: '',
+            sourcingTracking: null,
             sizesMap: {},
             occurrences: []
           };
@@ -336,6 +341,14 @@ export function CustomerSourcingPanel({
         if (!group.sourcingUrl && sourcingUrl) group.sourcingUrl = sourcingUrl;
         if (!group.sizingAdjustment && sizingAdjustment) group.sizingAdjustment = sizingAdjustment;
         if (!group.sourcingTrackingNumber && itemTracking) group.sourcingTrackingNumber = itemTracking;
+        if (
+          !group.sourcingTracking &&
+          item.sourcingTracking?.trackingStatus &&
+          itemTracking &&
+          itemTracking === group.sourcingTrackingNumber
+        ) {
+          group.sourcingTracking = item.sourcingTracking;
+        }
         if (!group.brandNames.includes(orderBrandName)) {
           group.brandNames.push(orderBrandName);
         }
@@ -746,6 +759,18 @@ export function CustomerSourcingPanel({
     }
   };
 
+  const trackingRefsForGroup = (group: AggregatedGarmentGroup) => {
+    const seen = new Set<string>();
+    return group.occurrences
+      .map((o) => ({ orderId: o.orderId, itemId: String(o.itemId) }))
+      .filter((r) => {
+        const k = `${r.orderId}__${r.itemId}`;
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+  };
+
   const handleSaveGroupTrackingNumber = async (group: AggregatedGarmentGroup) => {
     if (isSales) return;
     const trimmed = trackingInputVal.trim();
@@ -769,15 +794,22 @@ export function CustomerSourcingPanel({
           if (!orderDoc || !Array.isArray(orderDoc.items)) return;
           const updatedItems = orderDoc.items.map((item: any) => {
             if (!itemIdsByOrder[orderId]?.has(String(item.id))) return item;
+            const changed = (item.sourcingTrackingNumber || '').trim() !== trimmed;
             return {
               ...item,
-              sourcingTrackingNumber: trimmed
+              sourcingTrackingNumber: trimmed,
+              // Old live status belongs to the old number
+              ...(changed ? { sourcingTracking: null } : {})
             };
           });
           await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
         })
       );
       setEditingTrackingGroupKey(null);
+      if (trimmed) {
+        // Live carrier status via EasyPost; fills in on its own, never blocks saving
+        void startSourcingTracking(trackingRefsForGroup(group));
+      }
     } catch (err) {
       console.error('Failed to save sourcing tracking number:', err);
     } finally {
@@ -1301,19 +1333,32 @@ export function CustomerSourcingPanel({
                                   </button>
                                 ) : (
                                   <>
-                                    {hasTrackingNumber && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
+                                    {hasTrackingNumber ? (
+                                      <SourcingTrackingChip
+                                        trackingNumber={group.sourcingTrackingNumber}
+                                        tracking={group.sourcingTracking}
+                                        disabled={isSales}
+                                        onEdit={() => {
                                           setEditingTrackingGroupKey(group.key);
                                           setTrackingInputVal(group.sourcingTrackingNumber || '');
                                         }}
-                                        title={`Supplier Tracking #: ${group.sourcingTrackingNumber} (Click to edit)`}
-                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer max-w-[120px]"
-                                      >
-                                        <Truck size={11} className="shrink-0" />
-                                        <span className="truncate">{group.sourcingTrackingNumber}</span>
-                                      </button>
+                                        onStartTracking={() => startSourcingTracking(trackingRefsForGroup(group))}
+                                      />
+                                    ) : (
+                                      !isSales && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingTrackingGroupKey(group.key);
+                                            setTrackingInputVal('');
+                                          }}
+                                          title="Add the supplier's tracking number to see live delivery status"
+                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white text-neutral-600 border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
+                                        >
+                                          <Plus size={11} strokeWidth={2.5} />
+                                          <span>Tracking</span>
+                                        </button>
+                                      )
                                     )}
                                     <button
                                       type="button"
