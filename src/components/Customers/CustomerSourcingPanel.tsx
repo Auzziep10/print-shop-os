@@ -1085,11 +1085,6 @@ export function CustomerSourcingPanel({
                                     <span className="font-bold text-neutral-700">#{group.itemNum}</span>
                                   )}
                                   {group.color && <span className="truncate">• {group.color}</span>}
-                                  {group.sizingAdjustment && group.sizingAdjustment !== 'True to Size' && (
-                                    <span className="text-[9.5px] bg-amber-50 border border-amber-300 text-amber-800 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">
-                                      {group.sizingAdjustment}
-                                    </span>
-                                  )}
                                   {group.brandNames.map((bn) => (
                                     <span
                                       key={bn}
@@ -1679,11 +1674,6 @@ export function CustomerSourcingPanel({
                                   }`}
                                 >
                                   <span className="truncate max-w-[160px]">{displayTitle}</span>
-                                  {itSizing && itSizing !== 'True to Size' && (
-                                    <span className="font-bold text-[9.5px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                                      {itSizing}
-                                    </span>
-                                  )}
                                   <span className="font-black text-[10px] px-1.5 py-0.2 rounded bg-black/5">
                                     {displaySz}
                                   </span>
