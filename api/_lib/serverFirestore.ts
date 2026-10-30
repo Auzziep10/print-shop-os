@@ -47,7 +47,7 @@ export function getServerDb(): Firestore {
 
   if (!projectNumber || !serviceAccount) {
     throw new Error(
-      'Server database access is not configured. Set GCP_PROJECT_NUMBER and GCP_SERVICE_ACCOUNT_EMAIL in Vercel (keyless sign-in), or FIREBASE_SERVICE_ACCOUNT.',
+      "Live tracking isn't set up yet: add GCP_PROJECT_NUMBER and GCP_SERVICE_ACCOUNT_EMAIL in Vercel.",
     );
   }
 

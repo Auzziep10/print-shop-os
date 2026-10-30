@@ -1,5 +1,5 @@
 import { FieldValue } from '@google-cloud/firestore';
-import { getServerDb } from '../_lib/serverFirestore';
+import { getServerDb } from '../_lib/serverFirestore.js';
 import {
   SHIPMENTS_COLLECTION,
   applyTrackerToOrder,
@@ -8,7 +8,7 @@ import {
   summarizeTracker,
   trackingDocId,
   type TrackingTarget,
-} from '../_lib/easypostTracking';
+} from '../_lib/easypostTracking.js';
 
 /**
  * Starts live tracking for a package.
