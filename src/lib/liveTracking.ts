@@ -37,8 +37,11 @@ export function startLiveTracking(orderId: string, boxId: string, isTest = false
  * Same as startLiveTracking, for garments coming from a supplier (Sourcing tab).
  * Items must already be saved with their sourcingTrackingNumber.
  */
-export function startSourcingTracking(items: { orderId: string; itemId: string }[]) {
-  return requestTracking({ items });
+export function startSourcingTracking(
+  items: { orderId: string; itemId: string; size?: string }[],
+  trackingNumber?: string
+) {
+  return requestTracking({ items, ...(trackingNumber ? { trackingNumber } : {}) });
 }
 
 async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {

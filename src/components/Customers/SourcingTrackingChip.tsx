@@ -30,12 +30,14 @@ export function SourcingTrackingChip({
   trackingNumber,
   tracking,
   onEdit,
+  onRemove,
   onStartTracking,
   disabled,
 }: {
   trackingNumber: string;
   tracking?: any;
   onEdit: () => void;
+  onRemove?: () => void;
   onStartTracking: () => Promise<{ ok: boolean; error?: string }>;
   disabled?: boolean;
 }) {
@@ -219,7 +221,21 @@ export function SourcingTrackingChip({
               </div>
             )}
 
-            <div className="mt-3 pt-3 border-t border-brand-border/70 flex justify-end">
+            <div className="mt-3 pt-3 border-t border-brand-border/70 flex items-center justify-between gap-2">
+              {onRemove ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onRemove();
+                  }}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 px-2.5 py-1 rounded-full border border-red-200 hover:bg-red-50"
+                >
+                  <X size={10} /> Remove
+                </button>
+              ) : (
+                <span />
+              )}
               <button
                 type="button"
                 onClick={() => {

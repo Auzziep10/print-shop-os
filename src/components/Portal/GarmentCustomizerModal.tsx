@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, auth } from '../../lib/firebase';
-import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye, UserPlus } from 'lucide-react';
+import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye, UserPlus, ZoomIn, ZoomOut, RotateCcw, Crosshair } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
@@ -1244,6 +1244,111 @@ export function GarmentCustomizerModal({
   const dragStartPos = useRef({ x: 0, y: 0, offsetX: 50, offsetY: 45 });
   const resizeStartPos = useRef({ x: 0, scale: 30, containerWidth: 500 });
 
+  // Preview Zoom & Pan state
+  const previewViewportRef = useRef<HTMLDivElement>(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const clampPanOffset = (panX: number, panY: number, zoom: number) => {
+    if (zoom <= 1) return { x: 0, y: 0 };
+    const vp = previewViewportRef.current;
+    const w = vp?.clientWidth || boardSize?.w || 500;
+    const h = vp?.clientHeight || boardSize?.h || 625;
+    const maxPanX = (w * (zoom - 1)) / 2;
+    const maxPanY = (h * (zoom - 1)) / 2;
+    return {
+      x: Math.max(-maxPanX, Math.min(maxPanX, panX)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, panY)),
+    };
+  };
+
+  const applyZoom = (targetZoom: number, focalPoint?: { clientX?: number; clientY?: number; focusLogo?: boolean }) => {
+    const nextZoom = Math.max(1, Math.min(4, Math.round(targetZoom * 100) / 100));
+    if (nextZoom <= 1) {
+      setPreviewZoom(1);
+      setPanOffset({ x: 0, y: 0 });
+      return;
+    }
+
+    const vp = previewViewportRef.current;
+    const w = vp?.clientWidth || boardSize?.w || 500;
+    const h = vp?.clientHeight || boardSize?.h || 625;
+
+    let nextPanX = panOffset.x;
+    let nextPanY = panOffset.y;
+
+    if (focalPoint?.focusLogo && (selectedLogo || (activeTab === 'tag' && selectedTagElementId))) {
+      const ux = (offsetX / 100 - 0.5) * w;
+      const uy = (offsetY / 100 - 0.5) * h;
+      nextPanX = -ux * nextZoom;
+      nextPanY = -uy * nextZoom;
+    } else if (typeof focalPoint?.clientX === 'number' && typeof focalPoint?.clientY === 'number' && vp) {
+      const vpRect = vp.getBoundingClientRect();
+      const cx = focalPoint.clientX - (vpRect.left + vpRect.width / 2);
+      const cy = focalPoint.clientY - (vpRect.top + vpRect.height / 2);
+      nextPanX = cx - ((cx - panOffset.x) * nextZoom) / previewZoom;
+      nextPanY = cy - ((cy - panOffset.y) * nextZoom) / previewZoom;
+    } else if (previewZoom === 1 && (selectedLogo || (activeTab === 'tag' && selectedTagElementId))) {
+      // When zooming in from 1x via buttons and a logo is present, center toward the logo
+      const ux = (offsetX / 100 - 0.5) * w;
+      const uy = (offsetY / 100 - 0.5) * h;
+      nextPanX = -ux * nextZoom;
+      nextPanY = -uy * nextZoom;
+    } else {
+      nextPanX = (panOffset.x * nextZoom) / previewZoom;
+      nextPanY = (panOffset.y * nextZoom) / previewZoom;
+    }
+
+    setPreviewZoom(nextZoom);
+    setPanOffset(clampPanOffset(nextPanX, nextPanY, nextZoom));
+  };
+
+  const handleResetZoom = () => {
+    setPreviewZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  const handleFocusOnLogo = () => {
+    if (previewZoom >= 2.2) {
+      handleResetZoom();
+    } else {
+      applyZoom(2.5, { focusLogo: true });
+    }
+  };
+
+  // Reset zoom when switching view tabs or closing modal
+  useEffect(() => {
+    setPreviewZoom(1);
+    setPanOffset({ x: 0, y: 0 });
+  }, [activeTab, isOpen]);
+
+  // Native wheel listener for smooth cursor-centered zoom without scrolling the page
+  useEffect(() => {
+    const vp = previewViewportRef.current;
+    if (!vp || !isOpen) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+      const nextZoom = Math.max(1, Math.min(4, Math.round(previewZoom * zoomFactor * 100) / 100));
+      if (nextZoom <= 1) {
+        setPreviewZoom(1);
+        setPanOffset({ x: 0, y: 0 });
+        return;
+      }
+      const vpRect = vp.getBoundingClientRect();
+      const cx = e.clientX - (vpRect.left + vpRect.width / 2);
+      const cy = e.clientY - (vpRect.top + vpRect.height / 2);
+      const nextPanX = cx - ((cx - panOffset.x) * nextZoom) / previewZoom;
+      const nextPanY = cy - ((cy - panOffset.y) * nextZoom) / previewZoom;
+      setPreviewZoom(nextZoom);
+      setPanOffset(clampPanOffset(nextPanX, nextPanY, nextZoom));
+    };
+    vp.addEventListener('wheel', onWheel, { passive: false });
+    return () => vp.removeEventListener('wheel', onWheel);
+  }, [isOpen, previewZoom, panOffset, boardSize]);
+
   const getClientPos = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
     if ('touches' in e && e.touches && e.touches.length > 0) {
       return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -1253,6 +1358,19 @@ export function GarmentCustomizerModal({
     }
     const me = e as MouseEvent | React.MouseEvent;
     return { x: me.clientX, y: me.clientY };
+  };
+
+  const handleViewportPanStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (previewZoom <= 1) return;
+    if ('button' in e && e.button !== 0) return;
+    const pos = getClientPos(e);
+    setIsPanning(true);
+    panStartRef.current = {
+      x: pos.x,
+      y: pos.y,
+      panX: panOffset.x,
+      panY: panOffset.y,
+    };
   };
 
   const handleDragMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
@@ -1423,20 +1541,24 @@ export function GarmentCustomizerModal({
   useEffect(() => {
     const handleMove = (e: MouseEvent | TouchEvent) => {
       const pos = getClientPos(e);
-      if ((isDragging || isResizing || activeElementDrag || activeElementResize) && e.cancelable) {
+      if ((isDragging || isResizing || activeElementDrag || activeElementResize || isPanning) && e.cancelable) {
         e.preventDefault();
+      }
+
+      if (isPanning) {
+        const dx = pos.x - panStartRef.current.x;
+        const dy = pos.y - panStartRef.current.y;
+        setPanOffset(clampPanOffset(panStartRef.current.panX + dx, panStartRef.current.panY + dy, previewZoom));
+        return;
       }
 
       if (isDragging && previewRef.current) {
         const rect = previewRef.current.getBoundingClientRect();
-        const centerXPct = 50;
-        const centerYPct = 50;
-        const xPercentOfCard = ((pos.x - rect.left) / rect.width) * 100;
-        const yPercentOfCard = ((pos.y - rect.top) / rect.height) * 100;
+        const deltaXPct = ((pos.x - dragStartPos.current.x) / rect.width) * 100;
+        const deltaYPct = ((pos.y - dragStartPos.current.y) / rect.height) * 100;
         
-        const scaleFactor = 1.1;
-        const valX = Math.max(0, Math.min(100, Math.round(centerXPct + (xPercentOfCard - centerXPct) / scaleFactor)));
-        const valY = Math.max(0, Math.min(100, Math.round(centerYPct + (yPercentOfCard - centerYPct) / scaleFactor)));
+        const valX = Math.max(0, Math.min(100, Math.round((dragStartPos.current.offsetX + deltaXPct) * 100) / 100));
+        const valY = Math.max(0, Math.min(100, Math.round((dragStartPos.current.offsetY + deltaYPct) * 100) / 100));
         
         if (activeTab === 'front') {
           setOffsetXFront(valX);
@@ -1460,7 +1582,7 @@ export function GarmentCustomizerModal({
         const containerWidth = resizeStartPos.current.containerWidth || 500;
         const scaleFactor = 1.1;
         const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / (containerWidth * 0.0036));
-        const valScale = Math.max(10, Math.min(150, Math.round(newScale)));
+        const valScale = Math.max(5, Math.min(150, Math.round(newScale * 10) / 10));
         
         if (activeTab === 'front') {
           setScaleFront(valScale);
@@ -1477,8 +1599,10 @@ export function GarmentCustomizerModal({
 
       if (activeElementDrag && previewRef.current) {
         const rect = previewRef.current.getBoundingClientRect();
-        const valX = Math.max(0, Math.min(100, Math.round(((pos.x - rect.left) / rect.width) * 100)));
-        const valY = Math.max(0, Math.min(100, Math.round(((pos.y - rect.top) / rect.height) * 100)));
+        const deltaXPct = ((pos.x - dragStartPos.current.x) / rect.width) * 100;
+        const deltaYPct = ((pos.y - dragStartPos.current.y) / rect.height) * 100;
+        const valX = Math.max(0, Math.min(100, Math.round((dragStartPos.current.offsetX + deltaXPct) * 100) / 100));
+        const valY = Math.max(0, Math.min(100, Math.round((dragStartPos.current.offsetY + deltaYPct) * 100) / 100));
 
         const { id, type } = activeElementDrag;
         if (type === 'logo') {
@@ -1497,7 +1621,7 @@ export function GarmentCustomizerModal({
       if (activeElementResize) {
         const deltaX = pos.x - resizeStartPos.current.x;
         const containerWidth = resizeStartPos.current.containerWidth || 500;
-        const valScale = Math.max(10, Math.min(150, Math.round(resizeStartPos.current.scale + (deltaX / containerWidth) * 100)));
+        const valScale = Math.max(5, Math.min(150, Math.round((resizeStartPos.current.scale + (deltaX / containerWidth) * 100) * 10) / 10));
 
         const { id, type } = activeElementResize;
         if (type === 'logo') {
@@ -1519,9 +1643,10 @@ export function GarmentCustomizerModal({
       setIsResizing(false);
       setActiveElementDrag(null);
       setActiveElementResize(null);
+      setIsPanning(false);
     };
 
-    if (isDragging || isResizing || activeElementDrag || activeElementResize) {
+    if (isDragging || isResizing || activeElementDrag || activeElementResize || isPanning) {
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('mouseup', handleEnd);
       window.addEventListener('touchmove', handleMove, { passive: false });
@@ -1536,7 +1661,7 @@ export function GarmentCustomizerModal({
       window.removeEventListener('touchend', handleEnd);
       window.removeEventListener('touchcancel', handleEnd);
     };
-  }, [isDragging, isResizing, activeElementDrag, activeElementResize, scale, offsetX, offsetY, activeTab]);
+  }, [isDragging, isResizing, activeElementDrag, activeElementResize, isPanning, previewZoom, scale, offsetX, offsetY, activeTab, isSleeveMirrored]);
 
   // Initialize and restore saved customization settings if editing an existing customization
   useEffect(() => {
@@ -2562,12 +2687,92 @@ export function GarmentCustomizerModal({
                 available space, so it always fills the window height. */}
             <div ref={boardWrapRef} className="w-full md:flex-1 min-w-0 md:h-full flex items-center justify-center">
             <div
-              ref={previewRef}
+              ref={previewViewportRef}
+              onMouseDown={handleViewportPanStart}
+              onTouchStart={handleViewportPanStart}
               className={`relative bg-white rounded-[1.5rem] md:rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-shadow duration-300 hover:shadow-xl select-none ${
                 boardSize ? '' : `w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'}`
-              }`}
+              } ${previewZoom > 1 ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : ''}`}
               style={boardSize ? { width: boardSize.w, height: boardSize.h } : undefined}
             >
+              {/* Floating Zoom Controls (fixed to viewport corner, outside scaled layer) */}
+              {(!needsGeneration || isGenerated || activeTab === 'tag') && (
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className="absolute bottom-3 right-3 z-40 flex items-center gap-1 rounded-xl border border-neutral-200/90 bg-white/95 backdrop-blur-sm p-1 shadow-md"
+                >
+                  {(selectedLogo || (activeTab === 'tag' && selectedTagElementId)) && (
+                    <button
+                      type="button"
+                      onClick={handleFocusOnLogo}
+                      title={previewZoom >= 2.2 ? 'Reset zoom' : 'Zoom in on logo placement'}
+                      className={`h-7 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                        previewZoom >= 2.2
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-700 hover:bg-neutral-100 hover:text-black'
+                      }`}
+                    >
+                      <Crosshair size={12} />
+                      <span className="hidden sm:inline">{previewZoom >= 2.2 ? 'Focused' : 'Focus Logo'}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => applyZoom(previewZoom - 0.5)}
+                    disabled={previewZoom <= 1}
+                    title="Zoom Out"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-700 hover:bg-neutral-100 hover:text-black disabled:opacity-35 disabled:pointer-events-none transition-colors cursor-pointer"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (previewZoom > 1 ? handleResetZoom() : applyZoom(2, { focusLogo: true }))}
+                    title={previewZoom > 1 ? 'Click to reset zoom to 100%' : 'Click to zoom to 200%'}
+                    className="min-w-[44px] h-7 px-1.5 rounded-lg text-[10px] font-extrabold text-neutral-800 hover:bg-neutral-100 transition-colors cursor-pointer tabular-nums"
+                  >
+                    {Math.round(previewZoom * 100)}%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyZoom(previewZoom + 0.5)}
+                    disabled={previewZoom >= 4}
+                    title="Zoom In"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-700 hover:bg-neutral-100 hover:text-black disabled:opacity-35 disabled:pointer-events-none transition-colors cursor-pointer"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                  {previewZoom > 1 && (
+                    <button
+                      type="button"
+                      onClick={handleResetZoom}
+                      title="Reset Zoom (100%)"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-600 hover:bg-neutral-100 hover:text-black transition-colors cursor-pointer border-l border-neutral-100"
+                    >
+                      <RotateCcw size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {previewZoom > 1 && (
+                <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-40 rounded-full bg-neutral-900/75 backdrop-blur-xs px-3 py-1 text-[10px] font-bold text-white shadow-sm whitespace-nowrap">
+                  Drag shirt to pan · Drag logo to fine-tune · Scroll to zoom
+                </div>
+              )}
+
+              <div
+                ref={previewRef}
+                className="relative w-full h-full flex items-center justify-center select-none"
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${previewZoom})`,
+                  transformOrigin: 'center center',
+                  transition: isPanning || isDragging || isResizing || activeElementDrag || activeElementResize
+                    ? 'none'
+                    : 'transform 150ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+              >
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
@@ -2623,9 +2828,11 @@ export function GarmentCustomizerModal({
                         left: `${offsetX}%`,
                         top: `${offsetY}%`,
                         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                        borderWidth: `${1 / previewZoom}px`,
+                        padding: `${4 / previewZoom}px`,
                         zIndex: 20
                       }}
-                      className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent touch-none"
+                      className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move bg-transparent touch-none"
                     >
                       <img 
                         src={selectedLogo.url} 
@@ -2635,6 +2842,9 @@ export function GarmentCustomizerModal({
                       <div 
                         onMouseDown={handleResizeMouseDown}
                         onTouchStart={handleResizeMouseDown}
+                        style={{
+                          transform: `scale(${1 / previewZoom})`,
+                        }}
                         className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30 touch-none"
                       />
                     </div>
@@ -2657,6 +2867,9 @@ export function GarmentCustomizerModal({
                       <div 
                         onMouseDown={handleResizeMouseDown}
                         onTouchStart={handleResizeMouseDown}
+                        style={{
+                          transform: `scale(${1 / previewZoom})`,
+                        }}
                         className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30 touch-none"
                       />
                     </div>
@@ -2887,6 +3100,7 @@ export function GarmentCustomizerModal({
                   </div>
                 );
               })()}
+              </div>
             </div>
             </div>
           </div>
@@ -3771,12 +3985,13 @@ export function GarmentCustomizerModal({
               <div className="flex flex-col gap-1">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-neutral-500 font-semibold">Scale</span>
-                  <span className="font-bold text-neutral-800">{Math.round(scale)}%</span>
+                  <span className="font-bold text-neutral-800">{Math.round(scale * 10) / 10}%</span>
                 </div>
                 <input
                   type="range"
-                  min="10"
+                  min="5"
                   max="150"
+                  step="0.5"
                   value={scale}
                   onChange={(e) => setScale(Number(e.target.value))}
                   className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"

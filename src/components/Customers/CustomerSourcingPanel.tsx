@@ -41,6 +41,11 @@ interface CustomerSourcingPanelProps {
   onPreviewImage?: (img: { src: string; alt: string }) => void;
 }
 
+interface TrackingInfoEntry {
+  trackingNumber: string;
+  tracking: any;
+}
+
 interface OccurrenceRef {
   orderId: string;
   orderTitle: string;
@@ -59,6 +64,16 @@ interface OccurrenceRef {
   isOrdered: boolean;
   isReceived: boolean;
   isCompleted: boolean;
+  sourcingOrderedAt: string;
+  sourcingTrackingNumber: string;
+  sourcingTracking: any;
+  trackings: TrackingInfoEntry[];
+}
+
+interface GroupTrackingEntry {
+  trackingNumber: string;
+  tracking: any;
+  occurrences: OccurrenceRef[];
 }
 
 interface AggregatedSizeBucket {
@@ -90,6 +105,7 @@ interface AggregatedGarmentGroup {
   sourcingTrackingNumber: string;
   /** Live carrier status from the EasyPost webhook (saved on the items as sourcingTracking) */
   sourcingTracking: any;
+  trackingEntries: GroupTrackingEntry[];
   sizesMap: Record<string, AggregatedSizeBucket>;
   occurrences: OccurrenceRef[];
 }
@@ -148,7 +164,13 @@ export function CustomerSourcingPanel({
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [editingLinkGroupKey, setEditingLinkGroupKey] = useState<string | null>(null);
   const [linkInputVal, setLinkInputVal] = useState<string>('');
-  const [editingTrackingGroupKey, setEditingTrackingGroupKey] = useState<string | null>(null);
+  const [editingTrackingTarget, setEditingTrackingTarget] = useState<{
+    key: string;
+    mode: 'group_add' | 'group_edit' | 'occ_add' | 'occ_edit';
+    groupKey: string;
+    occurrences: OccurrenceRef[];
+    previousTrackingNumber?: string;
+  } | null>(null);
   const [trackingInputVal, setTrackingInputVal] = useState<string>('');
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
@@ -331,6 +353,7 @@ export function CustomerSourcingPanel({
             sourcingOrderedAt: '',
             sourcingTrackingNumber: '',
             sourcingTracking: null,
+            trackingEntries: [],
             sizesMap: {},
             occurrences: []
           };
@@ -340,15 +363,6 @@ export function CustomerSourcingPanel({
         if (!group.image && image) group.image = image;
         if (!group.sourcingUrl && sourcingUrl) group.sourcingUrl = sourcingUrl;
         if (!group.sizingAdjustment && sizingAdjustment) group.sizingAdjustment = sizingAdjustment;
-        if (!group.sourcingTrackingNumber && itemTracking) group.sourcingTrackingNumber = itemTracking;
-        if (
-          !group.sourcingTracking &&
-          item.sourcingTracking?.trackingStatus &&
-          itemTracking &&
-          itemTracking === group.sourcingTrackingNumber
-        ) {
-          group.sourcingTracking = item.sourcingTracking;
-        }
         if (!group.brandNames.includes(orderBrandName)) {
           group.brandNames.push(orderBrandName);
         }
@@ -366,8 +380,47 @@ export function CustomerSourcingPanel({
             isReceived ||
             hasSizeInList(item.orderedSizes, size) ||
             hasSizeInList(item.orderedSizes, rawOrderSize);
-          if (isOrdered && itemOrderedAt && !group.sourcingOrderedAt) {
-            group.sourcingOrderedAt = itemOrderedAt;
+
+          const hasSizeTrackingEntry =
+            item.sourcingTrackingBySize &&
+            typeof item.sourcingTrackingBySize === 'object' &&
+            (size in item.sourcingTrackingBySize || rawOrderSize in item.sourcingTrackingBySize);
+          const sizeTrackingEntry = hasSizeTrackingEntry
+            ? item.sourcingTrackingBySize[size] || item.sourcingTrackingBySize[rawOrderSize]
+            : null;
+
+          const occOrderedAt =
+            (sizeTrackingEntry?.orderedAt || '').trim() || itemOrderedAt;
+
+          const occTrackings: TrackingInfoEntry[] = [];
+          const seenOccTrk = new Set<string>();
+          const pushOccTrk = (num?: string, trkObj?: any) => {
+            const clean = (num || '').trim();
+            if (!clean) return;
+            const norm = clean.replace(/\s+/g, '').toUpperCase();
+            if (seenOccTrk.has(norm)) return;
+            seenOccTrk.add(norm);
+            occTrackings.push({ trackingNumber: clean, tracking: trkObj || null });
+          };
+
+          if (hasSizeTrackingEntry) {
+            pushOccTrk(sizeTrackingEntry?.trackingNumber, sizeTrackingEntry?.tracking);
+            if (Array.isArray(sizeTrackingEntry?.extraTrackings)) {
+              sizeTrackingEntry.extraTrackings.forEach((et: any) => {
+                pushOccTrk(et?.trackingNumber, et?.tracking);
+              });
+            }
+          } else {
+            pushOccTrk(itemTracking, item.sourcingTracking);
+            if (Array.isArray(item.sourcingTrackings)) {
+              item.sourcingTrackings.forEach((t: any) => {
+                pushOccTrk(t?.trackingNumber, t?.tracking);
+              });
+            }
+          }
+
+          if (isOrdered && occOrderedAt && !group.sourcingOrderedAt) {
+            group.sourcingOrderedAt = occOrderedAt;
           }
 
           if (!group.sizesMap[size]) {
@@ -409,8 +462,41 @@ export function CustomerSourcingPanel({
             inferredFromProfile: inferred,
             isOrdered,
             isReceived,
-            isCompleted
+            isCompleted,
+            sourcingOrderedAt: occOrderedAt,
+            sourcingTrackingNumber: occTrackings[0]?.trackingNumber || '',
+            sourcingTracking: occTrackings[0]?.tracking || null,
+            trackings: occTrackings
           };
+
+          occTrackings.forEach((t) => {
+            const norm = t.trackingNumber.replace(/\s+/g, '').toUpperCase();
+            let grpEntry = group.trackingEntries.find(
+              (ge) => ge.trackingNumber.replace(/\s+/g, '').toUpperCase() === norm
+            );
+            if (!grpEntry) {
+              grpEntry = {
+                trackingNumber: t.trackingNumber,
+                tracking: t.tracking || null,
+                occurrences: []
+              };
+              group.trackingEntries.push(grpEntry);
+            } else if (!grpEntry.tracking?.trackingStatus && t.tracking?.trackingStatus) {
+              grpEntry.tracking = t.tracking;
+            }
+            grpEntry.occurrences.push(occ);
+          });
+
+          if (!group.sourcingTrackingNumber && occ.sourcingTrackingNumber) {
+            group.sourcingTrackingNumber = occ.sourcingTrackingNumber;
+            group.sourcingTracking = occ.sourcingTracking;
+          } else if (
+            !group.sourcingTracking?.trackingStatus &&
+            occ.sourcingTracking?.trackingStatus &&
+            occ.sourcingTrackingNumber === group.sourcingTrackingNumber
+          ) {
+            group.sourcingTracking = occ.sourcingTracking;
+          }
 
           bucket.occurrences.push(occ);
           group.occurrences.push(occ);
@@ -641,6 +727,22 @@ export function CustomerSourcingPanel({
                 .map(([sz]) => getAdjustedOrderSize(sz, itemSizingAdjustment))
             );
 
+            const nowItemIso = new Date().toISOString();
+            const nextBySize: Record<string, any> = { ...(item.sourcingTrackingBySize || {}) };
+            const existingItemTrk = (item.sourcingTrackingNumber || '').trim();
+            if (existingItemTrk || (Array.isArray(item.sourcingTrackings) && item.sourcingTrackings.length > 0)) {
+              Array.from(orderedSet).forEach((ordSz) => {
+                if (!(ordSz in nextBySize)) {
+                  nextBySize[ordSz] = {
+                    trackingNumber: existingItemTrk,
+                    tracking: item.sourcingTracking || null,
+                    orderedAt: item.sourcingOrderedAt || '',
+                    extraTrackings: Array.isArray(item.sourcingTrackings) ? item.sourcingTrackings : []
+                  };
+                }
+              });
+            }
+
             matchingOccs.forEach((occ) => {
               const rawSz = occ.rawOrderSize || occ.size;
 
@@ -649,13 +751,35 @@ export function CustomerSourcingPanel({
                 orderedSet.delete(rawSz);
                 receivedSet.delete(occ.size);
                 receivedSet.delete(rawSz);
+                nextBySize[occ.size] = {
+                  trackingNumber: '',
+                  tracking: null,
+                  orderedAt: '',
+                  extraTrackings: []
+                };
               } else if (targetState === 'ordered') {
+                const wasAlreadyOrdered = orderedSet.has(occ.size) || orderedSet.has(rawSz);
                 orderedSet.add(occ.size);
                 if (occ.size !== rawSz && !validAdjustedOrderedSizes.has(rawSz)) {
                   orderedSet.delete(rawSz);
                 }
                 receivedSet.delete(occ.size);
                 receivedSet.delete(rawSz);
+                if (!wasAlreadyOrdered) {
+                  nextBySize[occ.size] = {
+                    trackingNumber: '',
+                    tracking: null,
+                    orderedAt: nowItemIso,
+                    extraTrackings: []
+                  };
+                } else if (!nextBySize[occ.size]) {
+                  nextBySize[occ.size] = {
+                    trackingNumber: existingItemTrk,
+                    tracking: item.sourcingTracking || null,
+                    orderedAt: item.sourcingOrderedAt || nowItemIso,
+                    extraTrackings: []
+                  };
+                }
               } else if (targetState === 'received') {
                 orderedSet.add(occ.size);
                 if (occ.size !== rawSz && !validAdjustedOrderedSizes.has(rawSz)) {
@@ -668,9 +792,8 @@ export function CustomerSourcingPanel({
               }
             });
 
-            const nowItemIso = new Date().toISOString();
             const nextSourcingOrderedAt =
-              orderedSet.size === 0
+              orderedSet.size === 0 && receivedSet.size === 0
                 ? ''
                 : (item.sourcingOrderedAt || '').trim() || nowItemIso;
 
@@ -679,7 +802,8 @@ export function CustomerSourcingPanel({
               sizes: nextSizes,
               orderedSizes: Array.from(orderedSet),
               receivedSizes: Array.from(receivedSet),
-              sourcingOrderedAt: nextSourcingOrderedAt
+              sourcingOrderedAt: nextSourcingOrderedAt,
+              sourcingTrackingBySize: nextBySize
             };
           });
 
@@ -792,28 +916,41 @@ export function CustomerSourcingPanel({
     }
   };
 
-  const trackingRefsForGroup = (group: AggregatedGarmentGroup) => {
+  const trackingRefsForOccurrences = (occs: OccurrenceRef[]) => {
     const seen = new Set<string>();
-    return group.occurrences
-      .map((o) => ({ orderId: o.orderId, itemId: String(o.itemId) }))
+    return occs
+      .map((o) => ({ orderId: o.orderId, itemId: String(o.itemId), size: o.size }))
       .filter((r) => {
-        const k = `${r.orderId}__${r.itemId}`;
+        const k = `${r.orderId}__${r.itemId}__${r.size || ''}`;
         if (seen.has(k)) return false;
         seen.add(k);
         return true;
       });
   };
 
-  const handleSaveGroupTrackingNumber = async (group: AggregatedGarmentGroup) => {
-    if (isSales) return;
-    const trimmed = trackingInputVal.trim();
-    setUpdatingKey(`trk_${group.key}`);
+  const applyTrackingMutationToOccurrences = async (
+    targetOccurrences: OccurrenceRef[],
+    mode: 'group_add' | 'group_edit' | 'occ_add' | 'occ_edit' | 'remove',
+    newTrackingNumber: string,
+    previousTrackingNumber?: string,
+    actionKey?: string
+  ) => {
+    if (isSales || targetOccurrences.length === 0) return;
+    const trimmed = newTrackingNumber.trim();
+    const prevNorm = (previousTrackingNumber || '').trim().replace(/\s+/g, '').toUpperCase();
+    const newNorm = trimmed.replace(/\s+/g, '').toUpperCase();
+
+    if ((mode === 'group_add' || mode === 'occ_add') && !trimmed) {
+      setEditingTrackingTarget(null);
+      return;
+    }
+
+    setUpdatingKey(actionKey || 'trk_save');
     try {
-      const orderIds = Array.from(new Set(group.occurrences.map((o) => o.orderId)));
-      const itemIdsByOrder: Record<string, Set<string>> = {};
-      group.occurrences.forEach((o) => {
-        if (!itemIdsByOrder[o.orderId]) itemIdsByOrder[o.orderId] = new Set();
-        itemIdsByOrder[o.orderId].add(String(o.itemId));
+      const occsByOrder: Record<string, OccurrenceRef[]> = {};
+      targetOccurrences.forEach((occ) => {
+        if (!occsByOrder[occ.orderId]) occsByOrder[occ.orderId] = [];
+        occsByOrder[occ.orderId].push(occ);
       });
 
       const orderMap: Record<string, any> = {};
@@ -822,26 +959,165 @@ export function CustomerSourcingPanel({
       });
 
       await Promise.all(
-        orderIds.map(async (orderId) => {
+        Object.entries(occsByOrder).map(async ([orderId, occList]) => {
           const orderDoc = orderMap[orderId];
           if (!orderDoc || !Array.isArray(orderDoc.items)) return;
+
           const updatedItems = orderDoc.items.map((item: any) => {
-            if (!itemIdsByOrder[orderId]?.has(String(item.id))) return item;
-            const changed = (item.sourcingTrackingNumber || '').trim() !== trimmed;
+            const itemOccs = occList.filter((o) => String(o.itemId) === String(item.id));
+            if (itemOccs.length === 0) return item;
+
+            const nextBySize: Record<string, any> = { ...(item.sourcingTrackingBySize || {}) };
+            const legacyTrk = (item.sourcingTrackingNumber || '').trim();
+            const legacyExtras = Array.isArray(item.sourcingTrackings) ? item.sourcingTrackings : [];
+
+            const rawStyleName = (item.title || item.style || 'Custom Garment').trim();
+            const itemLinkKey = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim().toLowerCase();
+            const itemPsdKey = (item.psdDriveLink || '').trim().toLowerCase();
+            const rackMatch =
+              (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
+              designerRackByTitle[rawStyleName.toLowerCase()] ||
+              (itemPsdKey && designerRackByLink[itemPsdKey]) ||
+              (itemLinkKey && designerRackByLink[itemLinkKey]);
+            const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+            const itemSizing = (item.sizingAdjustment || '').trim();
+            const itemSizingAdjustment =
+              rackSizing && rackSizing !== 'True to Size'
+                ? rackSizing
+                : itemSizing && itemSizing !== 'True to Size'
+                  ? itemSizing
+                  : rackSizing || itemSizing;
+
+            const allItemAdjustedSizes = new Set<string>();
+            Object.entries(item.sizes || {}).forEach(([sz, q]) => {
+              if ((parseInt(String(q), 10) || 0) > 0) {
+                allItemAdjustedSizes.add(getAdjustedOrderSize(sz, itemSizingAdjustment));
+              }
+            });
+            normalizeSizeList(item.orderedSizes).forEach((sz: string) => allItemAdjustedSizes.add(sz.trim().toUpperCase()));
+            itemOccs.forEach((o) => allItemAdjustedSizes.add(o.size));
+
+            if (legacyTrk || legacyExtras.length > 0) {
+              allItemAdjustedSizes.forEach((szKey) => {
+                if (!(szKey in nextBySize)) {
+                  nextBySize[szKey] = {
+                    trackingNumber: legacyTrk,
+                    tracking: item.sourcingTracking || null,
+                    orderedAt: item.sourcingOrderedAt || '',
+                    extraTrackings: [...legacyExtras]
+                  };
+                }
+              });
+            }
+
+            itemOccs.forEach((occ) => {
+              const sz = occ.size;
+              const cur = nextBySize[sz] || {
+                trackingNumber: legacyTrk,
+                tracking: item.sourcingTracking || null,
+                orderedAt: item.sourcingOrderedAt || '',
+                extraTrackings: [...legacyExtras]
+              };
+              const curPrimary = (cur.trackingNumber || '').trim();
+              const curPrimaryNorm = curPrimary.replace(/\s+/g, '').toUpperCase();
+              const curExtras: { trackingNumber: string; tracking?: any }[] = Array.isArray(cur.extraTrackings)
+                ? [...cur.extraTrackings]
+                : [];
+
+              if (mode === 'remove' || ((mode === 'occ_edit' || mode === 'group_edit') && !trimmed)) {
+                if (prevNorm) {
+                  if (curPrimaryNorm === prevNorm) {
+                    const promoted = curExtras.shift();
+                    nextBySize[sz] = {
+                      ...cur,
+                      trackingNumber: promoted?.trackingNumber || '',
+                      tracking: promoted?.tracking || null,
+                      extraTrackings: curExtras
+                    };
+                  } else {
+                    nextBySize[sz] = {
+                      ...cur,
+                      extraTrackings: curExtras.filter(
+                        (e) => (e.trackingNumber || '').trim().replace(/\s+/g, '').toUpperCase() !== prevNorm
+                      )
+                    };
+                  }
+                } else {
+                  nextBySize[sz] = { ...cur, trackingNumber: '', tracking: null, extraTrackings: [] };
+                }
+              } else if (mode === 'occ_edit' || mode === 'group_edit') {
+                if (prevNorm && curPrimaryNorm === prevNorm) {
+                  const changed = curPrimaryNorm !== newNorm;
+                  nextBySize[sz] = {
+                    ...cur,
+                    trackingNumber: trimmed,
+                    tracking: changed ? null : cur.tracking,
+                    extraTrackings: curExtras.filter(
+                      (e) => (e.trackingNumber || '').trim().replace(/\s+/g, '').toUpperCase() !== newNorm
+                    )
+                  };
+                } else if (
+                  prevNorm &&
+                  curExtras.some((e) => (e.trackingNumber || '').trim().replace(/\s+/g, '').toUpperCase() === prevNorm)
+                ) {
+                  nextBySize[sz] = {
+                    ...cur,
+                    extraTrackings: curExtras.map((e) => {
+                      const eNorm = (e.trackingNumber || '').trim().replace(/\s+/g, '').toUpperCase();
+                      if (eNorm !== prevNorm) return e;
+                      return {
+                        trackingNumber: trimmed,
+                        tracking: eNorm === newNorm ? e.tracking : null
+                      };
+                    })
+                  };
+                } else {
+                  const changed = curPrimaryNorm !== newNorm;
+                  nextBySize[sz] = {
+                    ...cur,
+                    trackingNumber: trimmed,
+                    tracking: changed ? null : cur.tracking
+                  };
+                }
+              } else {
+                // occ_add or group_add
+                if (!curPrimary) {
+                  nextBySize[sz] = {
+                    ...cur,
+                    trackingNumber: trimmed,
+                    tracking: null
+                  };
+                } else if (
+                  curPrimaryNorm !== newNorm &&
+                  !curExtras.some((e) => (e.trackingNumber || '').trim().replace(/\s+/g, '').toUpperCase() === newNorm)
+                ) {
+                  nextBySize[sz] = {
+                    ...cur,
+                    extraTrackings: [...curExtras, { trackingNumber: trimmed, tracking: null }]
+                  };
+                }
+              }
+            });
+
+            const firstWithPrimary = Object.values(nextBySize).find(
+              (v: any) => v && typeof v.trackingNumber === 'string' && v.trackingNumber.trim()
+            ) as any;
+
             return {
               ...item,
-              sourcingTrackingNumber: trimmed,
-              // Old live status belongs to the old number
-              ...(changed ? { sourcingTracking: null } : {})
+              sourcingTrackingBySize: nextBySize,
+              sourcingTrackingNumber: firstWithPrimary ? firstWithPrimary.trackingNumber.trim() : '',
+              sourcingTracking: firstWithPrimary ? firstWithPrimary.tracking || null : null
             };
           });
+
           await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
         })
       );
-      setEditingTrackingGroupKey(null);
-      if (trimmed) {
-        // Live carrier status via EasyPost; fills in on its own, never blocks saving
-        void startSourcingTracking(trackingRefsForGroup(group));
+
+      setEditingTrackingTarget(null);
+      if (trimmed && mode !== 'remove') {
+        void startSourcingTracking(trackingRefsForOccurrences(targetOccurrences), trimmed);
       }
     } catch (err) {
       console.error('Failed to save sourcing tracking number:', err);
@@ -1068,11 +1344,18 @@ export function CustomerSourcingPanel({
                     const allOrdered = group.orderedQty >= group.totalQty && group.totalQty > 0;
                     const allReceived = group.receivedQty >= group.totalQty && group.totalQty > 0;
                     const uniqueOrdersCount = new Set(group.occurrences.map((o) => o.orderId)).size;
-                    const orderedAtMs = group.sourcingOrderedAt ? new Date(group.sourcingOrderedAt).getTime() : 0;
-                    const isPast24Hours =
-                      orderedAtMs > 0 && !isNaN(orderedAtMs) && nowMs - orderedAtMs >= 24 * 60 * 60 * 1000;
-                    const hasTrackingNumber = Boolean(group.sourcingTrackingNumber && group.sourcingTrackingNumber.trim());
-                    const isTrackingRequired = allOrdered && !allReceived && isPast24Hours && !hasTrackingNumber;
+                    const untrackedOrderedOccs = group.occurrences.filter(
+                      (o) => o.isOrdered && !o.isReceived && o.trackings.length === 0
+                    );
+                    const hasPast24hUntrackedOcc = untrackedOrderedOccs.some((o) => {
+                      const ms = o.sourcingOrderedAt ? new Date(o.sourcingOrderedAt).getTime() : 0;
+                      return ms > 0 && !isNaN(ms) && nowMs - ms >= 24 * 60 * 60 * 1000;
+                    });
+                    const hasTrackingNumber = group.trackingEntries.length > 0;
+                    const isTrackingRequired = allOrdered && !allReceived && hasPast24hUntrackedOcc;
+                    const isEditingMainRowTracking =
+                      editingTrackingTarget?.groupKey === group.key &&
+                      (editingTrackingTarget.mode === 'group_add' || editingTrackingTarget.mode === 'group_edit');
 
                     return (
                       <React.Fragment key={group.key}>
@@ -1293,8 +1576,8 @@ export function CustomerSourcingPanel({
 
                           {/* Right Actions Column: Batch Status + Expand People */}
                           <td className="py-2.5 pl-3 pr-4 align-middle text-right">
-                            <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
-                              {editingTrackingGroupKey === group.key ? (
+                            <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                              {isEditingMainRowTracking && editingTrackingTarget ? (
                                 <div className="inline-flex items-center gap-1">
                                   <input
                                     type="text"
@@ -1304,9 +1587,15 @@ export function CustomerSourcingPanel({
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
                                         e.preventDefault();
-                                        handleSaveGroupTrackingNumber(group);
+                                        void applyTrackingMutationToOccurrences(
+                                          editingTrackingTarget.occurrences,
+                                          editingTrackingTarget.mode,
+                                          trackingInputVal,
+                                          editingTrackingTarget.previousTrackingNumber,
+                                          editingTrackingTarget.key
+                                        );
                                       } else if (e.key === 'Escape') {
-                                        setEditingTrackingGroupKey(null);
+                                        setEditingTrackingTarget(null);
                                       }
                                     }}
                                     placeholder="Enter tracking #..."
@@ -1314,80 +1603,156 @@ export function CustomerSourcingPanel({
                                   />
                                   <button
                                     type="button"
-                                    disabled={updatingKey === `trk_${group.key}`}
-                                    onClick={() => handleSaveGroupTrackingNumber(group)}
+                                    disabled={updatingKey === editingTrackingTarget.key}
+                                    onClick={() =>
+                                      applyTrackingMutationToOccurrences(
+                                        editingTrackingTarget.occurrences,
+                                        editingTrackingTarget.mode,
+                                        trackingInputVal,
+                                        editingTrackingTarget.previousTrackingNumber,
+                                        editingTrackingTarget.key
+                                      )
+                                    }
                                     className="bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
                                   >
                                     Save
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setEditingTrackingGroupKey(null)}
+                                    onClick={() => setEditingTrackingTarget(null)}
                                     className="text-[10px] text-neutral-400 hover:text-neutral-700 px-1 cursor-pointer"
                                     title="Cancel"
                                   >
                                     ✕
                                   </button>
                                 </div>
-                              ) : !allOrdered ? (
-                                <button
-                                  type="button"
-                                  disabled={updatingKey === `all_ord_${group.key}`}
-                                  onClick={() =>
-                                    applySourcingStatusToOccurrences(
-                                      group.occurrences,
-                                      'ordered',
-                                      `all_ord_${group.key}`
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-50"
-                                >
-                                  <ShoppingBag size={11} />
-                                  <span>Order All</span>
-                                </button>
-                              ) : !allReceived ? (
-                                isTrackingRequired ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingTrackingGroupKey(group.key);
-                                      setTrackingInputVal(group.sourcingTrackingNumber || '');
-                                    }}
-                                    title="24+ hours since sourcing order was placed — click to input supplier tracking #"
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
-                                  >
-                                    <AlertCircle size={11} strokeWidth={2.5} />
-                                    <span>Tracking # Required</span>
-                                  </button>
-                                ) : (
-                                  <>
-                                    {hasTrackingNumber ? (
-                                      <SourcingTrackingChip
-                                        trackingNumber={group.sourcingTrackingNumber}
-                                        tracking={group.sourcingTracking}
-                                        disabled={isSales}
-                                        onEdit={() => {
-                                          setEditingTrackingGroupKey(group.key);
-                                          setTrackingInputVal(group.sourcingTrackingNumber || '');
+                              ) : (
+                                <>
+                                  {group.trackingEntries.map((entry) => (
+                                    <SourcingTrackingChip
+                                      key={entry.trackingNumber}
+                                      trackingNumber={entry.trackingNumber}
+                                      tracking={entry.tracking}
+                                      disabled={isSales}
+                                      onEdit={() => {
+                                        setEditingTrackingTarget({
+                                          key: `grp_edit_${group.key}_${entry.trackingNumber}`,
+                                          mode: 'group_edit',
+                                          groupKey: group.key,
+                                          occurrences: entry.occurrences,
+                                          previousTrackingNumber: entry.trackingNumber
+                                        });
+                                        setTrackingInputVal(entry.trackingNumber);
+                                      }}
+                                      onRemove={
+                                        !isSales
+                                          ? () =>
+                                              void applyTrackingMutationToOccurrences(
+                                                entry.occurrences,
+                                                'remove',
+                                                '',
+                                                entry.trackingNumber,
+                                                `grp_rm_${group.key}_${entry.trackingNumber}`
+                                              )
+                                          : undefined
+                                      }
+                                      onStartTracking={() =>
+                                        startSourcingTracking(
+                                          trackingRefsForOccurrences(entry.occurrences),
+                                          entry.trackingNumber
+                                        )
+                                      }
+                                    />
+                                  ))}
+
+                                  {!isSales && isTrackingRequired ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingTrackingTarget({
+                                          key: `grp_add_${group.key}`,
+                                          mode: 'group_add',
+                                          groupKey: group.key,
+                                          occurrences:
+                                            untrackedOrderedOccs.length > 0
+                                              ? untrackedOrderedOccs
+                                              : group.occurrences
+                                        });
+                                        setTrackingInputVal('');
+                                      }}
+                                      title="24+ hours since sourcing order was placed — click to input supplier tracking #"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
+                                    >
+                                      <AlertCircle size={11} strokeWidth={2.5} />
+                                      <span>Tracking # Required</span>
+                                    </button>
+                                  ) : (
+                                    !isSales &&
+                                    group.orderedQty > 0 &&
+                                    (!hasTrackingNumber || untrackedOrderedOccs.length > 0) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingTrackingTarget({
+                                            key: `grp_add_${group.key}`,
+                                            mode: 'group_add',
+                                            groupKey: group.key,
+                                            occurrences:
+                                              untrackedOrderedOccs.length > 0
+                                                ? untrackedOrderedOccs
+                                                : group.occurrences
+                                          });
+                                          setTrackingInputVal('');
                                         }}
-                                        onStartTracking={() => startSourcingTracking(trackingRefsForGroup(group))}
-                                      />
-                                    ) : (
-                                      !isSales && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditingTrackingGroupKey(group.key);
-                                            setTrackingInputVal('');
-                                          }}
-                                          title="Add the supplier's tracking number to see live delivery status"
-                                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white text-neutral-600 border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
-                                        >
-                                          <Plus size={11} strokeWidth={2.5} />
-                                          <span>Tracking</span>
-                                        </button>
-                                      )
-                                    )}
+                                        title={
+                                          hasTrackingNumber
+                                            ? 'Add tracking number for newly ordered items'
+                                            : "Add the supplier's tracking number to see live delivery status"
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white text-neutral-600 border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
+                                      >
+                                        <Plus size={11} strokeWidth={2.5} />
+                                        <span>Tracking</span>
+                                      </button>
+                                    )
+                                  )}
+
+                                  {!isSales && hasTrackingNumber && untrackedOrderedOccs.length === 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingTrackingTarget({
+                                          key: `grp_add_${group.key}`,
+                                          mode: 'group_add',
+                                          groupKey: group.key,
+                                          occurrences: group.occurrences
+                                        });
+                                        setTrackingInputVal('');
+                                      }}
+                                      title="Add another supplier tracking number"
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-neutral-500 bg-white border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
+                                    >
+                                      <Plus size={11} strokeWidth={2.5} />
+                                    </button>
+                                  )}
+
+                                  {!allOrdered ? (
+                                    <button
+                                      type="button"
+                                      disabled={updatingKey === `all_ord_${group.key}`}
+                                      onClick={() =>
+                                        applySourcingStatusToOccurrences(
+                                          group.occurrences,
+                                          'ordered',
+                                          `all_ord_${group.key}`
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                      <ShoppingBag size={11} />
+                                      <span>Order All</span>
+                                    </button>
+                                  ) : !allReceived ? (
                                     <button
                                       type="button"
                                       disabled={updatingKey === `all_rec_${group.key}`}
@@ -1403,25 +1768,25 @@ export function CustomerSourcingPanel({
                                       <Check size={11} strokeWidth={3} />
                                       <span>Receive All</span>
                                     </button>
-                                  </>
-                                )
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={updatingKey === `all_rst_${group.key}`}
-                                  onClick={() =>
-                                    applySourcingStatusToOccurrences(
-                                      group.occurrences,
-                                      'to_order',
-                                      `all_rst_${group.key}`
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 transition-colors cursor-pointer"
-                                  title="Reset status to To Order"
-                                >
-                                  <RotateCcw size={11} />
-                                  <span>Reset</span>
-                                </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={updatingKey === `all_rst_${group.key}`}
+                                      onClick={() =>
+                                        applySourcingStatusToOccurrences(
+                                          group.occurrences,
+                                          'to_order',
+                                          `all_rst_${group.key}`
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 transition-colors cursor-pointer"
+                                      title="Reset status to To Order"
+                                    >
+                                      <RotateCcw size={11} />
+                                      <span>Reset</span>
+                                    </button>
+                                  )}
+                                </>
                               )}
 
                               <button
@@ -1459,118 +1824,286 @@ export function CustomerSourcingPanel({
                                       <th className="py-1.5 px-3 w-[100px] text-center">Cut</th>
                                       <th className="py-1.5 px-3 w-[90px] text-center">Size</th>
                                       <th className="py-1.5 px-3 w-[70px] text-center">Qty</th>
+                                      <th className="py-1.5 px-3 w-[230px] text-right">Tracking</th>
                                       <th className="py-1.5 px-3 w-[180px] text-right">Status</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-brand-border/40">
-                                    {group.occurrences.map((occ, idx) => (
-                                      <tr key={`${occ.orderId}_${occ.itemId}_${occ.size}_${idx}`} className="hover:bg-neutral-50">
-                                        <td className="py-2 px-3 font-bold text-brand-primary">
-                                          <div className="flex items-center gap-1.5">
-                                            <button
-                                              type="button"
-                                              onClick={() => navigate(`/orders/${occ.orderId}`)}
-                                              className="hover:underline text-left flex items-center gap-1 cursor-pointer"
+                                    {group.occurrences.map((occ, idx) => {
+                                      const occRowKey = `${occ.orderId}_${occ.itemId}_${occ.size}_${idx}`;
+                                      const isEditingThisOcc =
+                                        editingTrackingTarget?.key === `occ_${occRowKey}` &&
+                                        (editingTrackingTarget.mode === 'occ_add' ||
+                                          editingTrackingTarget.mode === 'occ_edit');
+                                      const occOrderedMs = occ.sourcingOrderedAt
+                                        ? new Date(occ.sourcingOrderedAt).getTime()
+                                        : 0;
+                                      const isOccPast24h =
+                                        occOrderedMs > 0 &&
+                                        !isNaN(occOrderedMs) &&
+                                        nowMs - occOrderedMs >= 24 * 60 * 60 * 1000;
+                                      const isOccTrackingRequired =
+                                        occ.isOrdered &&
+                                        !occ.isReceived &&
+                                        occ.trackings.length === 0 &&
+                                        isOccPast24h;
+
+                                      return (
+                                        <tr key={occRowKey} className="hover:bg-neutral-50">
+                                          <td className="py-2 px-3 font-bold text-brand-primary">
+                                            <div className="flex items-center gap-1.5">
+                                              <button
+                                                type="button"
+                                                onClick={() => navigate(`/orders/${occ.orderId}`)}
+                                                className="hover:underline text-left flex items-center gap-1 cursor-pointer"
+                                              >
+                                                <span>{occ.orderTitle}</span>
+                                                <ExternalLink size={11} className="text-neutral-400" />
+                                              </button>
+                                              {occ.isMvp && (
+                                                <MvpStarIcon size={12} title="VIP" />
+                                              )}
+                                              {occ.getsBox && (
+                                                <span title="Artist Box" className="inline-flex items-center text-black shrink-0">
+                                                  <Box size={12} strokeWidth={2.5} />
+                                                </span>
+                                              )}
+                                            </div>
+                                          </td>
+                                          <td className="py-2 px-3 text-brand-secondary font-medium truncate">
+                                            {occ.brandName}
+                                          </td>
+                                          <td className="py-2 px-3 text-center">
+                                            <span
+                                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                                occ.individualGender === 'Female'
+                                                  ? 'bg-pink-50 text-pink-700 border-pink-200'
+                                                  : occ.individualGender === 'Male'
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                                              }`}
                                             >
-                                              <span>{occ.orderTitle}</span>
-                                              <ExternalLink size={11} className="text-neutral-400" />
-                                            </button>
-                                            {occ.isMvp && (
-                                              <MvpStarIcon size={12} title="VIP" />
-                                            )}
-                                            {occ.getsBox && (
-                                              <span title="Artist Box" className="inline-flex items-center text-black shrink-0">
-                                                <Box size={12} strokeWidth={2.5} />
-                                              </span>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="py-2 px-3 text-brand-secondary font-medium truncate">
-                                          {occ.brandName}
-                                        </td>
-                                        <td className="py-2 px-3 text-center">
-                                          <span
-                                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                                              occ.individualGender === 'Female'
-                                                ? 'bg-pink-50 text-pink-700 border-pink-200'
-                                                : occ.individualGender === 'Male'
-                                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                  : 'bg-neutral-100 text-neutral-600 border-neutral-200'
-                                            }`}
-                                          >
-                                            {occ.individualGender}
-                                          </span>
-                                        </td>
-                                        <td className="py-2 px-3 text-center font-black text-neutral-900">
-                                          {occ.rawOrderSize && occ.rawOrderSize !== occ.size ? (
-                                            <span title={`Profile/Order Size: ${occ.rawOrderSize} → Adjusted Order Size: ${occ.size}`}>
-                                              <span className="text-neutral-400 line-through font-semibold mr-1">{occ.rawOrderSize}</span>
-                                              <span>{occ.size}</span>
+                                              {occ.individualGender}
                                             </span>
-                                          ) : (
-                                            occ.size
-                                          )}
-                                        </td>
-                                        <td className="py-2 px-3 text-center font-bold tabular-nums">
-                                          {occ.qty}
-                                        </td>
-                                        <td className="py-2 px-3 text-right">
-                                          <div className="inline-flex rounded-lg border border-brand-border overflow-hidden bg-white">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                applySourcingStatusToOccurrences(
-                                                  [occ],
-                                                  'to_order',
-                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
-                                                )
-                                              }
-                                              className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer ${
-                                                !occ.isOrdered && !occ.isReceived
-                                                  ? 'bg-red-600 text-white'
-                                                  : 'text-neutral-500 hover:bg-neutral-100'
-                                              }`}
-                                            >
-                                              To Order
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                applySourcingStatusToOccurrences(
-                                                  [occ],
-                                                  'ordered',
-                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
-                                                )
-                                              }
-                                              className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
-                                                occ.isOrdered && !occ.isReceived
-                                                  ? 'bg-amber-500 text-white'
-                                                  : 'text-neutral-500 hover:bg-neutral-100'
-                                              }`}
-                                            >
-                                              Ordered
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                applySourcingStatusToOccurrences(
-                                                  [occ],
-                                                  'received',
-                                                  `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
-                                                )
-                                              }
-                                              className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
-                                                occ.isReceived
-                                                  ? 'bg-emerald-600 text-white'
-                                                  : 'text-neutral-500 hover:bg-neutral-100'
-                                              }`}
-                                            >
-                                              Received
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                          </td>
+                                          <td className="py-2 px-3 text-center font-black text-neutral-900">
+                                            {occ.rawOrderSize && occ.rawOrderSize !== occ.size ? (
+                                              <span title={`Profile/Order Size: ${occ.rawOrderSize} → Adjusted Order Size: ${occ.size}`}>
+                                                <span className="text-neutral-400 line-through font-semibold mr-1">{occ.rawOrderSize}</span>
+                                                <span>{occ.size}</span>
+                                              </span>
+                                            ) : (
+                                              occ.size
+                                            )}
+                                          </td>
+                                          <td className="py-2 px-3 text-center font-bold tabular-nums">
+                                            {occ.qty}
+                                          </td>
+                                          <td className="py-2 px-3 text-right">
+                                            {isEditingThisOcc && editingTrackingTarget ? (
+                                              <div className="inline-flex items-center justify-end gap-1">
+                                                <input
+                                                  type="text"
+                                                  autoFocus
+                                                  value={trackingInputVal}
+                                                  onChange={(e) => setTrackingInputVal(e.target.value)}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      e.preventDefault();
+                                                      void applyTrackingMutationToOccurrences(
+                                                        editingTrackingTarget.occurrences,
+                                                        editingTrackingTarget.mode,
+                                                        trackingInputVal,
+                                                        editingTrackingTarget.previousTrackingNumber,
+                                                        editingTrackingTarget.key
+                                                      );
+                                                    } else if (e.key === 'Escape') {
+                                                      setEditingTrackingTarget(null);
+                                                    }
+                                                  }}
+                                                  placeholder="Enter tracking #..."
+                                                  className="w-32 bg-white border border-red-400 focus:border-neutral-900 rounded-lg px-2 py-0.5 text-[11px] font-bold text-neutral-900 focus:outline-none shadow-2xs"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  disabled={updatingKey === editingTrackingTarget.key}
+                                                  onClick={() =>
+                                                    applyTrackingMutationToOccurrences(
+                                                      editingTrackingTarget.occurrences,
+                                                      editingTrackingTarget.mode,
+                                                      trackingInputVal,
+                                                      editingTrackingTarget.previousTrackingNumber,
+                                                      editingTrackingTarget.key
+                                                    )
+                                                  }
+                                                  className="bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg cursor-pointer disabled:opacity-50"
+                                                >
+                                                  Save
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setEditingTrackingTarget(null)}
+                                                  className="text-[10px] text-neutral-400 hover:text-neutral-700 px-1 cursor-pointer"
+                                                  title="Cancel"
+                                                >
+                                                  ✕
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <div className="inline-flex items-center justify-end gap-1 flex-wrap">
+                                                {occ.trackings.map((t) => (
+                                                  <SourcingTrackingChip
+                                                    key={t.trackingNumber}
+                                                    trackingNumber={t.trackingNumber}
+                                                    tracking={t.tracking}
+                                                    disabled={isSales}
+                                                    onEdit={() => {
+                                                      setEditingTrackingTarget({
+                                                        key: `occ_${occRowKey}`,
+                                                        mode: 'occ_edit',
+                                                        groupKey: group.key,
+                                                        occurrences: [occ],
+                                                        previousTrackingNumber: t.trackingNumber
+                                                      });
+                                                      setTrackingInputVal(t.trackingNumber);
+                                                    }}
+                                                    onRemove={
+                                                      !isSales
+                                                        ? () =>
+                                                            void applyTrackingMutationToOccurrences(
+                                                              [occ],
+                                                              'remove',
+                                                              '',
+                                                              t.trackingNumber,
+                                                              `occ_rm_${occRowKey}_${t.trackingNumber}`
+                                                            )
+                                                        : undefined
+                                                    }
+                                                    onStartTracking={() =>
+                                                      startSourcingTracking(
+                                                        trackingRefsForOccurrences([occ]),
+                                                        t.trackingNumber
+                                                      )
+                                                    }
+                                                  />
+                                                ))}
+                                                {!isSales && isOccTrackingRequired ? (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setEditingTrackingTarget({
+                                                        key: `occ_${occRowKey}`,
+                                                        mode: 'occ_add',
+                                                        groupKey: group.key,
+                                                        occurrences: [occ]
+                                                      });
+                                                      setTrackingInputVal('');
+                                                    }}
+                                                    title="24+ hours since ordered — click to input supplier tracking #"
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
+                                                  >
+                                                    <AlertCircle size={10} strokeWidth={2.5} />
+                                                    <span>Tracking # Required</span>
+                                                  </button>
+                                                ) : !isSales && occ.trackings.length === 0 ? (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setEditingTrackingTarget({
+                                                        key: `occ_${occRowKey}`,
+                                                        mode: 'occ_add',
+                                                        groupKey: group.key,
+                                                        occurrences: [occ]
+                                                      });
+                                                      setTrackingInputVal('');
+                                                    }}
+                                                    title="Add supplier tracking # for this row"
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white text-neutral-600 border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
+                                                  >
+                                                    <Plus size={10} strokeWidth={2.5} />
+                                                    <span>Tracking</span>
+                                                  </button>
+                                                ) : (
+                                                  !isSales && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        setEditingTrackingTarget({
+                                                          key: `occ_${occRowKey}`,
+                                                          mode: 'occ_add',
+                                                          groupKey: group.key,
+                                                          occurrences: [occ]
+                                                        });
+                                                        setTrackingInputVal('');
+                                                      }}
+                                                      title="Add another tracking # for this row"
+                                                      className="inline-flex items-center justify-center w-5 h-5 rounded-md text-neutral-500 bg-white border border-dashed border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900 transition-colors cursor-pointer"
+                                                    >
+                                                      <Plus size={10} strokeWidth={2.5} />
+                                                    </button>
+                                                  )
+                                                )}
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td className="py-2 px-3 text-right">
+                                            <div className="inline-flex rounded-lg border border-brand-border overflow-hidden bg-white">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  applySourcingStatusToOccurrences(
+                                                    [occ],
+                                                    'to_order',
+                                                    `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                  )
+                                                }
+                                                className={`px-2 py-0.5 text-[10px] font-bold cursor-pointer ${
+                                                  !occ.isOrdered && !occ.isReceived
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                                }`}
+                                              >
+                                                To Order
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  applySourcingStatusToOccurrences(
+                                                    [occ],
+                                                    'ordered',
+                                                    `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                  )
+                                                }
+                                                className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
+                                                  occ.isOrdered && !occ.isReceived
+                                                    ? 'bg-amber-500 text-white'
+                                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                                }`}
+                                              >
+                                                Ordered
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  applySourcingStatusToOccurrences(
+                                                    [occ],
+                                                    'received',
+                                                    `occ_${occ.orderId}_${occ.itemId}_${occ.size}`
+                                                  )
+                                                }
+                                                className={`px-2 py-0.5 text-[10px] font-bold border-l border-brand-border cursor-pointer ${
+                                                  occ.isReceived
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'text-neutral-500 hover:bg-neutral-100'
+                                                }`}
+                                              >
+                                                Received
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>

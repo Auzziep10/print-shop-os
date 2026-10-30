@@ -146,12 +146,75 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
 
     if (itemIds.size && Array.isArray(order.items)) {
       let changed = false;
+      const fullSummary = { ...summary, ...(carrier ? { trackingCarrierDetected: carrier } : {}) };
       update.items = order.items.map((it: any) => {
-        if (!itemIds.has(String(it?.id)) || !sameCode(it.sourcingTrackingNumber)) return it;
+        if (!itemIds.has(String(it?.id))) return it;
+        let itemMatched = false;
+        let prevStatus: string | undefined;
+        const nextItem: Record<string, any> = { ...it };
+
+        if (sameCode(it.sourcingTrackingNumber)) {
+          itemMatched = true;
+          prevStatus = it.sourcingTracking?.trackingStatus;
+          nextItem.sourcingTracking = fullSummary;
+        }
+
+        if (it.sourcingTrackingBySize && typeof it.sourcingTrackingBySize === 'object') {
+          const nextBySize: Record<string, any> = { ...it.sourcingTrackingBySize };
+          let bySizeChanged = false;
+          for (const [szKey, szVal] of Object.entries(nextBySize)) {
+            if (!szVal || typeof szVal !== 'object') continue;
+            let entryChanged = false;
+            const nextEntry: Record<string, any> = { ...szVal };
+            if (sameCode(szVal.trackingNumber)) {
+              itemMatched = true;
+              entryChanged = true;
+              if (!prevStatus) prevStatus = szVal.tracking?.trackingStatus;
+              nextEntry.tracking = fullSummary;
+            }
+            if (Array.isArray(szVal.extraTrackings)) {
+              let extraChanged = false;
+              const nextExtras = szVal.extraTrackings.map((et: any) => {
+                if (!sameCode(et?.trackingNumber)) return et;
+                itemMatched = true;
+                extraChanged = true;
+                if (!prevStatus) prevStatus = et?.tracking?.trackingStatus;
+                return { ...et, tracking: fullSummary };
+              });
+              if (extraChanged) {
+                entryChanged = true;
+                nextEntry.extraTrackings = nextExtras;
+              }
+            }
+            if (entryChanged) {
+              bySizeChanged = true;
+              nextBySize[szKey] = nextEntry;
+            }
+          }
+          if (bySizeChanged) {
+            nextItem.sourcingTrackingBySize = nextBySize;
+          }
+        }
+
+        if (Array.isArray(it.sourcingTrackings)) {
+          let listChanged = false;
+          const nextList = it.sourcingTrackings.map((t: any) => {
+            if (!sameCode(t?.trackingNumber)) return t;
+            itemMatched = true;
+            listChanged = true;
+            if (!prevStatus) prevStatus = t?.tracking?.trackingStatus;
+            return { ...t, tracking: fullSummary };
+          });
+          if (listChanged) {
+            nextItem.sourcingTrackings = nextList;
+          }
+        }
+
+        if (!itemMatched) return it;
         changed = true;
         updatedCount++;
-        if (isAnnounce(it.sourcingTracking?.trackingStatus)) announceItems.push(it.style || 'garments');
-        return { ...it, sourcingTracking: { ...summary, ...(carrier ? { trackingCarrierDetected: carrier } : {}) } };
+        if (isAnnounce(prevStatus)) announceItems.push(it.style || 'garments');
+        return nextItem;
       });
       if (!changed) delete update.items;
     }

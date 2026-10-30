@@ -41,20 +41,60 @@ export async function POST(req: Request) {
     let isTest = Boolean(body?.isTest);
 
     if (Array.isArray(body?.items) && body.items.length) {
+      const requestedCode = String(body?.trackingNumber || '').replace(/\s+/g, '');
       const refs = body.items
         .filter((r: any) => r?.orderId && r?.itemId)
         .slice(0, 100)
-        .map((r: any) => ({ orderId: String(r.orderId), itemId: String(r.itemId) }));
+        .map((r: any) => ({
+          orderId: String(r.orderId),
+          itemId: String(r.itemId),
+          size: r?.size ? String(r.size).trim().toUpperCase() : undefined,
+        }));
       const orderIds = Array.from(new Set(refs.map((r: any) => r.orderId))) as string[];
       const snaps = await Promise.all(orderIds.map((id) => db.collection('orders').doc(id).get()));
       const ordersById = new Map(snaps.filter((s) => s.exists).map((s) => [s.id, s.data() || {}]));
 
       for (const r of refs) {
         const item = (ordersById.get(r.orderId)?.items || []).find((i: any) => String(i?.id) === r.itemId);
-        const code = String(item?.sourcingTrackingNumber || '').replace(/\s+/g, '');
-        if (!code) continue;
-        if (!trackingCode) trackingCode = code;
-        if (trackingDocId(code) !== trackingDocId(trackingCode)) continue;
+        if (!item) continue;
+
+        const candidateCodes: string[] = [];
+        if (r.size && item?.sourcingTrackingBySize?.[r.size]?.trackingNumber) {
+          candidateCodes.push(String(item.sourcingTrackingBySize[r.size].trackingNumber).replace(/\s+/g, ''));
+        }
+        if (item?.sourcingTrackingBySize && typeof item.sourcingTrackingBySize === 'object') {
+          Object.values(item.sourcingTrackingBySize).forEach((entry: any) => {
+            if (entry?.trackingNumber) candidateCodes.push(String(entry.trackingNumber).replace(/\s+/g, ''));
+            if (Array.isArray(entry?.extraTrackings)) {
+              entry.extraTrackings.forEach((et: any) => {
+                if (et?.trackingNumber) candidateCodes.push(String(et.trackingNumber).replace(/\s+/g, ''));
+              });
+            }
+          });
+        }
+        if (Array.isArray(item?.sourcingTrackings)) {
+          item.sourcingTrackings.forEach((t: any) => {
+            if (t?.trackingNumber) candidateCodes.push(String(t.trackingNumber).replace(/\s+/g, ''));
+          });
+        }
+        if (item?.sourcingTrackingNumber) {
+          candidateCodes.push(String(item.sourcingTrackingNumber).replace(/\s+/g, ''));
+        }
+
+        const validCodes = candidateCodes.filter(Boolean);
+        if (validCodes.length === 0) continue;
+
+        let matchedCode = '';
+        if (requestedCode) {
+          const found = validCodes.find((c) => trackingDocId(c) === trackingDocId(requestedCode));
+          if (found) matchedCode = found;
+        } else {
+          matchedCode = validCodes[0];
+        }
+        if (!matchedCode) continue;
+
+        if (!trackingCode) trackingCode = matchedCode;
+        if (trackingDocId(matchedCode) !== trackingDocId(trackingCode)) continue;
         targets.push({ orderId: r.orderId, kind: 'item', id: r.itemId });
       }
       if (!trackingCode) return json({ error: 'No supplier tracking number saved on these garments yet' }, 400);
