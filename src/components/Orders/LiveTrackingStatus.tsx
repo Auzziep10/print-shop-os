@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Activity, ChevronDown, Loader2, Radio } from 'lucide-react';
-import { formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+import { autoStartOnce, formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
 
 export const TONE_CLASSES: Record<TrackingTone, { pill: string; dot: string }> = {
   neutral: { pill: 'bg-neutral-100 text-neutral-700 border-neutral-200', dot: 'bg-neutral-400' },
@@ -20,7 +20,25 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
 
-  if (!box?.trackingNumber || box.trackingCarrier === 'Pickup') return null;
+  const trackable = Boolean(box?.trackingNumber && box.trackingCarrier !== 'Pickup');
+
+  // Connect live tracking automatically when a box has a number but no status yet
+  useEffect(() => {
+    if (!trackable || box?.trackingStatus) return;
+    let cancelled = false;
+    setStarting(true);
+    autoStartOnce(`box:${orderId}:${box.id}:${box.trackingNumber}`, () => startLiveTracking(orderId, box.id)).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) setError(result.error || 'Could not start tracking');
+      setStarting(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackable, box?.trackingStatus, box?.trackingNumber, orderId, box?.id]);
+
+  if (!trackable) return null;
 
   if (!box.trackingStatus) {
     return (
@@ -40,7 +58,7 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
           title="Get live status updates for this package from the carrier"
         >
           {starting ? <Loader2 size={11} className="animate-spin" /> : <Radio size={11} />}
-          {starting ? 'Connecting…' : 'Start live tracking'}
+          {starting ? 'Connecting…' : error ? 'Retry live tracking' : 'Waiting for carrier…'}
         </button>
         {error && <span className="text-[10px] text-red-600 font-medium max-w-[220px]">{error}</span>}
       </div>

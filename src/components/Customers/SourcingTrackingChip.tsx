@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ExternalLink, Loader2, Pencil, Radio, Truck, X } from 'lucide-react';
-import { formatEstDelivery, formatEventTime, trackingTone } from '../../lib/liveTracking';
+import { autoStartOnce, formatEstDelivery, formatEventTime, trackingTone } from '../../lib/liveTracking';
 import { TONE_CLASSES } from '../Orders/LiveTrackingStatus';
 import { formatCarrierName, getTrackingLink } from '../../lib/utils';
 
@@ -93,6 +93,23 @@ export function SourcingTrackingChip({
     setStarting(false);
   };
 
+  // Connect live tracking automatically for numbers that don't have status yet
+  // (e.g. saved before setup was finished, or if the first attempt failed).
+  useEffect(() => {
+    if (status || !trackingNumber) return;
+    let cancelled = false;
+    setStarting(true);
+    autoStartOnce(`sourcing:${trackingNumber.replace(/\s+/g, '').toUpperCase()}`, onStartTracking).then((res) => {
+      if (cancelled) return;
+      if (!res.ok) setStartError(res.error || 'Could not start live tracking');
+      setStarting(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackingNumber, status]);
+
   return (
     <>
       <button
@@ -107,6 +124,8 @@ export function SourcingTrackingChip({
       >
         {status ? (
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot} ${status === 'out_for_delivery' ? 'animate-pulse' : ''}`} />
+        ) : starting ? (
+          <Loader2 size={11} className="shrink-0 animate-spin" />
         ) : (
           <Truck size={11} className="shrink-0" />
         )}
@@ -180,16 +199,22 @@ export function SourcingTrackingChip({
               </div>
             ) : (
               <div className="mt-3 space-y-2">
-                <p className="text-[11px] text-brand-secondary">Live status isn't connected for this number yet.</p>
-                <button
+                <p className="text-[11px] text-brand-secondary">
+                  {starting
+                    ? 'Connecting to the carrier…'
+                    : startError
+                      ? "Couldn't connect live status for this number."
+                      : 'Waiting for the first carrier update…'}
+                </p>
+                {!starting && startError && (<button
                   type="button"
                   disabled={starting}
                   onClick={handleStart}
                   className="inline-flex items-center gap-1.5 text-[10px] font-bold text-neutral-700 bg-white hover:bg-neutral-100 px-2.5 py-1 rounded-full border border-dashed border-neutral-300 disabled:opacity-60"
                 >
-                  {starting ? <Loader2 size={11} className="animate-spin" /> : <Radio size={11} />}
-                  {starting ? 'Connecting…' : 'Start live tracking'}
-                </button>
+                  <Radio size={11} />
+                  Try again
+                </button>)}
                 {startError && <p className="text-[10px] text-red-600 font-medium">{startError}</p>}
               </div>
             )}
