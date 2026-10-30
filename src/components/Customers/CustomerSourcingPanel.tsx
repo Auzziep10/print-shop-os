@@ -12,7 +12,9 @@ import {
   Layers,
   RotateCcw,
   Box,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Truck,
+  AlertCircle
 } from 'lucide-react';
 import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -82,6 +84,8 @@ interface AggregatedGarmentGroup {
   totalQty: number;
   orderedQty: number;
   receivedQty: number;
+  sourcingOrderedAt: string;
+  sourcingTrackingNumber: string;
   sizesMap: Record<string, AggregatedSizeBucket>;
   occurrences: OccurrenceRef[];
 }
@@ -140,6 +144,16 @@ export function CustomerSourcingPanel({
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [editingLinkGroupKey, setEditingLinkGroupKey] = useState<string | null>(null);
   const [linkInputVal, setLinkInputVal] = useState<string>('');
+  const [editingTrackingGroupKey, setEditingTrackingGroupKey] = useState<string | null>(null);
+  const [trackingInputVal, setTrackingInputVal] = useState<string>('');
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const brandNameMap = useMemo(() => {
     const map: Record<string, string> = {
@@ -289,6 +303,12 @@ export function CustomerSourcingPanel({
           genderBucketLabel.toLowerCase()
         ].join('__');
 
+        const itemTracking = (item.sourcingTrackingNumber || '').trim();
+        const itemOrderedAt =
+          (item.sourcingOrderedAt || '').trim() ||
+          (order.timelineMilestones?.Sourced?.completedAt || '').trim() ||
+          (order.timelineMilestones?.Ordered?.completedAt || '').trim();
+
         if (!groupsMap[groupKey]) {
           groupsMap[groupKey] = {
             key: groupKey,
@@ -304,6 +324,8 @@ export function CustomerSourcingPanel({
             totalQty: 0,
             orderedQty: 0,
             receivedQty: 0,
+            sourcingOrderedAt: '',
+            sourcingTrackingNumber: '',
             sizesMap: {},
             occurrences: []
           };
@@ -313,6 +335,7 @@ export function CustomerSourcingPanel({
         if (!group.image && image) group.image = image;
         if (!group.sourcingUrl && sourcingUrl) group.sourcingUrl = sourcingUrl;
         if (!group.sizingAdjustment && sizingAdjustment) group.sizingAdjustment = sizingAdjustment;
+        if (!group.sourcingTrackingNumber && itemTracking) group.sourcingTrackingNumber = itemTracking;
         if (!group.brandNames.includes(orderBrandName)) {
           group.brandNames.push(orderBrandName);
         }
@@ -330,6 +353,9 @@ export function CustomerSourcingPanel({
             isReceived ||
             hasSizeInList(item.orderedSizes, size) ||
             hasSizeInList(item.orderedSizes, rawOrderSize);
+          if (isOrdered && itemOrderedAt && !group.sourcingOrderedAt) {
+            group.sourcingOrderedAt = itemOrderedAt;
+          }
 
           if (!group.sizesMap[size]) {
             group.sizesMap[size] = {
@@ -596,11 +622,18 @@ export function CustomerSourcingPanel({
               }
             });
 
+            const nowItemIso = new Date().toISOString();
+            const nextSourcingOrderedAt =
+              orderedSet.size === 0
+                ? ''
+                : (item.sourcingOrderedAt || '').trim() || nowItemIso;
+
             return {
               ...item,
               sizes: nextSizes,
               orderedSizes: Array.from(orderedSet),
-              receivedSizes: Array.from(receivedSet)
+              receivedSizes: Array.from(receivedSet),
+              sourcingOrderedAt: nextSourcingOrderedAt
             };
           });
 
@@ -708,6 +741,45 @@ export function CustomerSourcingPanel({
       setEditingLinkGroupKey(null);
     } catch (err) {
       console.error('Failed to save sourcing link:', err);
+    } finally {
+      setUpdatingKey(null);
+    }
+  };
+
+  const handleSaveGroupTrackingNumber = async (group: AggregatedGarmentGroup) => {
+    if (isSales) return;
+    const trimmed = trackingInputVal.trim();
+    setUpdatingKey(`trk_${group.key}`);
+    try {
+      const orderIds = Array.from(new Set(group.occurrences.map((o) => o.orderId)));
+      const itemIdsByOrder: Record<string, Set<string>> = {};
+      group.occurrences.forEach((o) => {
+        if (!itemIdsByOrder[o.orderId]) itemIdsByOrder[o.orderId] = new Set();
+        itemIdsByOrder[o.orderId].add(String(o.itemId));
+      });
+
+      const orderMap: Record<string, any> = {};
+      orders.forEach((o: any) => {
+        orderMap[o.id] = o;
+      });
+
+      await Promise.all(
+        orderIds.map(async (orderId) => {
+          const orderDoc = orderMap[orderId];
+          if (!orderDoc || !Array.isArray(orderDoc.items)) return;
+          const updatedItems = orderDoc.items.map((item: any) => {
+            if (!itemIdsByOrder[orderId]?.has(String(item.id))) return item;
+            return {
+              ...item,
+              sourcingTrackingNumber: trimmed
+            };
+          });
+          await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
+        })
+      );
+      setEditingTrackingGroupKey(null);
+    } catch (err) {
+      console.error('Failed to save sourcing tracking number:', err);
     } finally {
       setUpdatingKey(null);
     }
@@ -931,6 +1003,11 @@ export function CustomerSourcingPanel({
                     const allOrdered = group.orderedQty >= group.totalQty && group.totalQty > 0;
                     const allReceived = group.receivedQty >= group.totalQty && group.totalQty > 0;
                     const uniqueOrdersCount = new Set(group.occurrences.map((o) => o.orderId)).size;
+                    const orderedAtMs = group.sourcingOrderedAt ? new Date(group.sourcingOrderedAt).getTime() : 0;
+                    const isPast24Hours =
+                      orderedAtMs > 0 && !isNaN(orderedAtMs) && nowMs - orderedAtMs >= 24 * 60 * 60 * 1000;
+                    const hasTrackingNumber = Boolean(group.sourcingTrackingNumber && group.sourcingTrackingNumber.trim());
+                    const isTrackingRequired = allOrdered && !allReceived && isPast24Hours && !hasTrackingNumber;
 
                     return (
                       <React.Fragment key={group.key}>
@@ -1157,7 +1234,42 @@ export function CustomerSourcingPanel({
                           {/* Right Actions Column: Batch Status + Expand People */}
                           <td className="py-2.5 pl-3 pr-4 align-middle text-right">
                             <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
-                              {!allOrdered ? (
+                              {editingTrackingGroupKey === group.key ? (
+                                <div className="inline-flex items-center gap-1">
+                                  <input
+                                    type="text"
+                                    autoFocus
+                                    value={trackingInputVal}
+                                    onChange={(e) => setTrackingInputVal(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSaveGroupTrackingNumber(group);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingTrackingGroupKey(null);
+                                      }
+                                    }}
+                                    placeholder="Enter tracking #..."
+                                    className="w-36 bg-white border border-red-400 focus:border-neutral-900 rounded-lg px-2.5 py-1 text-[11px] font-bold text-neutral-900 focus:outline-none shadow-2xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={updatingKey === `trk_${group.key}`}
+                                    onClick={() => handleSaveGroupTrackingNumber(group)}
+                                    className="bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingTrackingGroupKey(null)}
+                                    className="text-[10px] text-neutral-400 hover:text-neutral-700 px-1 cursor-pointer"
+                                    title="Cancel"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : !allOrdered ? (
                                 <button
                                   type="button"
                                   disabled={updatingKey === `all_ord_${group.key}`}
@@ -1174,21 +1286,52 @@ export function CustomerSourcingPanel({
                                   <span>Order All</span>
                                 </button>
                               ) : !allReceived ? (
-                                <button
-                                  type="button"
-                                  disabled={updatingKey === `all_rec_${group.key}`}
-                                  onClick={() =>
-                                    applySourcingStatusToOccurrences(
-                                      group.occurrences,
-                                      'received',
-                                      `all_rec_${group.key}`
-                                    )
-                                  }
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
-                                >
-                                  <Check size={11} strokeWidth={3} />
-                                  <span>Receive All</span>
-                                </button>
+                                isTrackingRequired ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingTrackingGroupKey(group.key);
+                                      setTrackingInputVal(group.sourcingTrackingNumber || '');
+                                    }}
+                                    title="24+ hours since sourcing order was placed — click to input supplier tracking #"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
+                                  >
+                                    <AlertCircle size={11} strokeWidth={2.5} />
+                                    <span>Tracking # Required</span>
+                                  </button>
+                                ) : (
+                                  <>
+                                    {hasTrackingNumber && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingTrackingGroupKey(group.key);
+                                          setTrackingInputVal(group.sourcingTrackingNumber || '');
+                                        }}
+                                        title={`Supplier Tracking #: ${group.sourcingTrackingNumber} (Click to edit)`}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer max-w-[120px]"
+                                      >
+                                        <Truck size={11} className="shrink-0" />
+                                        <span className="truncate">{group.sourcingTrackingNumber}</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      disabled={updatingKey === `all_rec_${group.key}`}
+                                      onClick={() =>
+                                        applySourcingStatusToOccurrences(
+                                          group.occurrences,
+                                          'received',
+                                          `all_rec_${group.key}`
+                                        )
+                                      }
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                      <Check size={11} strokeWidth={3} />
+                                      <span>Receive All</span>
+                                    </button>
+                                  </>
+                                )
                               ) : (
                                 <button
                                   type="button"
