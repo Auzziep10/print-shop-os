@@ -6,7 +6,7 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
@@ -91,6 +91,47 @@ const sortSizes = (a: string, b: string) => {
       if (aVal !== bVal) return aVal - bVal;
       return a.localeCompare(b);
   };
+
+const SIZE_SHIFT_LADDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+
+const SIZE_SPOKEN_NAMES: Record<string, string> = {
+  XXS: 'xx-small',
+  XS: 'x-small',
+  S: 'small',
+  M: 'medium',
+  L: 'large',
+  XL: 'x-large',
+  '2XL': '2XL',
+  '3XL': '3XL',
+  '4XL': '4XL',
+  '5XL': '5XL',
+  OSFA: 'OSFA',
+};
+
+const formatSizeSpoken = (sz: string): string => {
+  const clean = (sz || '').trim().toUpperCase();
+  return SIZE_SPOKEN_NAMES[clean] || clean.toLowerCase();
+};
+
+const getAdjustedOrderSize = (rawSize: string, sizingAdjustment?: string): string => {
+  const clean = (rawSize || '').trim().toUpperCase();
+  if (!clean || !sizingAdjustment || sizingAdjustment === 'True to Size') return clean;
+  const normalized =
+    clean === 'XXL' ? '2XL' : clean === 'XXXL' ? '3XL' : clean === 'XXXXL' ? '4XL' : clean;
+  const idx = SIZE_SHIFT_LADDER.indexOf(normalized);
+  if (idx === -1) return clean;
+
+  let delta = 0;
+  const adjLower = sizingAdjustment.trim().toLowerCase();
+  if (adjLower.includes('size up 1')) delta = 1;
+  else if (adjLower.includes('size up 2')) delta = 2;
+  else if (adjLower.includes('size down 1')) delta = -1;
+  else if (adjLower.includes('size down 2')) delta = -2;
+
+  if (delta === 0) return clean;
+  const targetIdx = Math.max(0, Math.min(SIZE_SHIFT_LADDER.length - 1, idx + delta));
+  return SIZE_SHIFT_LADDER[targetIdx];
+};
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
@@ -1994,6 +2035,160 @@ export function OrderDetail() {
     return [...ownItems, ...subBrandItems];
   }, [liveCustomer, customerSubBrands, order?.customerId, order?.customer]);
 
+  const getItemSizeShiftInfo = (item: any) => {
+    const rawStyleName = (item?.title || item?.style || 'Custom Garment').trim().toLowerCase();
+    const itemLinkKey = (item?.sourcingLink || item?.garmentSourcingLink || item?.supplierUrl || '').trim().toLowerCase();
+    const itemPsdKey = (item?.psdDriveLink || '').trim().toLowerCase();
+
+    const rackMatch = allDesignerRackItems.find((d: any) => {
+      if (item?.designerRackItemId && d?.id === item.designerRackItemId) return true;
+      const dTitle = (d?.title || d?.name || '').trim().toLowerCase();
+      if (rawStyleName && dTitle === rawStyleName) return true;
+      if (rawStyleName && Array.isArray(d?.previousTitles) && d.previousTitles.some((pt: any) => String(pt || '').trim().toLowerCase() === rawStyleName)) {
+        return true;
+      }
+      if (itemPsdKey && (d?.psdDriveLink || '').trim().toLowerCase() === itemPsdKey) return true;
+      if (itemLinkKey && (d?.garmentSourcingLink || '').trim().toLowerCase() === itemLinkKey) return true;
+      return false;
+    });
+
+    const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+    const itemSizing = (item?.sizingAdjustment || '').trim();
+    const sizingAdjustment =
+      rackSizing && rackSizing !== 'True to Size'
+        ? rackSizing
+        : itemSizing && itemSizing !== 'True to Size'
+          ? itemSizing
+          : rackSizing || itemSizing;
+
+    const orderedToCustomerMap: Record<string, string> = {};
+    const customerToOrderedMap: Record<string, string> = {};
+
+    const rawSizesObj = item?.sizes && typeof item.sizes === 'object' ? item.sizes : {};
+    const positiveCustSizes = Object.entries(rawSizesObj)
+      .map(([sz, q]) => [sz.trim().toUpperCase(), parseInt(String(q), 10) || 0] as const)
+      .filter(([, q]) => q > 0);
+
+    if (sizingAdjustment && sizingAdjustment !== 'True to Size') {
+      positiveCustSizes.forEach(([custSz]) => {
+        const ordSz = getAdjustedOrderSize(custSz, sizingAdjustment);
+        if (ordSz && ordSz !== custSz) {
+          orderedToCustomerMap[ordSz] = custSz;
+          customerToOrderedMap[custSz] = ordSz;
+        }
+      });
+    } else if (positiveCustSizes.length > 0) {
+      // Fallback if orderedSizes contains a 0-qty shifted size adjacent to a positive customer size
+      const ordList = normalizeSizeList(item?.orderedSizes).map((s: string) => s.trim().toUpperCase());
+      ordList.forEach((ordSz: string) => {
+        const ordQty = parseInt(String(rawSizesObj[ordSz] ?? 0), 10) || 0;
+        if (ordQty === 0) {
+          const ordIdx = SIZE_SHIFT_LADDER.indexOf(ordSz);
+          if (ordIdx !== -1) {
+            const matchCust = positiveCustSizes.find(([custSz]) => {
+              const cIdx = SIZE_SHIFT_LADDER.indexOf(custSz);
+              return cIdx !== -1 && Math.abs(cIdx - ordIdx) >= 1 && Math.abs(cIdx - ordIdx) <= 2;
+            });
+            if (matchCust) {
+              orderedToCustomerMap[ordSz] = matchCust[0];
+              customerToOrderedMap[matchCust[0]] = ordSz;
+            }
+          }
+        }
+      });
+    }
+
+    const isCustomerSizeReceived = (custSz: string): boolean => {
+      const cleanSz = (custSz || '').trim().toUpperCase();
+      const custQty = parseInt(String(rawSizesObj[cleanSz] ?? 0), 10) || 0;
+      if (custQty <= 0 && orderedToCustomerMap[cleanSz]) {
+        return false;
+      }
+      if (hasSizeInList(item?.receivedSizes, cleanSz)) return true;
+      const mappedOrd = customerToOrderedMap[cleanSz];
+      if (mappedOrd) {
+        const mappedOrdQty = parseInt(String(rawSizesObj[mappedOrd] ?? 0), 10) || 0;
+        if (mappedOrdQty === 0 && hasSizeInList(item?.receivedSizes, mappedOrd)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const isCustomerSizeFulfilledOrBeyond = (custSz: string): boolean => {
+      const cleanSz = (custSz || '').trim().toUpperCase();
+      const custQty = parseInt(String(rawSizesObj[cleanSz] ?? 0), 10) || 0;
+      return (
+        isCustomerSizeReceived(cleanSz) ||
+        hasSizeInList(item?.completedSizes, cleanSz) ||
+        Boolean(item?.inProgressSizes?.[cleanSz]) ||
+        (custQty > 0 && isSizeFullyBoxed(item, cleanSz, custQty)) ||
+        hasSizeInList(item?.returnedSizes, cleanSz)
+      );
+    };
+
+    const getColumnStatus = (colSz: string, colQty: number) => {
+      const cleanCol = (colSz || '').trim().toUpperCase();
+      const targetCustSz = orderedToCustomerMap[cleanCol];
+      const sourceOrdSz = customerToOrderedMap[cleanCol];
+
+      const isPacked = colQty > 0 && isSizeFullyBoxed(item, colSz, colQty);
+      const isCompleted = (colQty > 0 || !targetCustSz) && hasSizeInList(item?.completedSizes, colSz);
+      const inProgress = (colQty > 0 || !targetCustSz) ? item?.inProgressSizes?.[colSz] : undefined;
+      const isReturned = (colQty > 0 || !targetCustSz) && hasSizeInList(item?.returnedSizes, colSz);
+      const isReceived = isCustomerSizeReceived(cleanCol);
+
+      let wasOrderedForTarget = false;
+      if (targetCustSz) {
+        wasOrderedForTarget =
+          hasSizeInList(item?.orderedSizes, cleanCol) ||
+          (!sourceOrdSz && hasSizeInList(item?.orderedSizes, targetCustSz)) ||
+          isCustomerSizeFulfilledOrBeyond(targetCustSz);
+      }
+
+      let isOrdered = false;
+      if (targetCustSz) {
+        isOrdered = wasOrderedForTarget && !isCustomerSizeFulfilledOrBeyond(targetCustSz);
+      } else if (sourceOrdSz) {
+        isOrdered = false;
+      } else {
+        isOrdered = hasSizeInList(item?.orderedSizes, colSz);
+      }
+
+      let shiftArrow: { targetCustSz: string; direction: 'left' | 'right'; tooltip: string } | null = null;
+      if (targetCustSz && wasOrderedForTarget) {
+        const isSizingUpToCustomer = sortSizes(cleanCol, targetCustSz) < 0;
+        shiftArrow = {
+          targetCustSz,
+          direction: isSizingUpToCustomer ? 'right' : 'left',
+          tooltip: `Ordered ${formatSizeSpoken(cleanCol)} size ${isSizingUpToCustomer ? 'up' : 'down'} to ${formatSizeSpoken(targetCustSz)}`,
+        };
+      }
+
+      return {
+        isPacked,
+        isCompleted,
+        inProgress,
+        isReturned,
+        isReceived,
+        isOrdered,
+        targetCustSz,
+        sourceOrdSz,
+        wasOrderedForTarget,
+        shiftArrow,
+      };
+    };
+
+    return {
+      sizingAdjustment,
+      orderedToCustomerMap,
+      customerToOrderedMap,
+      isCustomerSizeReceived,
+      isCustomerSizeFulfilledOrBeyond,
+      getColumnStatus,
+    };
+  };
+
   const orderSavedDestinations = useMemo(() => {
     const list: { label: string; address: any }[] = [];
 
@@ -3019,6 +3214,52 @@ export function OrderDetail() {
       const inProgress = item.inProgressSizes || {};
       const receivedSizes = normalizeSizeList(item.receivedSizes);
       const returnedSizes = normalizeSizeList(item.returnedSizes);
+      const shiftInfo = getItemSizeShiftInfo(item);
+      const colStatus = shiftInfo.getColumnStatus(size, qty);
+
+      // If clicking the shifted supplier-ordered square (e.g. Small ordered to size up to Medium), receive the target customer size (Medium)
+      if (colStatus.targetCustSz && !shiftInfo.isCustomerSizeFulfilledOrBeyond(colStatus.targetCustSz)) {
+          const targetCustSz = colStatus.targetCustSz;
+          const nextReceivedSet = new Set<string>(receivedSizes);
+          if ((parseInt(String(item.sizes?.[size] ?? 0), 10) || 0) === 0) {
+              nextReceivedSet.delete(size);
+          }
+          nextReceivedSet.add(targetCustSz);
+
+          const nextOrderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
+          nextOrderedSet.add(size);
+          if (!shiftInfo.orderedToCustomerMap[targetCustSz]) {
+              nextOrderedSet.delete(targetCustSz);
+          }
+
+          const updatedItems = order.items.map((i: any) =>
+              i.id === item.id
+                ? {
+                    ...i,
+                    orderedSizes: Array.from(nextOrderedSet),
+                    receivedSizes: Array.from(nextReceivedSet),
+                  }
+                : i
+          );
+
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: `Marked size ${targetCustSz} (ordered ${size}) for ${item.style} as received`,
+            user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+            timestamp: new Date().toISOString()
+          };
+
+          await setDoc(doc(db, 'orders', id), {
+            items: updatedItems,
+            activities: [activity, ...(order.activities || [])]
+          }, { merge: true });
+          return;
+      }
+
+      if ((parseInt(String(qty), 10) || 0) === 0 && colStatus.targetCustSz && shiftInfo.isCustomerSizeFulfilledOrBeyond(colStatus.targetCustSz)) {
+          return;
+      }
       
       if (returnedSizes.includes(size)) {
           alert(`Size ${size} of ${item.style} is marked for return. Please right-click to unmark it first.`);
@@ -3067,11 +3308,19 @@ export function OrderDetail() {
             items: updatedItems,
             activities: [activity, ...(order.activities || [])]
           }, { merge: true });
-      } else if (!receivedSizes.includes(size)) {
+      } else if (!colStatus.isReceived) {
           // Mark as received
-          const newReceived = [...receivedSizes, size];
+          const nextReceivedSet = new Set<string>(receivedSizes);
+          nextReceivedSet.add(size);
+          if (colStatus.sourceOrdSz && (parseInt(String(item.sizes?.[colStatus.sourceOrdSz] ?? 0), 10) || 0) === 0) {
+              nextReceivedSet.delete(colStatus.sourceOrdSz);
+          }
+          const nextOrderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
+          if (colStatus.sourceOrdSz && !colStatus.targetCustSz) {
+              nextOrderedSet.delete(size);
+          }
           const updatedItems = order.items.map((i: any) => 
-              i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+              i.id === item.id ? { ...i, receivedSizes: Array.from(nextReceivedSet), orderedSizes: Array.from(nextOrderedSet) } : i
           );
           
           const activity = {
@@ -3128,6 +3377,10 @@ export function OrderDetail() {
   const handleContextMenuAction = async (action: string, boxId?: string) => {
     if (!contextMenu || !id || !order) return;
     const { item, size, qty } = contextMenu;
+    const shiftInfo = getItemSizeShiftInfo(item);
+    const colStatus = shiftInfo.getColumnStatus(size, qty);
+    const effectiveOrdSize = colStatus.sourceOrdSz && !colStatus.targetCustSz ? colStatus.sourceOrdSz : size;
+    const effectiveRecSize = (parseInt(String(qty), 10) || 0) === 0 && colStatus.targetCustSz ? colStatus.targetCustSz : size;
     
     let updatedItems = [...(order.items || [])];
     let updatedBoxes = [...(order.boxes || [])];
@@ -3142,29 +3395,52 @@ export function OrderDetail() {
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
     } else if (action === 'mark_ordered') {
-       const newOrdered = Array.from(new Set([...normalizeSizeList(item.orderedSizes), size]));
+       const nextOrderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
+       nextOrderedSet.add(effectiveOrdSize);
+       if (effectiveOrdSize !== size && !colStatus.targetCustSz) {
+           nextOrderedSet.delete(size);
+       }
        updatedItems = updatedItems.map((i: any) => 
-           i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
+           i.id === item.id ? { ...i, orderedSizes: Array.from(nextOrderedSet) } : i
        );
-       activityMessage = `Marked size ${size} for ${item.style} as ordered`;
+       activityMessage = `Marked size ${effectiveOrdSize} for ${item.style} as ordered`;
     } else if (action === 'unorder') {
-       const newOrdered = normalizeSizeList(item.orderedSizes).filter((s: string) => s !== size);
+       const toRemoveOrd = new Set<string>([size, effectiveOrdSize]);
+       if (colStatus.targetCustSz) toRemoveOrd.add(colStatus.targetCustSz);
+       const newOrdered = normalizeSizeList(item.orderedSizes).filter((s: string) => !toRemoveOrd.has(s));
+       const newReceived = normalizeSizeList(item.receivedSizes).filter((s: string) => !toRemoveOrd.has(s));
        updatedItems = updatedItems.map((i: any) => 
-           i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
+           i.id === item.id ? { ...i, orderedSizes: newOrdered, receivedSizes: newReceived } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style} as ordered`;
     } else if (action === 'mark_received') {
-       const newReceived = Array.from(new Set([...normalizeSizeList(item.receivedSizes), size]));
+       const nextReceivedSet = new Set<string>(normalizeSizeList(item.receivedSizes));
+       nextReceivedSet.add(effectiveRecSize);
+       if (effectiveRecSize !== size && (parseInt(String(qty), 10) || 0) === 0) {
+           nextReceivedSet.delete(size);
+       }
+       if (colStatus.sourceOrdSz && (parseInt(String(item.sizes?.[colStatus.sourceOrdSz] ?? 0), 10) || 0) === 0) {
+           nextReceivedSet.delete(colStatus.sourceOrdSz);
+       }
+       const nextOrderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
+       nextOrderedSet.add(effectiveOrdSize);
+       if (effectiveRecSize !== effectiveOrdSize && !shiftInfo.orderedToCustomerMap[effectiveRecSize]) {
+           nextOrderedSet.delete(effectiveRecSize);
+       }
        updatedItems = updatedItems.map((i: any) => 
-           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+           i.id === item.id ? { ...i, receivedSizes: Array.from(nextReceivedSet), orderedSizes: Array.from(nextOrderedSet) } : i
        );
-       activityMessage = `Marked size ${size} for ${item.style} as received`;
+       activityMessage = `Marked size ${effectiveRecSize} for ${item.style} as received`;
      } else if (action === 'unreceive') {
-        const newReceived = normalizeSizeList(item.receivedSizes).filter((s: string) => s !== size);
+        const toRemoveRec = new Set<string>([size, effectiveRecSize]);
+        if (colStatus.sourceOrdSz && (parseInt(String(item.sizes?.[colStatus.sourceOrdSz] ?? 0), 10) || 0) === 0) {
+            toRemoveRec.add(colStatus.sourceOrdSz);
+        }
+        const newReceived = normalizeSizeList(item.receivedSizes).filter((s: string) => !toRemoveRec.has(s));
         updatedItems = updatedItems.map((i: any) => 
             i.id === item.id ? { ...i, receivedSizes: newReceived } : i
         );
-        activityMessage = `Unmarked size ${size} for ${item.style} as received`;
+        activityMessage = `Unmarked size ${effectiveRecSize} for ${item.style} as received`;
      } else if (action === 'mark_return') {
         const newReturned = Array.from(new Set([...normalizeSizeList(item.returnedSizes), size]));
         updatedItems = updatedItems.map((i: any) => 
@@ -6053,15 +6329,29 @@ export function OrderDetail() {
                         {/* Right Side: Sizing & Pricing */}
                         <div className="flex flex-col sm:flex-row items-center sm:items-end lg:items-center gap-4 w-full xl:w-auto shrink-0 justify-center xl:justify-end mt-4 xl:mt-0">
                           {/* Sizing Grid Area */}
-                          {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.keys(item.sizes).length > 0 && (
-                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans overflow-x-auto max-w-full scrollbar-none shrink-0 sm:shrink">
-                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
-                             const isCompleted = hasSizeInList(item.completedSizes, size);
-                             const inProgress = item.inProgressSizes?.[size];
-                             const isPacked = isSizeFullyBoxed(item, size, qty);
-                             const isReceived = hasSizeInList(item.receivedSizes, size);
-                             const isReturned = hasSizeInList(item.returnedSizes, size);
-                             const isOrdered = hasSizeInList(item.orderedSizes, size);
+                          {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.keys(item.sizes).length > 0 && (() => {
+                            const shiftInfo = !isSales ? getItemSizeShiftInfo(item) : null;
+                            const sizeMapToRender: Record<string, any> = { ...(item.sizes || {}) };
+                            if (shiftInfo) {
+                              Object.keys(shiftInfo.orderedToCustomerMap).forEach((ordSz) => {
+                                if (!(ordSz in sizeMapToRender)) {
+                                  sizeMapToRender[ordSz] = 0;
+                                }
+                              });
+                            }
+                            return (
+                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans overflow-visible max-w-full shrink-0 sm:shrink">
+                           {Object.entries(sizeMapToRender).sort(([a], [b]) => sortSizes(a, b)).map(([size, rawQty]: [string, any]) => {
+                             const qty = parseInt(String(rawQty), 10) || 0;
+                             const colStatus = shiftInfo ? shiftInfo.getColumnStatus(size, qty) : null;
+                             const isCompleted = colStatus ? colStatus.isCompleted : hasSizeInList(item.completedSizes, size);
+                             const inProgress = colStatus ? colStatus.inProgress : item.inProgressSizes?.[size];
+                             const isPacked = colStatus ? colStatus.isPacked : isSizeFullyBoxed(item, size, qty);
+                             const isReceived = colStatus ? colStatus.isReceived : hasSizeInList(item.receivedSizes, size);
+                             const isReturned = colStatus ? colStatus.isReturned : hasSizeInList(item.returnedSizes, size);
+                             const isOrdered = colStatus ? colStatus.isOrdered : hasSizeInList(item.orderedSizes, size);
+                             const shiftArrow = colStatus?.shiftArrow || null;
+                             const targetCustSz = colStatus?.targetCustSz;
 
                              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                              let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
@@ -6120,15 +6410,37 @@ export function OrderDetail() {
                                  e.stopPropagation(); 
                                  if (!isSales) setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
                                }}
-                               title={isSales ? `${size}: ${qty}` : (isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : (isOrdered ? "Ordered. Click to mark as received" : "Click to mark as received"))))}
+                               title={isSales ? `${size}: ${qty}` : (isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : (isOrdered ? (targetCustSz ? `Ordered ${formatSizeSpoken(size)}. Click to mark ${targetCustSz} as received` : "Ordered. Click to mark as received") : "Click to mark as received"))))}
                              >
+                               {/* Size Shift Arrow on top of ordered size */}
+                               {!isSales && shiftArrow && (
+                                 <div
+                                   className={`group/arrow absolute -top-[18px] left-1/2 -translate-x-1/2 z-30 flex items-center justify-center px-1.5 py-0.5 rounded-full shadow-sm transition-colors cursor-pointer ${
+                                     isOrdered
+                                       ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                       : 'bg-neutral-500 text-white hover:bg-neutral-600'
+                                   }`}
+                                   title={shiftArrow.tooltip}
+                                 >
+                                   {shiftArrow.direction === 'right' ? (
+                                     <ArrowRight size={11} strokeWidth={3.5} />
+                                   ) : (
+                                     <ArrowLeft size={11} strokeWidth={3.5} />
+                                   )}
+                                   <div className="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 bg-neutral-900 text-white text-[10px] font-bold py-1.5 px-2.5 rounded-lg opacity-0 group-hover/arrow:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                                     {shiftArrow.tooltip}
+                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900"></div>
+                                   </div>
+                                 </div>
+                               )}
+
                                {/* Hover hints */}
                                {isReturned && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <RotateCcw size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
-                               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && !isOrdered && (
+                               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && !isOrdered && (qty > 0 || !targetCustSz) && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
@@ -6172,7 +6484,8 @@ export function OrderDetail() {
                              </div>
                            )})}
                          </div>
-                          )}
+                            );
+                          })()}
 
                          {/* Pricing Summary */}
                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
@@ -11998,9 +12311,16 @@ export function OrderDetail() {
                </button>
             )}
 
-            {!hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+            {!hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (() => {
+               const ctxShiftInfo = getItemSizeShiftInfo(contextMenu.item);
+               const ctxColStatus = ctxShiftInfo.getColumnStatus(contextMenu.size, contextMenu.qty);
+               const effectiveOrdSz = ctxColStatus.sourceOrdSz && !ctxColStatus.targetCustSz ? ctxColStatus.sourceOrdSz : contextMenu.size;
+               const effectiveRecSz = (parseInt(String(contextMenu.qty), 10) || 0) === 0 && ctxColStatus.targetCustSz ? ctxColStatus.targetCustSz : contextMenu.size;
+               const isCtxOrdered = ctxColStatus.isOrdered || ctxColStatus.wasOrderedForTarget || hasSizeInList(contextMenu.item.orderedSizes, effectiveOrdSz);
+               const isCtxReceived = ctxShiftInfo.isCustomerSizeReceived(effectiveRecSz);
+               return (
                <>
-                 {hasSizeInList(contextMenu.item.orderedSizes, contextMenu.size) ? (
+                 {isCtxOrdered ? (
                    <button 
                      onClick={() => handleContextMenuAction('unorder')}
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2"
@@ -12016,7 +12336,7 @@ export function OrderDetail() {
                    </button>
                  )}
 
-                 {hasSizeInList(contextMenu.item.receivedSizes, contextMenu.size) ? (
+                 {isCtxReceived ? (
                    <button 
                      onClick={() => handleContextMenuAction('unreceive')}
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
@@ -12048,7 +12368,8 @@ export function OrderDetail() {
                    </button>
                  )}
                </>
-            )}
+               );
+            })()}
 
             {((contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member')) || 
                (hasSizeInList(contextMenu.item.completedSizes, contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member'))) ||

@@ -608,6 +608,23 @@ export function CustomerSourcingPanel({
             const orderedSet = new Set<string>(normalizeSizeList(item.orderedSizes));
             const receivedSet = new Set<string>(normalizeSizeList(item.receivedSizes));
 
+            const rawStyleName = (item.title || item.style || 'Custom Garment').trim();
+            const itemLinkKey = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim().toLowerCase();
+            const itemPsdKey = (item.psdDriveLink || '').trim().toLowerCase();
+            const rackMatch =
+              (item.designerRackItemId && designerRackById[item.designerRackItemId]) ||
+              designerRackByTitle[rawStyleName.toLowerCase()] ||
+              (itemPsdKey && designerRackByLink[itemPsdKey]) ||
+              (itemLinkKey && designerRackByLink[itemLinkKey]);
+            const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+            const itemSizing = (item.sizingAdjustment || '').trim();
+            const itemSizingAdjustment =
+              rackSizing && rackSizing !== 'True to Size'
+                ? rackSizing
+                : itemSizing && itemSizing !== 'True to Size'
+                  ? itemSizing
+                  : rackSizing || itemSizing;
+
             matchingOccs.forEach((occ) => {
               const rawSz = occ.rawOrderSize || occ.size;
               if (occ.inferredFromProfile && rawSz !== 'TBD') {
@@ -616,6 +633,16 @@ export function CustomerSourcingPanel({
                   nextSizes[rawSz] = occ.qty;
                 }
               }
+            });
+
+            const validAdjustedOrderedSizes = new Set<string>(
+              Object.entries(nextSizes)
+                .filter(([, q]) => (parseInt(String(q), 10) || 0) > 0)
+                .map(([sz]) => getAdjustedOrderSize(sz, itemSizingAdjustment))
+            );
+
+            matchingOccs.forEach((occ) => {
+              const rawSz = occ.rawOrderSize || occ.size;
 
               if (targetState === 'to_order') {
                 orderedSet.delete(occ.size);
@@ -624,13 +651,19 @@ export function CustomerSourcingPanel({
                 receivedSet.delete(rawSz);
               } else if (targetState === 'ordered') {
                 orderedSet.add(occ.size);
-                orderedSet.add(rawSz);
+                if (occ.size !== rawSz && !validAdjustedOrderedSizes.has(rawSz)) {
+                  orderedSet.delete(rawSz);
+                }
                 receivedSet.delete(occ.size);
                 receivedSet.delete(rawSz);
               } else if (targetState === 'received') {
                 orderedSet.add(occ.size);
-                orderedSet.add(rawSz);
-                receivedSet.add(occ.size);
+                if (occ.size !== rawSz && !validAdjustedOrderedSizes.has(rawSz)) {
+                  orderedSet.delete(rawSz);
+                }
+                if (occ.size !== rawSz && (parseInt(String(nextSizes[occ.size] || 0), 10) || 0) === 0) {
+                  receivedSet.delete(occ.size);
+                }
                 receivedSet.add(rawSz);
               }
             });
