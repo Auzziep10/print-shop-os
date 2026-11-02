@@ -1334,8 +1334,8 @@ export function CustomerSourcingPanel({
                     <th className="py-2.5 px-2.5 w-[68px] text-center border-l border-brand-border/60 font-black text-neutral-900">
                       Total
                     </th>
-                    <th className="py-2.5 px-3 w-[165px] border-l border-brand-border/60">Supplier Link</th>
-                    <th className="py-2.5 pl-3 pr-4 w-[210px] text-right">Status / People</th>
+                    <th className="py-2.5 px-3 w-[150px] border-l border-brand-border/60 whitespace-nowrap">Supplier Link</th>
+                    <th className="py-2.5 pl-3 pr-4 whitespace-nowrap text-right">Status / People</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border/60 text-xs">
@@ -1575,8 +1575,8 @@ export function CustomerSourcingPanel({
                           </td>
 
                           {/* Right Actions Column: Batch Status + Expand People */}
-                          <td className="py-2.5 pl-3 pr-4 align-middle text-right">
-                            <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                          <td className="py-2.5 pl-3 pr-4 align-middle text-right whitespace-nowrap">
+                            <div className="inline-flex items-center justify-end gap-1.5 flex-nowrap whitespace-nowrap">
                               {isEditingMainRowTracking && editingTrackingTarget ? (
                                 <div className="inline-flex items-center gap-1">
                                   <input
@@ -1681,9 +1681,9 @@ export function CustomerSourcingPanel({
                                         setTrackingInputVal('');
                                       }}
                                       title="24+ hours since sourcing order was placed — click to input supplier tracking #"
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse whitespace-nowrap shrink-0"
                                     >
-                                      <AlertCircle size={11} strokeWidth={2.5} />
+                                      <AlertCircle size={10} strokeWidth={2.5} className="shrink-0" />
                                       <span>Tracking # Required</span>
                                     </button>
                                   ) : (
@@ -1899,7 +1899,7 @@ export function CustomerSourcingPanel({
                                           <td className="py-2 px-3 text-center font-bold tabular-nums">
                                             {occ.qty}
                                           </td>
-                                          <td className="py-2 px-3 text-right">
+                                          <td className="py-2 px-3 text-right whitespace-nowrap">
                                             {isEditingThisOcc && editingTrackingTarget ? (
                                               <div className="inline-flex items-center justify-end gap-1">
                                                 <input
@@ -1950,7 +1950,7 @@ export function CustomerSourcingPanel({
                                                 </button>
                                               </div>
                                             ) : (
-                                              <div className="inline-flex items-center justify-end gap-1 flex-wrap">
+                                              <div className="inline-flex items-center justify-end gap-1 flex-nowrap whitespace-nowrap">
                                                 {occ.trackings.map((t) => (
                                                   <SourcingTrackingChip
                                                     key={t.trackingNumber}
@@ -2000,9 +2000,9 @@ export function CustomerSourcingPanel({
                                                       setTrackingInputVal('');
                                                     }}
                                                     title="24+ hours since ordered — click to input supplier tracking #"
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse"
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-2xs transition-colors cursor-pointer animate-pulse whitespace-nowrap shrink-0"
                                                   >
-                                                    <AlertCircle size={10} strokeWidth={2.5} />
+                                                    <AlertCircle size={10} strokeWidth={2.5} className="shrink-0" />
                                                     <span>Tracking # Required</span>
                                                   </button>
                                                 ) : !isSales && occ.trackings.length === 0 ? (
