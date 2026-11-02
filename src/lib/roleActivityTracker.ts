@@ -592,12 +592,27 @@ function describePlatformPathChange(
   };
 }
 
-async function persistPopupEventToSettings(db: Firestore, event: ActivityPopupEvent) {
+function sanitizePopupEvent(ev: any): ActivityPopupEvent {
+  const clean: Record<string, any> = {};
+  if (ev && typeof ev === 'object') {
+    Object.entries(ev).forEach(([k, v]) => {
+      if (v !== undefined) {
+        clean[k] = v;
+      }
+    });
+  }
+  return clean as ActivityPopupEvent;
+}
+
+async function persistPopupEventToSettings(db: Firestore, rawEvent: ActivityPopupEvent) {
   try {
+    const event = sanitizePopupEvent(rawEvent);
     const popupsRef = realDoc(db, 'settings', ACTIVITY_POPUPS_DOC_ID);
     const snap = await realGetDoc(popupsRef);
     const existingEvents: ActivityPopupEvent[] =
-      snap.exists() && Array.isArray(snap.data()?.events) ? snap.data().events : [];
+      snap.exists() && Array.isArray(snap.data()?.events)
+        ? snap.data().events.map(sanitizePopupEvent)
+        : [];
 
     // Coalesce if an identical actor + target + category event occurred within the last 1.5 seconds
     const recentIdx = existingEvents.findIndex(
@@ -710,8 +725,8 @@ export function prepareTrackedWritePayload(
         targetId: docId,
         targetLabel: custName,
         targetRoute: `/customers/${docId}?rack=open`,
-        mockupUrl: rackDiff.mockupUrl,
-        designTitle: rackDiff.designTitle,
+        ...(rackDiff.mockupUrl ? { mockupUrl: rackDiff.mockupUrl } : {}),
+        ...(rackDiff.designTitle ? { designTitle: rackDiff.designTitle } : {}),
         createdAt: nowIso,
         createdAtMs: nowMs
       };
@@ -776,7 +791,7 @@ export function prepareTrackedWritePayload(
       targetId: docId,
       targetLabel,
       targetRoute: `/orders/${docId}`,
-      mockupUrl: firstItemImg || undefined,
+      ...(firstItemImg ? { mockupUrl: firstItemImg } : {}),
       createdAt: nowIso,
       createdAtMs: nowMs
     };
