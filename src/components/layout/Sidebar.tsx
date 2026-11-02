@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
+import { shouldShowActivityPopupsForRole } from '../../lib/roleActivityTracker';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
@@ -542,10 +543,10 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </nav>
 
-      {(hasPermission('manageSettings') || isDesigner) && (
+      {(hasPermission('manageSettings') || isDesigner || shouldShowActivityPopupsForRole(userData?.role)) && (
         <div className="p-4 border-t border-brand-border">
           <Link 
-            to="/settings"
+            to={hasPermission('manageSettings') || isDesigner ? "/settings" : "/settings?tab=activity-archive"}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted transition-colors"
           >
             <Settings size={18} strokeWidth={1.5} />

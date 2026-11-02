@@ -13,6 +13,13 @@ export interface ActiveActorInfo {
   role: string;
 }
 
+export interface ActivityChangeDetail {
+  field: string;
+  before?: string;
+  after?: string;
+  summary: string;
+}
+
 export interface ActivityPopupEvent {
   id: string;
   category: 'designer_rack' | 'sales_order' | 'designer_platform';
@@ -22,6 +29,7 @@ export interface ActivityPopupEvent {
   actorRole: string;
   actionTitle: string;
   actionSummary: string;
+  changeDetails?: ActivityChangeDetail[];
   targetType: 'customer_rack' | 'customer' | 'order' | 'settings' | 'platform';
   targetId: string;
   targetLabel: string;
@@ -33,7 +41,7 @@ export interface ActivityPopupEvent {
 }
 
 export const ACTIVITY_POPUPS_DOC_ID = 'activityPopups';
-const MAX_STORED_EVENTS = 35;
+const MAX_STORED_EVENTS = 500;
 
 let currentActor: ActiveActorInfo | null = null;
 let mainFirestoreInstance: Firestore | null = null;
@@ -44,6 +52,7 @@ const customerCache = new Map<
   {
     name: string;
     designerRack: any[];
+    raw?: Record<string, any>;
   }
 >();
 
@@ -54,6 +63,7 @@ const orderCache = new Map<
     portalId: string;
     customerName: string;
     customerId: string;
+    raw?: Record<string, any>;
   }
 >();
 
@@ -107,7 +117,8 @@ export function updateCustomerCacheForTracking(customers: any[]) {
     const existing = customerCache.get(c.id);
     customerCache.set(c.id, {
       name,
-      designerRack: Array.isArray(c.designerRack) ? c.designerRack : existing?.designerRack || []
+      designerRack: Array.isArray(c.designerRack) ? c.designerRack : existing?.designerRack || [],
+      raw: c
     });
   });
 }
@@ -128,7 +139,8 @@ export function updateOrderCacheForTracking(orders: any[]) {
       title,
       portalId,
       customerName,
-      customerId: o.customerId || ''
+      customerId: o.customerId || '',
+      raw: o
     });
   });
 }
@@ -180,6 +192,7 @@ function diffDesignerRackChanges(
   actionSummary: string;
   designTitle?: string;
   mockupUrl?: string;
+  changeDetails: ActivityChangeDetail[];
 } | null {
   if (!Array.isArray(newRack)) return null;
   const prev = Array.isArray(oldRack) ? oldRack : [];
@@ -200,9 +213,50 @@ function diffDesignerRackChanges(
     const added = addedItems[addedItems.length - 1];
     const title = added.title || added.name || 'Untitled Design';
     const details: string[] = [];
-    if (added.garmentColor || added.color) details.push(added.garmentColor || added.color);
+    const changeDetails: ActivityChangeDetail[] = [
+      {
+        field: 'Design Title',
+        after: title,
+        summary: `Added new design "${title}"`
+      }
+    ];
+    if (added.garmentColor || added.color) {
+      const color = added.garmentColor || added.color;
+      details.push(color);
+      changeDetails.push({
+        field: 'Garment Color',
+        after: color,
+        summary: `Garment Color: ${color}`
+      });
+    }
     if (added.sizingAdjustment && added.sizingAdjustment !== 'True to Size') {
       details.push(added.sizingAdjustment);
+      changeDetails.push({
+        field: 'Sizing Adjustment',
+        after: added.sizingAdjustment,
+        summary: `Sizing: ${added.sizingAdjustment}`
+      });
+    }
+    if (added.frontMockupUrl) {
+      changeDetails.push({
+        field: 'Front Mock-up',
+        after: 'Uploaded',
+        summary: 'Uploaded Front Mock-up'
+      });
+    }
+    if (added.backMockupUrl) {
+      changeDetails.push({
+        field: 'Back Mock-up',
+        after: 'Uploaded',
+        summary: 'Uploaded Back Mock-up'
+      });
+    }
+    if (Array.isArray(added.logos) && added.logos.length > 0) {
+      changeDetails.push({
+        field: 'Logo Files',
+        after: `${added.logos.length} file(s)`,
+        summary: `Attached ${added.logos.length} logo file(s)`
+      });
     }
     const suffix = details.length > 0 ? ` (${details.join(' · ')})` : '';
     return {
@@ -210,7 +264,8 @@ function diffDesignerRackChanges(
       actionTitle: 'Added to Designer Rack',
       actionSummary: `Added new design "${title}"${suffix} to the Designer Rack`,
       designTitle: title,
-      mockupUrl: getPrimaryMockupUrl(added)
+      mockupUrl: getPrimaryMockupUrl(added),
+      changeDetails
     };
   }
 
@@ -224,7 +279,15 @@ function diffDesignerRackChanges(
       actionTitle: 'Removed from Designer Rack',
       actionSummary: `Removed design "${title}" from the Designer Rack`,
       designTitle: title,
-      mockupUrl: getPrimaryMockupUrl(removed)
+      mockupUrl: getPrimaryMockupUrl(removed),
+      changeDetails: [
+        {
+          field: 'Removed Design',
+          before: title,
+          after: 'Deleted',
+          summary: `Removed design "${title}" from the Designer Rack`
+        }
+      ]
     };
   }
 
@@ -238,43 +301,108 @@ function diffDesignerRackChanges(
     const title = nextItem.title || nextItem.name || oldItem.title || oldItem.name || 'Untitled Design';
     const oldTitle = oldItem.title || oldItem.name || '';
     const changes: string[] = [];
+    const changeDetails: ActivityChangeDetail[] = [];
 
     if ((nextItem.title || '') !== (oldItem.title || '') && oldTitle) {
       changes.push(`renamed "${oldTitle}" to "${title}"`);
+      changeDetails.push({
+        field: 'Design Title',
+        before: oldTitle,
+        after: title,
+        summary: `Renamed design from "${oldTitle}" to "${title}"`
+      });
     }
     if (!oldItem.finalDesignApproved && nextItem.finalDesignApproved) {
       changes.push('approved Final Design');
+      changeDetails.push({
+        field: 'Final Design Approval',
+        before: 'Not Approved',
+        after: 'Approved',
+        summary: `Approved Final Design for "${title}"`
+      });
     } else if (oldItem.finalDesignApproved && !nextItem.finalDesignApproved) {
       changes.push('unmarked Final Design approval');
+      changeDetails.push({
+        field: 'Final Design Approval',
+        before: 'Approved',
+        after: 'Not Approved',
+        summary: `Removed Final Design approval for "${title}"`
+      });
     }
     if (!oldItem.approvedForOrder && nextItem.approvedForOrder) {
       changes.push('approved for Order');
+      changeDetails.push({
+        field: 'Approved for Order',
+        before: 'Not Approved',
+        after: 'Approved',
+        summary: `Marked "${title}" as Approved for Order`
+      });
     } else if (oldItem.approvedForOrder && !nextItem.approvedForOrder) {
       changes.push('unmarked Approved for Order');
+      changeDetails.push({
+        field: 'Approved for Order',
+        before: 'Approved',
+        after: 'Not Approved',
+        summary: `Unmarked "${title}" as Approved for Order`
+      });
     }
     if ((nextItem.frontMockupUrl || '') !== (oldItem.frontMockupUrl || '')) {
-      changes.push(nextItem.frontMockupUrl ? 'uploaded Front Mock-up' : 'removed Front Mock-up');
+      const msg = nextItem.frontMockupUrl ? 'uploaded Front Mock-up' : 'removed Front Mock-up';
+      changes.push(msg);
+      changeDetails.push({
+        field: 'Front Mock-up',
+        before: oldItem.frontMockupUrl ? 'Existing Image' : 'None',
+        after: nextItem.frontMockupUrl ? 'Uploaded New Image' : 'Removed',
+        summary: `${nextItem.frontMockupUrl ? 'Uploaded' : 'Removed'} Front Mock-up on "${title}"`
+      });
     }
     if ((nextItem.backMockupUrl || '') !== (oldItem.backMockupUrl || '')) {
-      changes.push(nextItem.backMockupUrl ? 'uploaded Back Mock-up' : 'removed Back Mock-up');
+      const msg = nextItem.backMockupUrl ? 'uploaded Back Mock-up' : 'removed Back Mock-up';
+      changes.push(msg);
+      changeDetails.push({
+        field: 'Back Mock-up',
+        before: oldItem.backMockupUrl ? 'Existing Image' : 'None',
+        after: nextItem.backMockupUrl ? 'Uploaded New Image' : 'Removed',
+        summary: `${nextItem.backMockupUrl ? 'Uploaded' : 'Removed'} Back Mock-up on "${title}"`
+      });
     }
     const oldOtherLen = Array.isArray(oldItem.otherMockups) ? oldItem.otherMockups.length : 0;
     const nextOtherLen = Array.isArray(nextItem.otherMockups) ? nextItem.otherMockups.length : 0;
     if (nextOtherLen !== oldOtherLen) {
+      const summary =
+        nextOtherLen > oldOtherLen
+          ? `Added ${nextOtherLen - oldOtherLen} additional mock-up(s)`
+          : 'Removed an additional mock-up';
       changes.push(
         nextOtherLen > oldOtherLen
           ? `added ${nextOtherLen - oldOtherLen} mock-up(s)`
           : 'removed a mock-up'
       );
+      changeDetails.push({
+        field: 'Additional Mock-ups',
+        before: `${oldOtherLen} image(s)`,
+        after: `${nextOtherLen} image(s)`,
+        summary
+      });
     }
     const oldLogosLen = Array.isArray(oldItem.logos) ? oldItem.logos.length : 0;
     const nextLogosLen = Array.isArray(nextItem.logos) ? nextItem.logos.length : 0;
     if (nextLogosLen !== oldLogosLen) {
+      const summary =
+        nextLogosLen > oldLogosLen
+          ? `Uploaded ${nextLogosLen - oldLogosLen} logo file(s)`
+          : 'Removed a logo file';
       changes.push(
         nextLogosLen > oldLogosLen
           ? `uploaded ${nextLogosLen - oldLogosLen} logo file(s)`
           : 'removed a logo file'
       );
+      changeDetails.push({
+        field: 'Logo Files',
+        before: `${oldLogosLen} file(s)`,
+        after: `${nextLogosLen} file(s)`,
+        summary
+      });
     }
     if ((nextItem.garmentColor || '') !== (oldItem.garmentColor || '')) {
       changes.push(
@@ -282,15 +410,41 @@ function diffDesignerRackChanges(
           ? `set garment color to "${nextItem.garmentColor}"`
           : 'cleared garment color'
       );
+      changeDetails.push({
+        field: 'Garment Color',
+        before: oldItem.garmentColor || 'None',
+        after: nextItem.garmentColor || 'None',
+        summary: nextItem.garmentColor
+          ? `Set garment color to "${nextItem.garmentColor}"`
+          : 'Cleared garment color'
+      });
     }
     if ((nextItem.sizingAdjustment || 'True to Size') !== (oldItem.sizingAdjustment || 'True to Size')) {
       changes.push(`set sizing to "${nextItem.sizingAdjustment || 'True to Size'}"`);
+      changeDetails.push({
+        field: 'Sizing Adjustment',
+        before: oldItem.sizingAdjustment || 'True to Size',
+        after: nextItem.sizingAdjustment || 'True to Size',
+        summary: `Changed sizing adjustment to "${nextItem.sizingAdjustment || 'True to Size'}"`
+      });
     }
     if ((nextItem.garmentSourcingLink || '') !== (oldItem.garmentSourcingLink || '')) {
       changes.push('updated garment sourcing link');
+      changeDetails.push({
+        field: 'Garment Sourcing Link',
+        before: oldItem.garmentSourcingLink || 'None',
+        after: nextItem.garmentSourcingLink || 'None',
+        summary: 'Updated garment sourcing link'
+      });
     }
     if ((nextItem.psdDriveLink || '') !== (oldItem.psdDriveLink || '')) {
       changes.push('updated PSD / Drive link');
+      changeDetails.push({
+        field: 'PSD / Drive Link',
+        before: oldItem.psdDriveLink || 'None',
+        after: nextItem.psdDriveLink || 'None',
+        summary: 'Updated PSD / Drive link'
+      });
     }
 
     if (changes.length > 0) {
@@ -302,7 +456,8 @@ function diffDesignerRackChanges(
         actionTitle: 'Designer Rack Updated',
         actionSummary: `${formattedChanges} on "${title}"`,
         designTitle: title,
-        mockupUrl: getPrimaryMockupUrl(nextItem)
+        mockupUrl: getPrimaryMockupUrl(nextItem),
+        changeDetails
       };
     }
 
@@ -318,7 +473,13 @@ function diffDesignerRackChanges(
         actionTitle: 'Designer Rack Updated',
         actionSummary: `Updated design "${title}" in the Designer Rack`,
         designTitle: title,
-        mockupUrl: getPrimaryMockupUrl(nextItem)
+        mockupUrl: getPrimaryMockupUrl(nextItem),
+        changeDetails: [
+          {
+            field: 'Design Details',
+            summary: `Updated design "${title}" in the Designer Rack`
+          }
+        ]
       };
     }
   }
@@ -327,7 +488,8 @@ function diffDesignerRackChanges(
     return {
       isReadFlagOnly: true,
       actionTitle: '',
-      actionSummary: ''
+      actionSummary: '',
+      changeDetails: []
     };
   }
 
@@ -339,7 +501,13 @@ function diffDesignerRackChanges(
     actionTitle: 'Designer Rack Updated',
     actionSummary: `Updated "${fallbackTitle}" in the Designer Rack`,
     designTitle: fallbackTitle,
-    mockupUrl: getPrimaryMockupUrl(latestItem)
+    mockupUrl: getPrimaryMockupUrl(latestItem),
+    changeDetails: [
+      {
+        field: 'Designer Rack',
+        summary: `Updated "${fallbackTitle}" in the Designer Rack`
+      }
+    ]
   };
 }
 
@@ -362,107 +530,602 @@ function isPassiveCustomerWrite(data: Record<string, any>): boolean {
   return keys.every((k) => passiveKeys.has(k));
 }
 
+const ORDER_STAGE_LABELS: Record<number, string> = {
+  0: '0 - Quote',
+  1: '1 - Approved / In Queue',
+  2: '2 - Inventory Ordered',
+  3: '3 - Production Prep',
+  4: '4 - In Production',
+  5: '5 - Packing & QC',
+  6: '6 - Shipped / Ready',
+  7: '7 - Received / Complete'
+};
+
+function getItemTotalQty(item: any): number {
+  if (!item) return 0;
+  if (typeof item.totalQty === 'number') return item.totalQty;
+  if (typeof item.qty === 'number') return item.qty;
+  if (item.sizes && typeof item.sizes === 'object') {
+    return Object.values(item.sizes).reduce((sum: number, v: any) => sum + (Number(v) || 0), 0);
+  }
+  return 0;
+}
+
+function diffOrderItems(prevItems: any[], nextItems: any[]): ActivityChangeDetail[] {
+  const details: ActivityChangeDetail[] = [];
+  const prev = Array.isArray(prevItems) ? prevItems : [];
+  const next = Array.isArray(nextItems) ? nextItems : [];
+
+  const prevById = new Map<string, any>();
+  prev.forEach((it, idx) => {
+    const key = String(it?.id ?? `idx_${idx}`);
+    prevById.set(key, it);
+  });
+
+  const nextById = new Map<string, any>();
+  next.forEach((it, idx) => {
+    const key = String(it?.id ?? `idx_${idx}`);
+    nextById.set(key, it);
+  });
+
+  // Added items
+  nextById.forEach((it, key) => {
+    if (!prevById.has(key)) {
+      const name = it?.name || it?.style || 'Garment Item';
+      const color = it?.color ? ` (${it.color})` : '';
+      const qty = getItemTotalQty(it);
+      details.push({
+        field: 'Added Line Item',
+        after: `${name}${color} · Qty ${qty}`,
+        summary: `Added line item "${name}${color}" (Qty: ${qty})`
+      });
+    }
+  });
+
+  // Removed items
+  prevById.forEach((it, key) => {
+    if (!nextById.has(key)) {
+      const name = it?.name || it?.style || 'Garment Item';
+      const color = it?.color ? ` (${it.color})` : '';
+      const qty = getItemTotalQty(it);
+      details.push({
+        field: 'Removed Line Item',
+        before: `${name}${color} · Qty ${qty}`,
+        after: 'Removed',
+        summary: `Removed line item "${name}${color}"`
+      });
+    }
+  });
+
+  // Modified items
+  nextById.forEach((nextIt, key) => {
+    const prevIt = prevById.get(key);
+    if (!prevIt) return;
+    const name = nextIt?.name || prevIt?.name || 'Garment Item';
+    const prevQty = getItemTotalQty(prevIt);
+    const nextQty = getItemTotalQty(nextIt);
+
+    if ((prevIt?.name || '') !== (nextIt?.name || '')) {
+      details.push({
+        field: `Item Name`,
+        before: prevIt?.name || 'Untitled',
+        after: nextIt?.name || 'Untitled',
+        summary: `Renamed line item from "${prevIt?.name || 'Untitled'}" to "${nextIt?.name || 'Untitled'}"`
+      });
+    }
+    if ((prevIt?.color || '') !== (nextIt?.color || '')) {
+      details.push({
+        field: `${name} · Color`,
+        before: prevIt?.color || 'None',
+        after: nextIt?.color || 'None',
+        summary: `Changed color on "${name}" from "${prevIt?.color || 'None'}" to "${nextIt?.color || 'None'}"`
+      });
+    }
+    if (prevQty !== nextQty || JSON.stringify(prevIt?.sizes || {}) !== JSON.stringify(nextIt?.sizes || {})) {
+      details.push({
+        field: `${name} · Sizes / Qty`,
+        before: `${prevQty} pcs`,
+        after: `${nextQty} pcs`,
+        summary: `Updated quantities/sizes on "${name}" (${prevQty} → ${nextQty} pcs)`
+      });
+    }
+    if (String(prevIt?.price ?? '') !== String(nextIt?.price ?? '')) {
+      details.push({
+        field: `${name} · Unit Price`,
+        before: prevIt?.price ? `$${prevIt.price}` : '$0',
+        after: nextIt?.price ? `$${nextIt.price}` : '$0',
+        summary: `Updated unit price on "${name}" (${prevIt?.price ? `$${prevIt.price}` : '$0'} → ${nextIt?.price ? `$${nextIt.price}` : '$0'})`
+      });
+    }
+    if ((prevIt?.itemSupplierLink || '') !== (nextIt?.itemSupplierLink || '')) {
+      details.push({
+        field: `${name} · Supplier Link`,
+        before: prevIt?.itemSupplierLink ? 'Previous Link' : 'None',
+        after: nextIt?.itemSupplierLink ? 'Updated Link' : 'Cleared',
+        summary: `Updated supplier link on "${name}"`
+      });
+    }
+    if (
+      (prevIt?.image || '') !== (nextIt?.image || '') ||
+      (prevIt?.backImage || '') !== (nextIt?.backImage || '')
+    ) {
+      details.push({
+        field: `${name} · Mock-up / Artwork`,
+        summary: `Updated mock-up image on "${name}"`
+      });
+    }
+  });
+
+  return details;
+}
+
 function describeOrderChanges(
   op: 'create' | 'update' | 'delete',
   data: Record<string, any> | undefined,
-  orderTitle: string
-): string {
+  orderTitle: string,
+  prevOrder?: Record<string, any>
+): { actionSummary: string; changeDetails: ActivityChangeDetail[] } {
   if (op === 'create') {
     const title = data?.title || orderTitle || 'New Order';
-    return `Created new order "${title}"`;
+    const itemCount = Array.isArray(data?.items) ? data.items.length : 0;
+    const changeDetails: ActivityChangeDetail[] = [
+      {
+        field: 'New Order Created',
+        after: title,
+        summary: `Created order "${title}"${itemCount > 0 ? ` with ${itemCount} line item(s)` : ''}`
+      }
+    ];
+    if (data?.customer || data?.customerName) {
+      changeDetails.push({
+        field: 'Customer',
+        after: data.customer || data.customerName,
+        summary: `Assigned to customer "${data.customer || data.customerName}"`
+      });
+    }
+    return {
+      actionSummary: `Created new order "${title}"`,
+      changeDetails
+    };
   }
   if (op === 'delete') {
-    return `Deleted ${orderTitle}`;
+    return {
+      actionSummary: `Deleted ${orderTitle}`,
+      changeDetails: [
+        {
+          field: 'Order Deleted',
+          before: orderTitle,
+          after: 'Deleted',
+          summary: `Deleted order "${orderTitle}"`
+        }
+      ]
+    };
   }
-  if (!data) return `Updated ${orderTitle}`;
+  if (!data) {
+    return {
+      actionSummary: `Updated ${orderTitle}`,
+      changeDetails: [{ field: 'Order', summary: `Updated ${orderTitle}` }]
+    };
+  }
 
   const keys = Object.keys(data).filter((k) => k !== 'lastActivityPopup' && k !== 'updatedAt');
   const parts: string[] = [];
+  const changeDetails: ActivityChangeDetail[] = [];
+  const prev = prevOrder || {};
 
-  if ('status' in data || 'lane' in data || 'stepIndex' in data) {
-    const statusVal = data.status || data.lane;
-    parts.push(statusVal ? `changed status to "${statusVal}"` : 'updated pipeline stage');
-  }
-  if ('items' in data && Array.isArray(data.items)) {
-    const count = data.items.length;
-    parts.push(`updated garment items (${count} item${count === 1 ? '' : 's'})`);
-  }
-  if ('title' in data && data.title) {
+  // 1. Order Title
+  if ('title' in data && data.title && (!prevOrder || data.title !== prev.title)) {
     parts.push(`renamed order to "${data.title}"`);
+    changeDetails.push({
+      field: 'Order Title',
+      ...(prev.title ? { before: String(prev.title) } : {}),
+      after: String(data.title),
+      summary: prev.title
+        ? `Renamed order from "${prev.title}" to "${data.title}"`
+        : `Set order title to "${data.title}"`
+    });
+  }
+
+  // 2. Pipeline Status / Stage
+  if (
+    ('statusIndex' in data && (!prevOrder || data.statusIndex !== prev.statusIndex)) ||
+    ('status' in data && (!prevOrder || data.status !== prev.status)) ||
+    ('lane' in data && (!prevOrder || data.lane !== prev.lane))
+  ) {
+    const prevStage =
+      prev.status ||
+      prev.lane ||
+      (typeof prev.statusIndex === 'number' ? ORDER_STAGE_LABELS[prev.statusIndex] || `Stage ${prev.statusIndex}` : undefined);
+    const nextStage =
+      data.status ||
+      data.lane ||
+      (typeof data.statusIndex === 'number' ? ORDER_STAGE_LABELS[data.statusIndex] || `Stage ${data.statusIndex}` : 'Updated Stage');
+    parts.push(`changed status to "${nextStage}"`);
+    changeDetails.push({
+      field: 'Pipeline Status',
+      ...(prevStage ? { before: String(prevStage) } : {}),
+      after: String(nextStage),
+      summary: prevStage
+        ? `Changed pipeline status from "${prevStage}" to "${nextStage}"`
+        : `Changed pipeline status to "${nextStage}"`
+    });
+  }
+
+  // 3. Due Date / Target Completion Date
+  const nextDue = data.date ?? data.dueDate ?? data.targetCompletionDate;
+  const prevDue = prev.date ?? prev.dueDate ?? prev.targetCompletionDate;
+  if (
+    ('date' in data || 'dueDate' in data || 'targetCompletionDate' in data) &&
+    (!prevOrder || String(nextDue || '') !== String(prevDue || ''))
+  ) {
+    parts.push(`updated due date to ${nextDue || 'TBD'}`);
+    changeDetails.push({
+      field: 'Due Date',
+      ...(prevDue ? { before: String(prevDue) } : {}),
+      after: String(nextDue || 'Cleared'),
+      summary: prevDue
+        ? `Changed due date from "${prevDue}" to "${nextDue || 'Cleared'}"`
+        : `Set due date to "${nextDue || 'TBD'}"`
+    });
+  }
+
+  // 4. Core Flags (VIP, Artist Box, High Priority)
+  if ('isMvp' in data && (!prevOrder || Boolean(data.isMvp) !== Boolean(prev.isMvp))) {
+    parts.push(data.isMvp ? 'marked as VIP' : 'removed VIP flag');
+    changeDetails.push({
+      field: 'VIP Flag',
+      before: prev.isMvp ? 'Yes' : 'No',
+      after: data.isMvp ? 'Yes' : 'No',
+      summary: data.isMvp ? 'Enabled VIP status on order' : 'Disabled VIP status on order'
+    });
+  }
+  if ('getsBox' in data && (!prevOrder || Boolean(data.getsBox) !== Boolean(prev.getsBox))) {
+    parts.push(data.getsBox ? 'enabled Artist Box' : 'removed Artist Box');
+    changeDetails.push({
+      field: 'Artist Box',
+      before: prev.getsBox ? 'Yes' : 'No',
+      after: data.getsBox ? 'Yes' : 'No',
+      summary: data.getsBox ? 'Enabled Artist Box for order' : 'Disabled Artist Box for order'
+    });
+  }
+  const nextHp = data.highPriority ?? data.isHighPriority;
+  const prevHp = prev.highPriority ?? prev.isHighPriority;
+  if (
+    ('highPriority' in data || 'isHighPriority' in data) &&
+    (!prevOrder || Boolean(nextHp) !== Boolean(prevHp))
+  ) {
+    parts.push(nextHp ? 'marked as High Priority' : 'removed High Priority');
+    changeDetails.push({
+      field: 'High Priority',
+      before: prevHp ? 'High Priority' : 'Normal',
+      after: nextHp ? 'High Priority' : 'Normal',
+      summary: nextHp ? 'Marked order as High Priority' : 'Removed High Priority flag'
+    });
+  }
+
+  // 5. Individual Info (Gender / Size)
+  if ('personalInfo' in data && data.personalInfo) {
+    const prevPi = prev.personalInfo || {};
+    const nextPi = data.personalInfo || {};
+    if (
+      !prevOrder ||
+      Boolean(prevPi.isIndividual) !== Boolean(nextPi.isIndividual) ||
+      (prevPi.gender || '') !== (nextPi.gender || '') ||
+      (prevPi.size || '') !== (nextPi.size || '')
+    ) {
+      const beforeStr = prevPi.isIndividual
+        ? `Individual (${[prevPi.gender, prevPi.size].filter(Boolean).join(' · ') || 'Unspecified'})`
+        : 'Not Individual';
+      const afterStr = nextPi.isIndividual
+        ? `Individual (${[nextPi.gender, nextPi.size].filter(Boolean).join(' · ') || 'Unspecified'})`
+        : 'Not Individual';
+      parts.push(`updated individual specs (${afterStr})`);
+      changeDetails.push({
+        field: 'Individual Specs',
+        ...(prevOrder ? { before: beforeStr } : {}),
+        after: afterStr,
+        summary: `Updated individual specs to ${afterStr}`
+      });
+    }
+  }
+
+  // 6. Customer Assignment / Transfer
+  if (
+    ('customerId' in data && (!prevOrder || data.customerId !== prev.customerId)) ||
+    ('customer' in data && (!prevOrder || data.customer !== prev.customer))
+  ) {
+    const prevCustName = prev.customer || (prev.customerId && customerCache.get(prev.customerId)?.name) || '';
+    const nextCustName = data.customer || (data.customerId && customerCache.get(data.customerId)?.name) || '';
+    if (nextCustName && nextCustName !== prevCustName) {
+      parts.push(`assigned customer "${nextCustName}"`);
+      changeDetails.push({
+        field: 'Customer Account',
+        ...(prevCustName ? { before: String(prevCustName) } : {}),
+        after: String(nextCustName),
+        summary: prevCustName
+          ? `Transferred order from "${prevCustName}" to "${nextCustName}"`
+          : `Assigned order to "${nextCustName}"`
+      });
+    }
+  }
+
+  // 7. Payment Status, Discounts & Free Shipping
+  if ('paymentStatus' in data && (!prevOrder || data.paymentStatus !== prev.paymentStatus)) {
+    parts.push(`set payment status to "${data.paymentStatus}"`);
+    changeDetails.push({
+      field: 'Payment Status',
+      ...(prev.paymentStatus ? { before: String(prev.paymentStatus) } : {}),
+      after: String(data.paymentStatus),
+      summary: prev.paymentStatus
+        ? `Changed payment status from "${prev.paymentStatus}" to "${data.paymentStatus}"`
+        : `Set payment status to "${data.paymentStatus}"`
+    });
+  }
+  if ('discountCode' in data && (!prevOrder || (data.discountCode || '') !== (prev.discountCode || ''))) {
+    parts.push(data.discountCode ? `applied discount code "${data.discountCode}"` : 'removed discount code');
+    changeDetails.push({
+      field: 'Discount Code',
+      before: prev.discountCode || 'None',
+      after: data.discountCode || 'None',
+      summary: data.discountCode
+        ? `Set discount code to "${data.discountCode}"`
+        : 'Cleared discount code'
+    });
+  }
+  if ('discountAmount' in data && (!prevOrder || Number(data.discountAmount || 0) !== Number(prev.discountAmount || 0))) {
+    parts.push(`set discount amount to $${Number(data.discountAmount || 0).toFixed(2)}`);
+    changeDetails.push({
+      field: 'Discount Amount',
+      before: `$${Number(prev.discountAmount || 0).toFixed(2)}`,
+      after: `$${Number(data.discountAmount || 0).toFixed(2)}`,
+      summary: `Changed discount amount from $${Number(prev.discountAmount || 0).toFixed(2)} to $${Number(data.discountAmount || 0).toFixed(2)}`
+    });
+  }
+  if ('freeShipping' in data && (!prevOrder || Boolean(data.freeShipping) !== Boolean(prev.freeShipping))) {
+    parts.push(data.freeShipping ? 'enabled Free Shipping' : 'disabled Free Shipping');
+    changeDetails.push({
+      field: 'Free Shipping',
+      before: prev.freeShipping ? 'Enabled' : 'Disabled',
+      after: data.freeShipping ? 'Enabled' : 'Disabled',
+      summary: data.freeShipping ? 'Enabled Free Shipping for order' : 'Disabled Free Shipping for order'
+    });
+  }
+
+  // 8. Fulfillment & Shipping Address / Destinations
+  if ('fulfillmentType' in data && (!prevOrder || (data.fulfillmentType || '') !== (prev.fulfillmentType || ''))) {
+    parts.push(`set fulfillment to "${data.fulfillmentType}"`);
+    changeDetails.push({
+      field: 'Fulfillment Type',
+      ...(prev.fulfillmentType ? { before: String(prev.fulfillmentType) } : {}),
+      after: String(data.fulfillmentType),
+      summary: `Set fulfillment type to "${data.fulfillmentType}"`
+    });
+  }
+  if ('shippingAddress' in data && data.shippingAddress) {
+    const prevAddr = prev.shippingAddress || {};
+    const nextAddr = data.shippingAddress || {};
+    const prevFormatted = [prevAddr.street1, prevAddr.city, prevAddr.state, prevAddr.zip].filter(Boolean).join(', ');
+    const nextFormatted = [nextAddr.street1, nextAddr.city, nextAddr.state, nextAddr.zip].filter(Boolean).join(', ');
+    if (!prevOrder || prevFormatted !== nextFormatted || (prevAddr.name || '') !== (nextAddr.name || '')) {
+      parts.push('updated shipping address');
+      changeDetails.push({
+        field: 'Shipping Address',
+        ...(prevFormatted ? { before: prevFormatted } : {}),
+        after: nextFormatted || 'Updated Address',
+        summary: nextFormatted
+          ? `Updated shipping address to "${nextFormatted}"`
+          : 'Updated shipping destination details'
+      });
+    }
   }
   if (
-    'customer' in data ||
-    'customerName' in data ||
-    'contactDetails' in data ||
-    'personalInfo' in data ||
-    'shippingAddress' in data
+    ('trackingNumber' in data && (!prevOrder || (data.trackingNumber || '') !== (prev.trackingNumber || ''))) ||
+    ('trackingCarrier' in data && (!prevOrder || (data.trackingCarrier || '') !== (prev.trackingCarrier || '')))
   ) {
-    parts.push('updated customer / shipping info');
+    const nextTrack = [data.trackingCarrier || prev.trackingCarrier, data.trackingNumber || prev.trackingNumber]
+      .filter(Boolean)
+      .join(' ');
+    if (nextTrack) {
+      parts.push(`updated tracking (${nextTrack})`);
+      changeDetails.push({
+        field: 'Order Tracking',
+        ...(prev.trackingNumber ? { before: String(prev.trackingNumber) } : {}),
+        after: nextTrack,
+        summary: `Updated tracking info to ${nextTrack}`
+      });
+    }
   }
-  if ('notes' in data || 'internalNotes' in data || 'productionNotes' in data) {
+
+  // 9. Garment Line Items
+  if ('items' in data && Array.isArray(data.items)) {
+    if (prevOrder && Array.isArray(prev.items)) {
+      const itemDiffs = diffOrderItems(prev.items, data.items);
+      if (itemDiffs.length > 0) {
+        parts.push(`updated garment items (${itemDiffs.length} change${itemDiffs.length === 1 ? '' : 's'})`);
+        changeDetails.push(...itemDiffs);
+      } else if (keys.length === 1 && keys[0] === 'items') {
+        const count = data.items.length;
+        parts.push(`updated garment items (${count} item${count === 1 ? '' : 's'})`);
+        changeDetails.push({
+          field: 'Garment Line Items',
+          after: `${count} item(s)`,
+          summary: `Updated garment line items (${count} item${count === 1 ? '' : 's'})`
+        });
+      }
+    } else {
+      const count = data.items.length;
+      parts.push(`updated garment items (${count} item${count === 1 ? '' : 's'})`);
+      changeDetails.push({
+        field: 'Garment Line Items',
+        after: `${count} item(s)`,
+        summary: `Updated garment line items (${count} item${count === 1 ? '' : 's'})`
+      });
+    }
+  }
+
+  // 10. Packing Boxes / Shipments
+  if ('boxes' in data && Array.isArray(data.boxes)) {
+    const prevBoxesLen = Array.isArray(prev.boxes) ? prev.boxes.length : 0;
+    const nextBoxesLen = data.boxes.length;
+    if (!prevOrder || JSON.stringify(prev.boxes) !== JSON.stringify(data.boxes)) {
+      parts.push(`updated packing boxes (${nextBoxesLen} box${nextBoxesLen === 1 ? '' : 'es'})`);
+      changeDetails.push({
+        field: 'Packing Boxes',
+        ...(prevOrder ? { before: `${prevBoxesLen} box(es)` } : {}),
+        after: `${nextBoxesLen} box(es)`,
+        summary: `Updated packing boxes / shipments (${nextBoxesLen} box${nextBoxesLen === 1 ? '' : 'es'})`
+      });
+    }
+  }
+
+  // 11. Notes & Activity Log
+  if (
+    ('orderNotes' in data && (!prevOrder || (data.orderNotes || '') !== (prev.orderNotes || ''))) ||
+    ('notes' in data && (!prevOrder || (data.notes || '') !== (prev.notes || ''))) ||
+    ('internalNotes' in data && (!prevOrder || (data.internalNotes || '') !== (prev.internalNotes || '')))
+  ) {
     parts.push('updated order notes');
+    changeDetails.push({
+      field: 'Order Notes',
+      summary: 'Updated order notes / instructions'
+    });
   }
-  if (
-    'discount' in data ||
-    'discountAmount' in data ||
-    'tax' in data ||
-    'pricing' in data ||
-    'costs' in data ||
-    'deposit' in data ||
-    'paymentStatus' in data
-  ) {
-    parts.push('updated pricing / payment details');
-  }
-  if ('startDate' in data || 'targetCompletionDate' in data || 'dueDate' in data) {
-    parts.push('updated production / due dates');
-  }
-  if ('isHighPriority' in data) {
-    parts.push(data.isHighPriority ? 'marked as High Priority' : 'removed High Priority');
-  }
-  if ('boxes' in data || 'trackingNumber' in data || 'shipments' in data) {
-    parts.push('updated packing boxes / shipping');
+
+  // Also capture explicit activity log message if OrderDetail appended one
+  if ('activities' in data && Array.isArray(data.activities) && data.activities.length > 0) {
+    const latestAct = data.activities[0];
+    const prevLatestId = Array.isArray(prev.activities) && prev.activities[0]?.id;
+    if (latestAct?.message && latestAct.id !== prevLatestId && changeDetails.length === 0) {
+      parts.push(latestAct.message);
+      changeDetails.push({
+        field: 'Order Activity',
+        summary: String(latestAct.message)
+      });
+    }
   }
 
   if (parts.length === 0) {
-    const cleanKeys = keys.slice(0, 3).join(', ');
-    return cleanKeys ? `Updated order (${cleanKeys})` : `Updated ${orderTitle}`;
+    const cleanKeys = keys.filter((k) => k !== 'activities').slice(0, 4).join(', ');
+    const fallbackSummary = cleanKeys ? `Updated order (${cleanKeys})` : `Updated ${orderTitle}`;
+    return {
+      actionSummary: fallbackSummary,
+      changeDetails: [
+        {
+          field: cleanKeys || 'Order Details',
+          summary: fallbackSummary
+        }
+      ]
+    };
   }
 
   const joined = parts.join(', ');
-  return joined.charAt(0).toUpperCase() + joined.slice(1);
+  return {
+    actionSummary: joined.charAt(0).toUpperCase() + joined.slice(1),
+    changeDetails
+  };
 }
 
 function describeCustomerChanges(
   op: 'create' | 'update' | 'delete',
   data: Record<string, any> | undefined,
-  customerName: string
-): string {
-  if (op === 'create') return `Created customer profile "${customerName}"`;
-  if (op === 'delete') return `Deleted customer "${customerName}"`;
-  if (!data) return `Updated customer "${customerName}"`;
+  customerName: string,
+  prevCustomer?: Record<string, any>
+): { actionSummary: string; changeDetails: ActivityChangeDetail[] } {
+  if (op === 'create') {
+    return {
+      actionSummary: `Created customer profile "${customerName}"`,
+      changeDetails: [
+        {
+          field: 'Customer Created',
+          after: customerName,
+          summary: `Created customer profile "${customerName}"`
+        }
+      ]
+    };
+  }
+  if (op === 'delete') {
+    return {
+      actionSummary: `Deleted customer "${customerName}"`,
+      changeDetails: [
+        {
+          field: 'Customer Deleted',
+          before: customerName,
+          after: 'Deleted',
+          summary: `Deleted customer "${customerName}"`
+        }
+      ]
+    };
+  }
+  if (!data) {
+    return {
+      actionSummary: `Updated customer "${customerName}"`,
+      changeDetails: [{ field: 'Customer Profile', summary: `Updated customer "${customerName}"` }]
+    };
+  }
 
+  const prev = prevCustomer || {};
   const parts: string[] = [];
+  const changeDetails: ActivityChangeDetail[] = [];
+
   if ('assets' in data && Array.isArray(data.assets)) {
-    parts.push(`updated Asset Vault (${data.assets.length} file${data.assets.length === 1 ? '' : 's'})`);
+    const prevLen = Array.isArray(prev.assets) ? prev.assets.length : undefined;
+    const nextLen = data.assets.length;
+    parts.push(`updated Asset Vault (${nextLen} file${nextLen === 1 ? '' : 's'})`);
+    changeDetails.push({
+      field: 'Asset Vault',
+      ...(prevLen !== undefined ? { before: `${prevLen} file(s)` } : {}),
+      after: `${nextLen} file(s)`,
+      summary: `Updated Customer Asset Vault (${nextLen} file${nextLen === 1 ? '' : 's'})`
+    });
   }
   if ('savedDesigns' in data && Array.isArray(data.savedDesigns)) {
-    parts.push(`updated Saved Designs library (${data.savedDesigns.length} design${data.savedDesigns.length === 1 ? '' : 's'})`);
+    const prevLen = Array.isArray(prev.savedDesigns) ? prev.savedDesigns.length : undefined;
+    const nextLen = data.savedDesigns.length;
+    parts.push(`updated Saved Designs library (${nextLen} design${nextLen === 1 ? '' : 's'})`);
+    changeDetails.push({
+      field: 'Saved Designs',
+      ...(prevLen !== undefined ? { before: `${prevLen} design(s)` } : {}),
+      after: `${nextLen} design(s)`,
+      summary: `Updated Saved Designs library (${nextLen} design${nextLen === 1 ? '' : 's'})`
+    });
   }
   if ('colorMockups' in data || 'logoPlacements' in data) {
     parts.push('updated custom garment mock-ups / placements');
+    changeDetails.push({
+      field: 'Garment Mock-ups & Placements',
+      summary: 'Updated custom garment mock-ups or logo placement guides'
+    });
   }
   if ('company' in data || 'contactName' in data || 'email' in data || 'phone' in data || 'address' in data) {
     parts.push('updated contact / company info');
+    changeDetails.push({
+      field: 'Contact & Company Details',
+      summary: `Updated contact / company details for ${customerName}`
+    });
   }
   if ('notes' in data) {
     parts.push('updated customer notes');
+    changeDetails.push({
+      field: 'Customer Notes',
+      summary: 'Updated customer profile notes'
+    });
   }
 
   if (parts.length === 0) {
-    return `Updated customer profile for ${customerName}`;
+    return {
+      actionSummary: `Updated customer profile for ${customerName}`,
+      changeDetails: [
+        {
+          field: 'Customer Profile',
+          summary: `Updated customer profile for ${customerName}`
+        }
+      ]
+    };
   }
   const joined = parts.join(', ');
-  return joined.charAt(0).toUpperCase() + joined.slice(1);
+  return {
+    actionSummary: joined.charAt(0).toUpperCase() + joined.slice(1),
+    changeDetails
+  };
 }
 
 function describePlatformPathChange(
@@ -707,7 +1370,8 @@ export function prepareTrackedWritePayload(
     // Update cache immediately so subsequent edits diff against the latest state
     customerCache.set(docId, {
       name: custName,
-      designerRack: data.designerRack
+      designerRack: data.designerRack,
+      raw: { ...(cachedCust?.raw || {}), ...data }
     });
 
     if (rackDiff && !rackDiff.isReadFlagOnly) {
@@ -721,6 +1385,7 @@ export function prepareTrackedWritePayload(
         actorRole,
         actionTitle: rackDiff.actionTitle,
         actionSummary: rackDiff.actionSummary,
+        ...(rackDiff.changeDetails.length ? { changeDetails: rackDiff.changeDetails } : {}),
         targetType: 'customer_rack',
         targetId: docId,
         targetLabel: custName,
@@ -772,10 +1437,31 @@ export function prepareTrackedWritePayload(
       ? `${rawOrderTitle} · ${customerName}`
       : rawOrderTitle;
 
-    const actionSummary = describeOrderChanges(op, data, rawOrderTitle);
+    const { actionSummary, changeDetails } = describeOrderChanges(
+      op,
+      data,
+      rawOrderTitle,
+      cachedOrder?.raw
+    );
+    const nextMergedOrder = { ...(cachedOrder?.raw || {}), ...(data || {}) };
+    if (op !== 'delete') {
+      orderCache.set(docId, {
+        title: rawOrderTitle,
+        portalId,
+        customerName,
+        customerId: data?.customerId || cachedOrder?.customerId || '',
+        raw: nextMergedOrder
+      });
+    }
+
+    const itemsSource = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(cachedOrder?.raw?.items)
+        ? cachedOrder.raw.items
+        : [];
     const firstItemImg =
-      Array.isArray(data?.items) && data.items.length > 0
-        ? data.items[0]?.image || data.items[0]?.customizedFrontImage || ''
+      itemsSource.length > 0
+        ? itemsSource[0]?.image || itemsSource[0]?.customizedFrontImage || ''
         : '';
 
     const event: ActivityPopupEvent = {
@@ -787,6 +1473,7 @@ export function prepareTrackedWritePayload(
       actorRole,
       actionTitle: isSales ? 'Order Change by Sales' : 'Order Change by Designer',
       actionSummary,
+      ...(changeDetails.length ? { changeDetails } : {}),
       targetType: 'order',
       targetId: docId,
       targetLabel,
@@ -822,7 +1509,19 @@ export function prepareTrackedWritePayload(
         data?.name ||
         cachedCust?.name ||
         'Customer';
-      const actionSummary = describeCustomerChanges(op, data, custName);
+      const { actionSummary, changeDetails } = describeCustomerChanges(
+        op,
+        data,
+        custName,
+        cachedCust?.raw
+      );
+      if (op !== 'delete') {
+        customerCache.set(docId, {
+          name: custName,
+          designerRack: cachedCust?.designerRack || [],
+          raw: { ...(cachedCust?.raw || {}), ...(data || {}) }
+        });
+      }
 
       const event: ActivityPopupEvent = {
         id: `act_cust_${docId}_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
@@ -833,6 +1532,7 @@ export function prepareTrackedWritePayload(
         actorRole,
         actionTitle: 'Customer Updated by Designer',
         actionSummary,
+        ...(changeDetails.length ? { changeDetails } : {}),
         targetType: 'customer',
         targetId: docId,
         targetLabel: custName,
@@ -863,6 +1563,12 @@ export function prepareTrackedWritePayload(
       actorRole,
       actionTitle: 'Platform Change by Designer',
       actionSummary: platformDesc.actionSummary,
+      changeDetails: [
+        {
+          field: platformDesc.targetLabel,
+          summary: platformDesc.actionSummary
+        }
+      ],
       targetType: collectionName === 'settings' ? 'settings' : 'platform',
       targetId: `${collectionName}/${docId}`,
       targetLabel: platformDesc.targetLabel,

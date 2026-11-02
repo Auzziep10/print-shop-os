@@ -6,6 +6,7 @@ import { AuthProvider, useAuth, type PermissionKey } from './contexts/AuthContex
 
 import { GlobalErrorBoundary } from './components/common/ErrorBoundary';
 import { ErrorPage } from './pages/Error/ErrorPage';
+import { shouldShowActivityPopupsForRole } from './lib/roleActivityTracker';
 
 // Helper to automatically reload the page if a dynamically imported bundle fails to fetch (e.g. after a redeployment)
 const safeLazy = (importFunc: () => Promise<any>) => {
@@ -98,8 +99,8 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Always allow Admins/Leadership using Role Preview or Designer role to access Settings
-  if (permission === 'manageSettings' && (canUseRolePreview || isDesigner)) {
+  // Always allow Admins/Leadership using Role Preview, Designer role, or Staff/Admin popup recipients to access Settings
+  if (permission === 'manageSettings' && (canUseRolePreview || isDesigner || shouldShowActivityPopupsForRole(userData?.role))) {
     return <>{children}</>;
   }
 

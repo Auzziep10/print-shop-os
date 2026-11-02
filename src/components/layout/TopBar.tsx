@@ -767,35 +767,72 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                       <p className="text-xs font-medium text-neutral-700 leading-snug mt-0.5">
                         {popup.actionSummary}
                       </p>
+                      {Array.isArray(popup.changeDetails) && popup.changeDetails.length > 0 && (
+                        <ul className="mt-2 space-y-1 bg-neutral-50 border border-neutral-200/80 rounded-lg p-2">
+                          {popup.changeDetails.slice(0, 3).map((detail, dIdx) => (
+                            <li
+                              key={`${popup.id}_d_${dIdx}`}
+                              className="text-[10px] text-neutral-700 leading-tight flex items-start gap-1"
+                            >
+                              <span className="text-neutral-400 font-bold">•</span>
+                              <span className="truncate">
+                                <strong className="font-bold text-neutral-900">{detail.field}:</strong>{' '}
+                                {detail.before !== undefined && detail.after !== undefined
+                                  ? `${detail.before} → ${detail.after}`
+                                  : detail.after !== undefined
+                                    ? detail.after
+                                    : detail.summary}
+                              </span>
+                            </li>
+                          ))}
+                          {popup.changeDetails.length > 3 && (
+                            <li className="text-[10px] font-bold text-neutral-500 pl-2">
+                              +{popup.changeDetails.length - 3} more update(s) in archive
+                            </li>
+                          )}
+                        </ul>
+                      )}
                     </div>
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-100">
-                    <button
-                      type="button"
-                      onClick={() => handleDismissPopup(popup.id)}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
-                    >
-                      Dismiss
-                    </button>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-100">
                     <button
                       type="button"
                       onClick={() => {
                         handleDismissPopup(popup.id);
-                        navigate(popup.targetRoute);
+                        navigate('/settings?tab=activity-archive');
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-neutral-900 hover:bg-neutral-800 text-white shadow-xs transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
                     >
-                      <span>
-                        {isRack
-                          ? 'Open Designer Rack'
-                          : popup.targetType === 'order'
-                            ? 'View Order'
-                            : 'View Change'}
-                      </span>
-                      <ExternalLink size={11} />
+                      View Archive
                     </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDismissPopup(popup.id)}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDismissPopup(popup.id);
+                          navigate(popup.targetRoute);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-neutral-900 hover:bg-neutral-800 text-white shadow-xs transition-colors cursor-pointer"
+                      >
+                        <span>
+                          {isRack
+                            ? 'Open Designer Rack'
+                            : popup.targetType === 'order'
+                              ? 'View Order'
+                              : 'View Change'}
+                        </span>
+                        <ExternalLink size={11} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

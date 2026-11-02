@@ -20,6 +20,8 @@ import { MergeCustomersTab } from './MergeCustomersTab';
 import { ArtistCollabTab } from './ArtistCollabTab';
 import { XCollabTab } from './XCollabTab';
 import { FulfillmentPipelinesTab } from './FulfillmentPipelinesTab';
+import { ActivityArchiveTab } from './ActivityArchiveTab';
+import { shouldShowActivityPopupsForRole } from '../../lib/roleActivityTracker';
 
 const DESIGNER_ALLOWED_TABS = [
   'storefront-catalog',
@@ -34,16 +36,20 @@ export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission, canUseRolePreview, userData } = useAuth();
   const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
+  const canViewActivityArchive = shouldShowActivityPopupsForRole(userData?.role);
+  const hasFullSettingsAccess = hasPermission('manageSettings') || canUseRolePreview;
   const rawTab = searchParams.get('tab');
   const activeTab = isDesigner
     ? rawTab && DESIGNER_ALLOWED_TABS.includes(rawTab)
       ? rawTab
       : 'storefront-catalog'
-    : rawTab || 'users';
+    : !hasFullSettingsAccess && canViewActivityArchive
+      ? 'activity-archive'
+      : rawTab || 'users';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
   
-  // Only users with manageSettings permission (or Designer role / Admins previewing another role) can view settings
-  if (!hasPermission('manageSettings') && !isDesigner && !canUseRolePreview) {
+  // Users with manageSettings permission, Designer role, Staff/Admin popup recipients, or Admins previewing another role can view settings
+  if (!hasFullSettingsAccess && !isDesigner && !canViewActivityArchive) {
     return (
       <div className={tokens.layout.container}>
         <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white mt-6 shrink-0">
@@ -72,7 +78,28 @@ export function Settings() {
         {/* Sidebar */}
         <div className="w-full md:w-64 shrink-0">
           <nav className="space-y-1">
-            {!isDesigner && (
+            {canViewActivityArchive && !isDesigner && (
+              <button
+                onClick={() => setActiveTab('activity-archive')}
+                className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'activity-archive'
+                    ? 'bg-brand-primary text-white'
+                    : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                }`}
+              >
+                <span>Role Activity Archive</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider ${
+                    activeTab === 'activity-archive'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-amber-100 text-amber-900'
+                  }`}
+                >
+                  Log
+                </span>
+              </button>
+            )}
+            {hasFullSettingsAccess && !isDesigner && (
               <>
                 <button
                   onClick={() => setActiveTab('users')}
@@ -156,47 +183,51 @@ export function Settings() {
                 </button>
               </>
             )}
-            <button
-              onClick={() => setActiveTab('storefront-catalog')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'storefront-catalog' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Storefront Catalog
-            </button>
-            <button
-              onClick={() => setActiveTab('brand-shop')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'brand-shop'
-                  ? 'bg-brand-primary text-white'
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Brand Shop
-            </button>
-            <button
-              onClick={() => setActiveTab('artist-collab')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'artist-collab'
-                  ? 'bg-brand-primary text-white'
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Artist×Collab
-            </button>
-            <button
-              onClick={() => setActiveTab('xcollab')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'xcollab'
-                  ? 'bg-brand-primary text-white'
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              xCollab
-            </button>
-            {!isDesigner && (
+            {(hasFullSettingsAccess || isDesigner) && (
+              <>
+                <button
+                  onClick={() => setActiveTab('storefront-catalog')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'storefront-catalog' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Storefront Catalog
+                </button>
+                <button
+                  onClick={() => setActiveTab('brand-shop')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'brand-shop'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Brand Shop
+                </button>
+                <button
+                  onClick={() => setActiveTab('artist-collab')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'artist-collab'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Artist×Collab
+                </button>
+                <button
+                  onClick={() => setActiveTab('xcollab')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'xcollab'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  xCollab
+                </button>
+              </>
+            )}
+            {hasFullSettingsAccess && !isDesigner && (
               <>
                 <button
                   onClick={() => setActiveTab('studio-qr')}
@@ -220,27 +251,31 @@ export function Settings() {
                 </button>
               </>
             )}
-            <button
-              onClick={() => setActiveTab('thank-you-card')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'thank-you-card'
-                  ? 'bg-brand-primary text-white'
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Thank You Card
-            </button>
-            <button
-              onClick={() => setActiveTab('signatures')}
-              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === 'signatures' 
-                  ? 'bg-brand-primary text-white' 
-                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-              }`}
-            >
-              Email Signatures
-            </button>
-            {!isDesigner && (
+            {(hasFullSettingsAccess || isDesigner) && (
+              <>
+                <button
+                  onClick={() => setActiveTab('thank-you-card')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'thank-you-card'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Thank You Card
+                </button>
+                <button
+                  onClick={() => setActiveTab('signatures')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'signatures' 
+                      ? 'bg-brand-primary text-white' 
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Email Signatures
+                </button>
+              </>
+            )}
+            {hasFullSettingsAccess && !isDesigner && (
               <>
                 <button
                   onClick={() => setActiveTab('email')}
@@ -269,6 +304,7 @@ export function Settings() {
 
         {/* Content */}
         <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm min-w-0">
+          {activeTab === 'activity-archive' && <ActivityArchiveTab />}
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'merge-customers' && <MergeCustomersTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
