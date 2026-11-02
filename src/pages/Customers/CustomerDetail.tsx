@@ -1419,6 +1419,8 @@ export function CustomerDetail() {
           ...(oldTitle && oldTitle.toLowerCase() !== displayTitle.toLowerCase() ? [oldTitle] : [])
         ])
       );
+      const actorName = userData?.name || userData?.email?.split('@')[0] || 'Team Member';
+      const actorRole = userData?.role || 'Staff';
       const updatedItem = {
         ...baseItem,
         title: displayTitle || baseItem.title || baseItem.name || 'Untitled Design',
@@ -1444,11 +1446,29 @@ export function CustomerDetail() {
           Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
             ? false
             : Boolean(baseItem.finalDesignApprovedNotificationRead),
+        finalDesignApprovedByName:
+          Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
+            ? actorName
+            : baseItem.finalDesignApprovedByName || actorName,
+        finalDesignApprovedByRole:
+          Boolean(nextForm.finalDesignApproved) && !baseItem.finalDesignApproved
+            ? actorRole
+            : baseItem.finalDesignApprovedByRole || actorRole,
         approvedForOrder: Boolean(nextForm.approvedForOrder),
         approvedForOrderNotificationRead:
           Boolean(nextForm.approvedForOrder) && !baseItem.approvedForOrder
             ? false
             : Boolean(baseItem.approvedForOrderNotificationRead),
+        approvedForOrderByName:
+          Boolean(nextForm.approvedForOrder) && !baseItem.approvedForOrder
+            ? actorName
+            : baseItem.approvedForOrderByName || actorName,
+        approvedForOrderByRole:
+          Boolean(nextForm.approvedForOrder) && !baseItem.approvedForOrder
+            ? actorRole
+            : baseItem.approvedForOrderByRole || actorRole,
+        updatedByName: actorName,
+        updatedByRole: actorRole,
         updatedAt: new Date().toISOString()
       };
 
@@ -1637,6 +1657,8 @@ export function CustomerDetail() {
         ...designerRackForm.otherMockups
       ];
 
+      const actorName = userData?.name || userData?.email?.split('@')[0] || 'Team Member';
+      const actorRole = userData?.role || 'Staff';
       let updated: any[];
       let previousRackTitle = '';
       if (editingDesignerRackId) {
@@ -1703,11 +1725,29 @@ export function CustomerDetail() {
             Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
               ? false
               : Boolean(baseItem.finalDesignApprovedNotificationRead),
+          finalDesignApprovedByName:
+            Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
+              ? actorName
+              : baseItem.finalDesignApprovedByName || actorName,
+          finalDesignApprovedByRole:
+            Boolean(designerRackForm.finalDesignApproved) && !baseItem.finalDesignApproved
+              ? actorRole
+              : baseItem.finalDesignApprovedByRole || actorRole,
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
           approvedForOrderNotificationRead:
             Boolean(designerRackForm.approvedForOrder) && !baseItem.approvedForOrder
               ? false
               : Boolean(baseItem.approvedForOrderNotificationRead),
+          approvedForOrderByName:
+            Boolean(designerRackForm.approvedForOrder) && !baseItem.approvedForOrder
+              ? actorName
+              : baseItem.approvedForOrderByName || actorName,
+          approvedForOrderByRole:
+            Boolean(designerRackForm.approvedForOrder) && !baseItem.approvedForOrder
+              ? actorRole
+              : baseItem.approvedForOrderByRole || actorRole,
+          updatedByName: actorName,
+          updatedByRole: actorRole,
           updatedAt: new Date().toISOString()
         };
 
@@ -1737,8 +1777,16 @@ export function CustomerDetail() {
           sizingAdjustment: designerRackForm.sizingAdjustment || 'True to Size',
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead: false,
+          finalDesignApprovedByName: designerRackForm.finalDesignApproved ? actorName : undefined,
+          finalDesignApprovedByRole: designerRackForm.finalDesignApproved ? actorRole : undefined,
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
           approvedForOrderNotificationRead: false,
+          approvedForOrderByName: designerRackForm.approvedForOrder ? actorName : undefined,
+          approvedForOrderByRole: designerRackForm.approvedForOrder ? actorRole : undefined,
+          createdByName: actorName,
+          createdByRole: actorRole,
+          updatedByName: actorName,
+          updatedByRole: actorRole,
           uploadedAt: new Date().toISOString()
         };
         updated = [...latestRack, newItem];

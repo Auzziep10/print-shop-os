@@ -1,11 +1,31 @@
 import { defineConfig } from 'vite'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import tailwindcss from '@tailwindcss/vite'
 
+const firestoreTrackedPath = fileURLToPath(new URL('./src/lib/firestoreTracked.ts', import.meta.url))
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    {
+      name: 'firestore-activity-tracker-alias',
+      enforce: 'pre',
+      resolveId(source, importer) {
+        if (source === 'firebase/firestore' && importer) {
+          const normImporter = importer.replace(/\\/g, '/')
+          if (
+            !normImporter.includes('node_modules') &&
+            !normImporter.endsWith('/src/lib/firestoreTracked.ts') &&
+            !normImporter.endsWith('/src/lib/roleActivityTracker.ts')
+          ) {
+            return firestoreTrackedPath
+          }
+        }
+        return null
+      }
+    },
     react(), 
     legacy({
       targets: ['defaults', 'safari >= 13', 'ios >= 13', 'chrome >= 64', 'firefox >= 67', 'edge >= 79'],

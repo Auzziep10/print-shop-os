@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, type User } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { registerMainFirestoreForTracking, setActiveActorForTracking } from '../lib/roleActivityTracker';
 
 export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer' | 'Sales' | 'Designer';
 
@@ -528,6 +529,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const effectiveUserData: UserData | null =
     userData && effectiveRole ? { ...userData, role: effectiveRole } : userData;
+
+  registerMainFirestoreForTracking(db);
+  setActiveActorForTracking(
+    effectiveUserData
+      ? {
+          id: effectiveUserData.id || user?.uid || effectiveUserData.email || '',
+          uid: effectiveUserData.uid || user?.uid,
+          name:
+            effectiveUserData.name ||
+            userData?.name ||
+            user?.displayName ||
+            effectiveUserData.email?.split('@')[0] ||
+            'Team Member',
+          email: effectiveUserData.email || user?.email || '',
+          role: effectiveUserData.role
+        }
+      : null
+  );
 
   const hasPermission = (permission: PermissionKey): boolean => {
     if (!effectiveUserData) return false;
