@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 /**
@@ -152,11 +152,40 @@ async function syncTrackingToClientFirestore(
   };
 
   const orderIds = new Set<string>();
-  if (payload.orderId) orderIds.add(String(payload.orderId));
+  const shipmentTargets: { orderId: string; kind: 'box' | 'item'; id: string }[] = [];
+  if (payload.orderId) {
+    orderIds.add(String(payload.orderId));
+    if (payload.boxId) {
+      shipmentTargets.push({ orderId: String(payload.orderId), kind: 'box', id: String(payload.boxId) });
+    }
+  }
   if (Array.isArray(payload.items)) {
     payload.items.forEach((r: any) => {
-      if (r?.orderId) orderIds.add(String(r.orderId));
+      if (r?.orderId) {
+        orderIds.add(String(r.orderId));
+        if (r?.itemId) {
+          shipmentTargets.push({ orderId: String(r.orderId), kind: 'item', id: String(r.itemId) });
+        }
+      }
     });
+  }
+
+  try {
+    await setDoc(
+      doc(db, 'shipments', normCode),
+      {
+        trackingCode,
+        carrier: summary.trackingCarrierDetected || null,
+        easyPostTrackerId: summary.easyPostTrackerId || null,
+        mode: summary.trackingMode || 'production',
+        status: summary.trackingStatus,
+        updatedAt: summary.trackingUpdatedAt || new Date().toISOString(),
+        ...(shipmentTargets.length ? { targets: arrayUnion(...shipmentTargets) } : {}),
+      },
+      { merge: true }
+    );
+  } catch {
+    // ignore if shipments collection write is restricted
   }
 
   for (const orderId of orderIds) {
@@ -371,12 +400,16 @@ export function startSourcingTracking(
 }
 
 async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string; tracking?: any }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
     const res = await fetch('/api/easypost/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.error) {
       console.warn('Live tracking not started:', data.error || res.status);
@@ -402,8 +435,12 @@ async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: 
     }
     return { ok: true, tracking: summary };
   } catch (err: any) {
+    clearTimeout(timeoutId);
     console.warn('Live tracking not started:', err);
-    return { ok: false, error: err?.message || 'Network error' };
+    return {
+      ok: false,
+      error: err?.name === 'AbortError' ? 'Carrier connection timed out' : err?.message || 'Network error',
+    };
   }
 }
 
@@ -417,7 +454,12 @@ const autoStartAttempts = new Map<string, Promise<{ ok: boolean; error?: string;
 export function autoStartOnce(key: string, start: () => Promise<{ ok: boolean; error?: string; tracking?: any }>) {
   const existing = autoStartAttempts.get(key);
   if (existing) return existing;
-  const attempt = start();
+  const attempt = start().then((res) => {
+    if (!res.ok) {
+      autoStartAttempts.delete(key);
+    }
+    return res;
+  });
   autoStartAttempts.set(key, attempt);
   return attempt;
 }
