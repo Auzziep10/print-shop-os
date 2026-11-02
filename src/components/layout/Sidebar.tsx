@@ -183,8 +183,8 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const navItems = [
     ...((hasPermission('viewDashboard') || isSales || isDesigner) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
-    ...((hasPermission('manageOrders') || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
-    ...((hasPermission('manageCustomers') || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
+    ...((hasPermission('manageOrders') || isSales || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
+    ...((hasPermission('manageCustomers') || isSales || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
     ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),

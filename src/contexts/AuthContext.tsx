@@ -552,6 +552,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!effectiveUserData) return false;
     // Safety check: Admin always has access to all permissions
     if (effectiveUserData.role === 'Admin') return true;
+    // Sales always has access to Orders, Customers, and Pricing
+    if (
+      effectiveUserData.role === 'Sales' &&
+      (permission === 'manageOrders' || permission === 'manageCustomers' || permission === 'viewPricing')
+    ) {
+      return true;
+    }
 
     const rolePermissions = permissions?.[effectiveUserData.role];
     if (rolePermissions) {

@@ -108,8 +108,8 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
     return <>{children}</>;
   }
 
-  // Allow Designer role to access Orders and Customers
-  if (isDesigner && (permission === 'manageOrders' || permission === 'manageCustomers')) {
+  // Allow Sales and Designer roles to access Orders and Customers
+  if ((isSales || isDesigner) && (permission === 'manageOrders' || permission === 'manageCustomers' || permission === 'viewPricing')) {
     return <>{children}</>;
   }
   

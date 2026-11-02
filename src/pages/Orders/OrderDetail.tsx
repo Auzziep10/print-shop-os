@@ -4513,7 +4513,7 @@ export function OrderDetail() {
   };
 
   const handleSaveItemEdit = async () => {
-    if (!id || !editItemObj || isSales) return;
+    if (!id || !editItemObj) return;
     setIsItemSaving(true);
     try {
       const orderData = orders.find(o => o.id === id);
@@ -4607,7 +4607,7 @@ export function OrderDetail() {
     }
   };
   const handleDeleteItem = async () => {
-    if (!id || !editItemObj || isSales) return;
+    if (!id || !editItemObj) return;
     
     // Only process deletion if user clicks OK
     if (!window.confirm("Are you sure you want to delete this item?")) return;
@@ -4641,7 +4641,7 @@ export function OrderDetail() {
   };
 
   const handleDuplicateItem = async (itemToDuplicate: any) => {
-    if (!id || !order || isSales) return;
+    if (!id || !order) return;
     setIsItemSaving(true);
     try {
       const existingItems = [...(order.items || [])];
@@ -5613,7 +5613,7 @@ export function OrderDetail() {
               <OrderTimelineTracker
                 order={order}
                 customerFulfillmentType={liveCustomer?.fulfillmentType || customer?.fulfillmentType || 'Standard'}
-                canEdit={!isSales}
+                canEdit={true}
                 compact={true}
               />
             </div>
@@ -5866,7 +5866,6 @@ export function OrderDetail() {
           <div>
             <div className="flex justify-between items-center mb-4 relative z-[100]">
                <h2 className={tokens.typography.h2}>Details</h2>
-               {!isSales && (
                <div className="flex items-center gap-3 relative z-[110] flex-wrap">
                  <PillButton 
                    variant="outline" 
@@ -5900,7 +5899,6 @@ export function OrderDetail() {
                     <Shirt size={14} /> Select Garment / Catalog
                   </PillButton>
                </div>
-               )}
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {garmentItems.length > 0 ? garmentItems.map((item: any) => (
@@ -5916,7 +5914,6 @@ export function OrderDetail() {
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
                         {/* Item Actions */}
-                        {!isSales && (
                         <div className="absolute top-0 right-0 flex gap-1.5 opacity-0 group-hover:opacity-100 z-10">
                           <button 
                             onClick={() => {
@@ -6005,11 +6002,9 @@ export function OrderDetail() {
                             <Edit3 size={14} />
                           </button>
                         </div>
-                        )}
 
                        {/* Left Side: Visual & Specs & Artwork */}
                        <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0 relative pl-6">
-                         {!isSales && (
                          <div 
                            className="absolute left-[-8px] top-1/2 -translate-y-1/2 text-brand-border hover:text-brand-primary transition-colors cursor-grab active:cursor-grabbing p-2"
                            onMouseEnter={() => setDraggableItemId(item.id)}
@@ -6017,7 +6012,6 @@ export function OrderDetail() {
                          >
                            <GripVertical size={20} />
                          </div>
-                         )}
                          <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
                              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 flex-1 min-w-0 w-full text-center sm:text-left">
@@ -6063,7 +6057,7 @@ export function OrderDetail() {
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )
                                 )}
-                                {!isSales && item.image && (
+                                {item.image && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -6130,7 +6124,7 @@ export function OrderDetail() {
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
-                                {!isSales && (() => {
+                                {(() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
@@ -6150,7 +6144,7 @@ export function OrderDetail() {
                                           <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
                                         </button>
                                       )}
-                                      {!isSales && !isDiscountItem(item) && !isNonGarmentItem(item) && (
+                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && (
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -6162,7 +6156,7 @@ export function OrderDetail() {
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
                                       )}
-                                      {!isSales && !isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
+                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -8638,7 +8632,7 @@ export function OrderDetail() {
                     {editForm.personalInfo?.isIndividual && (
                       <div className="p-4 bg-pink-50/40 rounded-xl border border-pink-200/80 space-y-3">
                         <p className="text-[11px] text-pink-900 font-semibold">
-                          🔒 Admin only — not shown on customer profile. Displayed next to the order title.
+                          🔒 Internal only — not shown on customer profile. Displayed next to the order title.
                         </p>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
