@@ -1,0 +1,82 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Team Chat — Firestore security rules
+//
+// Paste the block below INSIDE your existing
+//   match /databases/{database}/documents { ... }
+// in Firebase Console → Firestore Database → Rules, then Publish.
+// (Your current rules live in the console, not in this repo, so this is a
+// snippet to add — don't replace your whole rules file with it.)
+// ─────────────────────────────────────────────────────────────────────────────
+
+    function chatSignedIn() { return request.auth != null; }
+    function chatMember() {
+      return chatSignedIn()
+        && exists(/databases/$(database)/documents/chatMembers/$(request.auth.uid));
+    }
+    function chatAdmin() {
+      return chatSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Leadership'])
+        || (chatMember()
+          && get(/databases/$(database)/documents/chatMembers/$(request.auth.uid)).data.admin == true)
+      );
+    }
+    function chatModerator() {
+      return chatAdmin() || (chatMember()
+        && get(/databases/$(database)/documents/chatMembers/$(request.auth.uid)).data.role == 'Manager');
+    }
+    function inDM(channelId) {
+      return request.auth.uid in get(/databases/$(database)/documents/chatChannels/$(channelId)).data.memberIds;
+    }
+
+    // Who may use chat. Kept in sync from the team roster whenever an
+    // Admin/Leadership account opens Team Chat.
+    match /chatMembers/{uid} {
+      allow read: if chatMember() || chatAdmin();
+      allow write: if chatAdmin();
+    }
+
+    // Per-person unread markers
+    match /chatReads/{uid} {
+      allow read, write: if chatMember() && request.auth.uid == uid;
+    }
+
+    match /chatChannels/{channelId} {
+      allow read: if chatMember() && (resource == null || resource.data.type != 'dm'
+                     || request.auth.uid in resource.data.memberIds);
+      allow create: if chatMember() && (request.resource.data.type != 'dm'
+                     || request.auth.uid in request.resource.data.memberIds);
+      // last-message preview is updated by whoever posts
+      allow update: if chatMember() && (resource.data.type != 'dm' || request.auth.uid in resource.data.memberIds);
+      allow delete: if chatAdmin();
+
+      // Team channels + order threads: whole team can read
+      match /messages/{messageId} {
+        allow read: if chatMember();
+        allow create: if chatMember() && request.resource.data.authorId == request.auth.uid;
+        // authors edit their own text; anyone can react; managers can remove
+        allow update: if chatMember() && (
+          resource.data.authorId == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          || (chatModerator() && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['deleted', 'deletedAt', 'deletedBy', 'keywords']))
+        );
+        allow delete: if false; // messages are only ever soft-deleted
+      }
+
+      // Direct messages: only the two people in the conversation
+      match /dmMessages/{messageId} {
+        allow read: if chatMember() && inDM(channelId);
+        allow create: if chatMember() && inDM(channelId) && request.resource.data.authorId == request.auth.uid;
+        allow update: if chatMember() && inDM(channelId) && (
+          resource.data.authorId == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        );
+        allow delete: if false;
+      }
+    }
+
+    // Search + @mentions query across all team channels at once
+    match /{path=**}/messages/{messageId} {
+      allow read: if chatMember();
+    }

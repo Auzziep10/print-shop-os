@@ -34,6 +34,8 @@ import {
 
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
+import { useChatChannels } from '../../lib/chat/useChatChannels';
+import { auth } from '../../lib/firebase';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -98,7 +100,8 @@ export function Sidebar({ onClose }: SidebarProps) {
     return () => unsub();
   }, []);
 
-  const { userData, hasPermission } = useAuth();
+  const { userData, hasPermission, user } = useAuth();
+  const { unreadCount: chatUnread } = useChatChannels(user?.uid || auth.currentUser?.uid);
   const isAdmin = userData?.role === 'Admin';
   const isSales = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('sales'));
   const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
@@ -185,6 +188,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     ...((hasPermission('viewDashboard') || isSales || isDesigner) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
     ...((hasPermission('manageOrders') || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
     ...((hasPermission('manageCustomers') || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
+    { label: 'Team Chat', icon: MessageSquare, path: '/chat' },
     ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
@@ -490,6 +494,11 @@ export function Sidebar({ onClose }: SidebarProps) {
                 className={cn(isActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary")}
               />
               <span className={isActive ? "font-medium" : ""}>{item.label}</span>
+              {item.path === '/chat' && chatUnread > 0 && (
+                <span className="ml-auto text-[10px] font-bold bg-sky-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">
+                  {chatUnread > 9 ? '9+' : chatUnread}
+                </span>
+              )}
             </Link>
           );
         })}

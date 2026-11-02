@@ -1,0 +1,17 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Team Chat — Cloud Storage rules
+//
+// Paste INSIDE your existing  match /b/{bucket}/o { ... }  block in
+// Firebase Console → Storage → Rules, then Publish. The console will ask
+// once to let Storage rules read Firestore (for the chatMembers check) —
+// approve it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+    match /chat/{channelId}/{uid}/{allPaths=**} {
+      allow read: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/chatMembers/$(request.auth.uid));
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 25 * 1024 * 1024
+        && firestore.exists(/databases/(default)/documents/chatMembers/$(request.auth.uid));
+    }

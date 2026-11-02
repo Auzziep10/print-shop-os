@@ -62,6 +62,7 @@ const GalleryPage = safeLazy(() => import('./pages/Gallery/GalleryPage').then(m 
 const ShopPage = safeLazy(() => import('./pages/Shop/ShopPage').then(m => ({ default: m.ShopPage })));
 const ShopProductPage = safeLazy(() => import('./pages/Shop/ShopProductPage').then(m => ({ default: m.ShopProductPage })));
 const ShopSuccess = safeLazy(() => import('./pages/Shop/ShopSuccess').then(m => ({ default: m.ShopSuccess })));
+const ChatPage = safeLazy(() => import('./pages/Chat/ChatPage').then(m => ({ default: m.ChatPage })));
 const CapacityCalculator = safeLazy(() => import('./pages/Tools/CapacityCalculator').then(m => ({ default: m.CapacityCalculator })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -353,6 +354,8 @@ function AppRoutes() {
               }
             />
             <Route path="team/analytics" element={<Navigate to="/crm?tab=visitors" replace />} />
+            <Route path="chat" element={<ChatPage />} />
+            <Route path="chat/:channelId" element={<ChatPage />} />
             <Route
               path="capacity-calculator"
               element={

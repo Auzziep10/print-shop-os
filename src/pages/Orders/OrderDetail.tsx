@@ -1,4 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { OrderChatThread } from '../../components/Chat/OrderChatThread';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect, useMemo } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
@@ -8486,6 +8487,13 @@ export function OrderDetail() {
               </div>
             </div>
           </div>
+
+          {/* Team chat thread for this order */}
+          {order?.id && (
+            <div className="mt-8">
+              <OrderChatThread orderId={order.id} title={order.title} />
+            </div>
+          )}
       </div>
 
       {/* Edit Order Dialog */}
