@@ -71,10 +71,16 @@ export function summarizeTracker(tracker: any) {
     .sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''))
     .slice(0, 30);
 
+  const hasDeliveredEvent = events.some(
+    (e) => e.status === 'delivered' || /^delivered\b/i.test(String(e.message || '').trim())
+  );
+  const rawStatus = tracker?.status || (hasDeliveredEvent ? 'delivered' : 'unknown');
+  const resolvedStatus = hasDeliveredEvent ? 'delivered' : rawStatus;
+
   return {
     easyPostTrackerId: tracker?.id || null,
-    trackingStatus: tracker?.status || 'unknown',
-    trackingStatusLabel: statusLabel(tracker?.status),
+    trackingStatus: resolvedStatus,
+    trackingStatusLabel: statusLabel(resolvedStatus),
     trackingStatusDetail: tracker?.status_detail || null,
     trackingEstDelivery: tracker?.est_delivery_date || null,
     trackingPublicUrl: tracker?.public_url || null,
@@ -111,6 +117,27 @@ export function targetsFromLookup(data: any): TrackingTarget[] {
   return list.filter((t) => t?.orderId && t?.id && (t.kind === 'box' || t.kind === 'item'));
 }
 
+function toYmdFromIso(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const trimmed = String(dateStr).trim();
+  const direct = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (direct) return direct[1];
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getUTCFullYear();
+    const m = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return '';
+}
+
+function formatYmdToShortDate(ymd?: string): string {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return '';
+  const [y, m, d] = ymd.split('-');
+  return `${m}/${d}/${y.substring(2)}`;
+}
+
 type Summary = ReturnType<typeof summarizeTracker>;
 
 /** Updates every linked box/item on one order in a single transaction. Returns entries updated. */
@@ -139,16 +166,97 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
         changed = true;
         updatedCount++;
         if (isAnnounce(b.trackingStatus)) announce.push(b.name || 'Box');
-        return { ...b, ...summary };
+        const preservedEstDelivery =
+          summary.trackingEstDelivery || b.trackingEstDelivery || b.estArrival || null;
+        const nextEstArrival = summary.trackingEstDelivery
+          ? toYmdFromIso(summary.trackingEstDelivery) || b.estArrival
+          : b.estArrival;
+        return {
+          ...b,
+          ...summary,
+          trackingEstDelivery: preservedEstDelivery,
+          ...(nextEstArrival ? { estArrival: nextEstArrival } : {}),
+        };
       });
-      if (!changed) delete update.boxes;
+      if (!changed) {
+        delete update.boxes;
+      } else {
+        // Sync order's Received milestone expectedDate (and completedAt when delivered) from box tracking
+        const trackedBoxes = update.boxes.filter(
+          (b: any) =>
+            b &&
+            b.trackingCarrier !== 'Pickup' &&
+            Boolean(b.labelUrl || b.trackingEstDelivery || b.easyPostTrackerId || b.estArrival || b.trackingStatus === 'delivered')
+        );
+        let latestExpectedYmd = '';
+        let latestDeliveredIso = '';
+        let deliveredCount = 0;
+        for (const b of trackedBoxes) {
+          if (b.trackingStatus === 'delivered') {
+            deliveredCount++;
+            const events: any[] = Array.isArray(b.trackingEvents) ? b.trackingEvents : [];
+            const delivEv = events.find((ev: any) => ev?.status === 'delivered' && ev?.datetime);
+            const delivIso =
+              delivEv?.datetime ||
+              b.trackingLastEvent?.datetime ||
+              b.trackingEstDelivery ||
+              b.estArrival ||
+              b.trackingUpdatedAt;
+            if (delivIso) {
+              if (!latestDeliveredIso || String(delivIso) > latestDeliveredIso) {
+                latestDeliveredIso = String(delivIso);
+              }
+              const ymd = toYmdFromIso(delivIso);
+              if (ymd && (!latestExpectedYmd || ymd > latestExpectedYmd)) {
+                latestExpectedYmd = ymd;
+              }
+            }
+          } else {
+            const ymd = toYmdFromIso(b.trackingEstDelivery || b.estArrival);
+            if (ymd && (!latestExpectedYmd || ymd > latestExpectedYmd)) {
+              latestExpectedYmd = ymd;
+            }
+          }
+        }
+        if (latestExpectedYmd) {
+          const allNonPickup = update.boxes.filter((b: any) => b && b.trackingCarrier !== 'Pickup');
+          const allDelivered =
+            allNonPickup.length > 0 &&
+            deliveredCount === allNonPickup.length &&
+            trackedBoxes.length === allNonPickup.length;
+          const nextMilestones: Record<string, any> = {
+            ...(order.timelineMilestones && typeof order.timelineMilestones === 'object'
+              ? order.timelineMilestones
+              : {}),
+          };
+          const nextReceived: Record<string, any> = {
+            ...(nextMilestones.Received && typeof nextMilestones.Received === 'object'
+              ? nextMilestones.Received
+              : {}),
+            expectedDate: latestExpectedYmd,
+          };
+          delete nextReceived.manualOverrideAt;
+          if (allDelivered && latestDeliveredIso) {
+            nextReceived.completedAt = latestDeliveredIso;
+            if (typeof order.statusIndex === 'number' && (order.statusIndex === 6 || order.statusIndex === 7)) {
+              update.statusIndex = 8;
+              update.status = 'Received';
+            }
+          }
+          nextMilestones.Received = nextReceived;
+          update.timelineMilestones = nextMilestones;
+          const shortDate = formatYmdToShortDate(latestExpectedYmd);
+          if (shortDate) {
+            update.date = shortDate;
+          }
+        }
+      }
     }
 
-    if (itemIds.size && Array.isArray(order.items)) {
+    if ((itemIds.size || Array.isArray(order.items)) && Array.isArray(order.items)) {
       let changed = false;
       const fullSummary = { ...summary, ...(carrier ? { trackingCarrierDetected: carrier } : {}) };
       update.items = order.items.map((it: any) => {
-        if (!itemIds.has(String(it?.id))) return it;
         let itemMatched = false;
         let prevStatus: string | undefined;
         const nextItem: Record<string, any> = { ...it };
@@ -193,6 +301,9 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
           }
           if (bySizeChanged) {
             nextItem.sourcingTrackingBySize = nextBySize;
+            if (!nextItem.sourcingTrackingNumber || sameCode(nextItem.sourcingTrackingNumber)) {
+              nextItem.sourcingTracking = fullSummary;
+            }
           }
         }
 
@@ -207,6 +318,9 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
           });
           if (listChanged) {
             nextItem.sourcingTrackings = nextList;
+            if (!nextItem.sourcingTrackingNumber || sameCode(nextItem.sourcingTrackingNumber)) {
+              nextItem.sourcingTracking = fullSummary;
+            }
           }
         }
 

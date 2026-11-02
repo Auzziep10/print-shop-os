@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ExternalLink, Loader2, Pencil, Radio, Truck, X } from 'lucide-react';
-import { autoStartOnce, formatEstDelivery, formatEventTime, trackingTone } from '../../lib/liveTracking';
+import { ExternalLink, Loader2, Pencil, Radio, RefreshCw, Truck, X } from 'lucide-react';
+import { autoStartOnce, formatEstDelivery, formatEventTime, trackingTone, useLiveTracking } from '../../lib/liveTracking';
 import { TONE_CLASSES } from '../Orders/LiveTrackingStatus';
 import { formatCarrierName, getTrackingLink } from '../../lib/utils';
 
@@ -36,7 +36,7 @@ export function SourcingTrackingChip({
 }: {
   trackingNumber: string;
   tracking?: any;
-  onEdit: () => void;
+  onEdit?: () => void;
   onRemove?: () => void;
   onStartTracking: () => Promise<{ ok: boolean; error?: string }>;
   disabled?: boolean;
@@ -48,11 +48,12 @@ export function SourcingTrackingChip({
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState('');
 
-  const status: string | undefined = tracking?.trackingStatus;
+  const resolvedTracking = useLiveTracking(trackingNumber, tracking);
+  const status: string | undefined = resolvedTracking?.trackingStatus;
   const tone = TONE_CLASSES[trackingTone(status)];
-  const est = status && status !== 'delivered' ? formatEstDelivery(tracking?.trackingEstDelivery) : null;
-  const events: any[] = Array.isArray(tracking?.trackingEvents) ? tracking.trackingEvents : [];
-  const carrier = tracking?.trackingCarrierDetected || '';
+  const est = status && status !== 'delivered' ? formatEstDelivery(resolvedTracking?.trackingEstDelivery) : null;
+  const events: any[] = Array.isArray(resolvedTracking?.trackingEvents) ? resolvedTracking.trackingEvents : [];
+  const carrier = resolvedTracking?.trackingCarrierDetected || '';
   const link = getTrackingLink(carrier, trackingNumber);
 
   const place = () => {
@@ -95,15 +96,15 @@ export function SourcingTrackingChip({
     setStarting(false);
   };
 
-  // Connect live tracking automatically for numbers that don't have status yet
-  // (e.g. saved before setup was finished, or if the first attempt failed).
+  // Connect or refresh live tracking automatically for numbers that aren't delivered yet
+  // so packages in transit / out for delivery automatically update to Delivered when viewed.
   useEffect(() => {
-    if (status || !trackingNumber) return;
+    if (!trackingNumber || status === 'delivered' || status === 'cancelled' || status === 'return_to_sender') return;
     let cancelled = false;
-    setStarting(true);
+    if (!status) setStarting(true);
     autoStartOnce(`sourcing:${trackingNumber.replace(/\s+/g, '').toUpperCase()}`, onStartTracking).then((res) => {
       if (cancelled) return;
-      if (!res.ok) setStartError(res.error || 'Could not start live tracking');
+      if (!res.ok && !status) setStartError(res.error || 'Could not start live tracking');
       setStarting(false);
     });
     return () => {
@@ -119,7 +120,7 @@ export function SourcingTrackingChip({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        title={`Supplier tracking #${trackingNumber}${status ? ` — ${tracking?.trackingStatusLabel || ''}` : ''}`}
+        title={`Supplier tracking #${trackingNumber}${status ? ` — ${resolvedTracking?.trackingStatusLabel || ''}` : ''}`}
         className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer max-w-[170px] disabled:opacity-50 ${
           status ? `${tone.pill} hover:brightness-95` : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
         }`}
@@ -132,7 +133,7 @@ export function SourcingTrackingChip({
           <Truck size={11} className="shrink-0" />
         )}
         <span className="truncate">
-          {status ? SHORT_LABEL[status] || tracking?.trackingStatusLabel : trackingNumber}
+          {status ? SHORT_LABEL[status] || resolvedTracking?.trackingStatusLabel : trackingNumber}
           {est ? ` · ${est.replace(/,.*$/, '')}` : ''}
         </span>
       </button>
@@ -163,18 +164,29 @@ export function SourcingTrackingChip({
                   <p className="text-[11px] font-mono text-brand-primary break-all">{trackingNumber}</p>
                 )}
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-full hover:bg-neutral-100 shrink-0">
-                <X size={13} />
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  disabled={starting}
+                  onClick={handleStart}
+                  title="Refresh carrier status"
+                  className="p-1 rounded-full hover:bg-neutral-100 text-neutral-500 hover:text-brand-primary disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={starting ? 'animate-spin' : ''} />
+                </button>
+                <button type="button" onClick={() => setOpen(false)} className="p-1 rounded-full hover:bg-neutral-100">
+                  <X size={13} />
+                </button>
+              </div>
             </div>
 
             {status ? (
               <div className="mt-3">
                 <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border ${tone.pill}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${tone.dot}`} />
-                  {tracking?.trackingStatusLabel}
+                  {resolvedTracking?.trackingStatusLabel || SHORT_LABEL[status] || status}
                   {est && <span className="font-semibold opacity-80">· Est. {est}</span>}
-                  {tracking?.trackingMode === 'test' && <span className="font-semibold opacity-60">· TEST</span>}
+                  {resolvedTracking?.trackingMode === 'test' && <span className="font-semibold opacity-60">· TEST</span>}
                 </span>
                 {events.length > 0 ? (
                   <ol className="mt-3 ml-1 border-l border-brand-border pl-3 space-y-2 max-h-[220px] overflow-y-auto">
@@ -221,32 +233,36 @@ export function SourcingTrackingChip({
               </div>
             )}
 
-            <div className="mt-3 pt-3 border-t border-brand-border/70 flex items-center justify-between gap-2">
-              {onRemove ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    onRemove();
-                  }}
-                  className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 px-2.5 py-1 rounded-full border border-red-200 hover:bg-red-50"
-                >
-                  <X size={10} /> Remove
-                </button>
-              ) : (
-                <span />
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onEdit();
-                }}
-                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:text-black px-2.5 py-1 rounded-full border border-brand-border hover:bg-neutral-100"
-              >
-                <Pencil size={10} /> Edit tracking #
-              </button>
-            </div>
+            {(onRemove || onEdit) && (
+              <div className="mt-3 pt-3 border-t border-brand-border/70 flex items-center justify-between gap-2">
+                {onRemove ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onRemove();
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 px-2.5 py-1 rounded-full border border-red-200 hover:bg-red-50"
+                  >
+                    <X size={10} /> Remove
+                  </button>
+                ) : (
+                  <span />
+                )}
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onEdit();
+                    }}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-brand-primary hover:text-black px-2.5 py-1 rounded-full border border-brand-border hover:bg-neutral-100"
+                  >
+                    <Pencil size={10} /> Edit tracking #
+                  </button>
+                )}
+              </div>
+            )}
           </div>,
           document.body,
         )}

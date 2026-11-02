@@ -238,6 +238,15 @@ export default async function handler(req: Request) {
       chosenRate = buyData.selected_rate || selectedRate;
     }
 
+    const estDeliveryDate =
+      buyData?.tracker?.est_delivery_date ||
+      chosenRate?.delivery_date ||
+      null;
+    const deliveryDays =
+      chosenRate?.delivery_days ??
+      chosenRate?.est_delivery_days ??
+      null;
+
     // Return the label url and tracking code back to frontend
     return new Response(JSON.stringify({ 
        trackingNumber: buyData.tracking_code,
@@ -245,6 +254,9 @@ export default async function handler(req: Request) {
        carrier: chosenRate?.carrier || 'Carrier',
        service: chosenRate?.service || 'Delivery',
        cost: chosenRate?.rate || '0.00',
+       easyPostShipmentId: buyData?.id || null,
+       estDeliveryDate,
+       deliveryDays,
        forms: (buyData.forms || [])
          .filter((f: any) => f?.form_url)
          .map((f: any) => ({ type: f.form_type, url: f.form_url }))

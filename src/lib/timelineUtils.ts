@@ -20,6 +20,7 @@ export interface TimelineMilestone {
   expectedDate?: string;
   delayed?: boolean;
   delayNote?: string;
+  manualOverrideAt?: string;
 }
 
 export type TimelineMilestonesMap = Record<string, TimelineMilestone | undefined>;
@@ -273,6 +274,13 @@ export function computeOrderVisualTimelineIndex(
     }
   }
 
+  if (statusIdx >= 6 && steps[steps.length - 1] !== 'Live') {
+    const trackingMilestone = getOrderTrackingReceivedMilestone(order);
+    if (trackingMilestone?.allDelivered) {
+      return Math.max(0, steps.length - 1);
+    }
+  }
+
   return Math.min(Math.max(0, steps.length - 1), visualIndex);
 }
 
@@ -358,6 +366,205 @@ function inferCompletedAtFromActivities(order: any, step: string, stepIdx: numbe
   return undefined;
 }
 
+export function inferServiceBusinessDays(carrier?: string, service?: string): number {
+  const s = (service || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const c = (carrier || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!s) return 4;
+  if (
+    s.includes('nextday') ||
+    s.includes('overnight') ||
+    s.includes('1stday') ||
+    (c.includes('usps') && s.includes('express'))
+  ) {
+    return 1;
+  }
+  if (s.includes('2ndday') || s.includes('2day') || s.includes('secondday') || s.includes('twoday')) {
+    return 2;
+  }
+  if (
+    s.includes('3day') ||
+    s.includes('threeday') ||
+    s.includes('expresssaver') ||
+    (c.includes('usps') && s.includes('priority'))
+  ) {
+    return 3;
+  }
+  return 4;
+}
+
+export function addBusinessDaysToYmd(baseDateInput?: string | Date | null, businessDays: number = 4): string {
+  let base = new Date();
+  if (baseDateInput instanceof Date && !isNaN(baseDateInput.getTime())) {
+    base = new Date(baseDateInput.getTime());
+  } else if (typeof baseDateInput === 'string' && baseDateInput.trim()) {
+    const ymd = toDateInputValue(baseDateInput);
+    if (ymd && /^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      const [y, m, d] = ymd.split('-').map(Number);
+      base = new Date(y, m - 1, d);
+    } else {
+      const parsed = new Date(baseDateInput);
+      if (!isNaN(parsed.getTime())) base = parsed;
+    }
+  }
+  const days = Math.max(1, Math.round(Number(businessDays) || 4));
+  let remaining = days;
+  const cursor = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  while (remaining > 0) {
+    cursor.setDate(cursor.getDate() + 1);
+    const dow = cursor.getDay();
+    if (dow !== 0 && dow !== 6) {
+      remaining--;
+    }
+  }
+  const y = cursor.getFullYear();
+  const m = String(cursor.getMonth() + 1).padStart(2, '0');
+  const d = String(cursor.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function resolveLabelEstimatedDeliveryYmd(opts: {
+  estDeliveryDate?: string | null;
+  deliveryDays?: number | string | null;
+  carrier?: string;
+  service?: string;
+  baseDate?: string | Date | null;
+}): string {
+  if (opts.estDeliveryDate) {
+    const ymd = toDateInputValue(opts.estDeliveryDate);
+    if (ymd) return ymd;
+  }
+  const parsedDays = opts.deliveryDays != null ? Number(opts.deliveryDays) : NaN;
+  const days =
+    Number.isFinite(parsedDays) && parsedDays > 0
+      ? parsedDays
+      : inferServiceBusinessDays(opts.carrier, opts.service);
+  return addBusinessDaysToYmd(opts.baseDate || new Date(), days);
+}
+
+export function formatYmdToShortOrderDate(ymd?: string): string {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return '';
+  const [y, m, d] = ymd.split('-');
+  return `${m}/${d}/${y.substring(2)}`;
+}
+
+function findPurchasedLabelTimestamp(order: any, box: any): string | undefined {
+  if (box?.labelCreatedAt) return String(box.labelCreatedAt);
+  const activities: any[] = Array.isArray(order?.activities) ? order.activities : [];
+  const code = String(box?.trackingNumber || '').trim();
+  const boxName = String(box?.name || '').trim();
+  for (const act of activities) {
+    const msg = String(act?.message || '');
+    if (!msg.includes('Purchased') || !msg.includes('Label')) continue;
+    if (code && msg.includes(code) && act?.timestamp) return String(act.timestamp);
+    if (boxName && msg.includes(boxName) && act?.timestamp) return String(act.timestamp);
+  }
+  for (const act of activities) {
+    const msg = String(act?.message || '');
+    if (msg.includes('Purchased') && msg.includes('Label') && act?.timestamp) {
+      return String(act.timestamp);
+    }
+  }
+  return box?.trackingUpdatedAt || box?.createdAt || undefined;
+}
+
+export function getOrderTrackingReceivedMilestone(order: any): {
+  expectedDate?: string;
+  completedAt?: string;
+  allDelivered: boolean;
+  updatedAt?: string;
+  hasPlatformLabel: boolean;
+} | null {
+  const boxes: any[] = Array.isArray(order?.boxes) ? order.boxes : [];
+  if (boxes.length === 0) return null;
+
+  const trackedBoxes = boxes.filter(
+    (b: any) =>
+      b &&
+      b.trackingCarrier !== 'Pickup' &&
+      Boolean(
+        b.labelUrl ||
+          b.trackingEstDelivery ||
+          b.easyPostTrackerId ||
+          b.estArrival ||
+          b.trackingStatus === 'delivered'
+      )
+  );
+  if (trackedBoxes.length === 0) return null;
+
+  let latestExpectedYmd = '';
+  let latestDeliveredIso = '';
+  let latestUpdatedAt = '';
+  let deliveredCount = 0;
+  const hasPlatformLabel = trackedBoxes.some((b: any) => Boolean(b.labelUrl));
+
+  for (const b of trackedBoxes) {
+    const labelTs = findPurchasedLabelTimestamp(order, b) || '';
+    const boxUpdated = String(b.trackingUpdatedAt || labelTs || b.createdAt || '');
+    if (boxUpdated && (!latestUpdatedAt || boxUpdated > latestUpdatedAt)) {
+      latestUpdatedAt = boxUpdated;
+    }
+
+    if (b.trackingStatus === 'delivered') {
+      deliveredCount++;
+      const events: any[] = Array.isArray(b.trackingEvents) ? b.trackingEvents : [];
+      const delivEv = events.find((ev: any) => ev?.status === 'delivered' && ev?.datetime);
+      const delivRaw =
+        delivEv?.datetime ||
+        b.trackingLastEvent?.datetime ||
+        b.trackingEstDelivery ||
+        b.estArrival ||
+        b.trackingUpdatedAt ||
+        labelTs;
+      if (delivRaw) {
+        const delivStr = String(delivRaw);
+        if (!latestDeliveredIso || delivStr > latestDeliveredIso) {
+          latestDeliveredIso = delivStr;
+        }
+        const ymd = toDateInputValue(delivStr);
+        if (ymd && (!latestExpectedYmd || ymd > latestExpectedYmd)) {
+          latestExpectedYmd = ymd;
+        }
+      }
+      continue;
+    }
+
+    let boxYmd = '';
+    if (b.trackingEstDelivery) {
+      boxYmd = toDateInputValue(b.trackingEstDelivery);
+    }
+    if (!boxYmd && b.estArrival) {
+      boxYmd = toDateInputValue(b.estArrival);
+    }
+    if (!boxYmd && b.labelUrl) {
+      boxYmd = resolveLabelEstimatedDeliveryYmd({
+        carrier: b.trackingCarrier,
+        service: b.trackingService,
+        baseDate: labelTs || order?.updatedAt || order?.createdAt || new Date()
+      });
+    }
+
+    if (boxYmd && (!latestExpectedYmd || boxYmd > latestExpectedYmd)) {
+      latestExpectedYmd = boxYmd;
+    }
+  }
+
+  if (!latestExpectedYmd && !latestDeliveredIso) return null;
+
+  const allNonPickupBoxes = boxes.filter((b: any) => b && b.trackingCarrier !== 'Pickup');
+  const allDelivered =
+    allNonPickupBoxes.length > 0 &&
+    deliveredCount === allNonPickupBoxes.length &&
+    trackedBoxes.length === allNonPickupBoxes.length;
+
+  return {
+    expectedDate: latestExpectedYmd || toDateInputValue(latestDeliveredIso) || undefined,
+    completedAt: allDelivered ? latestDeliveredIso || latestExpectedYmd || undefined : undefined,
+    allDelivered,
+    updatedAt: latestUpdatedAt || undefined,
+    hasPlatformLabel
+  };
+}
+
 export function resolveStepMilestone(
   order: any,
   step: string,
@@ -393,6 +600,28 @@ export function resolveStepMilestone(
       undefined;
   }
 
+  const isReceivedStep =
+    step === 'Received' || (stepIdx === totalStepsCount - 1 && step !== 'Live');
+  if (isReceivedStep) {
+    const trackingMilestone = getOrderTrackingReceivedMilestone(order);
+    if (trackingMilestone) {
+      const manualOverrideAt =
+        rawMilestone.manualOverrideAt ||
+        order?.timelineMilestones?.['Received']?.manualOverrideAt;
+      const hasNewerManualOverride = Boolean(
+        manualOverrideAt &&
+          rawMilestone.expectedDate &&
+          (!trackingMilestone.updatedAt || manualOverrideAt > trackingMilestone.updatedAt)
+      );
+      if (!hasNewerManualOverride && trackingMilestone.expectedDate) {
+        expectedDate = trackingMilestone.expectedDate;
+      }
+      if (trackingMilestone.allDelivered && trackingMilestone.completedAt) {
+        completedAt = trackingMilestone.completedAt;
+      }
+    }
+  }
+
   return {
     completedAt,
     expectedDate,
@@ -419,8 +648,9 @@ export function formatTimelineDate(dateStr?: string): string {
     }
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    const [y, m, d] = trimmed.split('-').map(Number);
+  const dateOnlyOrUtcMidnight = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:T00:00:00(?:\.\d+)?Z)?$/i);
+  if (dateOnlyOrUtcMidnight) {
+    const [, y, m, d] = dateOnlyOrUtcMidnight.map(Number);
     const localDate = new Date(y, m - 1, d);
     if (!isNaN(localDate.getTime())) {
       return localDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -438,7 +668,8 @@ export function formatTimelineDate(dateStr?: string): string {
 export function toDateInputValue(dateStr?: string): string {
   if (!dateStr || dateStr === 'TBD') return '';
   const trimmed = String(dateStr).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const dateOnlyOrUtcMidnight = trimmed.match(/^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.\d+)?Z)?$/i);
+  if (dateOnlyOrUtcMidnight) return dateOnlyOrUtcMidnight[1];
 
   if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(trimmed)) {
     const parts = trimmed.split('/');

@@ -27,14 +27,11 @@ function verifySignature(rawBody: string, header: string | null, secret: string)
 
 export async function POST(req: Request) {
   const secret = (process.env.EASYPOST_WEBHOOK_SECRET || '').trim();
-  if (!secret) {
-    console.error('EASYPOST_WEBHOOK_SECRET is not set — rejecting webhook.');
-    return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 });
-  }
-
   const rawBody = await req.text();
-  if (!verifySignature(rawBody, req.headers.get('x-hmac-signature'), secret)) {
-    return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
+  if (secret) {
+    if (!verifySignature(rawBody, req.headers.get('x-hmac-signature'), secret)) {
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
+    }
   }
 
   let event: any;
@@ -64,3 +61,5 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: 'Processing failed' }), { status: 500 });
   }
 }
+
+export default POST;

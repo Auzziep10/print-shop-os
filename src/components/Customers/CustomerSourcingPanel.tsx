@@ -19,7 +19,7 @@ import {
 import { MvpStarIcon } from '../ui/MvpStarIcon';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { startSourcingTracking } from '../../lib/liveTracking';
+import { normalizeTrackingCode, pickBestTracking, startSourcingTracking } from '../../lib/liveTracking';
 import { SourcingTrackingChip } from './SourcingTrackingChip';
 import { isDiscountItem, isNonGarmentItem, sortGarmentSizes, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
 import {
@@ -243,12 +243,59 @@ export function CustomerSourcingPanel({
   }, [orders, brandFilter, pipelineFilter]);
 
   // Build aggregated garment groups
-  const { garmentGroups, summaryStats, allSizeColumns } = useMemo(() => {
+  const { garmentGroups, summaryStats, allSizeColumns, bestTrackingByCode, allRefsByCode } = useMemo(() => {
     const groupsMap: Record<string, AggregatedGarmentGroup> = {};
     let totalUnits = 0;
     let totalOrdered = 0;
     let totalReceived = 0;
     const discoveredSizes = new Set<string>(STANDARD_SIZES);
+
+    // Pre-scan all orders to find the most recent tracking status for every tracking number
+    // and collect all item references sharing each tracking number.
+    const bestTrackingByCode: Record<string, any> = {};
+    const allRefsByCode: Record<string, { orderId: string; itemId: string; size?: string }[]> = {};
+    const recordCodeTracking = (num?: string, trk?: any, ref?: { orderId: string; itemId: string; size?: string }) => {
+      const norm = normalizeTrackingCode(num);
+      if (!norm) return;
+      if (trk) {
+        bestTrackingByCode[norm] = pickBestTracking(bestTrackingByCode[norm], trk);
+      }
+      if (ref?.orderId && ref?.itemId) {
+        if (!allRefsByCode[norm]) allRefsByCode[norm] = [];
+        const exists = allRefsByCode[norm].some(
+          (r) => r.orderId === ref.orderId && r.itemId === ref.itemId && (r.size || '') === (ref.size || '')
+        );
+        if (!exists) allRefsByCode[norm].push(ref);
+      }
+    };
+
+    orders.forEach((ord: any) => {
+      const ordItems = Array.isArray(ord?.items) ? ord.items : [];
+      ordItems.forEach((it: any) => {
+        if (!it) return;
+        const baseRef = { orderId: String(ord.id), itemId: String(it.id) };
+        if (it.sourcingTrackingNumber) {
+          recordCodeTracking(it.sourcingTrackingNumber, it.sourcingTracking, baseRef);
+        }
+        if (Array.isArray(it.sourcingTrackings)) {
+          it.sourcingTrackings.forEach((t: any) => {
+            recordCodeTracking(t?.trackingNumber, t?.tracking, baseRef);
+          });
+        }
+        if (it.sourcingTrackingBySize && typeof it.sourcingTrackingBySize === 'object') {
+          Object.entries(it.sourcingTrackingBySize).forEach(([szKey, szVal]: [string, any]) => {
+            if (!szVal || typeof szVal !== 'object') return;
+            const szRef = { orderId: String(ord.id), itemId: String(it.id), size: szKey };
+            recordCodeTracking(szVal.trackingNumber, szVal.tracking, szRef);
+            if (Array.isArray(szVal.extraTrackings)) {
+              szVal.extraTrackings.forEach((et: any) => {
+                recordCodeTracking(et?.trackingNumber, et?.tracking, szRef);
+              });
+            }
+          });
+        }
+      });
+    });
 
     filteredOrders.forEach((order: any) => {
       const items = Array.isArray(order.items) ? order.items : [];
@@ -397,10 +444,11 @@ export function CustomerSourcingPanel({
           const pushOccTrk = (num?: string, trkObj?: any) => {
             const clean = (num || '').trim();
             if (!clean) return;
-            const norm = clean.replace(/\s+/g, '').toUpperCase();
+            const norm = normalizeTrackingCode(clean);
             if (seenOccTrk.has(norm)) return;
             seenOccTrk.add(norm);
-            occTrackings.push({ trackingNumber: clean, tracking: trkObj || null });
+            const resolvedTrk = pickBestTracking(trkObj, bestTrackingByCode[norm]) || null;
+            occTrackings.push({ trackingNumber: clean, tracking: resolvedTrk });
           };
 
           if (hasSizeTrackingEntry) {
@@ -470,19 +518,19 @@ export function CustomerSourcingPanel({
           };
 
           occTrackings.forEach((t) => {
-            const norm = t.trackingNumber.replace(/\s+/g, '').toUpperCase();
+            const norm = normalizeTrackingCode(t.trackingNumber);
             let grpEntry = group.trackingEntries.find(
-              (ge) => ge.trackingNumber.replace(/\s+/g, '').toUpperCase() === norm
+              (ge) => normalizeTrackingCode(ge.trackingNumber) === norm
             );
             if (!grpEntry) {
               grpEntry = {
                 trackingNumber: t.trackingNumber,
-                tracking: t.tracking || null,
+                tracking: pickBestTracking(t.tracking, bestTrackingByCode[norm]) || null,
                 occurrences: []
               };
               group.trackingEntries.push(grpEntry);
-            } else if (!grpEntry.tracking?.trackingStatus && t.tracking?.trackingStatus) {
-              grpEntry.tracking = t.tracking;
+            } else {
+              grpEntry.tracking = pickBestTracking(grpEntry.tracking, t.tracking) || null;
             }
             grpEntry.occurrences.push(occ);
           });
@@ -491,11 +539,10 @@ export function CustomerSourcingPanel({
             group.sourcingTrackingNumber = occ.sourcingTrackingNumber;
             group.sourcingTracking = occ.sourcingTracking;
           } else if (
-            !group.sourcingTracking?.trackingStatus &&
             occ.sourcingTracking?.trackingStatus &&
-            occ.sourcingTrackingNumber === group.sourcingTrackingNumber
+            normalizeTrackingCode(occ.sourcingTrackingNumber) === normalizeTrackingCode(group.sourcingTrackingNumber)
           ) {
-            group.sourcingTracking = occ.sourcingTracking;
+            group.sourcingTracking = pickBestTracking(group.sourcingTracking, occ.sourcingTracking);
           }
 
           bucket.occurrences.push(occ);
@@ -533,6 +580,8 @@ export function CustomerSourcingPanel({
     return {
       garmentGroups: allGroups,
       allSizeColumns: sortedColumns,
+      bestTrackingByCode,
+      allRefsByCode,
       summaryStats: {
         totalUnits,
         needsOrdering: Math.max(0, totalUnits - totalOrdered),
@@ -541,7 +590,7 @@ export function CustomerSourcingPanel({
         stylesCount: Object.keys(groupsMap).length
       }
     };
-  }, [filteredOrders, brandNameMap, customerName, splitByGender, designerRackById, designerRackByTitle, statusFilter]);
+  }, [orders, filteredOrders, brandNameMap, customerName, splitByGender, designerRackById, designerRackByTitle, statusFilter]);
 
   const evaluateOrderSourcingStatus = (orderDoc: any, itemsToInspect: any[]) => {
     let orderTotalUnits = 0;
@@ -916,16 +965,21 @@ export function CustomerSourcingPanel({
     }
   };
 
-  const trackingRefsForOccurrences = (occs: OccurrenceRef[]) => {
+  const trackingRefsForOccurrences = (occs: OccurrenceRef[], trackingNumber?: string) => {
     const seen = new Set<string>();
-    return occs
-      .map((o) => ({ orderId: o.orderId, itemId: String(o.itemId), size: o.size }))
-      .filter((r) => {
-        const k = `${r.orderId}__${r.itemId}__${r.size || ''}`;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      });
+    const combined: { orderId: string; itemId: string; size?: string }[] = [];
+    const pushRef = (r: { orderId: string; itemId: string; size?: string }) => {
+      const k = `${r.orderId}__${r.itemId}__${r.size || ''}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      combined.push(r);
+    };
+    occs.forEach((o) => pushRef({ orderId: o.orderId, itemId: String(o.itemId), size: o.size }));
+    if (trackingNumber) {
+      const norm = normalizeTrackingCode(trackingNumber);
+      (allRefsByCode[norm] || []).forEach(pushRef);
+    }
+    return combined;
   };
 
   const applyTrackingMutationToOccurrences = async (
@@ -1658,7 +1712,7 @@ export function CustomerSourcingPanel({
                                       }
                                       onStartTracking={() =>
                                         startSourcingTracking(
-                                          trackingRefsForOccurrences(entry.occurrences),
+                                          trackingRefsForOccurrences(entry.occurrences, entry.trackingNumber),
                                           entry.trackingNumber
                                         )
                                       }
@@ -1981,7 +2035,7 @@ export function CustomerSourcingPanel({
                                                     }
                                                     onStartTracking={() =>
                                                       startSourcingTracking(
-                                                        trackingRefsForOccurrences([occ]),
+                                                        trackingRefsForOccurrences([occ], t.trackingNumber),
                                                         t.trackingNumber
                                                       )
                                                     }
@@ -2228,6 +2282,35 @@ export function CustomerSourcingPanel({
                                   (adjCheckSz && hasSizeInList(it.orderedSizes, adjCheckSz))
                                 );
 
+                              const itemTrackings: { trackingNumber: string; tracking: any }[] = [];
+                              const seenItemTrk = new Set<string>();
+                              const addItTrk = (num?: string, trk?: any) => {
+                                const clean = (num || '').trim();
+                                if (!clean) return;
+                                const norm = normalizeTrackingCode(clean);
+                                if (seenItemTrk.has(norm)) return;
+                                seenItemTrk.add(norm);
+                                itemTrackings.push({
+                                  trackingNumber: clean,
+                                  tracking: pickBestTracking(trk, bestTrackingByCode[norm]) || null,
+                                });
+                              };
+                              if (it.sourcingTrackingBySize && typeof it.sourcingTrackingBySize === 'object') {
+                                Object.values(it.sourcingTrackingBySize).forEach((szVal: any) => {
+                                  if (!szVal || typeof szVal !== 'object') return;
+                                  addItTrk(szVal.trackingNumber, szVal.tracking);
+                                  if (Array.isArray(szVal.extraTrackings)) {
+                                    szVal.extraTrackings.forEach((et: any) => addItTrk(et?.trackingNumber, et?.tracking));
+                                  }
+                                });
+                              }
+                              if (Array.isArray(it.sourcingTrackings)) {
+                                it.sourcingTrackings.forEach((t: any) => addItTrk(t?.trackingNumber, t?.tracking));
+                              }
+                              if (it.sourcingTrackingNumber) {
+                                addItTrk(it.sourcingTrackingNumber, it.sourcingTracking);
+                              }
+
                               return (
                                 <span
                                   key={it.id || idx}
@@ -2243,6 +2326,22 @@ export function CustomerSourcingPanel({
                                   <span className="font-black text-[10px] px-1.5 py-0.2 rounded bg-black/5">
                                     {displaySz}
                                   </span>
+                                  {itemTrackings.map((t) => (
+                                    <SourcingTrackingChip
+                                      key={t.trackingNumber}
+                                      trackingNumber={t.trackingNumber}
+                                      tracking={t.tracking}
+                                      disabled={isSales}
+                                      onStartTracking={() =>
+                                        startSourcingTracking(
+                                          allRefsByCode[normalizeTrackingCode(t.trackingNumber)] || [
+                                            { orderId: String(order.id), itemId: String(it.id) },
+                                          ],
+                                          t.trackingNumber
+                                        )
+                                      }
+                                    />
+                                  ))}
                                 </span>
                               );
                             })}

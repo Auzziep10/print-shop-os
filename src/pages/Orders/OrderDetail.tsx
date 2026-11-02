@@ -34,6 +34,9 @@ import DTFPricing from '../../../dtf-pricing-engine.js';
 import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
 import { validateDiscountCode } from '../../lib/discountUtils';
 import { OrderTimelineTracker } from '../../components/Orders/OrderTimelineTracker';
+import { SourcingTrackingChip } from '../../components/Customers/SourcingTrackingChip';
+import { TONE_CLASSES } from '../../components/Orders/LiveTrackingStatus';
+import { getCachedTracking, normalizeTrackingCode, pickBestTracking, startSourcingTracking, trackingTone } from '../../lib/liveTracking';
 import {
   getUpdatedTimelineMilestonesForStatusChange,
   useFulfillmentPipelines,
@@ -5634,25 +5637,48 @@ export function OrderDetail() {
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Delivery</span>
-                  {!order.trackingCarrier ? (
-                    <span className="font-serif text-lg">{order.deliveryOption || 'Pickup'}</span>
-                  ) : (
-                    <div>
-                      <span className="font-serif text-lg block">{formatCarrierName(order.trackingCarrier, order.trackingNumber)}</span>
-                      {order.trackingNumber && (
-                        <a 
-                          href={getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#'}
-                          target="_blank"
-                          rel="noreferrer"
-                          title={`Click to track ${formatCarrierName(order.trackingCarrier, order.trackingNumber)} package`}
-                          className="text-xs font-bold text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1 transition-colors mt-0.5"
-                        >
-                          <span className="font-mono">{order.trackingNumber}</span>
-                          <ExternalLink size={11} strokeWidth={2.5} />
-                        </a>
-                      )}
-                    </div>
-                  )}
+                  {(() => {
+                    const primaryBox = Array.isArray(order.boxes)
+                      ? order.boxes.find((b: any) => b?.trackingNumber && b.trackingCarrier !== 'Pickup') || order.boxes[0]
+                      : null;
+                    const carrierToDisplay = order.trackingCarrier || primaryBox?.trackingCarrier;
+                    const numberToDisplay = order.trackingNumber || primaryBox?.trackingNumber;
+                    const boxStatus = pickBestTracking(getCachedTracking(numberToDisplay), primaryBox);
+                    const statusKey: string | undefined = boxStatus?.trackingStatus;
+                    const statusLabel: string | undefined =
+                      boxStatus?.trackingStatusLabel ||
+                      (statusKey === 'delivered' ? 'Delivered' : undefined);
+                    const tone = statusKey ? TONE_CLASSES[trackingTone(statusKey)] : null;
+
+                    if (!carrierToDisplay) {
+                      return <span className="font-serif text-lg">{order.deliveryOption || 'Pickup'}</span>;
+                    }
+                    return (
+                      <div>
+                        <span className="font-serif text-lg block">{formatCarrierName(carrierToDisplay, numberToDisplay)}</span>
+                        {numberToDisplay && (
+                          <a 
+                            href={getTrackingLink(carrierToDisplay, numberToDisplay) || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`Click to track ${formatCarrierName(carrierToDisplay, numberToDisplay)} package`}
+                            className="text-xs font-bold text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-1 transition-colors mt-0.5"
+                          >
+                            <span className="font-mono">{numberToDisplay}</span>
+                            <ExternalLink size={11} strokeWidth={2.5} />
+                          </a>
+                        )}
+                        {statusKey && tone && (
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${tone.pill}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot}`} />
+                              <span>{statusLabel || statusKey}</span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Packaging</span>
@@ -6306,6 +6332,50 @@ export function OrderDetail() {
                                             </a>
                                           );
                                         })()}
+                                      {(() => {
+                                        const itemTrackings: { trackingNumber: string; tracking: any }[] = [];
+                                        const seenItemTrk = new Set<string>();
+                                        const addItTrk = (num?: string, trk?: any) => {
+                                          const clean = (num || '').trim();
+                                          if (!clean) return;
+                                          const norm = normalizeTrackingCode(clean);
+                                          if (seenItemTrk.has(norm)) return;
+                                          seenItemTrk.add(norm);
+                                          itemTrackings.push({
+                                            trackingNumber: clean,
+                                            tracking: pickBestTracking(getCachedTracking(clean), trk) || null,
+                                          });
+                                        };
+                                        if (item.sourcingTrackingBySize && typeof item.sourcingTrackingBySize === 'object') {
+                                          Object.values(item.sourcingTrackingBySize).forEach((szVal: any) => {
+                                            if (!szVal || typeof szVal !== 'object') return;
+                                            addItTrk(szVal.trackingNumber, szVal.tracking);
+                                            if (Array.isArray(szVal.extraTrackings)) {
+                                              szVal.extraTrackings.forEach((et: any) => addItTrk(et?.trackingNumber, et?.tracking));
+                                            }
+                                          });
+                                        }
+                                        if (Array.isArray(item.sourcingTrackings)) {
+                                          item.sourcingTrackings.forEach((t: any) => addItTrk(t?.trackingNumber, t?.tracking));
+                                        }
+                                        if (item.sourcingTrackingNumber) {
+                                          addItTrk(item.sourcingTrackingNumber, item.sourcingTracking);
+                                        }
+                                        return itemTrackings.map((t) => (
+                                          <SourcingTrackingChip
+                                            key={t.trackingNumber}
+                                            trackingNumber={t.trackingNumber}
+                                            tracking={t.tracking}
+                                            disabled={isSales}
+                                            onStartTracking={() =>
+                                              startSourcingTracking(
+                                                [{ orderId: String(order.id), itemId: String(item.id) }],
+                                                t.trackingNumber
+                                              )
+                                            }
+                                          />
+                                        ));
+                                      })()}
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();

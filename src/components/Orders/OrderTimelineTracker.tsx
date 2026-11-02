@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Calendar, Check, Sparkles, X, Clock } from 'lucide-react';
@@ -9,10 +9,14 @@ import {
   getOrderTimelineSteps,
   computeOrderVisualTimelineIndex,
   resolveStepMilestone,
+  getOrderTrackingReceivedMilestone,
+  formatYmdToShortOrderDate,
   formatTimelineDate,
   toDateInputValue
 } from '../../lib/timelineUtils';
-import { formatEstDelivery, formatEventTime, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+import { autoStartOnce, formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+
+const syncedReceivedDates = new Set<string>();
 
 const DARK_DOT: Record<TrackingTone, string> = {
   neutral: 'bg-neutral-400',
@@ -59,6 +63,87 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   const lastStepName = activeSteps[activeSteps.length - 1] || 'Received';
   const visualIndex = computeOrderVisualTimelineIndex(order, customerFulfillmentType, pipelines);
   const fillWidth = `${(visualIndex / Math.max(1, activeSteps.length - 1)) * 100}%`;
+  const trackingReceived = getOrderTrackingReceivedMilestone(order);
+
+  // Automatically connect/refresh live tracking for boxes that are not yet delivered
+  useEffect(() => {
+    if (!order?.id || trackedBoxes.length === 0) return;
+    trackedBoxes.forEach((b: any) => {
+      if (!b?.id || !b?.trackingNumber) return;
+      const needsTrackingSync =
+        b.trackingStatus !== 'delivered' &&
+        b.trackingStatus !== 'cancelled' &&
+        b.trackingStatus !== 'return_to_sender';
+      if (needsTrackingSync) {
+        void autoStartOnce(
+          `box:${order.id}:${b.id}:${b.trackingNumber}`,
+          () => startLiveTracking(order.id, b.id, false, b.trackingNumber, b.trackingCarrier)
+        );
+      }
+    });
+  }, [order?.id, trackedBoxes]);
+
+  // Keep order.timelineMilestones.Received.expectedDate and order.date synced in Firestore when tracking provides a date
+  useEffect(() => {
+    if (!canEdit || !order?.id || !trackingReceived?.expectedDate) return;
+    if (lastStepName === 'Live') return;
+    const rawRec = order?.timelineMilestones?.Received || order?.timelineMilestones?.[lastStepName] || {};
+    const hasNewerManualOverride = Boolean(
+      rawRec?.manualOverrideAt &&
+        rawRec?.expectedDate &&
+        (!trackingReceived.updatedAt || rawRec.manualOverrideAt > trackingReceived.updatedAt)
+    );
+    if (hasNewerManualOverride) return;
+
+    const currentExpected = toDateInputValue(rawRec?.expectedDate);
+    const needsDeliveredCompletion =
+      trackingReceived.allDelivered &&
+      (!rawRec?.completedAt || order?.statusIndex === 6 || order?.statusIndex === 7);
+    if (currentExpected === trackingReceived.expectedDate && !needsDeliveredCompletion) return;
+
+    const syncKey = `${order.id}:${trackingReceived.expectedDate}:${trackingReceived.allDelivered ? '1' : '0'}`;
+    if (syncedReceivedDates.has(syncKey)) return;
+    syncedReceivedDates.add(syncKey);
+
+    const existingMilestones: TimelineMilestonesMap = { ...(order?.timelineMilestones || {}) };
+    const nextRec = {
+      ...(existingMilestones.Received || {}),
+      expectedDate: trackingReceived.expectedDate,
+      ...(trackingReceived.allDelivered && trackingReceived.completedAt
+        ? { completedAt: trackingReceived.completedAt }
+        : {})
+    };
+    existingMilestones.Received = nextRec;
+    if (lastStepName !== 'Received') {
+      existingMilestones[lastStepName] = {
+        ...(existingMilestones[lastStepName] || {}),
+        expectedDate: trackingReceived.expectedDate
+      };
+    }
+
+    const shortDate = formatYmdToShortOrderDate(trackingReceived.expectedDate);
+    const shouldAdvanceToReceived =
+      trackingReceived.allDelivered &&
+      lastStepName === 'Received' &&
+      (order?.statusIndex === 6 || order?.statusIndex === 7);
+    const updatePayload: Record<string, any> = {
+      timelineMilestones: existingMilestones,
+      ...(shortDate ? { date: shortDate } : {}),
+      ...(shouldAdvanceToReceived ? { statusIndex: 8, status: 'Received' } : {})
+    };
+    void setDoc(doc(db, 'orders', order.id), updatePayload, { merge: true }).catch(() => {
+      syncedReceivedDates.delete(syncKey);
+    });
+  }, [
+    canEdit,
+    order?.id,
+    order?.timelineMilestones,
+    lastStepName,
+    trackingReceived?.expectedDate,
+    trackingReceived?.allDelivered,
+    trackingReceived?.completedAt,
+    trackingReceived?.updatedAt
+  ]);
 
   const openEditorForStep = (e: React.MouseEvent, step: TimelineStepName) => {
     if (!canEdit) return;
@@ -150,15 +235,27 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
       const existingMilestones: TimelineMilestonesMap = order?.timelineMilestones || {};
       const cleaned: TimelineMilestonesMap = { ...existingMilestones };
 
+      const nowIso = new Date().toISOString();
       activeSteps.forEach((step) => {
         const item = draftMilestones[step];
         const prevItem = existingMilestones[step];
         if (!item && !prevItem) return;
+        const nextExpected = item?.expectedDate?.trim() || '';
+        const isRecStep = step === 'Received' || step === lastStepName;
+        const isManualOverride =
+          isRecStep &&
+          Boolean(nextExpected) &&
+          nextExpected !== (trackingReceived?.expectedDate || '');
         cleaned[step] = {
           completedAt: prevItem?.completedAt || item?.completedAt || '',
-          expectedDate: item?.expectedDate?.trim() || '',
+          expectedDate: nextExpected,
           delayed: Boolean(item?.delayed),
-          delayNote: item?.delayed ? item?.delayNote?.trim() || '' : ''
+          delayNote: item?.delayed ? item?.delayNote?.trim() || '' : '',
+          ...(isManualOverride
+            ? { manualOverrideAt: nowIso }
+            : prevItem?.manualOverrideAt && nextExpected === prevItem?.expectedDate
+            ? { manualOverrideAt: prevItem.manualOverrideAt }
+            : {})
         };
       });
 

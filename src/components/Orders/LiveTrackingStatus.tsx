@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Activity, ChevronDown, Loader2, Radio } from 'lucide-react';
-import { autoStartOnce, formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+import {
+  autoStartOnce,
+  formatEstDelivery,
+  formatEventTime,
+  startLiveTracking,
+  trackingTone,
+  useLiveTracking,
+  type TrackingTone,
+} from '../../lib/liveTracking';
 
 export const TONE_CLASSES: Record<TrackingTone, { pill: string; dot: string }> = {
   neutral: { pill: 'bg-neutral-100 text-neutral-700 border-neutral-200', dot: 'bg-neutral-400' },
@@ -21,26 +29,30 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
   const [error, setError] = useState('');
 
   const trackable = Boolean(box?.trackingNumber && box.trackingCarrier !== 'Pickup');
+  const resolvedTracking = useLiveTracking(box?.trackingNumber, box);
+  const status: string | undefined = resolvedTracking?.trackingStatus;
 
-  // Connect live tracking automatically when a box has a number but no status yet
+  // Connect or refresh live tracking automatically when a box is not yet delivered
   useEffect(() => {
-    if (!trackable || box?.trackingStatus) return;
+    if (!trackable || status === 'delivered' || status === 'cancelled' || status === 'return_to_sender') return;
     let cancelled = false;
-    setStarting(true);
-    autoStartOnce(`box:${orderId}:${box.id}:${box.trackingNumber}`, () => startLiveTracking(orderId, box.id)).then((result) => {
+    if (!status) setStarting(true);
+    autoStartOnce(`box:${orderId}:${box.id}:${box.trackingNumber}`, () =>
+      startLiveTracking(orderId, box.id, false, box.trackingNumber, box.trackingCarrier)
+    ).then((result) => {
       if (cancelled) return;
-      if (!result.ok) setError(result.error || 'Could not start tracking');
+      if (!result.ok && !status) setError(result.error || 'Could not start tracking');
       setStarting(false);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackable, box?.trackingStatus, box?.trackingNumber, orderId, box?.id]);
+  }, [trackable, status, box?.trackingNumber, orderId, box?.id]);
 
   if (!trackable) return null;
 
-  if (!box.trackingStatus) {
+  if (!status) {
     return (
       <div className="mt-1.5 flex flex-col items-start gap-1">
         <button
@@ -50,7 +62,7 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
             e.stopPropagation();
             setStarting(true);
             setError('');
-            const result = await startLiveTracking(orderId, box.id);
+            const result = await startLiveTracking(orderId, box.id, false, box.trackingNumber, box.trackingCarrier);
             if (!result.ok) setError(result.error || 'Could not start tracking');
             setStarting(false);
           }}
@@ -65,10 +77,10 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
     );
   }
 
-  const tone = TONE_CLASSES[trackingTone(box.trackingStatus)];
-  const est = box.trackingStatus !== 'delivered' ? formatEstDelivery(box.trackingEstDelivery) : null;
-  const events: any[] = Array.isArray(box.trackingEvents) ? box.trackingEvents : [];
-  const last = box.trackingLastEvent || events[0];
+  const tone = TONE_CLASSES[trackingTone(status)];
+  const est = status !== 'delivered' ? formatEstDelivery(resolvedTracking?.trackingEstDelivery) : null;
+  const events: any[] = Array.isArray(resolvedTracking?.trackingEvents) ? resolvedTracking.trackingEvents : [];
+  const last = resolvedTracking?.trackingLastEvent || events[0];
 
   return (
     <div className="mt-1.5 max-w-[320px]" onClick={(e) => e.stopPropagation()}>
@@ -78,10 +90,10 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
         className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${tone.pill}`}
         title={last?.message ? `${last.message}${last.location ? ` — ${last.location}` : ''}` : 'Show scan history'}
       >
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot} ${box.trackingStatus === 'out_for_delivery' ? 'animate-pulse' : ''}`} />
-        <span>{box.trackingStatusLabel || 'Tracking'}</span>
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot} ${status === 'out_for_delivery' ? 'animate-pulse' : ''}`} />
+        <span>{resolvedTracking?.trackingStatusLabel || 'Tracking'}</span>
         {est && <span className="font-semibold opacity-80">· Est. {est}</span>}
-        {box.trackingMode === 'test' && <span className="font-semibold opacity-60">· TEST</span>}
+        {resolvedTracking?.trackingMode === 'test' && <span className="font-semibold opacity-60">· TEST</span>}
         {events.length > 0 && <ChevronDown size={11} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />}
       </button>
 
@@ -104,9 +116,9 @@ export function LiveTrackingStatus({ orderId, box }: { orderId: string; box: any
               </p>
             </li>
           ))}
-          {box.trackingUpdatedAt && (
+          {resolvedTracking?.trackingUpdatedAt && (
             <li className="text-[9px] uppercase tracking-wider text-neutral-400 font-bold flex items-center gap-1 pt-1">
-              <Activity size={9} /> Last update {formatEventTime(box.trackingUpdatedAt)}
+              <Activity size={9} /> Last update {formatEventTime(resolvedTracking.trackingUpdatedAt)}
             </li>
           )}
         </ol>

@@ -11,6 +11,11 @@ import { fetchBoxLabelPresets } from '../../lib/boxLabelUtils';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { startLiveTracking, withoutLiveTracking } from '../../lib/liveTracking';
 import { LiveTrackingStatus } from './LiveTrackingStatus';
+import {
+  resolveLabelEstimatedDeliveryYmd,
+  getOrderTrackingReceivedMilestone,
+  formatYmdToShortOrderDate
+} from '../../lib/timelineUtils';
 import type { BoxLabelPreset } from '../../types/boxLabel';
 import { SHIPPING_COUNTRIES, isInternationalCountry, normalizeCountryCode } from '../../lib/countries';
 
@@ -366,6 +371,17 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         throw new Error(data.error || 'Failed to generate shipping label');
       }
 
+      const nowIso = new Date().toISOString();
+      const rawEstDelivery = data.estDeliveryDate || selectedRate?.deliveryDate || null;
+      const rawDeliveryDays = data.deliveryDays ?? selectedRate?.deliveryDays ?? null;
+      const resolvedEstYmd = resolveLabelEstimatedDeliveryYmd({
+        estDeliveryDate: rawEstDelivery,
+        deliveryDays: rawDeliveryDays,
+        carrier: data.carrier || selectedRate?.carrier,
+        service: data.service || selectedRate?.service,
+        baseDate: nowIso
+      });
+
       // Update box tracking and label in Firebase
       const updatedBoxes = order.boxes.map((b: any) => {
         if (b.id === shippingLabelBox.id) {
@@ -376,6 +392,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
             trackingService: data.service,
             labelUrl: data.labelUrl,
             shippingCost: data.cost,
+            labelCreatedAt: nowIso,
+            ...(data.easyPostShipmentId ? { easyPostShipmentId: data.easyPostShipmentId } : {}),
+            ...(resolvedEstYmd
+              ? {
+                  trackingEstDelivery: rawEstDelivery || resolvedEstYmd,
+                  estArrival: resolvedEstYmd
+                }
+              : {}),
             customsForms: Array.isArray(data.forms) ? data.forms : []
           };
         }
@@ -387,8 +411,25 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         type: 'system',
         message: `Purchased ${data.carrier} ${data.service} Label (Test Mode: ${shippingForm.isTest ? 'Yes':'No'}) for ${boxObj.name}: ${data.trackingNumber} ($${data.cost})`,
         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
-        timestamp: new Date().toISOString()
+        timestamp: nowIso
       };
+
+      const trackingMilestone = getOrderTrackingReceivedMilestone({
+        ...order,
+        boxes: updatedBoxes,
+        activities: [newActivity, ...(order.activities || [])]
+      });
+      const targetReceivedYmd = trackingMilestone?.expectedDate || resolvedEstYmd;
+      const nextMilestones = { ...(order.timelineMilestones || {}) };
+      if (targetReceivedYmd) {
+        const nextRec: Record<string, any> = {
+          ...(nextMilestones.Received || {}),
+          expectedDate: targetReceivedYmd
+        };
+        delete nextRec.manualOverrideAt;
+        nextMilestones.Received = nextRec;
+      }
+      const shortOrderDate = formatYmdToShortOrderDate(targetReceivedYmd);
 
       await setDoc(doc(db, 'orders', order.id), { 
         boxes: updatedBoxes,
@@ -397,6 +438,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
            thirdPartyAccount: shippingForm.thirdPartyAccount,
            thirdPartyZip: shippingForm.thirdPartyZip
         },
+        ...(targetReceivedYmd ? { timelineMilestones: nextMilestones } : {}),
+        ...(shortOrderDate ? { date: shortOrderDate } : {}),
         activities: [newActivity, ...(order.activities || [])]
       }, { merge: true });
 
