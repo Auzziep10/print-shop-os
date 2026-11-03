@@ -157,7 +157,6 @@ export function CustomerSourcingPanel({
   const [brandFilter, setBrandFilter] = useState<string>('all');
   const [pipelineFilter, setPipelineFilter] = useState<'active_orders' | 'include_quotes' | 'all'>('include_quotes');
   const [statusFilter, setStatusFilter] = useState<'all' | 'needs_ordering' | 'ordered' | 'received'>('all');
-  const [splitByGender, setSplitByGender] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'by_garment' | 'by_individual'>('by_garment');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -333,7 +332,7 @@ export function CustomerSourcingPanel({
         const itemGenderNorm = normalizeGender(
           item.gender && item.gender !== 'Unisex' ? item.gender : (indGenderRaw || item.gender)
         );
-        const genderBucketLabel = splitByGender ? itemGenderNorm : 'All Cuts';
+        const genderBucketLabel = 'All Cuts';
 
         const rackSourcingUrl = (rackMatch?.garmentSourcingLink || '').trim();
         const itemSourcingUrl = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim();
@@ -372,8 +371,7 @@ export function CustomerSourcingPanel({
         const groupKey = [
           styleName.toLowerCase(),
           itemNum.toLowerCase(),
-          color.toLowerCase(),
-          genderBucketLabel.toLowerCase()
+          color.toLowerCase()
         ].join('__');
 
         const itemTracking = (item.sourcingTrackingNumber || '').trim();
@@ -590,7 +588,7 @@ export function CustomerSourcingPanel({
         stylesCount: Object.keys(groupsMap).length
       }
     };
-  }, [orders, filteredOrders, brandNameMap, customerName, splitByGender, designerRackById, designerRackByTitle, statusFilter]);
+  }, [orders, filteredOrders, brandNameMap, customerName, designerRackById, designerRackByTitle, statusFilter]);
 
   const evaluateOrderSourcingStatus = (orderDoc: any, itemsToInspect: any[]) => {
     let orderTotalUnits = 0;
@@ -1289,21 +1287,6 @@ export function CustomerSourcingPanel({
             <option value="active_orders">Approved / In Production Only</option>
             <option value="all">All Orders (Incl. Shipped)</option>
           </select>
-
-          {viewMode === 'by_garment' && (
-            <label
-              className="inline-flex items-center gap-1.5 bg-white border border-brand-border px-2.5 py-1.5 rounded-lg text-xs font-bold text-brand-primary cursor-pointer select-none hover:border-brand-primary/50 transition-colors whitespace-nowrap"
-              title="Separate Male and Female orders into distinct rows"
-            >
-              <input
-                type="checkbox"
-                checked={splitByGender}
-                onChange={(e) => setSplitByGender(e.target.checked)}
-                className="w-3.5 h-3.5 rounded accent-neutral-900 cursor-pointer"
-              />
-              <span>Split M/F Cuts</span>
-            </label>
-          )}
         </div>
 
         {/* Right: Horizontal Inline Status Filter Pills */}
@@ -1376,7 +1359,6 @@ export function CustomerSourcingPanel({
                 <thead>
                   <tr className="bg-neutral-50 border-b border-brand-border text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
                     <th className="py-2.5 pl-4 pr-3 min-w-[240px]">Garment Style</th>
-                    <th className="py-2.5 px-2 w-[86px] text-center">Cut</th>
                     {allSizeColumns.map((sz) => (
                       <th
                         key={sz}
@@ -1468,22 +1450,7 @@ export function CustomerSourcingPanel({
                             </div>
                           </td>
 
-                          {/* Col 2: Cut (Male / Female / Unisex) */}
-                          <td className="py-2.5 px-2 align-middle text-center">
-                            <span
-                              className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border whitespace-nowrap ${
-                                group.genderLabel === 'Female'
-                                  ? 'bg-pink-50 text-pink-700 border-pink-200'
-                                  : group.genderLabel === 'Male'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : 'bg-neutral-100 text-neutral-700 border-neutral-200'
-                              }`}
-                            >
-                              {group.genderLabel}
-                            </span>
-                          </td>
-
-                          {/* Cols 3..N: Aligned Size Matrix Cells */}
+                          {/* Cols 2..N: Aligned Size Matrix Cells */}
                           {allSizeColumns.map((sz) => {
                             const bucket = group.sizesMap[sz];
                             if (!bucket || bucket.totalQty === 0) {
@@ -1868,14 +1835,13 @@ export function CustomerSourcingPanel({
                         {/* Expanded Sub-Rows: Individuals Receiving This Garment */}
                         {isExpanded && (
                           <tr className="bg-neutral-50/90">
-                            <td colSpan={allSizeColumns.length + 5} className="px-6 py-3">
+                            <td colSpan={allSizeColumns.length + 4} className="px-6 py-3">
                               <div className="border border-brand-border/80 rounded-xl bg-white overflow-hidden">
                                 <table className="w-full border-collapse text-left text-xs">
                                   <thead>
                                     <tr className="bg-neutral-100/80 border-b border-brand-border/60 text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
                                       <th className="py-1.5 px-3">Individual / Order</th>
                                       <th className="py-1.5 px-3 w-[140px]">Brand</th>
-                                      <th className="py-1.5 px-3 w-[100px] text-center">Cut</th>
                                       <th className="py-1.5 px-3 w-[90px] text-center">Size</th>
                                       <th className="py-1.5 px-3 w-[70px] text-center">Qty</th>
                                       <th className="py-1.5 px-3 w-[230px] text-right">Tracking</th>
@@ -1926,19 +1892,6 @@ export function CustomerSourcingPanel({
                                           </td>
                                           <td className="py-2 px-3 text-brand-secondary font-medium truncate">
                                             {occ.brandName}
-                                          </td>
-                                          <td className="py-2 px-3 text-center">
-                                            <span
-                                              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                                                occ.individualGender === 'Female'
-                                                  ? 'bg-pink-50 text-pink-700 border-pink-200'
-                                                  : occ.individualGender === 'Male'
-                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200'
-                                              }`}
-                                            >
-                                              {occ.individualGender}
-                                            </span>
                                           </td>
                                           <td className="py-2 px-3 text-center font-black text-neutral-900">
                                             {occ.rawOrderSize && occ.rawOrderSize !== occ.size ? (
@@ -2181,7 +2134,6 @@ export function CustomerSourcingPanel({
                 <tr className="bg-neutral-50 border-b border-brand-border text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary">
                   <th className="py-2.5 pl-4 pr-3 w-[220px]">Individual / Order</th>
                   <th className="py-2.5 px-3 w-[130px]">Brand</th>
-                  <th className="py-2.5 px-3 w-[110px] text-center">Cut</th>
                   <th className="py-2.5 px-3 w-[80px] text-center">Profile Sz</th>
                   <th className="py-2.5 px-3">Garments &amp; Sourcing Status</th>
                   <th className="py-2.5 pl-3 pr-4 w-[110px] text-right">Action</th>
@@ -2190,7 +2142,6 @@ export function CustomerSourcingPanel({
               <tbody className="divide-y divide-brand-border/60 text-xs">
                 {filteredOrders.map((order: any) => {
                   const brandName = brandNameMap[order.customerId] || customerName || 'Customer';
-                  const gender = order.personalInfo?.gender || '';
                   const profileSize = (order.personalInfo?.size || '').toUpperCase();
                   const isMvp = Boolean(order.isMvp || order.personalInfo?.isMvp);
                   const getsBox = Boolean(order.getsBox || order.personalInfo?.getsBox);
@@ -2224,21 +2175,6 @@ export function CustomerSourcingPanel({
                       </td>
                       <td className="py-2.5 px-3 align-middle text-brand-secondary font-medium truncate">
                         {brandName}
-                      </td>
-                      <td className="py-2.5 px-3 align-middle text-center">
-                        {gender ? (
-                          <span
-                            className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
-                              normalizeGender(gender) === 'Female'
-                                ? 'bg-pink-50 text-pink-700 border-pink-200'
-                                : 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}
-                          >
-                            {gender}
-                          </span>
-                        ) : (
-                          <span className="text-neutral-300">—</span>
-                        )}
                       </td>
                       <td className="py-2.5 px-3 align-middle text-center font-black text-neutral-900">
                         {profileSize || <span className="text-neutral-300 font-normal">—</span>}
