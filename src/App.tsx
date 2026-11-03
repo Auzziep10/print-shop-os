@@ -64,6 +64,7 @@ const ShopPage = safeLazy(() => import('./pages/Shop/ShopPage').then(m => ({ def
 const ShopProductPage = safeLazy(() => import('./pages/Shop/ShopProductPage').then(m => ({ default: m.ShopProductPage })));
 const ShopSuccess = safeLazy(() => import('./pages/Shop/ShopSuccess').then(m => ({ default: m.ShopSuccess })));
 const CapacityCalculator = safeLazy(() => import('./pages/Tools/CapacityCalculator').then(m => ({ default: m.CapacityCalculator })));
+const DecoratorNotesPage = safeLazy(() => import('./pages/DecoratorNotes/DecoratorNotesPage').then(m => ({ default: m.DecoratorNotesPage })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -354,6 +355,14 @@ function AppRoutes() {
               }
             />
             <Route path="team/analytics" element={<Navigate to="/crm?tab=visitors" replace />} />
+            <Route
+              path="decorator-notes"
+              element={
+                <PermissionGuard permission="manageOrders">
+                  <DecoratorNotesPage />
+                </PermissionGuard>
+              }
+            />
             <Route
               path="capacity-calculator"
               element={

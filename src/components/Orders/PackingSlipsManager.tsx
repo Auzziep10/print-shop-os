@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -66,12 +66,39 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
      length: 12, width: 12, height: 12, weightOz: 16, isTest: false, thirdPartyAccount: '', thirdPartyZip: '',
      address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '' }
   });
+  const [weightUnit, setWeightUnit] = useState<'oz' | 'lbs'>('oz');
+  const [weightInputValue, setWeightInputValue] = useState<string>('16');
+  const lastFetchedParcelKeyRef = useRef<string>('');
 
   // Dynamic live courier rates state
   const [availableRates, setAvailableRates] = useState<any[]>([]);
   const [selectedRate, setSelectedRate] = useState<any | null>(null);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [ratesError, setRatesError] = useState('');
+
+  const handleToggleWeightUnit = (nextUnit?: 'oz' | 'lbs') => {
+    const targetUnit = nextUnit || (weightUnit === 'oz' ? 'lbs' : 'oz');
+    if (targetUnit === weightUnit) return;
+    setWeightUnit(targetUnit);
+    if (targetUnit === 'lbs') {
+      const lbsVal = Number((shippingForm.weightOz / 16).toFixed(2));
+      setWeightInputValue(shippingForm.weightOz ? String(lbsVal) : '');
+    } else {
+      const ozVal = Math.round(shippingForm.weightOz * 100) / 100;
+      setWeightInputValue(shippingForm.weightOz ? String(ozVal) : '');
+    }
+  };
+
+  const handleWeightInputChange = (rawVal: string) => {
+    setWeightInputValue(rawVal);
+    const num = parseFloat(rawVal);
+    if (!isNaN(num) && num >= 0) {
+      const newWeightOz = weightUnit === 'lbs' ? Math.round(num * 16 * 100) / 100 : num;
+      setShippingForm(prev => ({ ...prev, weightOz: newWeightOz }));
+    } else if (rawVal === '') {
+      setShippingForm(prev => ({ ...prev, weightOz: 0 }));
+    }
+  };
 
   const formatShippingService = (s: string) => {
     if (!s) return 'Standard Shipping';
@@ -212,6 +239,12 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     if (!form.address.street1 || !form.address.city || (!intl && (!form.address.state || !form.address.zip))) {
       return;
     }
+    const parcelL = Number(form.length) || 12;
+    const parcelW = Number(form.width) || 12;
+    const parcelH = Number(form.height) || 12;
+    const parcelOz = Number(form.weightOz) || 16;
+    lastFetchedParcelKeyRef.current = `${parcelL}x${parcelW}x${parcelH}@${parcelOz}`;
+
     setIsFetchingRates(true);
     setRatesError('');
     try {
@@ -222,10 +255,10 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           to_address: { ...form.address, country: normalizeCountryCode(form.address.country) },
           items: getBoxCustomsItems(box),
           parcel: {
-            length: Number(form.length) || 12,
-            width: Number(form.width) || 12,
-            height: Number(form.height) || 12,
-            weight: Number(form.weightOz) || 16
+            length: parcelL,
+            width: parcelW,
+            height: parcelH,
+            weight: parcelOz
           },
           from_address: shopSettings,
           isTest: form.isTest,
@@ -311,6 +344,12 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     };
     
     setShippingForm(newForm);
+    setWeightInputValue(
+      weightUnit === 'lbs'
+        ? String(Number((estimatedWeightOz / 16).toFixed(2)))
+        : String(estimatedWeightOz)
+    );
+    lastFetchedParcelKeyRef.current = `${newForm.length}x${newForm.width}x${newForm.height}@${newForm.weightOz}`;
     setShippingLabelBox(box);
     setAvailableRates([]);
     setSelectedRate(null);
@@ -320,6 +359,25 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
     // Fetch initial rates for this package
     fetchRatesForForm(newForm, box);
   };
+
+  // Automatically recalculate shipping rates when dimensions or weight change
+  useEffect(() => {
+    if (!shippingLabelBox) return;
+    const l = Number(shippingForm.length);
+    const w = Number(shippingForm.width);
+    const h = Number(shippingForm.height);
+    const oz = Number(shippingForm.weightOz);
+    if (!l || l <= 0 || !w || w <= 0 || !h || h <= 0 || !oz || oz <= 0) return;
+
+    const currentKey = `${l}x${w}x${h}@${oz}`;
+    if (currentKey === lastFetchedParcelKeyRef.current) return;
+
+    const timer = setTimeout(() => {
+      fetchRatesForForm(shippingForm, shippingLabelBox);
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [shippingForm.length, shippingForm.width, shippingForm.height, shippingForm.weightOz, shippingLabelBox]);
 
   const handleBuyShippingLabel = async () => {
     setShippingError('');
@@ -1305,26 +1363,63 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                           className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer disabled:opacity-50"
                         >
                           {isFetchingRates ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                          Recalculate Rates
+                          {isFetchingRates ? 'Recalculating...' : 'Recalculate Rates'}
                         </button>
                      </div>
                      <div className="flex gap-3 items-center">
-                        <input type="number" value={shippingForm.length} onChange={e => setShippingForm({...shippingForm, length: Number(e.target.value)})} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <input type="number" min="0.1" step="any" value={shippingForm.length || ''} onChange={e => setShippingForm(prev => ({...prev, length: Number(e.target.value)}))} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
                         <span className="text-brand-secondary font-bold self-center">×</span>
-                        <input type="number" value={shippingForm.width} onChange={e => setShippingForm({...shippingForm, width: Number(e.target.value)})} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <input type="number" min="0.1" step="any" value={shippingForm.width || ''} onChange={e => setShippingForm(prev => ({...prev, width: Number(e.target.value)}))} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
                         <span className="text-brand-secondary font-bold self-center">×</span>
-                        <input type="number" value={shippingForm.height} onChange={e => setShippingForm({...shippingForm, height: Number(e.target.value)})} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                        <input type="number" min="0.1" step="any" value={shippingForm.height || ''} onChange={e => setShippingForm(prev => ({...prev, height: Number(e.target.value)}))} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
                         <div className="w-[1px] h-8 bg-brand-border mx-1 shrink-0" />
-                        <div className="w-full relative">
-                          <input type="number" value={shippingForm.weightOz} onChange={e => setShippingForm({...shippingForm, weightOz: Number(e.target.value)})} placeholder="Ounces" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm pr-8 focus:border-brand-primary outline-none" />
-                          <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-brand-secondary pointer-events-none">oz</span>
+                        <div className="w-full relative flex items-center">
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            value={weightInputValue}
+                            onChange={e => handleWeightInputChange(e.target.value)}
+                            placeholder={weightUnit === 'lbs' ? 'Pounds' : 'Ounces'}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-3 pr-14 py-2 text-sm focus:border-brand-primary outline-none"
+                          />
+                          <div className="absolute right-1.5 flex items-center bg-white border border-brand-border rounded-md p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleWeightUnit('oz')}
+                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors cursor-pointer ${
+                                weightUnit === 'oz'
+                                  ? 'bg-brand-primary text-white'
+                                  : 'text-brand-secondary hover:text-brand-primary'
+                              }`}
+                              title="Weight in ounces (oz)"
+                            >
+                              oz
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleWeightUnit('lbs')}
+                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors cursor-pointer ${
+                                weightUnit === 'lbs'
+                                  ? 'bg-brand-primary text-white'
+                                  : 'text-brand-secondary hover:text-brand-primary'
+                              }`}
+                              title="Weight in pounds (lbs)"
+                            >
+                              lbs
+                            </button>
+                          </div>
                         </div>
                      </div>
                      <div className="flex justify-between items-center text-[10px] text-brand-secondary mt-1 px-1">
                         <span>Standard carton: 15×12×8</span>
-                        <span>{shippingForm.weightOz ? `${(shippingForm.weightOz / 16).toFixed(1)} lbs (${shippingForm.weightOz} oz)` : ''}</span>
+                        <span>
+                          {shippingForm.weightOz
+                            ? `${Number((shippingForm.weightOz / 16).toFixed(2))} lbs (${Math.round(shippingForm.weightOz * 100) / 100} oz)`
+                            : ''}
+                        </span>
+                     </div>
                   </div>
-                   </div>
 
                   {/* Available Carrier Rates Selection */}
                   <div className="border-t border-brand-border pt-4">

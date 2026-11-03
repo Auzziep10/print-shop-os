@@ -1814,6 +1814,43 @@ export function CustomerDetail() {
       const savedDesignItem = updated.find((d: any) => d.id === editingDesignerRackId) || updated[updated.length - 1];
       if (savedDesignItem) {
         void syncDesignerRackItemToOrders(savedDesignItem, previousRackTitle || savedDesignItem.title || savedDesignItem.name);
+        // Automatically archive mockup & logo files into decorator_notes so they are permanently stored
+        const parentName =
+          editCompanyForm.name ||
+          liveCustomerData?.company ||
+          liveCustomerData?.contactName ||
+          liveCustomerData?.name ||
+          'Customer';
+        const targetSubBrand = subBrands.find((b: any) => b.id === targetCustomerId);
+        const custLabel =
+          targetCustomerId === id
+            ? parentName
+            : targetSubBrand?.company || targetSubBrand?.contactName || parentName;
+        const archiveDocId = `${targetCustomerId}__${savedDesignItem.id}`;
+        void setDoc(
+          doc(db, 'decorator_notes', archiveDocId),
+          {
+            id: archiveDocId,
+            customerId: targetCustomerId,
+            customerName: custLabel,
+            parentCustomerId: id || targetCustomerId,
+            parentCustomerName: parentName,
+            designId: savedDesignItem.id,
+            designTitle: savedDesignItem.title || savedDesignItem.name || 'Untitled Garment',
+            garmentColor: savedDesignItem.garmentColor || savedDesignItem.color || '',
+            sizingAdjustment: savedDesignItem.sizingAdjustment || 'True to Size',
+            garmentSourcingLink: savedDesignItem.garmentSourcingLink || '',
+            psdDriveLink: savedDesignItem.psdDriveLink || '',
+            frontMockupUrl: savedDesignItem.frontMockupUrl || savedDesignItem.mockupUrl || '',
+            frontMockupName: savedDesignItem.frontMockupName || 'Front Mock-up',
+            backMockupUrl: savedDesignItem.backMockupUrl || '',
+            backMockupName: savedDesignItem.backMockupName || 'Back Mock-up',
+            otherMockups: Array.isArray(savedDesignItem.otherMockups) ? savedDesignItem.otherMockups : [],
+            logos: Array.isArray(savedDesignItem.logos) ? savedDesignItem.logos : [],
+            updatedAt: new Date().toISOString()
+          },
+          { merge: true }
+        ).catch((err) => console.debug('Could not sync design to decorator_notes archive:', err));
       }
       setIsDesignerRackModalOpen(false);
       setEditingDesignerRackId(null);
@@ -4471,7 +4508,7 @@ export function CustomerDetail() {
                             </div>
                           )}
 
-                          {/* Full-Width Card Header: Title + Edit/Delete */}
+                          {/*Full-Width Card Header: Title + Edit/Delete */}
                           <div className="flex items-start justify-between gap-2 pb-1">
                             <div className="min-w-0 flex-1">
                               <h4 className="font-bold text-base text-brand-primary truncate" title={displayTitle}>
@@ -4480,6 +4517,17 @@ export function CustomerDetail() {
                             </div>
                             {!isSales && (
                               <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/decorator-notes?item=${encodeURIComponent(`${design._sourceCustomerId || id}__${design.id}`)}`);
+                                  }}
+                                  className="px-2 py-1 text-[10px] font-bold text-neutral-700 hover:text-white bg-neutral-100 hover:bg-neutral-900 border border-neutral-200 rounded-lg transition-colors cursor-pointer"
+                                  title="Open Decorator Notes & Production Recipe Archive for this garment"
+                                >
+                                  Decorator Notes
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(e) => {

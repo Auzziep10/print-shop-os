@@ -186,6 +186,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     ...((hasPermission('viewDashboard') || isSales || isDesigner) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
     ...((hasPermission('manageOrders') || isSales || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
     ...((hasPermission('manageCustomers') || isSales || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
+    ...((hasPermission('manageOrders') || isDesigner) ? [{ label: 'Decorator Notes', icon: BookOpen, path: '/decorator-notes' }] : []),
     ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),

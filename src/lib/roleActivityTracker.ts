@@ -1248,6 +1248,16 @@ function describePlatformPathChange(
     };
   }
 
+  if (collectionName === 'decorator_notes') {
+    const title = data?.designTitle || docId;
+    const cust = data?.customerName ? ` (${data.customerName})` : '';
+    return {
+      targetLabel: `Decorator Notes${cust}`,
+      targetRoute: `/decorator-notes?item=${encodeURIComponent(docId)}`,
+      actionSummary: `Updated Decorator Notes for "${title}"${cust}`
+    };
+  }
+
   return {
     targetLabel: collectionName.replace(/_/g, ' '),
     targetRoute: '/dashboard',
@@ -1340,6 +1350,10 @@ export function prepareTrackedWritePayload(
     return { enrichedData: data };
   }
   if (collectionName === 'users' || collectionName === 'visitor_sessions' || collectionName === 'active_carts') {
+    return { enrichedData: data };
+  }
+  // Suppress automatic decorator_notes snapshot sync that fires right after a Designer Rack save
+  if (collectionName === 'decorator_notes' && Date.now() - lastDesignerRackSaveMs < 3000) {
     return { enrichedData: data };
   }
 
