@@ -1777,12 +1777,20 @@ export function CustomerDetail() {
           sizingAdjustment: designerRackForm.sizingAdjustment || 'True to Size',
           finalDesignApproved: Boolean(designerRackForm.finalDesignApproved),
           finalDesignApprovedNotificationRead: false,
-          finalDesignApprovedByName: designerRackForm.finalDesignApproved ? actorName : undefined,
-          finalDesignApprovedByRole: designerRackForm.finalDesignApproved ? actorRole : undefined,
+          ...(designerRackForm.finalDesignApproved
+            ? {
+                finalDesignApprovedByName: actorName,
+                finalDesignApprovedByRole: actorRole
+              }
+            : {}),
           approvedForOrder: Boolean(designerRackForm.approvedForOrder),
           approvedForOrderNotificationRead: false,
-          approvedForOrderByName: designerRackForm.approvedForOrder ? actorName : undefined,
-          approvedForOrderByRole: designerRackForm.approvedForOrder ? actorRole : undefined,
+          ...(designerRackForm.approvedForOrder
+            ? {
+                approvedForOrderByName: actorName,
+                approvedForOrderByRole: actorRole
+              }
+            : {}),
           createdByName: actorName,
           createdByRole: actorRole,
           updatedByName: actorName,

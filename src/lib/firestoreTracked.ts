@@ -14,15 +14,37 @@ import {
   type ActivityPopupEvent
 } from './roleActivityTracker';
 
+function stripUndefinedDeep(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item));
+  }
+  if (value && typeof value === 'object') {
+    const proto = Object.getPrototypeOf(value);
+    // Only recurse into plain objects; leave Firestore FieldValue / Timestamp / GeoPoint / DocumentReference untouched
+    if (proto === null || proto === Object.prototype) {
+      const cleaned: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (v !== undefined) {
+          cleaned[k] = stripUndefinedDeep(v);
+        }
+      }
+      return cleaned;
+    }
+  }
+  return value;
+}
+
 export const updateDoc: typeof realUpdateDoc = (async (reference: any, data: any, ...rest: any[]) => {
   if (rest.length === 0 && data && typeof data === 'object' && reference?.path) {
+    const cleanInput = stripUndefinedDeep(data);
     const { enrichedData, pendingEvent } = prepareTrackedWritePayload(
       reference.firestore,
       reference.path,
       'update',
-      data
+      cleanInput
     );
-    const result = await (realUpdateDoc as any)(reference, enrichedData ?? data);
+    const payload = stripUndefinedDeep(enrichedData ?? cleanInput);
+    const result = await (realUpdateDoc as any)(reference, payload);
     if (pendingEvent) {
       finalizeTrackedWriteEvent(reference.firestore, pendingEvent);
     }
@@ -34,16 +56,18 @@ export const updateDoc: typeof realUpdateDoc = (async (reference: any, data: any
 export const setDoc: typeof realSetDoc = (async (reference: any, data: any, options?: any) => {
   if (data && typeof data === 'object' && reference?.path) {
     const isMerge = Boolean(options && (options.merge || options.mergeFields));
+    const cleanInput = stripUndefinedDeep(data);
     const { enrichedData, pendingEvent } = prepareTrackedWritePayload(
       reference.firestore,
       reference.path,
       isMerge ? 'update' : 'create',
-      data
+      cleanInput
     );
+    const payload = stripUndefinedDeep(enrichedData ?? cleanInput);
     const result =
       options !== undefined
-        ? await (realSetDoc as any)(reference, enrichedData ?? data, options)
-        : await (realSetDoc as any)(reference, enrichedData ?? data);
+        ? await (realSetDoc as any)(reference, payload, options)
+        : await (realSetDoc as any)(reference, payload);
     if (pendingEvent) {
       finalizeTrackedWriteEvent(reference.firestore, pendingEvent);
     }
@@ -55,13 +79,14 @@ export const setDoc: typeof realSetDoc = (async (reference: any, data: any, opti
 }) as typeof realSetDoc;
 
 export const addDoc: typeof realAddDoc = (async (reference: any, data: any) => {
-  const docRef = await (realAddDoc as any)(reference, data);
-  if (data && typeof data === 'object' && docRef?.path) {
+  const cleanInput = data && typeof data === 'object' ? stripUndefinedDeep(data) : data;
+  const docRef = await (realAddDoc as any)(reference, cleanInput);
+  if (cleanInput && typeof cleanInput === 'object' && docRef?.path) {
     const { pendingEvent } = prepareTrackedWritePayload(
       reference?.firestore || docRef.firestore,
       docRef.path,
       'create',
-      data
+      cleanInput
     );
     if (pendingEvent) {
       finalizeTrackedWriteEvent(reference?.firestore || docRef.firestore, pendingEvent);
@@ -88,16 +113,16 @@ export const writeBatch: typeof realWriteBatch = ((firestore: Firestore) => {
 
   return {
     set(documentRef: any, data: any, options?: any) {
-      let nextData = data;
-      if (data && typeof data === 'object' && documentRef?.path) {
+      let nextData = data && typeof data === 'object' ? stripUndefinedDeep(data) : data;
+      if (nextData && typeof nextData === 'object' && documentRef?.path) {
         const isMerge = Boolean(options && (options.merge || options.mergeFields));
         const { enrichedData, pendingEvent } = prepareTrackedWritePayload(
           firestore,
           documentRef.path,
           isMerge ? 'update' : 'create',
-          data
+          nextData
         );
-        if (enrichedData) nextData = enrichedData;
+        if (enrichedData) nextData = stripUndefinedDeep(enrichedData);
         if (pendingEvent) pendingEvents.push(pendingEvent);
       }
       if (options !== undefined) {
@@ -108,20 +133,23 @@ export const writeBatch: typeof realWriteBatch = ((firestore: Firestore) => {
       return this;
     },
     update(documentRef: any, dataOrField: any, ...moreFieldsAndValues: any[]) {
-      let nextData = dataOrField;
+      let nextData =
+        moreFieldsAndValues.length === 0 && dataOrField && typeof dataOrField === 'object'
+          ? stripUndefinedDeep(dataOrField)
+          : dataOrField;
       if (
         moreFieldsAndValues.length === 0 &&
-        dataOrField &&
-        typeof dataOrField === 'object' &&
+        nextData &&
+        typeof nextData === 'object' &&
         documentRef?.path
       ) {
         const { enrichedData, pendingEvent } = prepareTrackedWritePayload(
           firestore,
           documentRef.path,
           'update',
-          dataOrField
+          nextData
         );
-        if (enrichedData) nextData = enrichedData;
+        if (enrichedData) nextData = stripUndefinedDeep(enrichedData);
         if (pendingEvent) pendingEvents.push(pendingEvent);
       }
       (rawBatch.update as any)(documentRef, nextData, ...moreFieldsAndValues);
