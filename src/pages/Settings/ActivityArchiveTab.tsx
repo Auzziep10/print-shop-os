@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import {
   Archive,
   ArrowRight,
@@ -18,10 +18,9 @@ import {
 import { db } from '../../lib/firebase';
 import {
   ACTIVITY_POPUPS_DOC_ID,
-  ActivityPopupEvent
+  type ActivityPopupEvent
 } from '../../lib/roleActivityTracker';
 import { useOrders } from '../../hooks/useOrders';
-import { useCustomers } from '../../hooks/useCustomers';
 import { useAuth } from '../../contexts/AuthContext';
 
 type CategoryFilter = 'all' | 'sales_order' | 'designer_rack' | 'designer_platform';
@@ -56,7 +55,7 @@ export function ActivityArchiveTab() {
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { orders } = useOrders();
-  const { customers } = useCustomers();
+  const [customers, setCustomers] = useState<any[]>([]);
 
   const [storedEvents, setStoredEvents] = useState<ActivityPopupEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +68,20 @@ export function ActivityArchiveTab() {
   const isAdmin =
     userData?.role?.toLowerCase() === 'admin' ||
     userData?.role?.toLowerCase() === 'leadership';
+
+  // Subscribe to customers collection for any direct lastActivityPopup events
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'customers'),
+      (snap) => {
+        setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => {
+        console.debug('Error reading customers in archive:', err);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   // Subscribe to settings/activityPopups for the master archive list
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
@@ -21,8 +21,8 @@ const app = initializeApp(firebaseConfig);
 // Keep analytics optional for browser-only execution
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
-// Initialize Core Firebase Services
-export const db = getFirestore(app);
+// Initialize Core Firebase Services (ignoreUndefinedProperties ensures Firestore never throws on undefined values)
+export const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
@@ -37,5 +37,5 @@ const chronotrackConfig = {
 };
 
 const chronotrackApp = initializeApp(chronotrackConfig, "chronotrack");
-export const chronoDb = getFirestore(chronotrackApp);
+export const chronoDb = initializeFirestore(chronotrackApp, { ignoreUndefinedProperties: true });
 export const chronoAuth = getAuth(chronotrackApp);
