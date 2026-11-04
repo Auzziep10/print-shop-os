@@ -136,7 +136,6 @@ export const PlacementReferenceOverlaySvg: React.FC<{
   onStartDragEndpoint?: (lineId: string, endpoint: 'start' | 'end', e: React.MouseEvent) => void;
 }> = ({
   lines,
-  placement,
   selectedLineId,
   interactive = false,
   onSelectLine,
