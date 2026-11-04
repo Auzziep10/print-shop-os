@@ -36,7 +36,8 @@ import { tokens } from '../../lib/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   PlacementReferenceSection,
-  type PlacementReferenceLine
+  type PlacementReferenceLine,
+  type PlacementScaleCalibration
 } from '../../components/DecoratorNotes/PlacementReferenceEditor';
 
 export interface PlacementSpec {
@@ -52,6 +53,7 @@ export interface PlacementSpec {
   referenceImageUrl?: string;
   referenceImageName?: string;
   referenceLines?: PlacementReferenceLine[];
+  scaleCalibration?: PlacementScaleCalibration;
 }
 
 export interface DecoratorNoteRecord {
@@ -194,6 +196,13 @@ export function DecoratorNotesPage() {
 
   // Active item in detail editor modal
   const [activeKey, setActiveKey] = useState<string | null>(() => searchParams.get('item') || null);
+
+  useEffect(() => {
+    const itemParam = searchParams.get('item');
+    if (itemParam && itemParam !== activeKey) {
+      setActiveKey(itemParam);
+    }
+  }, [searchParams]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
@@ -2272,37 +2281,42 @@ export function DecoratorNotesPage() {
                           void persistPlacementsToFirestore(nextPlacements);
                         }}
                         onRemoveImage={() => {
-                          const nextPlacements = formState.placements.map((p) =>
-                            p.id === pl.id
-                              ? {
-                                  ...p,
-                                  referenceImageUrl: '',
-                                  referenceImageName: '',
-                                  referenceLines: []
-                                }
-                              : p
-                          );
+                          const nextPlacements = formState.placements.map((p) => {
+                            if (p.id !== pl.id) return p;
+                            const { scaleCalibration: _removed, ...rest } = p;
+                            return {
+                              ...rest,
+                              referenceImageUrl: '',
+                              referenceImageName: '',
+                              referenceLines: []
+                            };
+                          });
                           setFormState((prev) => ({ ...prev, placements: nextPlacements }));
                           void persistPlacementsToFirestore(nextPlacements);
                         }}
                         onUpdatePlacementAndLines={(updates) => {
-                          const nextPlacements = formState.placements.map((p) =>
-                            p.id === pl.id
-                              ? {
-                                  ...p,
-                                  ...(updates.widthInches !== undefined
-                                    ? { widthInches: updates.widthInches }
-                                    : {}),
-                                  ...(updates.heightInches !== undefined
-                                    ? { heightInches: updates.heightInches }
-                                    : {}),
-                                  ...(updates.distanceFromCollar !== undefined
-                                    ? { distanceFromCollar: updates.distanceFromCollar }
-                                    : {}),
-                                  referenceLines: updates.referenceLines
-                                }
-                              : p
-                          );
+                          const nextPlacements = formState.placements.map((p) => {
+                            if (p.id !== pl.id) return p;
+                            const updated: PlacementSpec = {
+                              ...p,
+                              ...(updates.widthInches !== undefined
+                                ? { widthInches: updates.widthInches }
+                                : {}),
+                              ...(updates.heightInches !== undefined
+                                ? { heightInches: updates.heightInches }
+                                : {}),
+                              ...(updates.distanceFromCollar !== undefined
+                                ? { distanceFromCollar: updates.distanceFromCollar }
+                                : {}),
+                              referenceLines: updates.referenceLines
+                            };
+                            if (updates.scaleCalibration) {
+                              updated.scaleCalibration = updates.scaleCalibration;
+                            } else if (updates.scaleCalibration === null) {
+                              delete updated.scaleCalibration;
+                            }
+                            return updated;
+                          });
                           setFormState((prev) => ({ ...prev, placements: nextPlacements }));
                           void persistPlacementsToFirestore(nextPlacements);
                           setSaveSuccessToast(`Saved reference lines for Placement #${idx + 1}!`);

@@ -3454,26 +3454,48 @@ export function CustomerDetail() {
 
               {/* Modal Actions */}
               <div className="flex items-center justify-between gap-3 pt-3 border-t border-brand-border flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextForm = {
-                      ...designerRackForm,
-                      finalDesignApproved: !designerRackForm.finalDesignApproved
-                    };
-                    setDesignerRackForm(nextForm);
-                    void autoPersistEditingDesignerRack(nextForm);
-                  }}
-                  disabled={isSavingDesignerRack}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shadow-2xs ${
-                    designerRackForm.finalDesignApproved
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                      : 'bg-white hover:bg-neutral-50 text-brand-primary border-brand-border hover:border-brand-primary'
-                  }`}
-                >
-                  {designerRackForm.finalDesignApproved && <Check size={14} strokeWidth={3} />}
-                  <span>{designerRackForm.finalDesignApproved ? 'Final Design Approved' : 'Approve Final Design'}</span>
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextForm = {
+                        ...designerRackForm,
+                        finalDesignApproved: !designerRackForm.finalDesignApproved
+                      };
+                      setDesignerRackForm(nextForm);
+                      void autoPersistEditingDesignerRack(nextForm);
+                    }}
+                    disabled={isSavingDesignerRack}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all cursor-pointer select-none shadow-2xs ${
+                      designerRackForm.finalDesignApproved
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                        : 'bg-white hover:bg-neutral-50 text-brand-primary border-brand-border hover:border-brand-primary'
+                    }`}
+                  >
+                    {designerRackForm.finalDesignApproved && <Check size={14} strokeWidth={3} />}
+                    <span>{designerRackForm.finalDesignApproved ? 'Final Design Approved' : 'Approve Final Design'}</span>
+                  </button>
+
+                  {editingDesignerRackId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDesignerRackModalOpen(false);
+                        navigate(
+                          `/decorator-notes?item=${encodeURIComponent(
+                            `${editingDesignerRackSourceCustomerId || id}__${editingDesignerRackId}`
+                          )}`
+                        );
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 transition-all cursor-pointer"
+                      title="Open Decorator Notes, Placement Dimensions & Logo Ruler for this garment"
+                    >
+                      <FileText size={13} />
+                      <span>Decorator Notes</span>
+                      <ExternalLink size={11} />
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-3 ml-auto">
                   <PillButton
@@ -4508,50 +4530,53 @@ export function CustomerDetail() {
                             </div>
                           )}
 
-                          {/*Full-Width Card Header: Title + Edit/Delete */}
+                          {/*Full-Width Card Header: Title + Decorator Notes + Edit/Delete */}
                           <div className="flex items-start justify-between gap-2 pb-1">
                             <div className="min-w-0 flex-1">
                               <h4 className="font-bold text-base text-brand-primary truncate" title={displayTitle}>
                                 {displayTitle}
                               </h4>
                             </div>
-                            {!isSales && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/decorator-notes?item=${encodeURIComponent(`${design._sourceCustomerId || id}__${design.id}`)}`);
-                                  }}
-                                  className="px-2 py-1 text-[10px] font-bold text-neutral-700 hover:text-white bg-neutral-100 hover:bg-neutral-900 border border-neutral-200 rounded-lg transition-colors cursor-pointer"
-                                  title="Open Decorator Notes & Production Recipe Archive for this garment"
-                                >
-                                  Decorator Notes
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenEditDesignerRackModal(design);
-                                  }}
-                                  className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
-                                  title="Edit Design"
-                                >
-                                  <Edit3 size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
-                                  }}
-                                  className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Remove Design"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/decorator-notes?item=${encodeURIComponent(`${design._sourceCustomerId || id}__${design.id}`)}`);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-indigo-700 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                                title="Open Decorator Notes, Placement Dimensions & Logo Ruler for this garment"
+                              >
+                                <span>Decorator Notes</span>
+                                <ExternalLink size={10} />
+                              </button>
+                              {!isSales && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenEditDesignerRackModal(design);
+                                    }}
+                                    className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                                    title="Edit Design"
+                                  >
+                                    <Edit3 size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteDesignerRackItem(design.id, design._sourceCustomerId);
+                                    }}
+                                    className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Remove Design"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex items-start gap-4">
@@ -4733,6 +4758,24 @@ export function CustomerDetail() {
                                 )}
                               </span>
                             )}
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/decorator-notes?item=${encodeURIComponent(
+                                    `${design._sourceCustomerId || id}__${design.id}`
+                                  )}`
+                                );
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:underline transition-colors cursor-pointer ml-auto"
+                              title="Open Decorator Notes & Print Placement Dimensions for this garment"
+                            >
+                              <FileText size={13} />
+                              <span>Decorator Notes</span>
+                              <ExternalLink size={11} />
+                            </button>
                           </div>
                           )}
                         </div>

@@ -12838,6 +12838,24 @@ export function OrderDetail() {
                                   )}
                                 </span>
                               )}
+                              {design.id && (design._sourceCustomerId || order?.customerId) && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    navigate(
+                                      `/decorator-notes?item=${encodeURIComponent(
+                                        `${design._sourceCustomerId || order?.customerId}__${design.id}`
+                                      )}`
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
+                                  title="Open Decorator Notes & Dimensions for this garment"
+                                >
+                                  <FileText size={11} />
+                                  <span>Decorator Notes</span>
+                                  <ExternalLink size={9} />
+                                </button>
+                              )}
                             </div>
                           </div>
 
