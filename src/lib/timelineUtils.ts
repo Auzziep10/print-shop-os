@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { hasSizeInList } from './garmentUtils';
+import { getCachedTracking, pickBestTracking } from './liveTracking';
 
 export const TIMELINE_STEPS = [
   'Requested',
@@ -274,7 +275,7 @@ export function computeOrderVisualTimelineIndex(
     }
   }
 
-  if (statusIdx >= 6 && steps[steps.length - 1] !== 'Live') {
+  if (statusIdx >= 3 && steps[steps.length - 1] !== 'Live') {
     const trackingMilestone = getOrderTrackingReceivedMilestone(order);
     if (trackingMilestone?.allDelivered) {
       return Math.max(0, steps.length - 1);
@@ -474,15 +475,20 @@ export function getOrderTrackingReceivedMilestone(order: any): {
   updatedAt?: string;
   hasPlatformLabel: boolean;
 } | null {
-  const boxes: any[] = Array.isArray(order?.boxes) ? order.boxes : [];
-  if (boxes.length === 0) return null;
+  const rawBoxes: any[] = Array.isArray(order?.boxes) ? order.boxes : [];
+  if (rawBoxes.length === 0) return null;
+
+  const boxes = rawBoxes.map((b: any) =>
+    b?.trackingNumber ? { ...b, ...pickBestTracking(getCachedTracking(b.trackingNumber), b) } : b
+  );
 
   const trackedBoxes = boxes.filter(
     (b: any) =>
       b &&
       b.trackingCarrier !== 'Pickup' &&
       Boolean(
-        b.labelUrl ||
+        b.trackingNumber ||
+          b.labelUrl ||
           b.trackingEstDelivery ||
           b.easyPostTrackerId ||
           b.estArrival ||
@@ -514,7 +520,8 @@ export function getOrderTrackingReceivedMilestone(order: any): {
         b.trackingEstDelivery ||
         b.estArrival ||
         b.trackingUpdatedAt ||
-        labelTs;
+        labelTs ||
+        new Date().toISOString();
       if (delivRaw) {
         const delivStr = String(delivRaw);
         if (!latestDeliveredIso || delivStr > latestDeliveredIso) {
@@ -548,17 +555,19 @@ export function getOrderTrackingReceivedMilestone(order: any): {
     }
   }
 
-  if (!latestExpectedYmd && !latestDeliveredIso) return null;
+  if (!latestExpectedYmd && !latestDeliveredIso && deliveredCount === 0) return null;
 
-  const allNonPickupBoxes = boxes.filter((b: any) => b && b.trackingCarrier !== 'Pickup');
+  const boxesWithTracking = boxes.filter(
+    (b: any) => b && b.trackingCarrier !== 'Pickup' && Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+  );
+  const allNonPickupBoxes =
+    boxesWithTracking.length > 0 ? boxesWithTracking : trackedBoxes;
   const allDelivered =
-    allNonPickupBoxes.length > 0 &&
-    deliveredCount === allNonPickupBoxes.length &&
-    trackedBoxes.length === allNonPickupBoxes.length;
+    allNonPickupBoxes.length > 0 && deliveredCount >= allNonPickupBoxes.length;
 
   return {
     expectedDate: latestExpectedYmd || toDateInputValue(latestDeliveredIso) || undefined,
-    completedAt: allDelivered ? latestDeliveredIso || latestExpectedYmd || undefined : undefined,
+    completedAt: allDelivered ? latestDeliveredIso || latestExpectedYmd || new Date().toISOString() : undefined,
     allDelivered,
     updatedAt: latestUpdatedAt || undefined,
     hasPlatformLabel

@@ -289,7 +289,14 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
           (b: any) =>
             b &&
             b.trackingCarrier !== 'Pickup' &&
-            Boolean(b.labelUrl || b.trackingEstDelivery || b.easyPostTrackerId || b.estArrival || b.trackingStatus === 'delivered')
+            Boolean(
+              b.trackingNumber ||
+                b.labelUrl ||
+                b.trackingEstDelivery ||
+                b.easyPostTrackerId ||
+                b.estArrival ||
+                b.trackingStatus === 'delivered'
+            )
         );
         let latestExpectedYmd = '';
         let latestDeliveredIso = '';
@@ -321,12 +328,17 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
             }
           }
         }
-        if (latestExpectedYmd) {
-          const allNonPickup = update.boxes.filter((b: any) => b && b.trackingCarrier !== 'Pickup');
-          const allDelivered =
-            allNonPickup.length > 0 &&
-            deliveredCount === allNonPickup.length &&
-            trackedBoxes.length === allNonPickup.length;
+        const allNonPickup = update.boxes.filter(
+          (b: any) =>
+            b &&
+            b.trackingCarrier !== 'Pickup' &&
+            Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+        );
+        const allDelivered =
+          allNonPickup.length > 0 &&
+          deliveredCount === allNonPickup.length &&
+          trackedBoxes.length === allNonPickup.length;
+        if (latestExpectedYmd || allDelivered) {
           const nextMilestones: Record<string, any> = {
             ...(order.timelineMilestones && typeof order.timelineMilestones === 'object'
               ? order.timelineMilestones
@@ -336,21 +348,26 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
             ...(nextMilestones.Received && typeof nextMilestones.Received === 'object'
               ? nextMilestones.Received
               : {}),
-            expectedDate: latestExpectedYmd,
+            ...(latestExpectedYmd ? { expectedDate: latestExpectedYmd } : {}),
           };
           delete nextReceived.manualOverrideAt;
-          if (allDelivered && latestDeliveredIso) {
-            nextReceived.completedAt = latestDeliveredIso;
-            if (typeof order.statusIndex === 'number' && (order.statusIndex === 6 || order.statusIndex === 7)) {
+          if (allDelivered) {
+            nextReceived.completedAt =
+              latestDeliveredIso || nextReceived.completedAt || new Date().toISOString();
+            nextReceived.delayed = false;
+            const currentStatusIdx = Number(order.statusIndex ?? 0);
+            if (order.fulfillmentType !== 'Kitting' && currentStatusIdx >= 3 && currentStatusIdx < 8) {
               update.statusIndex = 8;
               update.status = 'Received';
             }
           }
           nextMilestones.Received = nextReceived;
           update.timelineMilestones = nextMilestones;
-          const shortDate = formatYmdToShortDate(latestExpectedYmd);
-          if (shortDate) {
-            update.date = shortDate;
+          if (latestExpectedYmd) {
+            const shortDate = formatYmdToShortDate(latestExpectedYmd);
+            if (shortDate) {
+              update.date = shortDate;
+            }
           }
         }
       }

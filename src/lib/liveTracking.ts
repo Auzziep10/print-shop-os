@@ -316,8 +316,10 @@ async function syncTrackingToClientFirestore(
 
       if (Array.isArray(order.boxes)) {
         let boxesChanged = false;
+        let matchedBox = false;
         const nextBoxes = order.boxes.map((b: any) => {
           if (!sameCode(b?.trackingNumber)) return b;
+          matchedBox = true;
           if (!needsUpdate(b)) return b;
           boxesChanged = true;
           const preservedEstDelivery =
@@ -335,11 +337,21 @@ async function syncTrackingToClientFirestore(
 
         if (boxesChanged) {
           update.boxes = nextBoxes;
+        }
+
+        if (boxesChanged || matchedBox) {
           const trackedBoxes = nextBoxes.filter(
             (b: any) =>
               b &&
               b.trackingCarrier !== 'Pickup' &&
-              Boolean(b.labelUrl || b.trackingEstDelivery || b.easyPostTrackerId || b.estArrival || b.trackingStatus === 'delivered')
+              Boolean(
+                b.trackingNumber ||
+                  b.labelUrl ||
+                  b.trackingEstDelivery ||
+                  b.easyPostTrackerId ||
+                  b.estArrival ||
+                  b.trackingStatus === 'delivered'
+              )
           );
           let latestExpectedYmd = '';
           let latestDeliveredIso = '';
@@ -371,36 +383,62 @@ async function syncTrackingToClientFirestore(
               }
             }
           }
-          if (latestExpectedYmd) {
-            const allNonPickup = nextBoxes.filter((b: any) => b && b.trackingCarrier !== 'Pickup');
-            const allDelivered =
-              allNonPickup.length > 0 &&
-              deliveredCount === allNonPickup.length &&
-              trackedBoxes.length === allNonPickup.length;
+
+          const allNonPickup = nextBoxes.filter(
+            (b: any) =>
+              b &&
+              b.trackingCarrier !== 'Pickup' &&
+              Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+          );
+          const allDelivered =
+            allNonPickup.length > 0 &&
+            deliveredCount === allNonPickup.length &&
+            trackedBoxes.length === allNonPickup.length;
+
+          const existingRec =
+            order.timelineMilestones &&
+            typeof order.timelineMilestones === 'object' &&
+            order.timelineMilestones.Received &&
+            typeof order.timelineMilestones.Received === 'object'
+              ? order.timelineMilestones.Received
+              : {};
+          const currentStatusIdx = Number(order.statusIndex ?? 0);
+          const isKittingOrder = order.fulfillmentType === 'Kitting';
+          const needsStatusAdvance =
+            allDelivered && !isKittingOrder && currentStatusIdx >= 3 && currentStatusIdx < 8;
+          const needsCompletedAt = allDelivered && !existingRec.completedAt;
+
+          if (boxesChanged || latestExpectedYmd || needsStatusAdvance || needsCompletedAt) {
             const nextMilestones: Record<string, any> = {
               ...(order.timelineMilestones && typeof order.timelineMilestones === 'object'
                 ? order.timelineMilestones
                 : {}),
             };
             const nextReceived: Record<string, any> = {
-              ...(nextMilestones.Received && typeof nextMilestones.Received === 'object'
-                ? nextMilestones.Received
-                : {}),
-              expectedDate: latestExpectedYmd,
+              ...existingRec,
+              ...(latestExpectedYmd ? { expectedDate: latestExpectedYmd } : {}),
             };
-            delete nextReceived.manualOverrideAt;
-            if (allDelivered && latestDeliveredIso) {
-              nextReceived.completedAt = latestDeliveredIso;
-              if (typeof order.statusIndex === 'number' && (order.statusIndex === 6 || order.statusIndex === 7)) {
+            if (boxesChanged || allDelivered) {
+              delete nextReceived.manualOverrideAt;
+            }
+            if (allDelivered) {
+              nextReceived.completedAt =
+                latestDeliveredIso || existingRec.completedAt || new Date().toISOString();
+              nextReceived.delayed = false;
+              if (needsStatusAdvance) {
                 update.statusIndex = 8;
                 update.status = 'Received';
               }
             }
-            nextMilestones.Received = nextReceived;
-            update.timelineMilestones = nextMilestones;
-            const shortDate = formatYmdToShortDate(latestExpectedYmd);
-            if (shortDate) {
-              update.date = shortDate;
+            if (latestExpectedYmd || allDelivered) {
+              nextMilestones.Received = nextReceived;
+              update.timelineMilestones = nextMilestones;
+            }
+            if (latestExpectedYmd && (boxesChanged || allDelivered)) {
+              const shortDate = formatYmdToShortDate(latestExpectedYmd);
+              if (shortDate) {
+                update.date = shortDate;
+              }
             }
           }
         }

@@ -14,7 +14,17 @@ import {
   formatTimelineDate,
   toDateInputValue
 } from '../../lib/timelineUtils';
-import { autoStartOnce, formatEstDelivery, formatEventTime, startLiveTracking, trackingTone, type TrackingTone } from '../../lib/liveTracking';
+import {
+  autoStartOnce,
+  formatEstDelivery,
+  formatEventTime,
+  getCachedTracking,
+  pickBestTracking,
+  startLiveTracking,
+  trackingTone,
+  useLiveTracking,
+  type TrackingTone
+} from '../../lib/liveTracking';
 
 const syncedReceivedDates = new Set<string>();
 
@@ -55,11 +65,14 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [draftMilestones, setDraftMilestones] = useState<TimelineMilestonesMap>({});
 
+  // Subscribe to live tracking cache updates so timeline re-renders immediately when EasyPost returns fresh status
+  useLiveTracking();
+
   const activeSteps = getOrderTimelineSteps(order, customerFulfillmentType, pipelines);
-  // Outgoing boxes with a carrier tracking number (live status comes from the EasyPost webhook)
-  const trackedBoxes: any[] = (Array.isArray(order?.boxes) ? order.boxes : []).filter(
-    (b: any) => b?.trackingNumber && b.trackingCarrier !== 'Pickup'
-  );
+  // Outgoing boxes with a carrier tracking number (merged with live cached tracking)
+  const trackedBoxes: any[] = (Array.isArray(order?.boxes) ? order.boxes : [])
+    .filter((b: any) => b?.trackingNumber && b.trackingCarrier !== 'Pickup')
+    .map((b: any) => pickBestTracking(getCachedTracking(b.trackingNumber), b) || b);
   const lastStepName = activeSteps[activeSteps.length - 1] || 'Received';
   const visualIndex = computeOrderVisualTimelineIndex(order, customerFulfillmentType, pipelines);
   const fillWidth = `${(visualIndex / Math.max(1, activeSteps.length - 1)) * 100}%`;
@@ -83,49 +96,66 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     });
   }, [order?.id, trackedBoxes]);
 
-  // Keep order.timelineMilestones.Received.expectedDate and order.date synced in Firestore when tracking provides a date
+  // Keep order.timelineMilestones.Received.expectedDate, completedAt, and order status synced in Firestore when tracking updates
   useEffect(() => {
-    if (!canEdit || !order?.id || !trackingReceived?.expectedDate) return;
+    if (!canEdit || !order?.id || !trackingReceived) return;
+    if (!trackingReceived.expectedDate && !trackingReceived.allDelivered) return;
     if (lastStepName === 'Live') return;
     const rawRec = order?.timelineMilestones?.Received || order?.timelineMilestones?.[lastStepName] || {};
     const hasNewerManualOverride = Boolean(
-      rawRec?.manualOverrideAt &&
+      !trackingReceived.allDelivered &&
+        rawRec?.manualOverrideAt &&
         rawRec?.expectedDate &&
         (!trackingReceived.updatedAt || rawRec.manualOverrideAt > trackingReceived.updatedAt)
     );
     if (hasNewerManualOverride) return;
 
     const currentExpected = toDateInputValue(rawRec?.expectedDate);
+    const currentStatusIdx = Number(order?.statusIndex ?? 0);
+    const shouldAdvanceToReceived =
+      trackingReceived.allDelivered &&
+      lastStepName !== 'Live' &&
+      currentStatusIdx >= 3 &&
+      currentStatusIdx < 8;
     const needsDeliveredCompletion =
       trackingReceived.allDelivered &&
-      (!rawRec?.completedAt || order?.statusIndex === 6 || order?.statusIndex === 7);
-    if (currentExpected === trackingReceived.expectedDate && !needsDeliveredCompletion) return;
+      (!rawRec?.completedAt || shouldAdvanceToReceived);
+    if (
+      (!trackingReceived.expectedDate || currentExpected === trackingReceived.expectedDate) &&
+      !needsDeliveredCompletion
+    ) {
+      return;
+    }
 
-    const syncKey = `${order.id}:${trackingReceived.expectedDate}:${trackingReceived.allDelivered ? '1' : '0'}`;
+    const syncKey = `${order.id}:${trackingReceived.expectedDate || ''}:${trackingReceived.allDelivered ? '1' : '0'}:${shouldAdvanceToReceived ? 'adv' : 'noadv'}`;
     if (syncedReceivedDates.has(syncKey)) return;
     syncedReceivedDates.add(syncKey);
 
     const existingMilestones: TimelineMilestonesMap = { ...(order?.timelineMilestones || {}) };
-    const nextRec = {
+    const effectiveExpectedDate = trackingReceived.expectedDate || currentExpected || undefined;
+    const nextRec: Record<string, any> = {
       ...(existingMilestones.Received || {}),
-      expectedDate: trackingReceived.expectedDate,
+      ...(effectiveExpectedDate ? { expectedDate: effectiveExpectedDate } : {}),
       ...(trackingReceived.allDelivered && trackingReceived.completedAt
         ? { completedAt: trackingReceived.completedAt }
         : {})
     };
+    if (trackingReceived.allDelivered) {
+      delete nextRec.manualOverrideAt;
+      nextRec.delayed = false;
+    }
     existingMilestones.Received = nextRec;
     if (lastStepName !== 'Received') {
       existingMilestones[lastStepName] = {
         ...(existingMilestones[lastStepName] || {}),
-        expectedDate: trackingReceived.expectedDate
+        ...(effectiveExpectedDate ? { expectedDate: effectiveExpectedDate } : {}),
+        ...(trackingReceived.allDelivered && trackingReceived.completedAt
+          ? { completedAt: trackingReceived.completedAt, delayed: false }
+          : {})
       };
     }
 
-    const shortDate = formatYmdToShortOrderDate(trackingReceived.expectedDate);
-    const shouldAdvanceToReceived =
-      trackingReceived.allDelivered &&
-      lastStepName === 'Received' &&
-      (order?.statusIndex === 6 || order?.statusIndex === 7);
+    const shortDate = effectiveExpectedDate ? formatYmdToShortOrderDate(effectiveExpectedDate) : '';
     const updatePayload: Record<string, any> = {
       timelineMilestones: existingMilestones,
       ...(shortDate ? { date: shortDate } : {}),
@@ -137,6 +167,7 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
   }, [
     canEdit,
     order?.id,
+    order?.statusIndex,
     order?.timelineMilestones,
     lastStepName,
     trackingReceived?.expectedDate,

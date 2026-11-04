@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -10,7 +11,7 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
-import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, CornerDownRight, Box } from 'lucide-react';
+import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, ChevronDown, CornerDownRight, Box } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { normalizeSizeList } from '../../lib/garmentUtils';
@@ -700,6 +701,37 @@ export function Dashboard() {
   const [draggedPriorityKey, setDraggedPriorityKey] = useState<string | null>(null);
   const [dragOverPriorityKey, setDragOverPriorityKey] = useState<string | null>(null);
   const [localPriorityOrder, setLocalPriorityOrder] = useState<string[] | null>(null);
+  const [openOrdersDropdown, setOpenOrdersDropdown] = useState<{
+    key: string;
+    top: number;
+    left: number;
+    companyName: string;
+    orders: any[];
+  } | null>(null);
+  const ordersDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openOrdersDropdown) return;
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (ordersDropdownRef.current?.contains(target)) return;
+      setOpenOrdersDropdown(null);
+    };
+    const handleScrollOrResize = () => setOpenOrdersDropdown(null);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenOrdersDropdown(null);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [openOrdersDropdown]);
 
   const highPriorityOrders = useMemo(() => {
     return orders.filter(
@@ -1134,39 +1166,86 @@ export function Dashboard() {
                       </span>
                     </div>
 
-                    {/* Col 4: Active Orders Count & Statuses for Each Order */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex flex-wrap items-center gap-1.5 min-w-0">
+                    {/* Col 4: Active Orders Count & Single-Line Dropdown */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-1.5 flex-nowrap min-w-0 overflow-hidden">
                       {activeCustOrders.length > 0 ? (
                         <>
-                          <span
-                            className={`inline-flex items-center justify-center text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums ${
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openOrdersDropdown?.key === entry.key) {
+                                setOpenOrdersDropdown(null);
+                                return;
+                              }
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const dropdownWidth = 340;
+                              const left = Math.max(
+                                8,
+                                Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                              );
+                              setOpenOrdersDropdown({
+                                key: entry.key,
+                                top: rect.bottom + 6,
+                                left,
+                                companyName,
+                                orders: activeCustOrders,
+                              });
+                            }}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
                               isNonPriorityParent
-                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
-                                : 'text-red-700 bg-red-50 border-red-200'
+                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
+                                : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100/80'
                             }`}
+                            title="Click to view orders and statuses"
                           >
-                            {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
-                          </span>
-                          {activeCustOrders.map((ord: any) => {
-                            const ordDisplayId = ord.portalId || ord.id.substring(0, 6);
-                            const statusLabel = getOrderStatusLabel(ord.statusIndex);
+                            <span>
+                              {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                            </span>
+                            <ChevronDown
+                              size={11}
+                              className={`transition-transform duration-150 ${
+                                openOrdersDropdown?.key === entry.key ? 'rotate-180' : ''
+                              }`}
+                            />
+                          </button>
+
+                          {(() => {
+                            const firstOrd = activeCustOrders[0];
+                            const firstTitle = (firstOrd.title || 'Untitled Order').trim();
+                            const firstStatus = getOrderStatusLabel(firstOrd.statusIndex);
                             return (
                               <button
-                                key={ord.id}
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/orders/${ord.id}`);
+                                  if (activeCustOrders.length === 1) {
+                                    navigate(`/orders/${firstOrd.id}`);
+                                  } else {
+                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                    const dropdownWidth = 340;
+                                    const left = Math.max(
+                                      8,
+                                      Math.min(rect.left - 80, window.innerWidth - dropdownWidth - 8)
+                                    );
+                                    setOpenOrdersDropdown({
+                                      key: entry.key,
+                                      top: rect.bottom + 6,
+                                      left,
+                                      companyName,
+                                      orders: activeCustOrders,
+                                    });
+                                  }
                                 }}
-                                title={`${ord.title || `Order #${ordDisplayId}`} — ${statusLabel}`}
-                                className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer max-w-full truncate ${getOrderStatusBadgeClasses(ord.statusIndex)}`}
+                                title={`${firstTitle} — ${firstStatus}`}
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer min-w-0 truncate ${getOrderStatusBadgeClasses(firstOrd.statusIndex)}`}
                               >
-                                <span className="font-extrabold opacity-75">#{ordDisplayId}</span>
-                                <span>•</span>
-                                <span className="truncate">{statusLabel}</span>
+                                <span className="truncate font-semibold normal-case max-w-[120px]">{firstTitle}</span>
+                                <span className="opacity-60 shrink-0">•</span>
+                                <span className="uppercase tracking-wider shrink-0">{firstStatus}</span>
                               </button>
                             );
-                          })}
+                          })()}
                         </>
                       ) : (
                         <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
@@ -1303,8 +1382,8 @@ export function Dashboard() {
                   </div>
 
                   {/* Col 4: Status & Due Date */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border truncate ${getOrderStatusBadgeClasses(o.statusIndex)}`}>
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2 flex-nowrap min-w-0 overflow-hidden">
+                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 truncate ${getOrderStatusBadgeClasses(o.statusIndex)}`}>
                       {getOrderStatusLabel(o.statusIndex)}
                     </span>
                     {dueStr && (
@@ -1341,6 +1420,70 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Active Orders Dropdown Popover for High Priority Customers/Brands */}
+      {openOrdersDropdown &&
+        createPortal(
+          <div
+            ref={ordersDropdownRef}
+            style={{
+              position: 'fixed',
+              top: openOrdersDropdown.top,
+              left: openOrdersDropdown.left,
+              width: 340,
+              zIndex: 350,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl border border-brand-border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="px-3.5 py-2.5 bg-neutral-50 border-b border-brand-border/80 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] font-extrabold uppercase tracking-wider text-brand-secondary truncate">
+                  {openOrdersDropdown.companyName}
+                </p>
+                <p className="text-xs font-bold text-brand-primary">
+                  {openOrdersDropdown.orders.length} Active {openOrdersDropdown.orders.length === 1 ? 'Order' : 'Orders'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenOrdersDropdown(null)}
+                className="p-1 rounded-full text-neutral-400 hover:text-brand-primary hover:bg-neutral-200/60 transition-colors cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            </div>
+            <div className="divide-y divide-brand-border/60 max-h-[260px] overflow-y-auto custom-scrollbar">
+              {openOrdersDropdown.orders.map((ord: any) => {
+                const ordTitle = (ord.title || 'Untitled Order').trim();
+                const statusLabel = getOrderStatusLabel(ord.statusIndex);
+                return (
+                  <button
+                    key={ord.id}
+                    type="button"
+                    onClick={() => {
+                      setOpenOrdersDropdown(null);
+                      navigate(`/orders/${ord.id}`);
+                    }}
+                    className="w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-neutral-50 transition-colors cursor-pointer group"
+                  >
+                    <span className="text-xs font-semibold text-brand-primary group-hover:text-red-700 truncate min-w-0">
+                      {ordTitle}
+                    </span>
+                    <span
+                      className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${getOrderStatusBadgeClasses(
+                        ord.statusIndex
+                      )}`}
+                    >
+                      {statusLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
 
       {isSales && highPriorityItems.length === 0 && (
         <div className="mt-6 bg-white border border-brand-border rounded-card p-10 text-center text-sm font-medium text-brand-secondary shadow-2xs">
