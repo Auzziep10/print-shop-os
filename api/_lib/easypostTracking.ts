@@ -36,15 +36,19 @@ export function trackingDocId(trackingCode: string): string {
 }
 
 /** Map an EasyPost carrier/dropdown value to the carrier string EasyPost expects. */
-export function normalizeEasyPostCarrier(carrier?: string): string | undefined {
+export function normalizeEasyPostCarrier(carrier?: string, trackingCode?: string): string | undefined {
   const c = (carrier || '').toUpperCase().replace(/[^A-Z]/g, '');
-  if (!c) return undefined;
   if (c === 'DHL') return 'DHLExpress';
   if (c === 'FEDEX') return 'FedEx';
   if (c === 'UPS') return 'UPS';
   if (c === 'USPS') return 'USPS';
-  // Already an EasyPost carrier code (e.g. "UPSDAP", "FedExDefault") — pass through as-is
-  return carrier;
+  if (c) return carrier;
+
+  const cleanCode = String(trackingCode || '').replace(/\s+/g, '').toUpperCase();
+  if (/^1Z[0-9A-Z]{16}$/i.test(cleanCode)) return 'UPS';
+  if (/^(94|93|92|95)\d{18,24}$/.test(cleanCode)) return 'USPS';
+  if (/^\d{12}(\d{3})?$/.test(cleanCode)) return 'FedEx';
+  return undefined;
 }
 
 export function easyPostKey(isTest: boolean): string {
@@ -58,31 +62,130 @@ function formatLocation(loc: any): string {
     .join(', ');
 }
 
+const STATUS_RANK: Record<string, number> = {
+  unknown: 0,
+  pre_transit: 1,
+  in_transit: 2,
+  out_for_delivery: 3,
+  available_for_pickup: 3,
+  failure: 3,
+  return_to_sender: 4,
+  cancelled: 4,
+  delivered: 5,
+};
+
+export function inferTrackingEventStatus(status?: string, message?: string, statusDetail?: string): string {
+  const s = String(status || '').trim().toLowerCase();
+  const detail = String(statusDetail || '').trim().toLowerCase();
+  const msg = String(message || '').trim();
+
+  if (s === 'delivered' || detail === 'delivered' || /^delivered\b/i.test(msg)) {
+    return 'delivered';
+  }
+  if (s === 'return_to_sender' || /return(ed|ing)? to sender/i.test(msg)) {
+    return 'return_to_sender';
+  }
+  if (
+    s === 'out_for_delivery' ||
+    detail === 'out_for_delivery' ||
+    /out for delivery|on vehicle for delivery|loaded on delivery vehicle/i.test(msg)
+  ) {
+    return 'out_for_delivery';
+  }
+  if (s === 'available_for_pickup' || /available for pickup|ready for pickup/i.test(msg)) {
+    return 'available_for_pickup';
+  }
+  if (s === 'failure' || /delivery exception|unable to deliver|delivery attempted/i.test(msg)) {
+    return 'failure';
+  }
+  if (
+    s === 'in_transit' ||
+    detail === 'arrived_at_facility' ||
+    detail === 'departed_facility' ||
+    detail === 'in_transit' ||
+    /arrived at facility|departed from facility|origin scan|departure scan|arrival scan|in transit|on the way|processing at.*facility|export scan|import scan|we have your package/i.test(msg)
+  ) {
+    return 'in_transit';
+  }
+  if (
+    s === 'pre_transit' ||
+    detail === 'label_created' ||
+    /shipper created a label|has not received|billing information|shipping label created/i.test(msg)
+  ) {
+    return 'pre_transit';
+  }
+  return s || 'unknown';
+}
+
+function resolveEventDatetime(d: any): string {
+  const localStr = typeof d?.datetime_local === 'string' ? d.datetime_local.trim() : '';
+  if (localStr && /[+-]\d{2}:?\d{2}$/.test(localStr)) {
+    const parsed = new Date(localStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return String(d?.datetime || '');
+}
+
 /** The tracking fields saved onto an order box. */
 export function summarizeTracker(tracker: any) {
   const details: any[] = Array.isArray(tracker?.tracking_details) ? tracker.tracking_details : [];
   const events = details
-    .map((d) => ({
-      status: d.status || '',
-      message: d.message || d.description || '',
-      datetime: d.datetime || '',
-      location: formatLocation(d.tracking_location),
-    }))
-    .sort((a, b) => (b.datetime || '').localeCompare(a.datetime || ''))
+    .map((d) => {
+      const msg = (d.message || d.description || '').trim();
+      const inferredStatus = inferTrackingEventStatus(d.status, msg, d.status_detail);
+      return {
+        status: inferredStatus,
+        message: msg,
+        datetime: resolveEventDatetime(d),
+        location: formatLocation(d.tracking_location),
+      };
+    })
+    .sort((a, b) => {
+      const aRank = STATUS_RANK[a.status] ?? 0;
+      const bRank = STATUS_RANK[b.status] ?? 0;
+      // Physical carrier scans (rank >= 2) always appear above pre_transit manifest events (rank <= 1),
+      // because carriers like UPS record manifest creation in UTC while facility scans use local time.
+      const aTier = aRank === 5 ? 3 : aRank >= 2 ? 2 : 1;
+      const bTier = bRank === 5 ? 3 : bRank >= 2 ? 2 : 1;
+      if (aTier !== bTier) return bTier - aTier;
+      const cmp = (b.datetime || '').localeCompare(a.datetime || '');
+      if (cmp !== 0) return cmp;
+      return bRank - aRank;
+    })
     .slice(0, 30);
 
-  const hasDeliveredEvent = events.some(
-    (e) => e.status === 'delivered' || /^delivered\b/i.test(String(e.message || '').trim())
-  );
-  const rawStatus = tracker?.status || (hasDeliveredEvent ? 'delivered' : 'unknown');
-  const resolvedStatus = hasDeliveredEvent ? 'delivered' : rawStatus;
+  let bestStatus = inferTrackingEventStatus(tracker?.status, '', tracker?.status_detail);
+  for (const ev of events) {
+    if ((STATUS_RANK[ev.status] ?? 0) > (STATUS_RANK[bestStatus] ?? 0)) {
+      bestStatus = ev.status;
+    }
+  }
+
+  // If the package is physically in transit with the carrier and its estimated delivery date is today
+  // (after morning dispatch hours), reflect Out for Delivery when EasyPost's webhook lags behind UPS.
+  const estDateRaw =
+    tracker?.carrier_detail?.est_delivery_date_local ||
+    (typeof tracker?.est_delivery_date === 'string' ? tracker.est_delivery_date.slice(0, 10) : '');
+  if (bestStatus === 'in_transit' && estDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(estDateRaw)) {
+    const now = new Date();
+    const pacificNow = new Date(now.getTime() - 7 * 60 * 60 * 1000);
+    const todayYmd = pacificNow.toISOString().slice(0, 10);
+    const pacificHour = pacificNow.getUTCHours();
+    if (estDateRaw === todayYmd && pacificHour >= 7) {
+      bestStatus = 'out_for_delivery';
+    }
+  }
+
+  const resolvedStatus = bestStatus || 'unknown';
 
   return {
     easyPostTrackerId: tracker?.id || null,
     trackingStatus: resolvedStatus,
     trackingStatusLabel: statusLabel(resolvedStatus),
     trackingStatusDetail: tracker?.status_detail || null,
-    trackingEstDelivery: tracker?.est_delivery_date || null,
+    trackingEstDelivery: tracker?.est_delivery_date || tracker?.carrier_detail?.est_delivery_date_local || null,
     trackingPublicUrl: tracker?.public_url || null,
     trackingEvents: events,
     trackingLastEvent: events[0] || null,

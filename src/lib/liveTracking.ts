@@ -47,11 +47,125 @@ const STATUS_RANK: Record<string, number> = {
   delivered: 5,
 };
 
+const STATUS_LABELS_MAP: Record<string, string> = {
+  pre_transit: 'Label Created',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  available_for_pickup: 'Ready for Pickup',
+  return_to_sender: 'Returning to Sender',
+  failure: 'Delivery Problem',
+  cancelled: 'Cancelled',
+  error: 'Tracking Error',
+  unknown: 'Awaiting Scan',
+};
+
+function inferClientEventStatus(status?: string, message?: string, statusDetail?: string): string {
+  const s = String(status || '').trim().toLowerCase();
+  const detail = String(statusDetail || '').trim().toLowerCase();
+  const msg = String(message || '').trim();
+
+  if (s === 'delivered' || detail === 'delivered' || /^delivered\b/i.test(msg)) {
+    return 'delivered';
+  }
+  if (s === 'return_to_sender' || /return(ed|ing)? to sender/i.test(msg)) {
+    return 'return_to_sender';
+  }
+  if (
+    s === 'out_for_delivery' ||
+    detail === 'out_for_delivery' ||
+    /out for delivery|on vehicle for delivery|loaded on delivery vehicle/i.test(msg)
+  ) {
+    return 'out_for_delivery';
+  }
+  if (s === 'available_for_pickup' || /available for pickup|ready for pickup/i.test(msg)) {
+    return 'available_for_pickup';
+  }
+  if (s === 'failure' || /delivery exception|unable to deliver|delivery attempted/i.test(msg)) {
+    return 'failure';
+  }
+  if (
+    s === 'in_transit' ||
+    detail === 'arrived_at_facility' ||
+    detail === 'departed_facility' ||
+    detail === 'in_transit' ||
+    /arrived at facility|departed from facility|origin scan|departure scan|arrival scan|in transit|on the way|processing at.*facility|export scan|import scan|we have your package/i.test(msg)
+  ) {
+    return 'in_transit';
+  }
+  if (
+    s === 'pre_transit' ||
+    detail === 'label_created' ||
+    /shipper created a label|has not received|billing information|shipping label created/i.test(msg)
+  ) {
+    return 'pre_transit';
+  }
+  return s || 'unknown';
+}
+
+/**
+ * Repairs tracking objects where carrier UTC vs local scan timestamps caused
+ * a 'pre_transit' manifest event to sort ahead of physical 'in_transit' / 'out_for_delivery' scans.
+ */
+export function normalizeTrackingObject(raw?: any): any {
+  if (!raw || typeof raw !== 'object') return raw;
+  const rawEvents: any[] = Array.isArray(raw.trackingEvents) ? raw.trackingEvents : [];
+  if (!raw.trackingStatus && rawEvents.length === 0) return raw;
+
+  const events = rawEvents
+    .map((ev: any) => {
+      const msg = String(ev?.message || '').trim();
+      const st = inferClientEventStatus(ev?.status, msg);
+      return { ...ev, status: st, message: msg };
+    })
+    .sort((a, b) => {
+      const aRank = STATUS_RANK[a.status] ?? 0;
+      const bRank = STATUS_RANK[b.status] ?? 0;
+      const aTier = aRank === 5 ? 3 : aRank >= 2 ? 2 : 1;
+      const bTier = bRank === 5 ? 3 : bRank >= 2 ? 2 : 1;
+      if (aTier !== bTier) return bTier - aTier;
+      const cmp = String(b.datetime || '').localeCompare(String(a.datetime || ''));
+      if (cmp !== 0) return cmp;
+      return bRank - aRank;
+    });
+
+  let bestStatus = inferClientEventStatus(raw.trackingStatus, '', raw.trackingStatusDetail);
+  for (const ev of events) {
+    if ((STATUS_RANK[ev.status] ?? 0) > (STATUS_RANK[bestStatus] ?? 0)) {
+      bestStatus = ev.status;
+    }
+  }
+
+  // If physically in transit and estimated delivery is today (after 7am local), promote to out_for_delivery
+  if (bestStatus === 'in_transit' && raw.trackingEstDelivery) {
+    const estYmd = String(raw.trackingEstDelivery).trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(estYmd)) {
+      const now = new Date();
+      const localYmd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      if (estYmd === localYmd && now.getHours() >= 7) {
+        bestStatus = 'out_for_delivery';
+      }
+    }
+  }
+
+  if (!bestStatus) return raw;
+
+  return {
+    ...raw,
+    trackingStatus: bestStatus,
+    trackingStatusLabel: STATUS_LABELS_MAP[bestStatus] || raw.trackingStatusLabel || 'Awaiting Scan',
+    trackingEvents: events,
+    trackingLastEvent: events[0] || raw.trackingLastEvent || null,
+  };
+}
+
 /**
  * Chooses the most up-to-date tracking object between two candidates for the same tracking number.
  * Always prefers 'delivered' over non-delivered, then higher status rank / newer timestamp.
  */
-export function pickBestTracking(a?: any, b?: any): any {
+export function pickBestTracking(rawA?: any, rawB?: any): any {
+  const a = normalizeTrackingObject(rawA);
+  const b = normalizeTrackingObject(rawB);
   const aStatus = a?.trackingStatus;
   const bStatus = b?.trackingStatus;
   if (!aStatus && !bStatus) return a || b;
@@ -63,6 +177,10 @@ export function pickBestTracking(a?: any, b?: any): any {
   const aRank = STATUS_RANK[aStatus] ?? 0;
   const bRank = STATUS_RANK[bStatus] ?? 0;
   if (aRank !== bRank) return aRank > bRank ? a : b;
+
+  const aEventsLen = Array.isArray(a?.trackingEvents) ? a.trackingEvents.length : 0;
+  const bEventsLen = Array.isArray(b?.trackingEvents) ? b.trackingEvents.length : 0;
+  if (aEventsLen !== bEventsLen) return aEventsLen > bEventsLen ? a : b;
 
   const aTime = String(a?.trackingLastEvent?.datetime || a?.trackingUpdatedAt || '');
   const bTime = String(b?.trackingLastEvent?.datetime || b?.trackingUpdatedAt || '');
@@ -416,7 +534,7 @@ async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: 
       return { ok: false, error: data.error || `Request failed (${res.status})` };
     }
     const code = String(data.trackingCode || payload.trackingNumber || '').trim();
-    const summary: Record<string, any> = {
+    const summary: Record<string, any> = normalizeTrackingObject({
       easyPostTrackerId: data.easyPostTrackerId || null,
       trackingStatus: data.trackingStatus || 'unknown',
       trackingStatusLabel: data.trackingStatusLabel || 'Awaiting Scan',
@@ -428,7 +546,7 @@ async function requestTracking(payload: Record<string, unknown>): Promise<{ ok: 
       trackingMode: data.trackingMode || null,
       trackingUpdatedAt: data.trackingUpdatedAt || new Date().toISOString(),
       ...(data.carrier ? { trackingCarrierDetected: data.carrier } : {}),
-    };
+    });
     if (code && summary.trackingStatus) {
       setCachedTracking(code, summary);
       void syncTrackingToClientFirestore(payload as Record<string, any>, code, summary);

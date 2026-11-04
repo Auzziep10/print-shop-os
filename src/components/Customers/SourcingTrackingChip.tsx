@@ -119,7 +119,13 @@ export function SourcingTrackingChip({
         ref={anchorRef}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const nextOpen = !open;
+          setOpen(nextOpen);
+          if (nextOpen && !starting && status !== 'delivered' && status !== 'cancelled' && status !== 'return_to_sender') {
+            void handleStart();
+          }
+        }}
         title={`Supplier tracking #${trackingNumber}${status ? ` — ${resolvedTracking?.trackingStatusLabel || ''}` : ''}`}
         className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer max-w-[170px] disabled:opacity-50 ${
           status ? `${tone.pill} hover:brightness-95` : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'

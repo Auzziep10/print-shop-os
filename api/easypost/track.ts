@@ -66,30 +66,41 @@ export default async function handler(req: Request) {
 
     const authHeader = `Basic ${btoa(apiKey + ':')}`;
     // Carrier is optional — EasyPost detects it from the number when blank
-    const carrier = normalizeEasyPostCarrier(carrierHint);
-    const listRes = await fetch(
-      `https://api.easypost.com/v2/trackers?tracking_code=${encodeURIComponent(trackingCode)}&page_size=5`,
-      { headers: { Authorization: authHeader } }
-    );
-    const listData: any = await listRes.json().catch(() => ({}));
-    let tracker: any = Array.isArray(listData?.trackers) ? listData.trackers[0] : null;
+    const carrier = normalizeEasyPostCarrier(carrierHint, trackingCode);
 
-    // Only create a new tracker if EasyPost doesn't already have one for this tracking number
-    if (!tracker || !tracker.id) {
-      const epRes = await fetch('https://api.easypost.com/v2/trackers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authHeader,
-        },
-        body: JSON.stringify({ tracker: { tracking_code: trackingCode, ...(carrier ? { carrier } : {}) } }),
-      });
-      const created: any = await epRes.json().catch(() => ({}));
-      if (epRes.ok && created?.id) {
-        tracker = created;
-      } else {
-        return json({ error: `EasyPost: ${created?.error?.message || 'could not create tracker'}` }, 400);
+    // Call POST /v2/trackers first so EasyPost creates or refreshes the tracker with the carrier
+    // (EasyPost returns the existing tracker without extra charge if created within 90 days)
+    let tracker: any = null;
+    const epRes = await fetch('https://api.easypost.com/v2/trackers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
+      },
+      body: JSON.stringify({ tracker: { tracking_code: trackingCode, ...(carrier ? { carrier } : {}) } }),
+    });
+    const created: any = await epRes.json().catch(() => ({}));
+    if (epRes.ok && created?.id) {
+      tracker = created;
+    }
+
+    // Fallback or supplement from GET /v2/trackers list if POST failed or returned fewer details
+    if (!tracker || !Array.isArray(tracker.tracking_details) || tracker.tracking_details.length === 0) {
+      const listRes = await fetch(
+        `https://api.easypost.com/v2/trackers?tracking_code=${encodeURIComponent(trackingCode)}&page_size=5`,
+        { headers: { Authorization: authHeader } }
+      );
+      const listData: any = await listRes.json().catch(() => ({}));
+      const candidates: any[] = Array.isArray(listData?.trackers) ? listData.trackers : [];
+      for (const cand of candidates) {
+        if (!tracker || (cand?.tracking_details?.length || 0) > (tracker?.tracking_details?.length || 0)) {
+          tracker = cand;
+        }
       }
+    }
+
+    if (!tracker || !tracker.id) {
+      return json({ error: `EasyPost: ${created?.error?.message || 'could not create tracker'}` }, 400);
     }
 
     return json({
