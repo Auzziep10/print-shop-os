@@ -34,6 +34,10 @@ import {
 import { db, storage } from '../../lib/firebase';
 import { tokens } from '../../lib/tokens';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+  PlacementReferenceSection,
+  type PlacementReferenceLine
+} from '../../components/DecoratorNotes/PlacementReferenceEditor';
 
 export interface PlacementSpec {
   id: string;
@@ -45,6 +49,9 @@ export interface PlacementSpec {
   platenOrHoop: string;
   inkOrThreadColors: string;
   placementNotes: string;
+  referenceImageUrl?: string;
+  referenceImageName?: string;
+  referenceLines?: PlacementReferenceLine[];
 }
 
 export interface DecoratorNoteRecord {
@@ -191,6 +198,7 @@ export function DecoratorNotesPage() {
   const [saveSuccessToast, setSaveSuccessToast] = useState<string | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingPlacementId, setUploadingPlacementId] = useState<string | null>(null);
 
   // Lightbox state
   const [lightbox, setLightbox] = useState<{
@@ -425,7 +433,9 @@ export function DecoratorNotesPage() {
               p.heightInches?.trim() ||
               p.distanceFromCollar?.trim() ||
               p.inkOrThreadColors?.trim() ||
-              p.placementNotes?.trim()
+              p.placementNotes?.trim() ||
+              p.referenceImageUrl ||
+              (Array.isArray(p.referenceLines) && p.referenceLines.length > 0)
           )) ||
         (Array.isArray(r.productionPhotos) && r.productionPhotos.length > 0)
     );
@@ -695,6 +705,79 @@ export function DecoratorNotesPage() {
       await persistProductionPhotos(nextPhotos);
     } catch (err) {
       console.error('Failed to remove production photo:', err);
+    }
+  };
+
+  const persistPlacementsToFirestore = async (nextPlacements: PlacementSpec[]) => {
+    if (!activeItem) return;
+    const actorName =
+      userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member';
+    const actorRole = userData?.role || 'Staff';
+    const nowIso = new Date().toISOString();
+
+    await setDoc(
+      doc(db, 'decorator_notes', activeItem.archiveKey),
+      {
+        id: activeItem.archiveKey,
+        customerId: activeItem.customerId,
+        customerName: activeItem.customerName,
+        parentCustomerId: activeItem.parentCustomerId,
+        parentCustomerName: activeItem.parentCustomerName,
+        designId: activeItem.designId,
+        designTitle: activeItem.designTitle,
+        garmentColor: activeItem.garmentColor,
+        sizingAdjustment: activeItem.sizingAdjustment,
+        garmentSourcingLink: activeItem.garmentSourcingLink,
+        psdDriveLink: activeItem.psdDriveLink,
+        frontMockupUrl: activeItem.frontMockupUrl,
+        frontMockupName: activeItem.frontMockupName,
+        backMockupUrl: activeItem.backMockupUrl,
+        backMockupName: activeItem.backMockupName,
+        otherMockups: activeItem.otherMockups,
+        logos: activeItem.logos,
+        placements: nextPlacements,
+        updatedByName: actorName,
+        updatedByRole: actorRole,
+        updatedAt: nowIso,
+        archivedAt: activeItem.noteRecord?.archivedAt || nowIso
+      },
+      { merge: true }
+    );
+  };
+
+  const handleUploadPlacementReferenceImage = async (placementId: string, file: File) => {
+    if (!activeItem || !file) return;
+    setUploadingPlacementId(placementId);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storageRef = ref(
+        storage,
+        `decorator_notes/${activeItem.customerId}/${activeItem.designId}/placements/${placementId}_${Date.now()}_${safeName}`
+      );
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      const nextPlacements = formState.placements.map((p) =>
+        p.id === placementId
+          ? {
+              ...p,
+              referenceImageUrl: url,
+              referenceImageName: file.name
+            }
+          : p
+      );
+      setFormState((prev) => ({
+        ...prev,
+        placements: nextPlacements
+      }));
+      await persistPlacementsToFirestore(nextPlacements);
+      setSaveSuccessToast('Uploaded placement reference image!');
+      setTimeout(() => setSaveSuccessToast(null), 3000);
+    } catch (err) {
+      console.error('Error uploading placement reference image:', err);
+      alert('Failed to upload placement image.');
+    } finally {
+      setUploadingPlacementId(null);
     }
   };
 
@@ -2161,6 +2244,71 @@ export function DecoratorNotesPage() {
                           className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg"
                         />
                       </div>
+
+                      <PlacementReferenceSection
+                        placementIndex={idx}
+                        placement={pl}
+                        quickSources={[
+                          ...(activeItem.frontMockupUrl
+                            ? [{ label: 'Front Mock-up', url: activeItem.frontMockupUrl }]
+                            : []),
+                          ...(activeItem.backMockupUrl
+                            ? [{ label: 'Back Mock-up', url: activeItem.backMockupUrl }]
+                            : []),
+                          ...formState.productionPhotos.map((ph, phIdx) => ({
+                            label: `Real Garment #${phIdx + 1}`,
+                            url: ph.url
+                          }))
+                        ]}
+                        uploading={uploadingPlacementId === pl.id}
+                        onUploadFile={(file) => handleUploadPlacementReferenceImage(pl.id, file)}
+                        onSelectImageUrl={(url, name) => {
+                          const nextPlacements = formState.placements.map((p) =>
+                            p.id === pl.id
+                              ? { ...p, referenceImageUrl: url, referenceImageName: name }
+                              : p
+                          );
+                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
+                          void persistPlacementsToFirestore(nextPlacements);
+                        }}
+                        onRemoveImage={() => {
+                          const nextPlacements = formState.placements.map((p) =>
+                            p.id === pl.id
+                              ? {
+                                  ...p,
+                                  referenceImageUrl: '',
+                                  referenceImageName: '',
+                                  referenceLines: []
+                                }
+                              : p
+                          );
+                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
+                          void persistPlacementsToFirestore(nextPlacements);
+                        }}
+                        onUpdatePlacementAndLines={(updates) => {
+                          const nextPlacements = formState.placements.map((p) =>
+                            p.id === pl.id
+                              ? {
+                                  ...p,
+                                  ...(updates.widthInches !== undefined
+                                    ? { widthInches: updates.widthInches }
+                                    : {}),
+                                  ...(updates.heightInches !== undefined
+                                    ? { heightInches: updates.heightInches }
+                                    : {}),
+                                  ...(updates.distanceFromCollar !== undefined
+                                    ? { distanceFromCollar: updates.distanceFromCollar }
+                                    : {}),
+                                  referenceLines: updates.referenceLines
+                                }
+                              : p
+                          );
+                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
+                          void persistPlacementsToFirestore(nextPlacements);
+                          setSaveSuccessToast(`Saved reference lines for Placement #${idx + 1}!`);
+                          setTimeout(() => setSaveSuccessToast(null), 3000);
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
