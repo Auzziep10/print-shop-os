@@ -111,7 +111,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   // Automatically collapse other menus when in another menu
   useEffect(() => {
-    const isOrders = location.pathname.startsWith('/orders');
+    const isOrders = location.pathname.startsWith('/orders') || location.pathname.startsWith('/decorator-notes');
     const isInventory = location.pathname.startsWith('/inventory');
     const isTeam = location.pathname.startsWith('/team');
     const isCrm = location.pathname.startsWith('/crm');
@@ -136,6 +136,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Orders', path: '/orders?tab=orders', icon: Layers },
     { label: 'Quotes', path: '/orders?tab=quotes', icon: MailIcon },
     { label: 'Production', path: '/orders?tab=production', icon: Scissors },
+    { label: 'Decorator Notes', path: '/decorator-notes', icon: BookOpen },
     { label: 'Reports', path: '/orders?tab=reports', icon: FileBox },
   ];
 
@@ -151,6 +152,9 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const isSubItemActive = (subPath: string) => {
     const [path, search] = subPath.split('?');
+    if (path === '/decorator-notes') {
+      return location.pathname.startsWith('/decorator-notes');
+    }
     if (location.pathname !== path) return false;
     
     const params = new URLSearchParams(search || '');
@@ -186,7 +190,6 @@ export function Sidebar({ onClose }: SidebarProps) {
     ...((hasPermission('viewDashboard') || isSales || isDesigner) ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
     ...((hasPermission('manageOrders') || isSales || isDesigner) ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
     ...((hasPermission('manageCustomers') || isSales || isDesigner) ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
-    ...((hasPermission('manageOrders') || isDesigner) ? [{ label: 'Decorator Notes', icon: BookOpen, path: '/decorator-notes' }] : []),
     ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
@@ -210,7 +213,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       <nav className="flex-1 min-h-0 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/') || (item.path !== '/' && item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+          const isActive = location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/') || (item.path === '/orders' && location.pathname.startsWith('/decorator-notes')) || (item.path !== '/' && item.path !== '/dashboard' && location.pathname.startsWith(item.path));
           
 
 
