@@ -42,7 +42,7 @@ export const LINE_KIND_META: Record<
     color: '#2563eb',
     badgeBg: 'bg-blue-600 text-white border-blue-700',
     badgeText: 'text-blue-700 bg-blue-50 border-blue-200',
-    defaultHint: 'Draw horizontally across graphic width'
+    defaultHint: 'Draw across graphic width in any direction'
   },
   height: {
     title: 'Height Line',
@@ -50,7 +50,7 @@ export const LINE_KIND_META: Record<
     color: '#059669',
     badgeBg: 'bg-emerald-600 text-white border-emerald-700',
     badgeText: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    defaultHint: 'Draw vertically along graphic height'
+    defaultHint: 'Draw along graphic height in any direction'
   },
   collar: {
     title: 'Collar / Seam Distance',
@@ -299,7 +299,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 }) => {
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [activeKind, setActiveKind] = useState<PlacementLineKind>('width');
-  const [snapStraight, setSnapStraight] = useState(true);
+  const [snapStraight, setSnapStraight] = useState(false);
   const [customLabelDraft, setCustomLabelDraft] = useState('');
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
@@ -672,19 +672,19 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
             className="bg-white max-w-5xl w-full rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Studio Header */}
-            <div className="px-5 py-3.5 bg-neutral-900 text-white flex flex-wrap items-center justify-between gap-3 shrink-0">
+            {/* Studio Header (Light Mode) */}
+            <div className="px-5 py-3.5 bg-white border-b border-neutral-200 text-neutral-900 flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-indigo-500 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                  <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-extrabold uppercase tracking-wider">
                     Placement #{placementIndex + 1} • {placement.location}
                   </span>
-                  <h3 className="text-sm sm:text-base font-black">
+                  <h3 className="text-sm sm:text-base font-black text-neutral-900">
                     Draw Dimension Reference Lines
                   </h3>
                 </div>
-                <p className="text-[11px] text-neutral-300 mt-0.5">
-                  Select a dimension type below, then click and drag across the garment image to draw reference lines. Drag any endpoint circle to adjust.
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  Select a dimension type below, then click and drag in any direction across the garment image. Drag any endpoint circle to adjust angle or length.
                 </p>
               </div>
 
@@ -692,7 +692,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 <button
                   type="button"
                   onClick={handleSaveStudio}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold shadow-sm transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-colors cursor-pointer"
                 >
                   <Check size={14} strokeWidth={2.5} />
                   <span>Apply Reference Lines</span>
@@ -700,7 +700,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 <button
                   type="button"
                   onClick={() => setIsStudioOpen(false)}
-                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
                 >
                   <X size={17} />
                 </button>
@@ -745,7 +745,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     onChange={(e) => setSnapStraight(e.target.checked)}
                     className="w-3.5 h-3.5 rounded accent-neutral-900 cursor-pointer"
                   />
-                  <span>Snap Straight (Horizontal / Vertical)</span>
+                  <span>Lock Horizontal / Vertical (or Hold Shift)</span>
                 </label>
 
                 {draftLines.length > 0 && (
