@@ -580,9 +580,67 @@ export function DecoratorNotesPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const handleUploadProductionPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !activeItem) return;
+  const persistProductionPhotos = async (
+    nextPhotos: { id: string; name: string; url: string; uploadedAt: string }[]
+  ) => {
+    if (!activeItem) return;
+    const actorName =
+      userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member';
+    const actorRole = userData?.role || 'Staff';
+    const nowIso = new Date().toISOString();
+
+    await setDoc(
+      doc(db, 'decorator_notes', activeItem.archiveKey),
+      {
+        id: activeItem.archiveKey,
+        customerId: activeItem.customerId,
+        customerName: activeItem.customerName,
+        parentCustomerId: activeItem.parentCustomerId,
+        parentCustomerName: activeItem.parentCustomerName,
+        designId: activeItem.designId,
+        designTitle: activeItem.designTitle,
+        garmentColor: activeItem.garmentColor,
+        sizingAdjustment: activeItem.sizingAdjustment,
+        garmentSourcingLink: activeItem.garmentSourcingLink,
+        psdDriveLink: activeItem.psdDriveLink,
+        frontMockupUrl: activeItem.frontMockupUrl,
+        frontMockupName: activeItem.frontMockupName,
+        backMockupUrl: activeItem.backMockupUrl,
+        backMockupName: activeItem.backMockupName,
+        otherMockups: activeItem.otherMockups,
+        logos: activeItem.logos,
+        productionPhotos: nextPhotos,
+        updatedByName: actorName,
+        updatedByRole: actorRole,
+        updatedAt: nowIso,
+        archivedAt: activeItem.noteRecord?.archivedAt || nowIso
+      },
+      { merge: true }
+    );
+
+    const custDoc = customers.find((c) => c.id === activeItem.customerId);
+    if (custDoc && Array.isArray(custDoc.designerRack)) {
+      const exists = custDoc.designerRack.some((d: any) => d && d.id === activeItem.designId);
+      if (exists) {
+        const updatedRack = custDoc.designerRack.map((d: any) => {
+          if (!d || d.id !== activeItem.designId) return d;
+          return {
+            ...d,
+            productionPhotos: nextPhotos,
+            decoratorUpdatedAt: nowIso,
+            decoratorUpdatedBy: actorName
+          };
+        });
+        await updateDoc(doc(db, 'customers', activeItem.customerId), {
+          designerRack: updatedRack
+        });
+      }
+    }
+  };
+
+  const uploadProductionPhotoFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList).filter((f) => f && f.type.startsWith('image/'));
+    if (files.length === 0 || !activeItem) return;
     setUploadingPhoto(true);
     try {
       const uploaded: { id: string; name: string; url: string; uploadedAt: string }[] = [];
@@ -602,16 +660,41 @@ export function DecoratorNotesPage() {
           uploadedAt: new Date().toISOString()
         });
       }
+      const nextPhotos = [...formState.productionPhotos, ...uploaded];
       setFormState((prev) => ({
         ...prev,
-        productionPhotos: [...prev.productionPhotos, ...uploaded]
+        productionPhotos: nextPhotos
       }));
+      await persistProductionPhotos(nextPhotos);
+      setSaveSuccessToast(
+        `Uploaded & saved ${uploaded.length} completed garment photo${uploaded.length === 1 ? '' : 's'}!`
+      );
+      setTimeout(() => setSaveSuccessToast(null), 3500);
     } catch (err) {
       console.error('Error uploading production reference photo:', err);
       alert('Failed to upload photo.');
     } finally {
       setUploadingPhoto(false);
-      e.target.value = '';
+    }
+  };
+
+  const handleUploadProductionPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await uploadProductionPhotoFiles(files);
+    e.target.value = '';
+  };
+
+  const handleRemoveProductionPhoto = async (photoId: string) => {
+    const nextPhotos = formState.productionPhotos.filter((p) => p.id !== photoId);
+    setFormState((prev) => ({
+      ...prev,
+      productionPhotos: nextPhotos
+    }));
+    try {
+      await persistProductionPhotos(nextPhotos);
+    } catch (err) {
+      console.error('Failed to remove production photo:', err);
     }
   };
 
@@ -758,7 +841,10 @@ export function DecoratorNotesPage() {
     }
   };
 
-  const getAllItemImages = (item: UnifiedDecoratorItem): { src: string; label: string }[] => {
+  const getAllItemImages = (
+    item: UnifiedDecoratorItem,
+    overridePhotos?: { id: string; name: string; url: string; uploadedAt: string }[]
+  ): { src: string; label: string }[] => {
     const list: { src: string; label: string }[] = [];
     if (item.frontMockupUrl) {
       list.push({ src: item.frontMockupUrl, label: 'Front Mock-up' });
@@ -774,9 +860,10 @@ export function DecoratorNotesPage() {
         list.push({ src: l.url, label: `Logo: ${l.name || idx + 1}` });
       }
     });
-    (item.noteRecord?.productionPhotos || []).forEach((p, idx) => {
+    const photos = overridePhotos ?? item.noteRecord?.productionPhotos ?? [];
+    photos.forEach((p, idx) => {
       if (p.url) {
-        list.push({ src: p.url, label: `Production Photo ${idx + 1}` });
+        list.push({ src: p.url, label: `Completed Garment Photo ${idx + 1}` });
       }
     });
     return list;
@@ -1438,6 +1525,19 @@ export function DecoratorNotesPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 text-xs font-bold shadow-2xs transition-colors cursor-pointer">
+                      <Upload size={13} />
+                      <span>
+                        {uploadingPhoto ? 'Uploading Photo...' : 'Upload Completed Garment Photo'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleUploadProductionPhoto}
+                        className="hidden"
+                      />
+                    </label>
                     {activeItem.psdDriveLink && (
                       <a
                         href={
@@ -1604,14 +1704,27 @@ export function DecoratorNotesPage() {
                   </div>
 
                   {/* Production Reference Photos (Uploaded by Decorator Team) */}
-                  <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
-                        Finished Garment Photos ({formState.productionPhotos.length})
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        void uploadProductionPhotoFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1.5">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600 truncate">
+                        Real Garment ({formState.productionPhotos.length})
                       </span>
-                      <label className="text-[10px] font-extrabold text-neutral-900 hover:underline cursor-pointer inline-flex items-center gap-0.5">
+                      <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold cursor-pointer shrink-0 transition-colors">
                         <Upload size={10} />
-                        <span>{uploadingPhoto ? 'Uploading...' : '+ Upload'}</span>
+                        <span>{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1622,10 +1735,15 @@ export function DecoratorNotesPage() {
                       </label>
                     </div>
                     {formState.productionPhotos.length === 0 ? (
-                      <label className="h-36 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 hover:bg-neutral-100 flex flex-col items-center justify-center gap-1 text-center p-2 cursor-pointer transition-colors">
-                        <Upload size={16} className="text-neutral-400" />
-                        <span className="text-[11px] font-semibold text-neutral-500">
-                          Upload photo of decorated garment or press setup
+                      <label className="h-36 rounded-lg border-2 border-dashed border-emerald-300/90 bg-emerald-50/40 hover:bg-emerald-50 flex flex-col items-center justify-center gap-1.5 text-center p-2.5 cursor-pointer transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                          <Upload size={14} />
+                        </div>
+                        <span className="text-[11px] font-extrabold text-neutral-800">
+                          {uploadingPhoto ? 'Uploading photo...' : 'Upload Completed Garment'}
+                        </span>
+                        <span className="text-[10px] font-medium text-neutral-500 leading-tight">
+                          Click or drag &amp; drop real-life photos of the produced garment
                         </span>
                         <input
                           type="file"
@@ -1636,28 +1754,35 @@ export function DecoratorNotesPage() {
                         />
                       </label>
                     ) : (
-                      <div className="h-36 overflow-y-auto grid grid-cols-2 gap-1.5">
-                        {formState.productionPhotos.map((photo) => (
+                      <div className="h-36 overflow-y-auto grid grid-cols-2 gap-1.5 pr-0.5">
+                        {formState.productionPhotos.map((photo, pIdx) => (
                           <div
                             key={photo.id}
-                            className="relative h-16 rounded-lg border border-neutral-200 bg-neutral-50 overflow-hidden group/ph"
+                            onClick={() => {
+                              const imgs = getAllItemImages(activeItem, formState.productionPhotos);
+                              const targetIdx = Math.max(
+                                0,
+                                imgs.findIndex((im) => im.src === photo.url)
+                              );
+                              if (imgs.length > 0) {
+                                setLightbox({ images: imgs, index: targetIdx });
+                              }
+                            }}
+                            className="relative h-16 rounded-lg border border-neutral-200 bg-neutral-50 overflow-hidden group/ph cursor-pointer"
+                            title="Click to enlarge completed garment photo"
                           >
-                            <a href={photo.url} target="_blank" rel="noopener noreferrer">
-                              <img
-                                src={photo.url}
-                                alt={photo.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </a>
+                            <img
+                              src={photo.url}
+                              alt={photo.name || `Completed Garment ${pIdx + 1}`}
+                              className="w-full h-full object-cover group-hover/ph:scale-105 transition-transform"
+                            />
                             <button
                               type="button"
-                              onClick={() =>
-                                setFormState((prev) => ({
-                                  ...prev,
-                                  productionPhotos: prev.productionPhotos.filter((p) => p.id !== photo.id)
-                                }))
-                              }
-                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover/ph:opacity-100 transition-opacity cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleRemoveProductionPhoto(photo.id);
+                              }}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover/ph:opacity-100 transition-opacity cursor-pointer"
                               title="Remove photo"
                             >
                               <X size={11} />
