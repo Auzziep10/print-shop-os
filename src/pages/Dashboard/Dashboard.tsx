@@ -872,6 +872,21 @@ export function Dashboard() {
     }
   };
 
+  const getOrderStatusBadgeClasses = (statusIndex?: number) => {
+    switch (statusIndex) {
+      case 0: return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 1: return 'bg-orange-50 text-orange-800 border-orange-200';
+      case 2: return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+      case 3: return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 4: return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 5: return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      case 6: return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 7: return 'bg-teal-50 text-teal-700 border-teal-200';
+      case 8: return 'bg-neutral-100 text-neutral-700 border-neutral-200';
+      default: return 'bg-neutral-100 text-neutral-700 border-neutral-200';
+    }
+  };
+
   const handleRemoveHighPriority = async (e: React.MouseEvent, orderObj: any) => {
     e.stopPropagation();
     const adminName = userData?.name || userData?.email?.split('@')[0] || 'Team Member';
@@ -986,11 +1001,10 @@ export function Dashboard() {
 
           <div className="bg-white border border-red-200 rounded-xl divide-y divide-red-100 overflow-x-auto shadow-xs">
             {/* Spreadsheet Column Header */}
-            <div className="hidden md:grid md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center bg-red-50/60 text-[10px] font-extrabold uppercase tracking-wider text-red-900/70 border-b border-red-200/80 select-none">
+            <div className="hidden md:grid md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center bg-red-50/60 text-[10px] font-extrabold uppercase tracking-wider text-red-900/70 border-b border-red-200/80 select-none">
               <div className="px-3 py-2 text-center">#</div>
               <div className="px-3 py-2 border-l border-red-100/80">Name</div>
               <div className="px-3 py-2 border-l border-red-100/80">Type</div>
-              <div className="px-3 py-2 border-l border-red-100/80">Tier / Status</div>
               <div className="px-3 py-2 border-l border-red-100/80">Orders / Due</div>
               <div className="px-3 py-2 border-l border-red-100/80">Contact / Account</div>
               <div className="px-3 py-2 border-l border-red-100/80 text-right">Action</div>
@@ -1040,7 +1054,7 @@ export function Dashboard() {
                       setDragOverPriorityKey(null);
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
-                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center border-l-4 ${
+                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${
                       isNonPriorityParent ? 'border-l-neutral-300 bg-neutral-50/70' : isSubCustomer ? 'border-l-red-600 bg-red-50/15' : 'border-l-red-600 bg-white'
                     } transition-all cursor-pointer group select-none ${
                       isDragging
@@ -1120,31 +1134,46 @@ export function Dashboard() {
                       </span>
                     </div>
 
-                    {/* Col 4: Tier / Status */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
-                      <span className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded w-full max-w-[100px] text-center truncate">
-                        {c.type || 'B2C'}
-                      </span>
-                    </div>
-
-                    {/* Col 5: Active Orders Count */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                    {/* Col 4: Active Orders Count & Statuses for Each Order */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex flex-wrap items-center gap-1.5 min-w-0">
                       {activeCustOrders.length > 0 ? (
-                        <span
-                          className={`inline-flex items-center justify-center text-[10px] font-semibold px-2 py-0.5 rounded border w-full max-w-[110px] text-center truncate tabular-nums ${
-                            isNonPriorityParent
-                              ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
-                              : 'text-red-700 bg-red-50 border-red-200'
-                          }`}
-                        >
-                          {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
-                        </span>
+                        <>
+                          <span
+                            className={`inline-flex items-center justify-center text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums ${
+                              isNonPriorityParent
+                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200'
+                                : 'text-red-700 bg-red-50 border-red-200'
+                            }`}
+                          >
+                            {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                          </span>
+                          {activeCustOrders.map((ord: any) => {
+                            const ordDisplayId = ord.portalId || ord.id.substring(0, 6);
+                            const statusLabel = getOrderStatusLabel(ord.statusIndex);
+                            return (
+                              <button
+                                key={ord.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/orders/${ord.id}`);
+                                }}
+                                title={`${ord.title || `Order #${ordDisplayId}`} — ${statusLabel}`}
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer max-w-full truncate ${getOrderStatusBadgeClasses(ord.statusIndex)}`}
+                              >
+                                <span className="font-extrabold opacity-75">#{ordDisplayId}</span>
+                                <span>•</span>
+                                <span className="truncate">{statusLabel}</span>
+                              </button>
+                            );
+                          })}
+                        </>
                       ) : (
                         <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
                       )}
                     </div>
 
-                    {/* Col 6: Contact / Subtext */}
+                    {/* Col 5: Contact / Subtext */}
                     <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
                       {subtext ? (
                         <span className="text-xs text-brand-secondary truncate" title={subtext}>
@@ -1155,7 +1184,7 @@ export function Dashboard() {
                       )}
                     </div>
 
-                    {/* Col 7: Action & Remove */}
+                    {/* Col 6: Action & Remove */}
                     <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
                       <span
                         className={`inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary transition-colors ${
@@ -1222,7 +1251,7 @@ export function Dashboard() {
                     setDragOverPriorityKey(null);
                   }}
                   onClick={() => navigate(`/orders/${o.id}`)}
-                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(210px,1.5fr)_135px_125px_135px_minmax(150px,1fr)_96px] items-center border-l-4 border-l-red-600 bg-white transition-all cursor-pointer group select-none ${
+                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 border-l-red-600 bg-white transition-all cursor-pointer group select-none ${
                     isDragging
                       ? 'opacity-40 bg-red-50'
                       : isDragOver
@@ -1273,32 +1302,26 @@ export function Dashboard() {
                     </span>
                   </div>
 
-                  {/* Col 4: Status */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
-                    <span className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded w-full max-w-[100px] text-center truncate">
+                  {/* Col 4: Status & Due Date */}
+                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border truncate ${getOrderStatusBadgeClasses(o.statusIndex)}`}>
                       {getOrderStatusLabel(o.statusIndex)}
                     </span>
-                  </div>
-
-                  {/* Col 5: Due Date */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
-                    {dueStr ? (
+                    {dueStr && (
                       <span className="text-[11px] font-semibold text-neutral-600 truncate tabular-nums">
                         Due {dueStr}
                       </span>
-                    ) : (
-                      <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
                     )}
                   </div>
 
-                  {/* Col 6: Company Name */}
+                  {/* Col 5: Company Name */}
                   <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
                     <span className="text-xs text-brand-secondary truncate" title={companyName}>
                       {companyName}
                     </span>
                   </div>
 
-                  {/* Col 7: Action & Remove */}
+                  {/* Col 6: Action & Remove */}
                   <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
                     <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
                       Order <ChevronRight size={13} />
