@@ -479,6 +479,11 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       });
       const targetReceivedYmd = trackingMilestone?.expectedDate || resolvedEstYmd;
       const nextMilestones = { ...(order.timelineMilestones || {}) };
+      nextMilestones.Shipped = {
+        ...(nextMilestones.Shipped || {}),
+        completedAt: nextMilestones.Shipped?.completedAt || nowIso,
+        delayed: false
+      };
       if (targetReceivedYmd) {
         const nextRec: Record<string, any> = {
           ...(nextMilestones.Received || {}),
@@ -488,6 +493,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         nextMilestones.Received = nextRec;
       }
       const shortOrderDate = formatYmdToShortOrderDate(targetReceivedYmd);
+      const currentStatusIdx = Number(order.statusIndex ?? 0);
+      const shouldAdvanceToShipped =
+        order.fulfillmentType !== 'Kitting' && currentStatusIdx >= 3 && currentStatusIdx < 7;
 
       await setDoc(doc(db, 'orders', order.id), { 
         boxes: updatedBoxes,
@@ -496,8 +504,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
            thirdPartyAccount: shippingForm.thirdPartyAccount,
            thirdPartyZip: shippingForm.thirdPartyZip
         },
-        ...(targetReceivedYmd ? { timelineMilestones: nextMilestones } : {}),
+        timelineMilestones: nextMilestones,
         ...(shortOrderDate ? { date: shortOrderDate } : {}),
+        ...(shouldAdvanceToShipped ? { statusIndex: 7, status: 'Shipped' } : {}),
         activities: [newActivity, ...(order.activities || [])]
       }, { merge: true });
 

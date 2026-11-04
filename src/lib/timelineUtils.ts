@@ -264,9 +264,10 @@ export function computeOrderVisualTimelineIndex(
     const kitRatio = totalGarments > 0 ? kitGarments / totalGarments : 0;
     const hasBoxes = order.boxes && order.boxes.length > 0;
     const allBoxesHaveTracking =
-      hasBoxes && order.boxes.every((b: any) => b.trackingNumber || b.trackingCarrier === 'Pickup');
+      hasBoxes &&
+      order.boxes.every((b: any) => b.trackingNumber || b.labelUrl || b.trackingCarrier === 'Pickup');
 
-    if (kitRatio >= 0.95 && allBoxesHaveTracking) {
+    if (allBoxesHaveTracking) {
       visualIndex += 1;
     } else {
       const completionRatio = prodRatio * 0.5 + kitRatio * 0.5;
@@ -279,6 +280,9 @@ export function computeOrderVisualTimelineIndex(
     const trackingMilestone = getOrderTrackingReceivedMilestone(order);
     if (trackingMilestone?.allDelivered) {
       return Math.max(0, steps.length - 1);
+    }
+    if (statusIdx < 7 && hasOrderShippedTracking(order)) {
+      visualIndex = Math.max(visualIndex, 5);
     }
   }
 
@@ -542,7 +546,7 @@ export function getOrderTrackingReceivedMilestone(order: any): {
     if (!boxYmd && b.estArrival) {
       boxYmd = toDateInputValue(b.estArrival);
     }
-    if (!boxYmd && b.labelUrl) {
+    if (!boxYmd && (b.labelUrl || b.trackingNumber)) {
       boxYmd = resolveLabelEstimatedDeliveryYmd({
         carrier: b.trackingCarrier,
         service: b.trackingService,
@@ -572,6 +576,60 @@ export function getOrderTrackingReceivedMilestone(order: any): {
     updatedAt: latestUpdatedAt || undefined,
     hasPlatformLabel
   };
+}
+
+export function hasOrderShippedTracking(order: any): boolean {
+  if (!order || typeof order !== 'object') return false;
+  if (order.trackingNumber && order.trackingCarrier !== 'Pickup') {
+    return true;
+  }
+  const boxes: any[] = Array.isArray(order.boxes) ? order.boxes : [];
+  if (boxes.length === 0) return false;
+  return boxes.some(
+    (b: any) =>
+      b &&
+      b.trackingCarrier !== 'Pickup' &&
+      Boolean(
+        b.trackingNumber ||
+          b.labelUrl ||
+          b.easyPostTrackerId ||
+          b.trackingEstDelivery ||
+          b.trackingStatus === 'in_transit' ||
+          b.trackingStatus === 'out_for_delivery' ||
+          b.trackingStatus === 'delivered'
+      )
+  );
+}
+
+export function getEffectiveOrderStatusIndex(order: any): number {
+  const rawIdx = typeof order?.statusIndex === 'number' ? order.statusIndex : 0;
+  if (!order || order.fulfillmentType === 'Kitting') return rawIdx;
+  if (rawIdx < 3) return rawIdx;
+
+  const trackingMilestone = getOrderTrackingReceivedMilestone(order);
+  if (trackingMilestone?.allDelivered && rawIdx < 8) {
+    return 8;
+  }
+  if (rawIdx < 7 && hasOrderShippedTracking(order)) {
+    return 7;
+  }
+  return rawIdx;
+}
+
+export function getOrderDeliveryEtaShort(order: any): string | null {
+  if (!order || typeof order !== 'object') return null;
+  const trackingMilestone = getOrderTrackingReceivedMilestone(order);
+  const rawYmd =
+    trackingMilestone?.expectedDate ||
+    (hasOrderShippedTracking(order)
+      ? toDateInputValue(order?.timelineMilestones?.Received?.expectedDate)
+      : '');
+  if (!rawYmd) return null;
+  const match = String(rawYmd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function resolveStepMilestone(

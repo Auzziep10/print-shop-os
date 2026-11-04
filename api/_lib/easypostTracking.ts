@@ -351,15 +351,33 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
             ...(latestExpectedYmd ? { expectedDate: latestExpectedYmd } : {}),
           };
           delete nextReceived.manualOverrideAt;
+          const currentStatusIdx = Number(order.statusIndex ?? 0);
           if (allDelivered) {
             nextReceived.completedAt =
               latestDeliveredIso || nextReceived.completedAt || new Date().toISOString();
             nextReceived.delayed = false;
-            const currentStatusIdx = Number(order.statusIndex ?? 0);
             if (order.fulfillmentType !== 'Kitting' && currentStatusIdx >= 3 && currentStatusIdx < 8) {
               update.statusIndex = 8;
               update.status = 'Received';
             }
+          } else if (
+            trackedBoxes.length > 0 &&
+            order.fulfillmentType !== 'Kitting' &&
+            currentStatusIdx >= 3 &&
+            currentStatusIdx < 7
+          ) {
+            update.statusIndex = 7;
+            update.status = 'Shipped';
+            nextMilestones.Shipped = {
+              ...(nextMilestones.Shipped && typeof nextMilestones.Shipped === 'object'
+                ? nextMilestones.Shipped
+                : {}),
+              completedAt:
+                nextMilestones.Shipped?.completedAt ||
+                summary.trackingUpdatedAt ||
+                new Date().toISOString(),
+              delayed: false,
+            };
           }
           nextMilestones.Received = nextReceived;
           update.timelineMilestones = nextMilestones;

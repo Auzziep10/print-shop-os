@@ -15,6 +15,15 @@ import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVerti
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { normalizeSizeList } from '../../lib/garmentUtils';
+import {
+  getEffectiveOrderStatusIndex,
+  getOrderDeliveryEtaShort,
+  getOrderTrackingReceivedMilestone,
+  hasOrderShippedTracking,
+} from '../../lib/timelineUtils';
+import { useLiveTracking } from '../../lib/liveTracking';
+
+const syncedDashboardOrderStatusIds = new Set<string>();
 
 
 export function Dashboard() {
@@ -26,7 +35,57 @@ export function Dashboard() {
         userData.role.trim().toLowerCase().includes('designer'))
   );
   const { orders } = useOrders();
+  useLiveTracking();
   const [liveMeetings, setLiveMeetings] = useState<any[]>([]);
+
+  // Auto-sync orders in Firestore whose box tracking shows they have shipped (statusIndex 7) or been delivered (statusIndex 8)
+  useEffect(() => {
+    orders.forEach((o: any) => {
+      if (!o?.id || o.isProjectGroup || o.customerId === 'Shopify Temporary') return;
+      const rawIdx = typeof o.statusIndex === 'number' ? o.statusIndex : 0;
+      const effIdx = getEffectiveOrderStatusIndex(o);
+      if (effIdx === rawIdx) return;
+      const syncKey = `${o.id}:${effIdx}`;
+      if (syncedDashboardOrderStatusIds.has(syncKey)) return;
+      syncedDashboardOrderStatusIds.add(syncKey);
+
+      const trackingRec = getOrderTrackingReceivedMilestone(o);
+      const nextMilestones: Record<string, any> = {
+        ...(o.timelineMilestones && typeof o.timelineMilestones === 'object' ? o.timelineMilestones : {}),
+      };
+      const nowIso = new Date().toISOString();
+      if (effIdx === 8) {
+        nextMilestones.Received = {
+          ...(nextMilestones.Received || {}),
+          ...(trackingRec?.expectedDate ? { expectedDate: trackingRec.expectedDate } : {}),
+          completedAt:
+            trackingRec?.completedAt || nextMilestones.Received?.completedAt || nowIso,
+          delayed: false,
+        };
+      } else if (effIdx === 7) {
+        nextMilestones.Shipped = {
+          ...(nextMilestones.Shipped || {}),
+          completedAt:
+            nextMilestones.Shipped?.completedAt || trackingRec?.updatedAt || nowIso,
+          delayed: false,
+        };
+        if (trackingRec?.expectedDate) {
+          nextMilestones.Received = {
+            ...(nextMilestones.Received || {}),
+            expectedDate: trackingRec.expectedDate,
+          };
+        }
+      }
+
+      void updateDoc(doc(db, 'orders', o.id), {
+        statusIndex: effIdx,
+        status: effIdx === 8 ? 'Received' : 'Shipped',
+        timelineMilestones: nextMilestones,
+      }).catch(() => {
+        syncedDashboardOrderStatusIds.delete(syncKey);
+      });
+    });
+  }, [orders]);
 
   useEffect(() => {
     const unsubMeetings = onSnapshot(collection(db, 'meetings'), (snap) => {
@@ -665,15 +724,15 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
-  const newQuoteRequests = orders.filter(o => (o.statusIndex === 0 || o.statusIndex === undefined) && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const quotePreparedOrders = orders.filter(o => o.statusIndex === 2 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const sourcingOrders = orders.filter(o => o.statusIndex === 4 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const blanksOrderedOrders = orders.filter(o => o.statusIndex === 5 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const inProductionOnlyOrders = orders.filter(o => o.statusIndex === 6 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const shippedOrders = orders.filter(o => o.statusIndex === 7 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const receivedOrders = orders.filter(o => o.statusIndex === 8 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const newQuoteRequests = orders.filter(o => (getEffectiveOrderStatusIndex(o) === 0) && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const pendingApprovalOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const quotePreparedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 2 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const newApprovedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const sourcingOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 4 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const blanksOrderedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 5 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const inProductionOnlyOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 6 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const shippedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 7 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const receivedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 8 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   
   const todayDateStr = new Date().toISOString().split('T')[0];
   const completedTodayOrders = orders.filter(o => {
@@ -889,8 +948,14 @@ export function Dashboard() {
     }
   };
 
-  const getOrderStatusLabel = (statusIndex?: number) => {
-    switch (statusIndex) {
+  const getOrderStatusLabel = (statusIndexOrOrder?: number | any, maybeOrder?: any) => {
+    const ord = typeof statusIndexOrOrder === 'object' ? statusIndexOrOrder : maybeOrder;
+    const effectiveIdx = ord
+      ? getEffectiveOrderStatusIndex(ord)
+      : typeof statusIndexOrOrder === 'number'
+        ? statusIndexOrOrder
+        : 0;
+    switch (effectiveIdx) {
       case 0: return 'New Quote';
       case 1: return 'Pending Approval';
       case 2: return 'Quote Prepared';
@@ -898,14 +963,27 @@ export function Dashboard() {
       case 4: return 'Sourcing';
       case 5: return 'Garments Ordered';
       case 6: return 'In Production';
-      case 7: return 'Shipped / Inventory';
-      case 8: return 'Received / Live';
+      case 7: {
+        if (ord?.fulfillmentType === 'Kitting' && !hasOrderShippedTracking(ord)) {
+          return 'Inventory';
+        }
+        const eta = ord ? getOrderDeliveryEtaShort(ord) : null;
+        return eta ? `Shipped • ETA ${eta}` : 'Shipped';
+      }
+      case 8:
+        return ord?.fulfillmentType === 'Kitting' ? 'Live' : 'Received';
       default: return 'New Quote';
     }
   };
 
-  const getOrderStatusBadgeClasses = (statusIndex?: number) => {
-    switch (statusIndex) {
+  const getOrderStatusBadgeClasses = (statusIndexOrOrder?: number | any, maybeOrder?: any) => {
+    const ord = typeof statusIndexOrOrder === 'object' ? statusIndexOrOrder : maybeOrder;
+    const effectiveIdx = ord
+      ? getEffectiveOrderStatusIndex(ord)
+      : typeof statusIndexOrOrder === 'number'
+        ? statusIndexOrOrder
+        : 0;
+    switch (effectiveIdx) {
       case 0: return 'bg-amber-50 text-amber-800 border-amber-200';
       case 1: return 'bg-orange-50 text-orange-800 border-orange-200';
       case 2: return 'bg-yellow-50 text-yellow-800 border-yellow-200';
@@ -1051,9 +1129,11 @@ export function Dashboard() {
                 const isSubCustomer = Boolean(c.parentCustomerId);
                 const isNonPriorityParent = Boolean(entry.isContextParent || !c.highPriority);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
-                const activeCustOrders = orders.filter(
-                  (o: any) => o.customerId === c.id && !o.isProjectGroup && (o.statusIndex ?? 0) < 7
-                );
+                const activeCustOrders = orders.filter((o: any) => {
+                  if (o.customerId !== c.id || o.isProjectGroup) return false;
+                  const effIdx = getEffectiveOrderStatusIndex(o);
+                  return o.fulfillmentType === 'Kitting' ? effIdx < 7 : effIdx < 8;
+                });
                 const subtext = c.contactName || c.email || c.location || '';
 
                 return (
@@ -1213,7 +1293,7 @@ export function Dashboard() {
                           {(() => {
                             const firstOrd = activeCustOrders[0];
                             const firstTitle = (firstOrd.title || 'Untitled Order').trim();
-                            const firstStatus = getOrderStatusLabel(firstOrd.statusIndex);
+                            const firstStatus = getOrderStatusLabel(firstOrd);
                             return (
                               <button
                                 type="button"
@@ -1223,7 +1303,7 @@ export function Dashboard() {
                                     navigate(`/orders/${firstOrd.id}`);
                                   } else {
                                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                    const dropdownWidth = 340;
+                                    const dropdownWidth = 360;
                                     const left = Math.max(
                                       8,
                                       Math.min(rect.left - 80, window.innerWidth - dropdownWidth - 8)
@@ -1238,7 +1318,7 @@ export function Dashboard() {
                                   }
                                 }}
                                 title={`${firstTitle} — ${firstStatus}`}
-                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer min-w-0 truncate ${getOrderStatusBadgeClasses(firstOrd.statusIndex)}`}
+                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer min-w-0 truncate ${getOrderStatusBadgeClasses(firstOrd)}`}
                               >
                                 <span className="truncate font-semibold normal-case max-w-[120px]">{firstTitle}</span>
                                 <span className="opacity-60 shrink-0">•</span>
@@ -1383,8 +1463,8 @@ export function Dashboard() {
 
                   {/* Col 4: Status & Due Date */}
                   <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2 flex-nowrap min-w-0 overflow-hidden">
-                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 truncate ${getOrderStatusBadgeClasses(o.statusIndex)}`}>
-                      {getOrderStatusLabel(o.statusIndex)}
+                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 truncate ${getOrderStatusBadgeClasses(o)}`}>
+                      {getOrderStatusLabel(o)}
                     </span>
                     {dueStr && (
                       <span className="text-[11px] font-semibold text-neutral-600 truncate tabular-nums">
@@ -1430,7 +1510,7 @@ export function Dashboard() {
               position: 'fixed',
               top: openOrdersDropdown.top,
               left: openOrdersDropdown.left,
-              width: 340,
+              width: 360,
               zIndex: 350,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1454,9 +1534,10 @@ export function Dashboard() {
               </button>
             </div>
             <div className="divide-y divide-brand-border/60 max-h-[260px] overflow-y-auto custom-scrollbar">
-              {openOrdersDropdown.orders.map((ord: any) => {
+              {openOrdersDropdown.orders.map((rawOrd: any) => {
+                const ord = orders.find((o: any) => o.id === rawOrd.id) || rawOrd;
                 const ordTitle = (ord.title || 'Untitled Order').trim();
-                const statusLabel = getOrderStatusLabel(ord.statusIndex);
+                const statusLabel = getOrderStatusLabel(ord);
                 return (
                   <button
                     key={ord.id}
@@ -1472,7 +1553,7 @@ export function Dashboard() {
                     </span>
                     <span
                       className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${getOrderStatusBadgeClasses(
-                        ord.statusIndex
+                        ord
                       )}`}
                     >
                       {statusLabel}

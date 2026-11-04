@@ -404,8 +404,15 @@ async function syncTrackingToClientFirestore(
               : {};
           const currentStatusIdx = Number(order.statusIndex ?? 0);
           const isKittingOrder = order.fulfillmentType === 'Kitting';
-          const needsStatusAdvance =
+          const needsStatusAdvanceToReceived =
             allDelivered && !isKittingOrder && currentStatusIdx >= 3 && currentStatusIdx < 8;
+          const needsStatusAdvanceToShipped =
+            !allDelivered &&
+            trackedBoxes.length > 0 &&
+            !isKittingOrder &&
+            currentStatusIdx >= 3 &&
+            currentStatusIdx < 7;
+          const needsStatusAdvance = needsStatusAdvanceToReceived || needsStatusAdvanceToShipped;
           const needsCompletedAt = allDelivered && !existingRec.completedAt;
 
           if (boxesChanged || latestExpectedYmd || needsStatusAdvance || needsCompletedAt) {
@@ -425,12 +432,25 @@ async function syncTrackingToClientFirestore(
               nextReceived.completedAt =
                 latestDeliveredIso || existingRec.completedAt || new Date().toISOString();
               nextReceived.delayed = false;
-              if (needsStatusAdvance) {
+              if (needsStatusAdvanceToReceived) {
                 update.statusIndex = 8;
                 update.status = 'Received';
               }
+            } else if (needsStatusAdvanceToShipped) {
+              update.statusIndex = 7;
+              update.status = 'Shipped';
+              nextMilestones.Shipped = {
+                ...(nextMilestones.Shipped && typeof nextMilestones.Shipped === 'object'
+                  ? nextMilestones.Shipped
+                  : {}),
+                completedAt:
+                  nextMilestones.Shipped?.completedAt ||
+                  summary.trackingUpdatedAt ||
+                  new Date().toISOString(),
+                delayed: false,
+              };
             }
-            if (latestExpectedYmd || allDelivered) {
+            if (latestExpectedYmd || allDelivered || needsStatusAdvanceToShipped) {
               nextMilestones.Received = nextReceived;
               update.timelineMilestones = nextMilestones;
             }

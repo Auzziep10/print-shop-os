@@ -38,6 +38,7 @@ import { SourcingTrackingChip } from '../../components/Customers/SourcingTrackin
 import { TONE_CLASSES } from '../../components/Orders/LiveTrackingStatus';
 import { getCachedTracking, normalizeTrackingCode, pickBestTracking, startSourcingTracking, trackingTone } from '../../lib/liveTracking';
 import {
+  getEffectiveOrderStatusIndex,
   getUpdatedTimelineMilestonesForStatusChange,
   useFulfillmentPipelines,
   getPipelineStatusOptions,
@@ -5293,11 +5294,12 @@ export function OrderDetail() {
   const activeOrderFulfillmentType = order.fulfillmentType || customer.fulfillmentType || 'Standard';
   const isKitting = activeOrderFulfillmentType === 'Kitting';
   const isCustomFulfillment = isCustomStatusPipeline(activeOrderFulfillmentType, fulfillmentPipelines);
+  const effectiveOrderStatusIndex = getEffectiveOrderStatusIndex(order);
   const customStatusLabel = isCustomFulfillment
-    ? statusIndexToTimelineStep(order.statusIndex, activeOrderFulfillmentType, fulfillmentPipelines)
+    ? statusIndexToTimelineStep(effectiveOrderStatusIndex, activeOrderFulfillmentType, fulfillmentPipelines)
     : undefined;
   let badgeStatus: StatusType = 'quote';
-  switch(order.statusIndex) {
+  switch(effectiveOrderStatusIndex) {
      case 0: badgeStatus = 'quote'; break;
      case 1: badgeStatus = 'notified'; break;
      case 2: badgeStatus = 'quote_sent'; break;
@@ -5596,7 +5598,7 @@ export function OrderDetail() {
                       <div className="relative">
                           <select 
                               className="appearance-none bg-brand-bg hover:bg-neutral-100 border border-brand-border rounded-lg pl-3 pr-8 py-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-secondary focus:border-brand-primary focus:outline-none transition-colors cursor-pointer"
-                              value={order.statusIndex.toString()}
+                              value={effectiveOrderStatusIndex.toString()}
                               onChange={(e) => handleStatusChange(Number(e.target.value))}
                           >
                             {getPipelineStatusOptions(activeOrderFulfillmentType, fulfillmentPipelines).map(opt => (

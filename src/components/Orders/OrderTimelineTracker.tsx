@@ -117,9 +117,15 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
       lastStepName !== 'Live' &&
       currentStatusIdx >= 3 &&
       currentStatusIdx < 8;
+    const shouldAdvanceToShipped =
+      !trackingReceived.allDelivered &&
+      trackedBoxes.length > 0 &&
+      lastStepName !== 'Live' &&
+      currentStatusIdx >= 3 &&
+      currentStatusIdx < 7;
     const needsDeliveredCompletion =
-      trackingReceived.allDelivered &&
-      (!rawRec?.completedAt || shouldAdvanceToReceived);
+      (trackingReceived.allDelivered && (!rawRec?.completedAt || shouldAdvanceToReceived)) ||
+      shouldAdvanceToShipped;
     if (
       (!trackingReceived.expectedDate || currentExpected === trackingReceived.expectedDate) &&
       !needsDeliveredCompletion
@@ -127,11 +133,21 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
       return;
     }
 
-    const syncKey = `${order.id}:${trackingReceived.expectedDate || ''}:${trackingReceived.allDelivered ? '1' : '0'}:${shouldAdvanceToReceived ? 'adv' : 'noadv'}`;
+    const syncKey = `${order.id}:${trackingReceived.expectedDate || ''}:${trackingReceived.allDelivered ? '1' : '0'}:${shouldAdvanceToReceived ? 'rec' : shouldAdvanceToShipped ? 'ship' : 'noadv'}`;
     if (syncedReceivedDates.has(syncKey)) return;
     syncedReceivedDates.add(syncKey);
 
     const existingMilestones: TimelineMilestonesMap = { ...(order?.timelineMilestones || {}) };
+    if (shouldAdvanceToShipped) {
+      existingMilestones.Shipped = {
+        ...(existingMilestones.Shipped || {}),
+        completedAt:
+          existingMilestones.Shipped?.completedAt ||
+          trackingReceived.updatedAt ||
+          new Date().toISOString(),
+        delayed: false
+      };
+    }
     const effectiveExpectedDate = trackingReceived.expectedDate || currentExpected || undefined;
     const nextRec: Record<string, any> = {
       ...(existingMilestones.Received || {}),
@@ -159,7 +175,11 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     const updatePayload: Record<string, any> = {
       timelineMilestones: existingMilestones,
       ...(shortDate ? { date: shortDate } : {}),
-      ...(shouldAdvanceToReceived ? { statusIndex: 8, status: 'Received' } : {})
+      ...(shouldAdvanceToReceived
+        ? { statusIndex: 8, status: 'Received' }
+        : shouldAdvanceToShipped
+          ? { statusIndex: 7, status: 'Shipped' }
+          : {})
     };
     void setDoc(doc(db, 'orders', order.id), updatePayload, { merge: true }).catch(() => {
       syncedReceivedDates.delete(syncKey);
