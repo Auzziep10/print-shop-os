@@ -961,7 +961,7 @@ export function Dashboard() {
       case 2: return 'Quote Prepared';
       case 3: return 'New Order';
       case 4: return 'Sourcing';
-      case 5: return 'Garments Ordered';
+      case 5: return isSales ? 'Materials Ordered' : 'Garments Ordered';
       case 6: return 'In Production';
       case 7: {
         if (ord?.fulfillmentType === 'Kitting' && !hasOrderShippedTracking(ord)) {
