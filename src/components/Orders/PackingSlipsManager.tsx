@@ -1375,30 +1375,30 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                           {isFetchingRates ? 'Recalculating...' : 'Recalculate Rates'}
                         </button>
                      </div>
-                     <div className="flex gap-3 items-center">
-                        <input type="number" min="0.1" step="any" value={shippingForm.length || ''} onChange={e => setShippingForm(prev => ({...prev, length: Number(e.target.value)}))} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
+                     <div className="flex gap-2 items-center">
+                        <input type="number" min="0.1" step="any" value={shippingForm.length || ''} onChange={e => setShippingForm(prev => ({...prev, length: Number(e.target.value)}))} placeholder="L" className="w-14 sm:w-16 flex-1 min-w-[48px] bg-brand-bg/50 border border-brand-border rounded-lg px-2 py-2 text-sm font-semibold text-center focus:border-brand-primary outline-none" />
                         <span className="text-brand-secondary font-bold self-center">×</span>
-                        <input type="number" min="0.1" step="any" value={shippingForm.width || ''} onChange={e => setShippingForm(prev => ({...prev, width: Number(e.target.value)}))} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
+                        <input type="number" min="0.1" step="any" value={shippingForm.width || ''} onChange={e => setShippingForm(prev => ({...prev, width: Number(e.target.value)}))} placeholder="W" className="w-14 sm:w-16 flex-1 min-w-[48px] bg-brand-bg/50 border border-brand-border rounded-lg px-2 py-2 text-sm font-semibold text-center focus:border-brand-primary outline-none" />
                         <span className="text-brand-secondary font-bold self-center">×</span>
-                        <input type="number" min="0.1" step="any" value={shippingForm.height || ''} onChange={e => setShippingForm(prev => ({...prev, height: Number(e.target.value)}))} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center focus:border-brand-primary outline-none" />
-                        <div className="w-[1px] h-8 bg-brand-border mx-1 shrink-0" />
-                        <div className="w-full relative flex items-center">
+                        <input type="number" min="0.1" step="any" value={shippingForm.height || ''} onChange={e => setShippingForm(prev => ({...prev, height: Number(e.target.value)}))} placeholder="H" className="w-14 sm:w-16 flex-1 min-w-[48px] bg-brand-bg/50 border border-brand-border rounded-lg px-2 py-2 text-sm font-semibold text-center focus:border-brand-primary outline-none" />
+                        <div className="w-[1px] h-8 bg-brand-border mx-0.5 shrink-0" />
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <input
                             type="number"
                             min="0.1"
                             step="any"
                             value={weightInputValue}
                             onChange={e => handleWeightInputChange(e.target.value)}
-                            placeholder={weightUnit === 'lbs' ? 'Pounds' : 'Ounces'}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-3 pr-14 py-2 text-sm focus:border-brand-primary outline-none"
+                            placeholder={weightUnit === 'lbs' ? 'lbs' : 'oz'}
+                            className="w-20 sm:w-24 bg-white border border-brand-border rounded-lg px-2.5 py-2 text-sm font-bold text-brand-primary text-center focus:border-brand-primary outline-none"
                           />
-                          <div className="absolute right-1.5 flex items-center bg-white border border-brand-border rounded-md p-0.5 shadow-2xs">
+                          <div className="flex items-center bg-neutral-100 border border-brand-border rounded-lg p-0.5 shrink-0">
                             <button
                               type="button"
                               onClick={() => handleToggleWeightUnit('oz')}
-                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors cursor-pointer ${
+                              className={`px-2 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                                 weightUnit === 'oz'
-                                  ? 'bg-brand-primary text-white'
+                                  ? 'bg-brand-primary text-white shadow-2xs'
                                   : 'text-brand-secondary hover:text-brand-primary'
                               }`}
                               title="Weight in ounces (oz)"
@@ -1408,9 +1408,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                             <button
                               type="button"
                               onClick={() => handleToggleWeightUnit('lbs')}
-                              className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-colors cursor-pointer ${
+                              className={`px-2 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${
                                 weightUnit === 'lbs'
-                                  ? 'bg-brand-primary text-white'
+                                  ? 'bg-brand-primary text-white shadow-2xs'
                                   : 'text-brand-secondary hover:text-brand-primary'
                               }`}
                               title="Weight in pounds (lbs)"
