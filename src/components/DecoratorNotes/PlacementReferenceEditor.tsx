@@ -1,46 +1,68 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Crosshair,
   Edit3,
+  Hand,
   Image as ImageIcon,
   Maximize2,
+  Move,
   Plus,
+  RotateCcw,
   Ruler,
   Sparkles,
   Trash2,
   Upload,
-  X
+  X,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 export type PlacementLineKind = 'width' | 'height' | 'collar' | 'custom';
-export type StudioToolMode = PlacementLineKind | 'scale';
+export type StudioToolMode = PlacementLineKind | 'scale' | 'pan';
 
 export interface PlacementReferenceLine {
   id: string;
   kind: PlacementLineKind;
   label: string;
-  x1: number; // 0..100 percentage of image width
-  y1: number; // 0..100 percentage of image height
-  x2: number; // 0..100 percentage of image width
-  y2: number; // 0..100 percentage of image height
+  referencePoint?: string; // e.g., "Collar Seam", "Center Zipper", "Pocket Edge"
+  x1: number; // 0..100 percentage of image width (Point A)
+  y1: number; // 0..100 percentage of image height (Point A)
+  x2: number; // 0..100 percentage of image width (Point B)
+  y2: number; // 0..100 percentage of image height (Point B)
   color: string;
 }
 
 export interface PlacementScaleCalibration {
-  x1: number; // 0..100 percentage of image width
-  y1: number; // 0..100 percentage of image height
-  x2: number; // 0..100 percentage of image width
-  y2: number; // 0..100 percentage of image height
+  x1: number; // 0..100 percentage of image width (Point A)
+  y1: number; // 0..100 percentage of image height (Point A)
+  x2: number; // 0..100 percentage of image width (Point B)
+  y2: number; // 0..100 percentage of image height (Point B)
   realWorldInches: number; // e.g., 28 for 28" garment height, or 5.5 for 5.5" pocket
   referenceFeatureName: string; // e.g., "Front Garment Height", "Pocket Width", "Chest Width"
   aspectRatio?: number; // rendered width / height ratio at calibration time
 }
 
+export const GARMENT_REFERENCE_POINTS = [
+  'Collar Seam',
+  'Center Zipper / Placket',
+  'Chest / Yoke Seam',
+  'Pocket Seam / Edge',
+  'Shoulder Seam',
+  'Sleeve Cuff / Hem',
+  'Armhole Seam',
+  'Bottom Hem',
+  'Center Line',
+  'Hood Seam'
+];
+
 export const LINE_KIND_META: Record<
   PlacementLineKind,
   {
     title: string;
+    categoryLabel: string;
     shortPrefix: string;
     color: string;
     badgeBg: string;
@@ -49,36 +71,40 @@ export const LINE_KIND_META: Record<
   }
 > = {
   width: {
-    title: 'Width Line',
-    shortPrefix: 'W',
+    title: 'Logo Width (A ┄ B)',
+    categoryLabel: 'Logo Size',
+    shortPrefix: 'Logo W',
     color: '#2563eb',
     badgeBg: 'bg-blue-600 text-white border-blue-700',
     badgeText: 'text-blue-700 bg-blue-50 border-blue-200',
-    defaultHint: 'Draw across graphic width in any direction'
+    defaultHint: 'Drag from Point A (left edge of logo) to Point B (right edge of logo)'
   },
   height: {
-    title: 'Height Line',
-    shortPrefix: 'H',
+    title: 'Logo Height (A ┄ B)',
+    categoryLabel: 'Logo Size',
+    shortPrefix: 'Logo H',
     color: '#059669',
     badgeBg: 'bg-emerald-600 text-white border-emerald-700',
     badgeText: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-    defaultHint: 'Draw along graphic height in any direction'
+    defaultHint: 'Drag from Point A (top edge of logo) to Point B (bottom edge of logo)'
   },
   collar: {
-    title: 'Collar / Seam Distance',
-    shortPrefix: 'Collar',
+    title: 'Distance from Reference Point (A ┄ B)',
+    categoryLabel: 'Reference Point Distance',
+    shortPrefix: 'From Ref',
     color: '#d97706',
     badgeBg: 'bg-amber-500 text-white border-amber-600',
     badgeText: 'text-amber-800 bg-amber-50 border-amber-200',
-    defaultHint: 'Draw from collar/seam to top of graphic'
+    defaultHint: 'Drag from Point A (reference point on garment) to Point B (edge of logo)'
   },
   custom: {
-    title: 'Custom Reference Line',
-    shortPrefix: 'Ref',
+    title: 'Extra Reference Distance (A ┄ B)',
+    categoryLabel: 'Extra Reference Distance',
+    shortPrefix: 'Ref #2',
     color: '#e11d48',
     badgeBg: 'bg-rose-600 text-white border-rose-700',
     badgeText: 'text-rose-700 bg-rose-50 border-rose-200',
-    defaultHint: 'Draw any custom alignment or logo measurement'
+    defaultHint: 'Drag from Point A (second reference point, e.g. zipper) to Point B (logo)'
   }
 };
 
@@ -94,7 +120,6 @@ export function parseInchesValue(raw: string | number | undefined): number {
   if (typeof raw === 'number') return Number.isFinite(raw) && raw > 0 ? raw : 0;
   if (!raw) return 0;
   const cleaned = String(raw).trim().replace(/["”″']/g, '');
-  // Support mixed fractions like "5 1/2"
   const fractionMatch = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)/);
   if (fractionMatch) {
     const whole = parseFloat(fractionMatch[1]);
@@ -148,16 +173,11 @@ export function measureLineInRealInches(
   return Math.round(measured * 100) / 100;
 }
 
-export function formatMeasuredInches(inches: number, kind?: PlacementLineKind): string {
-  // Round to 1 decimal place (or 2 if quarter-inch like .25 / .75)
+export function formatMeasuredInches(inches: number): string {
   const rounded2 = Math.round(inches * 20) / 20; // nearest 0.05"
-  const formatted = Number.isInteger(rounded2)
+  return Number.isInteger(rounded2)
     ? `${rounded2}"`
     : `${Number(rounded2.toFixed(2))}"`;
-  if (kind === 'collar') {
-    return `${formatted} down`;
-  }
-  return formatted;
 }
 
 export function resolveLineDisplayLabel(
@@ -166,21 +186,27 @@ export function resolveLineDisplayLabel(
     widthInches?: string;
     heightInches?: string;
     distanceFromCollar?: string;
+    referencePoint?: string;
   }
 ): string {
   if (line.kind === 'width') {
     const val = (placement.widthInches || line.label || '').trim();
-    return val ? `W: ${val}` : 'Width';
+    return val ? `Logo W: ${val}` : 'Logo Width';
   }
   if (line.kind === 'height') {
     const val = (placement.heightInches || line.label || '').trim();
-    return val ? `H: ${val}` : 'Height';
+    return val ? `Logo H: ${val}` : 'Logo Height';
   }
   if (line.kind === 'collar') {
     const val = (placement.distanceFromCollar || line.label || '').trim();
-    return val ? `Collar: ${val}` : 'From Collar';
+    const refPt = (line.referencePoint || placement.referencePoint || 'Collar Seam').trim();
+    return val ? `From ${refPt}: ${val}` : `From ${refPt}`;
   }
-  return (line.label || 'Ref').trim();
+  const customRef = (line.referencePoint || '').trim();
+  const customVal = (line.label || '').trim();
+  if (customRef && customVal) return `From ${customRef}: ${customVal}`;
+  if (customRef) return `From ${customRef}`;
+  return customVal || 'Ref Distance';
 }
 
 interface QuickSourceImage {
@@ -196,6 +222,7 @@ interface PlacementReferenceSectionProps {
     widthInches: string;
     heightInches: string;
     distanceFromCollar: string;
+    referencePoint?: string;
     referenceImageUrl?: string;
     referenceImageName?: string;
     referenceLines?: PlacementReferenceLine[];
@@ -210,6 +237,7 @@ interface PlacementReferenceSectionProps {
     widthInches?: string;
     heightInches?: string;
     distanceFromCollar?: string;
+    referencePoint?: string;
     referenceLines: PlacementReferenceLine[];
     scaleCalibration?: PlacementScaleCalibration | null;
   }) => void;
@@ -223,7 +251,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
     widthInches?: string;
     heightInches?: string;
     distanceFromCollar?: string;
+    referencePoint?: string;
   };
+  zoom?: number;
   selectedLineId?: string | null;
   interactive?: boolean;
   onSelectLine?: (id: string) => void;
@@ -236,12 +266,20 @@ export const PlacementReferenceOverlaySvg: React.FC<{
   lines,
   scaleCalibration,
   showScaleLine = false,
+  zoom = 1,
   selectedLineId,
   interactive = false,
   onSelectLine,
   onStartDragEndpoint
 }) => {
-  const renderArchitecturalLine = (
+  const safeZoom = Math.max(1, zoom);
+  // Inverse scale so ticks and A/B endpoint markers stay crisp & proportional when zoomed in
+  const tickScale = 1.9 / Math.pow(safeZoom, 0.75);
+  const endpointRadius = (interactive ? 1.55 : 1.05) / Math.pow(safeZoom, 0.8);
+  const endpointFontSize = (interactive ? 1.55 : 1.1) / Math.pow(safeZoom, 0.8);
+  const endpointStrokeWidth = 0.35 / Math.pow(safeZoom, 0.8);
+
+  const renderDottedPointAToPointBLine = (
     line: {
       id: string;
       x1: number;
@@ -256,13 +294,13 @@ export const PlacementReferenceOverlaySvg: React.FC<{
     const dx = line.x2 - line.x1;
     const dy = line.y2 - line.y1;
     const len = Math.hypot(dx, dy) || 1;
-    const px = (-dy / len) * 1.9;
-    const py = (dx / len) * 1.9;
+    const px = (-dy / len) * tickScale;
+    const py = (dx / len) * tickScale;
     const isSelected = selectedLineId === line.id;
 
     return (
       <g key={line.id}>
-        {/* White outer halo for contrast on dark or light garments */}
+        {/* High-contrast white outer halo so the dotted line is visible on both black and white garments */}
         <line
           x1={line.x1}
           y1={line.y1}
@@ -271,9 +309,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke="#ffffff"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: isSelected ? 6.5 : 5 }}
+          style={{ strokeWidth: isSelected ? 6.5 : 5, opacity: 0.92 }}
         />
-        {/* Main colored dimension line */}
+        {/* Crisp Dotted / Dashed Dimension Line from Point A to Point B */}
         <line
           x1={line.x1}
           y1={line.y1}
@@ -281,11 +319,11 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           y2={line.y2}
           stroke={color}
           strokeLinecap="round"
-          strokeDasharray={isScaleLine ? '5 3' : undefined}
+          strokeDasharray={isScaleLine ? '3 3' : '6 4'}
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: isSelected ? 3.5 : 2.5 }}
+          style={{ strokeWidth: isSelected ? 3.5 : 2.75 }}
         />
-        {/* Start perpendicular tick */}
+        {/* Point A perpendicular architectural tick */}
         <line
           x1={line.x1 - px}
           y1={line.y1 - py}
@@ -306,7 +344,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           vectorEffect="non-scaling-stroke"
           style={{ strokeWidth: 2.25 }}
         />
-        {/* End perpendicular tick */}
+        {/* Point B perpendicular architectural tick */}
         <line
           x1={line.x2 - px}
           y1={line.y2 - py}
@@ -327,6 +365,83 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           vectorEffect="non-scaling-stroke"
           style={{ strokeWidth: 2.25 }}
         />
+
+        {/* Point A & Point B Markers (Always visible so user clearly sees Point A to Point B) */}
+        <g
+          style={
+            interactive
+              ? { pointerEvents: 'all', cursor: 'grab' }
+              : { pointerEvents: 'none' }
+          }
+          onMouseDown={
+            interactive
+              ? (e) => {
+                  e.stopPropagation();
+                  onSelectLine?.(line.id);
+                  onStartDragEndpoint?.(line.id, 'start', e);
+                }
+              : undefined
+          }
+        >
+          <circle
+            cx={line.x1}
+            cy={line.y1}
+            r={endpointRadius}
+            fill={color}
+            stroke="#ffffff"
+            strokeWidth={endpointStrokeWidth}
+          />
+          <text
+            x={line.x1}
+            y={line.y1}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#ffffff"
+            fontSize={endpointFontSize}
+            fontWeight="900"
+            style={{ userSelect: 'none', pointerEvents: 'none' }}
+          >
+            A
+          </text>
+        </g>
+
+        <g
+          style={
+            interactive
+              ? { pointerEvents: 'all', cursor: 'grab' }
+              : { pointerEvents: 'none' }
+          }
+          onMouseDown={
+            interactive
+              ? (e) => {
+                  e.stopPropagation();
+                  onSelectLine?.(line.id);
+                  onStartDragEndpoint?.(line.id, 'end', e);
+                }
+              : undefined
+          }
+        >
+          <circle
+            cx={line.x2}
+            cy={line.y2}
+            r={endpointRadius}
+            fill={color}
+            stroke="#ffffff"
+            strokeWidth={endpointStrokeWidth}
+          />
+          <text
+            x={line.x2}
+            y={line.y2}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#ffffff"
+            fontSize={endpointFontSize}
+            fontWeight="900"
+            style={{ userSelect: 'none', pointerEvents: 'none' }}
+          >
+            B
+          </text>
+        </g>
 
         {interactive && (
           <line
@@ -356,7 +471,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
       {/* Optional Real-World Scale Calibration Ruler Line */}
       {showScaleLine &&
         scaleCalibration &&
-        renderArchitecturalLine(
+        renderDottedPointAToPointBLine(
           {
             id: '__scale_calibration__',
             x1: scaleCalibration.x1,
@@ -368,9 +483,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           true
         )}
 
-      {/* Placement Dimension Reference Lines */}
+      {/* Placement Dimension Reference Lines (Dotted Point A to Point B) */}
       {lines.map((line) =>
-        renderArchitecturalLine({
+        renderDottedPointAToPointBLine({
           id: line.id,
           x1: line.x1,
           y1: line.y1,
@@ -379,78 +494,6 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           color: line.color || LINE_KIND_META[line.kind]?.color || '#2563eb'
         })
       )}
-
-      {/* Draggable Endpoint Handles for Scale Calibration Line */}
-      {interactive && showScaleLine && scaleCalibration && (
-        <g key="__scale_calibration_handles__">
-          <circle
-            cx={scaleCalibration.x1}
-            cy={scaleCalibration.y1}
-            r={1.35}
-            fill="#ffffff"
-            stroke="#7c3aed"
-            strokeWidth={0.65}
-            style={{ pointerEvents: 'all', cursor: 'grab' }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              onSelectLine?.('__scale_calibration__');
-              onStartDragEndpoint?.('__scale_calibration__', 'start', e);
-            }}
-          />
-          <circle
-            cx={scaleCalibration.x2}
-            cy={scaleCalibration.y2}
-            r={1.35}
-            fill="#ffffff"
-            stroke="#7c3aed"
-            strokeWidth={0.65}
-            style={{ pointerEvents: 'all', cursor: 'grab' }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              onSelectLine?.('__scale_calibration__');
-              onStartDragEndpoint?.('__scale_calibration__', 'end', e);
-            }}
-          />
-        </g>
-      )}
-
-      {/* Draggable Endpoint Handles for Dimension Lines */}
-      {interactive &&
-        lines.map((line) => {
-          const color = line.color || LINE_KIND_META[line.kind]?.color || '#2563eb';
-          return (
-            <g key={`${line.id}-handles`}>
-              <circle
-                cx={line.x1}
-                cy={line.y1}
-                r={1.3}
-                fill="#ffffff"
-                stroke={color}
-                strokeWidth={0.6}
-                style={{ pointerEvents: 'all', cursor: 'grab' }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  onSelectLine?.(line.id);
-                  onStartDragEndpoint?.(line.id, 'start', e);
-                }}
-              />
-              <circle
-                cx={line.x2}
-                cy={line.y2}
-                r={1.3}
-                fill="#ffffff"
-                stroke={color}
-                strokeWidth={0.6}
-                style={{ pointerEvents: 'all', cursor: 'grab' }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  onSelectLine?.(line.id);
-                  onStartDragEndpoint?.(line.id, 'end', e);
-                }}
-              />
-            </g>
-          );
-        })}
     </svg>
   );
 };
@@ -468,14 +511,21 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<StudioToolMode>('width');
   const [snapStraight, setSnapStraight] = useState(false);
-  const [customLabelDraft, setCustomLabelDraft] = useState('');
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+
+  // Collapsible Accordion Sections on the Right Sidebar (prevents visual overload & vertical overflow)
+  const [openAccordion, setOpenAccordion] = useState<
+    'logo_size' | 'reference_point' | 'scale' | 'lines'
+  >('logo_size');
 
   // Draft state inside studio modal
   const [draftLines, setDraftLines] = useState<PlacementReferenceLine[]>([]);
   const [draftWidth, setDraftWidth] = useState('');
   const [draftHeight, setDraftHeight] = useState('');
   const [draftCollar, setDraftCollar] = useState('');
+  const [draftReferencePoint, setDraftReferencePoint] = useState('Collar Seam');
+  const [extraRefPointDraft, setExtraRefPointDraft] = useState('Center Zipper / Placket');
+  const [extraDistanceDraft, setExtraDistanceDraft] = useState('');
 
   // Real-world scale calibration state inside studio modal
   const [draftScale, setDraftScale] = useState<PlacementScaleCalibration | null>(null);
@@ -483,8 +533,20 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   const [scaleInchesInput, setScaleInchesInput] = useState('28');
   const [canvasAspectRatio, setCanvasAspectRatio] = useState(1.25);
 
+  // Zoom & Pan state for inspecting garment areas with crystal-clear Point A -> Point B lines
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const [panningState, setPanningState] = useState<{
+    startX: number;
+    startY: number;
+    originPanX: number;
+    originPanY: number;
+  } | null>(null);
+
   // Active mouse drawing / endpoint dragging state
-  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const innerStageRef = useRef<HTMLDivElement | null>(null);
   const scaleInchesInputRef = useRef<HTMLInputElement | null>(null);
   const [drawingCurrent, setDrawingCurrent] = useState<{
     x1: number;
@@ -502,7 +564,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     : [];
 
   const getCurrentCanvasAspectRatio = (): number => {
-    const el = canvasRef.current;
+    const el = innerStageRef.current || viewportRef.current;
     if (el) {
       const rect = el.getBoundingClientRect();
       if (rect.width > 10 && rect.height > 10) {
@@ -512,11 +574,133 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     return canvasAspectRatio || 1.25;
   };
 
+  const clampPan = (nextPan: { x: number; y: number }, nextZoom: number) => {
+    if (nextZoom <= 1.01) return { x: 0, y: 0 };
+    const vp = viewportRef.current;
+    if (!vp) return nextPan;
+    const w = vp.clientWidth || 600;
+    const h = vp.clientHeight || 450;
+    const minX = w - w * nextZoom;
+    const minY = h - h * nextZoom;
+    return {
+      x: Math.min(0, Math.max(minX, nextPan.x)),
+      y: Math.min(0, Math.max(minY, nextPan.y))
+    };
+  };
+
+  const resetZoomAndPan = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const adjustZoomByStep = (delta: number) => {
+    const vp = viewportRef.current;
+    const nextZoom = Math.min(6, Math.max(1, Number((zoom + delta).toFixed(2))));
+    if (nextZoom === zoom) return;
+    if (!vp || nextZoom <= 1.01) {
+      setZoom(nextZoom);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    const centerX = vp.clientWidth / 2;
+    const centerY = vp.clientHeight / 2;
+    const scaleFactor = nextZoom / zoom;
+    const rawPan = {
+      x: centerX - (centerX - pan.x) * scaleFactor,
+      y: centerY - (centerY - pan.y) * scaleFactor
+    };
+    setZoom(nextZoom);
+    setPan(clampPan(rawPan, nextZoom));
+  };
+
+  // Native wheel listener for smooth mouse-wheel zoom & trackpad pinch-to-zoom toward cursor
+  useEffect(() => {
+    if (!isStudioOpen) return;
+    const vp = viewportRef.current;
+    if (!vp) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = vp.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Support both trackpad pinch (ctrlKey) and normal mouse wheel scrolling
+      const sensitivity = e.ctrlKey ? 0.012 : 0.0022;
+      const factor = Math.exp(-e.deltaY * sensitivity);
+      const nextZoom = Math.min(6, Math.max(1, Number((zoom * factor).toFixed(3))));
+      if (Math.abs(nextZoom - zoom) < 0.005) return;
+
+      if (nextZoom <= 1.01) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+
+      const scaleRatio = nextZoom / zoom;
+      const nextPan = {
+        x: mouseX - (mouseX - pan.x) * scaleRatio,
+        y: mouseY - (mouseY - pan.y) * scaleRatio
+      };
+      setZoom(nextZoom);
+      setPan(clampPan(nextPan, nextZoom));
+    };
+
+    vp.addEventListener('wheel', handleWheel, { passive: false });
+    return () => vp.removeEventListener('wheel', handleWheel);
+  }, [isStudioOpen, zoom, pan]);
+
+  // Allow holding Spacebar to pan when zoomed in
+  useEffect(() => {
+    if (!isStudioOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.code === 'Space' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA' &&
+        document.activeElement?.tagName !== 'SELECT'
+      ) {
+        e.preventDefault();
+        setIsSpacePressed(true);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [isStudioOpen]);
+
+  const selectToolAndOpenAccordion = (tool: StudioToolMode) => {
+    setActiveTool(tool);
+    if (tool === 'width' || tool === 'height') {
+      setOpenAccordion('logo_size');
+    } else if (tool === 'collar' || tool === 'custom') {
+      setOpenAccordion('reference_point');
+    } else if (tool === 'scale') {
+      setOpenAccordion('scale');
+    }
+  };
+
   const openStudio = () => {
+    const existingCollarLine = savedLines.find((l) => l.kind === 'collar');
+    const initialRefPoint =
+      placement.referencePoint || existingCollarLine?.referencePoint || 'Collar Seam';
+
     setDraftLines(savedLines.map((l) => ({ ...l })));
     setDraftWidth(placement.widthInches || '');
     setDraftHeight(placement.heightInches || '');
     setDraftCollar(placement.distanceFromCollar || '');
+    setDraftReferencePoint(initialRefPoint);
+    resetZoomAndPan();
+
     if (placement.scaleCalibration && placement.scaleCalibration.realWorldInches > 0) {
       setDraftScale({ ...placement.scaleCalibration });
       setScaleFeatureInput(
@@ -529,6 +713,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       setScaleInchesInput('28');
     }
     setSelectedLineId(savedLines[0]?.id || null);
+    setActiveTool('width');
+    setOpenAccordion('logo_size');
     setIsStudioOpen(true);
   };
 
@@ -545,7 +731,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     const updatedLines = linesToMeasure.map((line) => {
       const measured = measureLineInRealInches(line, nextScale, aspect);
       if (measured === null) return line;
-      const formatted = formatMeasuredInches(measured, line.kind);
+      const formatted = formatMeasuredInches(measured);
       if (line.kind === 'width') updatedW = formatted;
       else if (line.kind === 'height') updatedH = formatted;
       else if (line.kind === 'collar') updatedCollar = formatted;
@@ -564,13 +750,13 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     shiftKey = false,
     origin?: { x: number; y: number }
   ) => {
-    const el = canvasRef.current;
+    const el = innerStageRef.current || viewportRef.current;
     if (!el) return { x: 50, y: 50 };
     const rect = el.getBoundingClientRect();
     let x = ((clientX - rect.left) / Math.max(1, rect.width)) * 100;
     let y = ((clientY - rect.top) / Math.max(1, rect.height)) * 100;
-    x = Math.max(1, Math.min(99, x));
-    y = Math.max(1, Math.min(99, y));
+    x = Math.max(0.5, Math.min(99.5, x));
+    y = Math.max(0.5, Math.min(99.5, y));
 
     if (origin && (snapStraight || shiftKey)) {
       const dx = Math.abs(x - origin.x);
@@ -585,7 +771,21 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || draggingEndpoint) return;
+    if (draggingEndpoint) return;
+
+    // Middle click, or Pan tool, or Spacebar held -> Pan the zoomed garment canvas
+    if (e.button === 1 || activeTool === 'pan' || isSpacePressed) {
+      e.preventDefault();
+      setPanningState({
+        startX: e.clientX,
+        startY: e.clientY,
+        originPanX: pan.x,
+        originPanY: pan.y
+      });
+      return;
+    }
+
+    if (e.button !== 0) return;
     const aspect = getCurrentCanvasAspectRatio();
     setCanvasAspectRatio(aspect);
     const pt = getRelativeCoords(e.clientX, e.clientY);
@@ -593,6 +793,21 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (panningState) {
+      const dx = e.clientX - panningState.startX;
+      const dy = e.clientY - panningState.startY;
+      setPan(
+        clampPan(
+          {
+            x: panningState.originPanX + dx,
+            y: panningState.originPanY + dy
+          },
+          zoom
+        )
+      );
+      return;
+    }
+
     const aspect = getCurrentCanvasAspectRatio();
 
     if (draggingEndpoint) {
@@ -626,10 +841,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
           ? { x1: pt.x, y1: pt.y, x2: targetLine.x2, y2: targetLine.y2 }
           : { x1: targetLine.x1, y1: targetLine.y1, x2: pt.x, y2: pt.y };
 
-      // If scale calibration is active, auto-measure as the endpoint is dragged
       const measuredInches = measureLineInRealInches(nextCoords, draftScale, aspect);
       const measuredFormatted =
-        measuredInches !== null ? formatMeasuredInches(measuredInches, targetLine.kind) : null;
+        measuredInches !== null ? formatMeasuredInches(measuredInches) : null;
 
       if (measuredFormatted !== null) {
         if (targetLine.kind === 'width') setDraftWidth(measuredFormatted);
@@ -659,6 +873,10 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   };
 
   const finishDrawingOrDragging = () => {
+    if (panningState) {
+      setPanningState(null);
+      return;
+    }
     if (draggingEndpoint) {
       setDraggingEndpoint(null);
       return;
@@ -668,7 +886,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       drawingCurrent.x2 - drawingCurrent.x1,
       drawingCurrent.y2 - drawingCurrent.y1
     );
-    if (dist < 2.0) {
+    // When zoomed in, allow smaller percentage lines (e.g., tiny sleeve/neck logos)
+    const minThreshold = Math.max(0.4, 1.8 / zoom);
+    if (dist < minThreshold) {
       setDrawingCurrent(null);
       return;
     }
@@ -691,8 +911,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       setDrawingCurrent(null);
       setSelectedLineId('__scale_calibration__');
       recalculateAllLinesWithScale(nextScale, draftLines);
-      // Automatically switch to Width Line so user can immediately measure the logo!
       setActiveTool('width');
+      setOpenAccordion('logo_size');
       setTimeout(() => {
         scaleInchesInputRef.current?.focus();
         scaleInchesInputRef.current?.select();
@@ -700,14 +920,17 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       return;
     }
 
-    // Otherwise we are drawing a dimension line (width, height, collar, or custom)
+    if (activeTool === 'pan') {
+      setDrawingCurrent(null);
+      return;
+    }
+
     const activeKind: PlacementLineKind = activeTool;
     const meta = LINE_KIND_META[activeKind];
 
-    // Check if Real-World Scale Calibration is active to auto-measure this logo line!
     const measuredInches = measureLineInRealInches(drawingCurrent, draftScale, aspect);
     const measuredFormatted =
-      measuredInches !== null ? formatMeasuredInches(measuredInches, activeKind) : null;
+      measuredInches !== null ? formatMeasuredInches(measuredInches) : null;
 
     let resolvedLabel = '';
     if (measuredFormatted !== null) {
@@ -718,18 +941,26 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     } else {
       resolvedLabel =
         activeKind === 'width'
-          ? draftWidth || '11.5"'
+          ? draftWidth || '3.5"'
           : activeKind === 'height'
-            ? draftHeight || '14"'
+            ? draftHeight || '3.5"'
             : activeKind === 'collar'
-              ? draftCollar || '3" down'
-              : customLabelDraft.trim() || 'Reference';
+              ? draftCollar || '3"'
+              : extraDistanceDraft.trim() || '2.5"';
     }
+
+    const resolvedReferencePoint =
+      activeKind === 'collar'
+        ? draftReferencePoint.trim() || 'Collar Seam'
+        : activeKind === 'custom'
+          ? extraRefPointDraft.trim() || 'Center Zipper / Placket'
+          : undefined;
 
     const newLine: PlacementReferenceLine = {
       id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       kind: activeKind,
       label: resolvedLabel,
+      ...(resolvedReferencePoint ? { referencePoint: resolvedReferencePoint } : {}),
       x1: drawingCurrent.x1,
       y1: drawingCurrent.y1,
       x2: drawingCurrent.x2,
@@ -747,9 +978,14 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     setSelectedLineId(newLine.id);
     setDrawingCurrent(null);
 
-    // Auto-advance activeTool to make drawing Width -> Height -> Collar effortless
-    if (activeKind === 'width') setActiveTool('height');
-    else if (activeKind === 'height') setActiveTool('collar');
+    // Smooth guided progression: Logo Width -> Logo Height -> Distance from Reference Point
+    if (activeKind === 'width') {
+      setActiveTool('height');
+      setOpenAccordion('logo_size');
+    } else if (activeKind === 'height') {
+      setActiveTool('collar');
+      setOpenAccordion('reference_point');
+    }
   };
 
   const handleSaveStudio = () => {
@@ -757,36 +993,53 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       widthInches: draftWidth,
       heightInches: draftHeight,
       distanceFromCollar: draftCollar,
+      referencePoint: draftReferencePoint.trim() || 'Collar Seam',
       referenceLines: draftLines,
       scaleCalibration: draftScale
     });
     setIsStudioOpen(false);
   };
 
-  // Live measurement preview while the user is actively dragging a line on the canvas
+  // Live measurement preview while the user is actively dragging a line from Point A to Point B
   const liveDrawingMeasurementLabel = (() => {
-    if (!drawingCurrent) return null;
+    if (!drawingCurrent || activeTool === 'pan') return null;
     if (activeTool === 'scale') {
       const inches = parseInchesValue(scaleInchesInput) || 28;
-      return `📏 Scale Reference: ${inches}" (${scaleFeatureInput || 'Reference'})`;
+      return `📏 Scale A → B: ${inches}" (${scaleFeatureInput || 'Reference'})`;
     }
     const measured = measureLineInRealInches(
       drawingCurrent,
       draftScale,
       getCurrentCanvasAspectRatio()
     );
-    if (measured === null) return null;
+    if (activeTool === 'collar') {
+      const refName = draftReferencePoint.trim() || 'Collar Seam';
+      return measured !== null
+        ? `A → B (From ${refName}): ${formatMeasuredInches(measured)}`
+        : `A → B (From ${refName})`;
+    }
+    if (activeTool === 'custom') {
+      const refName = extraRefPointDraft.trim() || 'Reference';
+      return measured !== null
+        ? `A → B (From ${refName}): ${formatMeasuredInches(measured)}`
+        : `A → B (From ${refName})`;
+    }
+    if (measured === null) {
+      return `A → B (${LINE_KIND_META[activeTool].shortPrefix})`;
+    }
     const prefix = LINE_KIND_META[activeTool].shortPrefix;
-    return `${prefix}: ${formatMeasuredInches(measured, activeTool)}`;
+    return `A → B (${prefix}): ${formatMeasuredInches(measured)}`;
   })();
 
+  const isPanCursor = activeTool === 'pan' || isSpacePressed || Boolean(panningState);
+
   return (
-    <div className="pt-2 border-t border-neutral-200/80">
+    <div className="pt-2.5 border-t border-neutral-200/80">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           <Ruler size={12} className="text-indigo-600" />
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-700">
-            Placement Reference Image &amp; Dimension Lines ({savedLines.length})
+            Visual Garment Ruler &amp; Point A ┄ Point B Lines ({savedLines.length})
           </span>
           {placement.scaleCalibration && placement.scaleCalibration.realWorldInches > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[9px] font-extrabold">
@@ -809,8 +1062,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
               <Edit3 size={11} />
               <span>
                 {savedLines.length > 0
-                  ? `Measure & Edit Lines (${savedLines.length})`
-                  : 'Measure Logo & Draw Lines'}
+                  ? `Zoom & Edit Lines (${savedLines.length})`
+                  : 'Open Garment Ruler & Draw Lines'}
               </span>
             </button>
           )}
@@ -873,10 +1126,10 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
             </div>
             <div>
               <p className="text-xs font-bold text-neutral-800">
-                Upload an image for Placement #{placementIndex + 1} ({placement.location})
+                Select or upload a garment image for Placement #{placementIndex + 1} ({placement.location})
               </p>
               <p className="text-[10px] text-neutral-500">
-                Upload a photo/mock-up (or drag &amp; drop here) to calibrate real-world garment scale and measure logos accurately.
+                Zoom in on logos, measure Logo Width &amp; Height, and draw dotted lines from any Garment Reference Point (A ┄ B).
               </p>
             </div>
             <input
@@ -895,13 +1148,13 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
           {quickSources.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-              <span className="text-[10px] font-bold text-neutral-400 mr-0.5">Or use:</span>
+              <span className="text-[10px] font-bold text-neutral-400 mr-0.5">Use Mock-up:</span>
               {quickSources.map((src, sIdx) => (
                 <button
                   key={`${src.label}-${sIdx}`}
                   type="button"
                   onClick={() => onSelectImageUrl(src.url, src.label)}
-                  className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-900 text-neutral-700 hover:text-white border border-neutral-200 text-[10px] font-bold transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 text-[10px] font-bold transition-colors cursor-pointer"
                 >
                   {src.label}
                 </button>
@@ -911,11 +1164,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
         </div>
       ) : (
         <div className="bg-white border border-neutral-200 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4">
-          {/* Interactive Thumbnail with SVG Reference Lines Overlay */}
+          {/* Interactive Thumbnail with Dotted Point-A-to-Point-B Reference Lines */}
           <div
             onClick={openStudio}
             className="relative w-full sm:w-56 h-44 rounded-lg border border-neutral-200 bg-neutral-100/70 flex items-center justify-center overflow-hidden cursor-pointer group/canvas shrink-0"
-            title="Click to measure logo or edit dimension reference lines"
+            title="Click to open zoomable garment ruler & edit Point A to Point B lines"
           >
             <img
               src={placement.referenceImageUrl}
@@ -943,40 +1196,40 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-2.5 py-1.5 flex items-center justify-between text-white opacity-95 group-hover/canvas:opacity-100 transition-opacity">
               <span className="text-[10px] font-bold flex items-center gap-1">
-                <Crosshair size={11} />
-                <span>Click to Measure &amp; Draw Lines</span>
+                <ZoomIn size={11} />
+                <span>Click to Zoom &amp; Measure (A ┄ B)</span>
               </span>
               <Maximize2 size={11} />
             </div>
           </div>
 
-          {/* Right side: Summary of drawn reference lines & quick actions */}
-          <div className="flex-1 min-w-0 w-full space-y-2">
-            <div className="flex items-center justify-between">
+          {/* Right side: Clear breakdown of Logo Size vs Reference Point Distances */}
+          <div className="flex-1 min-w-0 w-full space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-extrabold text-neutral-900">
-                {placement.location} — Visual Dimension Spec
+                {placement.location} — Visual Dimension Summary
               </span>
               <button
                 type="button"
                 onClick={openStudio}
                 className="text-[11px] font-extrabold text-indigo-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                <Plus size={12} />
-                <span>Calibrate Scale &amp; Measure Logo</span>
+                <ZoomIn size={12} />
+                <span>Open Zoomable Studio</span>
               </button>
             </div>
 
             {savedLines.length === 0 ? (
               <p className="text-xs text-neutral-500">
-                No reference lines drawn yet. Click{' '}
+                No visual lines drawn yet. Click{' '}
                 <button
                   type="button"
                   onClick={openStudio}
                   className="font-bold text-indigo-600 underline cursor-pointer"
                 >
-                  Measure Logo &amp; Draw Lines
+                  Open Garment Ruler &amp; Draw Lines
                 </button>{' '}
-                to set a real-world garment measurement (like garment height or pocket size) and automatically measure logos on the mock-up.
+                to zoom in on the garment and draw dotted lines from Point A to Point B for Logo Size and Reference Point Distance.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
@@ -993,6 +1246,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                         style={{ backgroundColor: line.color || meta.color }}
                       />
                       <span>{resolveLineDisplayLabel(line, placement)}</span>
+                      <span className="text-[9px] opacity-65 font-extrabold">(A┄B)</span>
                     </span>
                   );
                 })}
@@ -1002,25 +1256,25 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
         </div>
       )}
 
-      {/* FULL-SCREEN INTERACTIVE DIMENSION DRAWING & SCALE CALIBRATION STUDIO MODAL */}
+      {/* FULL-SCREEN INTERACTIVE ZOOMABLE DIMENSION & REFERENCE POINT STUDIO MODAL */}
       {isStudioOpen && placement.referenceImageUrl && (
         <div
-          className="fixed inset-0 z-[280] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 z-[280] bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-5 overflow-y-auto"
           onClick={() => setIsStudioOpen(false)}
         >
           <div
-            className="bg-white max-w-6xl w-full rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto max-h-[94vh] flex flex-col animate-in fade-in zoom-in-95 duration-150"
+            className="bg-white max-w-6xl w-full rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto max-h-[95vh] flex flex-col animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Studio Header (Light Mode) */}
-            <div className="px-5 py-3.5 bg-white border-b border-neutral-200 text-neutral-900 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            {/* Studio Header */}
+            <div className="px-5 py-3 bg-white border-b border-neutral-200 text-neutral-900 flex flex-wrap items-center justify-between gap-3 shrink-0">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-extrabold uppercase tracking-wider">
                     Placement #{placementIndex + 1} • {placement.location}
                   </span>
                   <h3 className="text-sm sm:text-base font-black text-neutral-900">
-                    Draw Dimension Reference Lines &amp; Real-World Logo Ruler
+                    Garment Zoom &amp; Measurement Studio (Logo Size + Reference Point Distance)
                   </h3>
                   {draftScale && draftScale.realWorldInches > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-300 text-[10px] font-extrabold">
@@ -1032,7 +1286,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                   )}
                 </div>
                 <p className="text-[11px] text-neutral-500 mt-0.5">
-                  Calibrate with any known garment distance (e.g. front height or pocket width) so dragging a line over any logo measures its exact real-world size in inches.
+                  Scroll or pinch on the garment to zoom in. Drag from <strong>Point A</strong> to{' '}
+                  <strong>Point B</strong> to measure <strong>1. Logo Size</strong> or{' '}
+                  <strong>2. Distance from a Reference Point</strong>.
                 </p>
               </div>
 
@@ -1043,7 +1299,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-colors cursor-pointer"
                 >
                   <Check size={14} strokeWidth={2.5} />
-                  <span>Apply Reference Lines</span>
+                  <span>Save Measurements &amp; Lines</span>
                 </button>
                 <button
                   type="button"
@@ -1055,67 +1311,104 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
               </div>
             </div>
 
-            {/* Tool Selection Bar */}
-            <div className="px-5 py-2.5 bg-neutral-50 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            {/* Clarified Tool Selection Bar: Clearly grouped into (1) Logo Size, (2) Reference Point Distance, and (3) Garment Scale */}
+            <div className="px-5 py-2.5 bg-neutral-50 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
               <div className="flex flex-wrap items-center gap-1.5">
+                {/* Group 1: Logo Size */}
+                <div className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-neutral-200 shadow-2xs">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-blue-700 px-1">
+                    1. Logo Size:
+                  </span>
+                  {(['width', 'height'] as PlacementLineKind[]).map((kind) => {
+                    const meta = LINE_KIND_META[kind];
+                    const isActive = activeTool === kind;
+                    return (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => selectToolAndOpenAccordion(kind)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                          isActive
+                            ? `${meta.badgeBg} shadow-xs`
+                            : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'
+                        }`}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0 border border-white/60"
+                          style={{ backgroundColor: meta.color }}
+                        />
+                        <span>{kind === 'width' ? 'Logo Width' : 'Logo Height'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Group 2: Distance from Garment Reference Point */}
+                <div className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-neutral-200 shadow-2xs">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-700 px-1">
+                    2. Placement Distance:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => selectToolAndOpenAccordion('collar')}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                      activeTool === 'collar'
+                        ? `${LINE_KIND_META.collar.badgeBg} shadow-xs`
+                        : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 border border-white/60"
+                      style={{ backgroundColor: LINE_KIND_META.collar.color }}
+                    />
+                    <span>From {draftReferencePoint || 'Reference Point'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selectToolAndOpenAccordion('custom')}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-extrabold border transition-all cursor-pointer ${
+                      activeTool === 'custom'
+                        ? `${LINE_KIND_META.custom.badgeBg} shadow-xs`
+                        : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border-neutral-200'
+                    }`}
+                    title="Draw an additional distance line from a second reference point (e.g. Center Zipper or Pocket Seam)"
+                  >
+                    <Plus size={11} />
+                    <span>2nd Ref Point</span>
+                  </button>
+                </div>
+
+                {/* Group 3: Optional Real-World Scale Calibration */}
                 <button
                   type="button"
-                  onClick={() => setActiveTool('scale')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                  onClick={() => selectToolAndOpenAccordion('scale')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                     activeTool === 'scale'
-                      ? 'bg-violet-600 text-white border-violet-700 shadow-xs scale-[1.02]'
+                      ? 'bg-violet-600 text-white border-violet-700 shadow-xs'
                       : draftScale
                         ? 'bg-violet-50 hover:bg-violet-100 text-violet-800 border-violet-200'
                         : 'bg-white hover:bg-violet-50 text-violet-700 border-violet-300'
                   }`}
-                  title="Draw a reference line across a known garment measurement (e.g. 28 in garment height or 5.5 in pocket) to calibrate real-world scale"
                 >
-                  <Ruler size={13} />
+                  <Ruler size={12} />
                   <span>
                     {draftScale
-                      ? `Recalibrate Scale (${draftScale.realWorldInches}")`
-                      : '1. Set Real-World Scale (Reference)'}
+                      ? `Scale (${draftScale.realWorldInches}")`
+                      : 'Calibrate Garment Scale'}
                   </span>
                 </button>
-
-                <span className="text-neutral-300 font-bold mx-0.5">|</span>
-
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mr-0.5">
-                  Measure / Draw:
-                </span>
-                {(['width', 'height', 'collar', 'custom'] as PlacementLineKind[]).map((kind) => {
-                  const meta = LINE_KIND_META[kind];
-                  const isActive = activeTool === kind;
-                  return (
-                    <button
-                      key={kind}
-                      type="button"
-                      onClick={() => setActiveTool(kind)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                        isActive
-                          ? `${meta.badgeBg} shadow-xs scale-[1.02]`
-                          : 'bg-white hover:bg-neutral-100 text-neutral-700 border-neutral-200'
-                      }`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/60"
-                        style={{ backgroundColor: meta.color }}
-                      />
-                      <span>{meta.title}</span>
-                    </button>
-                  );
-                })}
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-700 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={snapStraight}
                     onChange={(e) => setSnapStraight(e.target.checked)}
                     className="w-3.5 h-3.5 rounded accent-neutral-900 cursor-pointer"
                   />
-                  <span>Lock Horizontal / Vertical (or Hold Shift)</span>
+                  <span>Snap Straight (or Hold Shift)</span>
                 </label>
 
                 {(draftLines.length > 0 || draftScale) && (
@@ -1126,516 +1419,872 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                       setDraftScale(null);
                       setSelectedLineId(null);
                     }}
-                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                    className="text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
                   >
-                    Clear All
+                    Clear Lines
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Studio Main Body: Interactive Image Canvas + Side Dimension Spec Panel */}
-            <div className="p-5 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
-              {/* Left 8 cols: Interactive Drawing Canvas */}
-              <div className="lg:col-span-8 flex flex-col items-center justify-center bg-neutral-100 border border-neutral-200 rounded-2xl p-3 select-none">
+            {/* Studio Main Body: Zoomable Garment Canvas (Left 7 cols) + Collapsible Dropdowns Sidebar (Right 5 cols) */}
+            <div className="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-0">
+              {/* Left 7 cols: Interactive Zoomable & Pannable Garment Canvas */}
+              <div className="lg:col-span-7 flex flex-col justify-between bg-neutral-100 border border-neutral-200 rounded-2xl p-3 select-none">
+                {/* Floating Zoom & Pan Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
+                  <div className="inline-flex items-center gap-1 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTool === 'pan') setActiveTool('width');
+                      }}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
+                        activeTool !== 'pan'
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <Crosshair size={12} />
+                      <span>Draw A ┄ B</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTool('pan')}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
+                        activeTool === 'pan'
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                      title="Pan / move around when zoomed in (or hold Spacebar + drag)"
+                    >
+                      <Hand size={12} />
+                      <span>Pan / Move</span>
+                    </button>
+                  </div>
+
+                  <div className="inline-flex items-center gap-1 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => adjustZoomByStep(-0.5)}
+                      disabled={zoom <= 1.01}
+                      className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-700 disabled:opacity-35 cursor-pointer"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={13} />
+                    </button>
+                    <span className="px-2 text-[11px] font-black tabular-nums text-neutral-800">
+                      {Math.round(zoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => adjustZoomByStep(0.5)}
+                      disabled={zoom >= 5.95}
+                      className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-700 disabled:opacity-35 cursor-pointer"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={13} />
+                    </button>
+                    {zoom > 1.02 && (
+                      <button
+                        type="button"
+                        onClick={resetZoomAndPan}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-[10px] font-extrabold text-neutral-700 cursor-pointer ml-0.5"
+                        title="Reset Zoom to 100%"
+                      >
+                        <RotateCcw size={10} />
+                        <span>Reset</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Zoomable Viewport Container */}
                 <div
-                  ref={canvasRef}
+                  ref={viewportRef}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={finishDrawingOrDragging}
                   onMouseLeave={finishDrawingOrDragging}
-                  className="relative w-full h-[56vh] min-h-[360px] max-h-[560px] bg-white rounded-xl border border-neutral-200 overflow-hidden cursor-crosshair flex items-center justify-center"
+                  className={`relative w-full h-[54vh] min-h-[360px] max-h-[540px] bg-white rounded-xl border border-neutral-200 overflow-hidden ${
+                    isPanCursor
+                      ? panningState
+                        ? 'cursor-grabbing'
+                        : 'cursor-grab'
+                      : 'cursor-crosshair'
+                  }`}
                 >
-                  <img
-                    src={placement.referenceImageUrl}
-                    alt={`${placement.location} Canvas`}
-                    draggable={false}
-                    onLoad={() => {
-                      const aspect = getCurrentCanvasAspectRatio();
-                      setCanvasAspectRatio(aspect);
+                  {/* Transformed Inner Stage (Scales & Pans Image + Dotted SVG Lines + Callout Badges Together) */}
+                  <div
+                    ref={innerStageRef}
+                    style={{
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                      transformOrigin: '0 0'
                     }}
-                    className="w-full h-full object-contain select-none pointer-events-none"
-                  />
+                    className="relative w-full h-full flex items-center justify-center"
+                  >
+                    <img
+                      src={placement.referenceImageUrl}
+                      alt={`${placement.location} Canvas`}
+                      draggable={false}
+                      onLoad={() => {
+                        const aspect = getCurrentCanvasAspectRatio();
+                        setCanvasAspectRatio(aspect);
+                      }}
+                      className="w-full h-full object-contain select-none pointer-events-none"
+                    />
 
-                  <PlacementReferenceOverlaySvg
-                    lines={
-                      drawingCurrent && activeTool !== 'scale'
-                        ? [
-                            ...draftLines,
-                            {
-                              id: '__drawing__',
-                              kind: activeTool,
-                              label: '',
+                    <PlacementReferenceOverlaySvg
+                      lines={
+                        drawingCurrent && activeTool !== 'scale' && activeTool !== 'pan'
+                          ? [
+                              ...draftLines,
+                              {
+                                id: '__drawing__',
+                                kind: activeTool,
+                                label: '',
+                                x1: drawingCurrent.x1,
+                                y1: drawingCurrent.y1,
+                                x2: drawingCurrent.x2,
+                                y2: drawingCurrent.y2,
+                                color: LINE_KIND_META[activeTool].color
+                              }
+                            ]
+                          : draftLines
+                      }
+                      scaleCalibration={
+                        drawingCurrent && activeTool === 'scale'
+                          ? {
                               x1: drawingCurrent.x1,
                               y1: drawingCurrent.y1,
                               x2: drawingCurrent.x2,
                               y2: drawingCurrent.y2,
-                              color: LINE_KIND_META[activeTool].color
+                              realWorldInches: parseInchesValue(scaleInchesInput) || 28,
+                              referenceFeatureName: scaleFeatureInput || 'Reference',
+                              aspectRatio: canvasAspectRatio
                             }
-                          ]
-                        : draftLines
-                    }
-                    scaleCalibration={
-                      drawingCurrent && activeTool === 'scale'
-                        ? {
-                            x1: drawingCurrent.x1,
-                            y1: drawingCurrent.y1,
-                            x2: drawingCurrent.x2,
-                            y2: drawingCurrent.y2,
-                            realWorldInches: parseInchesValue(scaleInchesInput) || 28,
-                            referenceFeatureName: scaleFeatureInput || 'Reference',
-                            aspectRatio: canvasAspectRatio
-                          }
-                        : draftScale
-                    }
-                    showScaleLine
-                    placement={{
-                      widthInches: draftWidth,
-                      heightInches: draftHeight,
-                      distanceFromCollar: draftCollar
-                    }}
-                    selectedLineId={selectedLineId}
-                    interactive
-                    onSelectLine={(id) => setSelectedLineId(id)}
-                    onStartDragEndpoint={(lineId, endpoint) =>
-                      setDraggingEndpoint({ lineId, endpoint })
-                    }
-                  />
-
-                  {/* Scale Calibration Badge on Canvas */}
-                  {draftScale && !(drawingCurrent && activeTool === 'scale') && (
-                    <div
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setSelectedLineId('__scale_calibration__');
+                          : draftScale
+                      }
+                      showScaleLine
+                      zoom={zoom}
+                      placement={{
+                        widthInches: draftWidth,
+                        heightInches: draftHeight,
+                        distanceFromCollar: draftCollar,
+                        referencePoint: draftReferencePoint
                       }}
-                      style={{
-                        left: `${(draftScale.x1 + draftScale.x2) / 2}%`,
-                        top: `${(draftScale.y1 + draftScale.y2) / 2}%`
-                      }}
-                      className={`absolute -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer bg-violet-600 text-white border-violet-700 ${
-                        selectedLineId === '__scale_calibration__'
-                          ? 'ring-2 ring-black scale-110'
-                          : ''
-                      }`}
-                    >
-                      📏 Ref: {draftScale.realWorldInches}&quot; ({draftScale.referenceFeatureName})
-                    </div>
-                  )}
+                      selectedLineId={selectedLineId}
+                      interactive
+                      onSelectLine={(id) => setSelectedLineId(id)}
+                      onStartDragEndpoint={(lineId, endpoint) =>
+                        setDraggingEndpoint({ lineId, endpoint })
+                      }
+                    />
 
-                  {/* Live Floating Readout While Actively Dragging a New Line */}
-                  {drawingCurrent && liveDrawingMeasurementLabel && (
-                    <div
-                      style={{
-                        left: `${(drawingCurrent.x1 + drawingCurrent.x2) / 2}%`,
-                        top: `${(drawingCurrent.y1 + drawingCurrent.y2) / 2}%`
-                      }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-xs font-black bg-neutral-900 text-white border border-white shadow-lg whitespace-nowrap pointer-events-none z-20"
-                    >
-                      {liveDrawingMeasurementLabel}
-                    </div>
-                  )}
-
-                  {/* Midpoint Callout Badges on Canvas */}
-                  {draftLines.map((line) => {
-                    const midX = (line.x1 + line.x2) / 2;
-                    const midY = (line.y1 + line.y2) / 2;
-                    const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
-                    const labelText = resolveLineDisplayLabel(line, {
-                      widthInches: draftWidth,
-                      heightInches: draftHeight,
-                      distanceFromCollar: draftCollar
-                    });
-                    const isSelected = selectedLineId === line.id;
-                    return (
+                    {/* Scale Calibration Badge on Canvas (Inversely scaled so it stays compact when zoomed in) */}
+                    {draftScale && !(drawingCurrent && activeTool === 'scale') && (
                       <div
-                        key={`${line.id}-studio-pill`}
                         onMouseDown={(e) => {
                           e.stopPropagation();
-                          setSelectedLineId(line.id);
+                          setSelectedLineId('__scale_calibration__');
+                          setOpenAccordion('scale');
                         }}
-                        style={{ left: `${midX}%`, top: `${midY}%` }}
-                        className={`absolute -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-md text-[11px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer transition-transform ${
-                          meta.badgeBg
-                        } ${isSelected ? 'ring-2 ring-black scale-110' : ''}`}
-                      >
-                        {labelText}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <p className="text-[11px] font-semibold text-neutral-500 mt-2 text-center">
-                  {activeTool === 'scale' ? (
-                    <>
-                      <strong className="text-violet-700">Scale Calibration Mode:</strong> Click
-                      &amp; drag across a known real-world garment distance (e.g. full front height
-                      from shoulder seam to bottom hem, or across a pocket) to lock in the scale.
-                    </>
-                  ) : (
-                    <>
-                      Tip: Click &amp; drag in any direction to draw a{' '}
-                      <strong className="text-neutral-800">
-                        {LINE_KIND_META[activeTool].title}
-                      </strong>
-                      .{' '}
-                      {draftScale
-                        ? `Real-world scale (${draftScale.realWorldInches}" ${draftScale.referenceFeatureName}) will automatically calculate the exact logo inches as you drag!`
-                        : LINE_KIND_META[activeTool].defaultHint}
-                    </>
-                  )}
-                </p>
-              </div>
-
-              {/* Right 4 cols: Real-World Scale Calibration + Dimension Values + Drawn Lines List */}
-              <div className="lg:col-span-4 flex flex-col justify-between gap-4">
-                <div className="space-y-3.5">
-                  {/* REAL-WORLD SCALE CALIBRATION PANEL */}
-                  <div className="bg-violet-50/70 border border-violet-200 rounded-xl p-3.5 space-y-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <Ruler size={14} className="text-violet-700 shrink-0" />
-                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-violet-950">
-                          Real-World Garment Scale
-                        </h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTool('scale')}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition-colors cursor-pointer ${
-                          activeTool === 'scale'
-                            ? 'bg-violet-700 text-white border-violet-800'
-                            : 'bg-white hover:bg-violet-600 text-violet-700 hover:text-white border-violet-300'
+                        style={{
+                          left: `${(draftScale.x1 + draftScale.x2) / 2}%`,
+                          top: `${(draftScale.y1 + draftScale.y2) / 2}%`,
+                          transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                        }}
+                        className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer bg-violet-600 text-white border-violet-700 ${
+                          selectedLineId === '__scale_calibration__' ? 'ring-2 ring-black' : ''
                         }`}
                       >
-                        {draftScale ? 'Redraw Scale Line' : 'Draw Scale Line'}
-                      </button>
-                    </div>
+                        📏 Scale A┄B: {draftScale.realWorldInches}&quot; ({draftScale.referenceFeatureName})
+                      </div>
+                    )}
 
-                    <p className="text-[11px] text-violet-900/80 leading-snug">
-                      Enter a known garment measurement (like front height or pocket width) and draw its line on the mock-up. Any line you drag over a logo will then measure accurately in real inches.
-                    </p>
+                    {/* Live Floating Readout While Actively Dragging Point A -> Point B */}
+                    {drawingCurrent && liveDrawingMeasurementLabel && (
+                      <div
+                        style={{
+                          left: `${(drawingCurrent.x1 + drawingCurrent.x2) / 2}%`,
+                          top: `${(drawingCurrent.y1 + drawingCurrent.y2) / 2}%`,
+                          transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                        }}
+                        className="absolute px-2.5 py-1 rounded-lg text-xs font-black bg-neutral-900 text-white border border-white shadow-lg whitespace-nowrap pointer-events-none z-20"
+                      >
+                        {liveDrawingMeasurementLabel}
+                      </div>
+                    )}
 
-                    {/* Quick Preset Feature Pills */}
-                    <div className="flex flex-wrap gap-1">
-                      {SCALE_PRESET_FEATURES.map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          onClick={() => {
-                            setScaleFeatureInput(preset.label);
-                            setScaleInchesInput(preset.defaultInches);
-                            const parsed = parseInchesValue(preset.defaultInches);
-                            if (draftScale && parsed > 0) {
-                              const nextScale: PlacementScaleCalibration = {
-                                ...draftScale,
-                                referenceFeatureName: preset.label,
-                                realWorldInches: parsed
-                              };
-                              setDraftScale(nextScale);
-                              recalculateAllLinesWithScale(nextScale, draftLines);
+                    {/* Midpoint Callout Badges on Canvas (Inversely scaled with zoom so they never obscure small logos) */}
+                    {draftLines.map((line) => {
+                      const midX = (line.x1 + line.x2) / 2;
+                      const midY = (line.y1 + line.y2) / 2;
+                      const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
+                      const labelText = resolveLineDisplayLabel(line, {
+                        widthInches: draftWidth,
+                        heightInches: draftHeight,
+                        distanceFromCollar: draftCollar,
+                        referencePoint: draftReferencePoint
+                      });
+                      const isSelected = selectedLineId === line.id;
+                      return (
+                        <div
+                          key={`${line.id}-studio-pill`}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            setSelectedLineId(line.id);
+                            if (line.kind === 'width' || line.kind === 'height') {
+                              setOpenAccordion('logo_size');
                             } else {
-                              setActiveTool('scale');
+                              setOpenAccordion('reference_point');
                             }
                           }}
-                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
-                            scaleFeatureInput === preset.label
-                              ? 'bg-violet-600 text-white border-violet-700'
-                              : 'bg-white hover:bg-violet-100 text-violet-800 border-violet-200'
-                          }`}
+                          style={{
+                            left: `${midX}%`,
+                            top: `${midY}%`,
+                            transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                          }}
+                          className={`absolute px-2 py-0.5 rounded-md text-[11px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer ${
+                            meta.badgeBg
+                          } ${isSelected ? 'ring-2 ring-black' : ''}`}
                         >
-                          {preset.label} ({preset.defaultInches}&quot;)
-                        </button>
-                      ))}
-                    </div>
+                          {labelText}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                    <div className="grid grid-cols-12 gap-2 pt-0.5">
-                      <div className="col-span-7">
-                        <label className="block text-[10px] font-extrabold uppercase text-violet-800 mb-1">
-                          Reference Feature
-                        </label>
-                        <input
-                          type="text"
-                          value={scaleFeatureInput}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setScaleFeatureInput(val);
-                            if (draftScale) {
-                              setDraftScale({ ...draftScale, referenceFeatureName: val });
-                            }
-                          }}
-                          placeholder="e.g. Pocket Width / Garment Height"
-                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-600"
-                        />
-                      </div>
-                      <div className="col-span-5">
-                        <label className="block text-[10px] font-extrabold uppercase text-violet-800 mb-1">
-                          Real Size (in)
-                        </label>
-                        <input
-                          ref={scaleInchesInputRef}
-                          type="text"
-                          value={scaleInchesInput}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setScaleInchesInput(val);
-                            const parsed = parseInchesValue(val);
-                            if (draftScale && parsed > 0) {
-                              const nextScale: PlacementScaleCalibration = {
-                                ...draftScale,
-                                realWorldInches: parsed,
-                                referenceFeatureName: scaleFeatureInput.trim() || 'Reference'
-                              };
-                              setDraftScale(nextScale);
-                              recalculateAllLinesWithScale(nextScale, draftLines);
-                            }
-                          }}
-                          placeholder='e.g. 28 or 5.5'
-                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-violet-200 rounded-lg focus:outline-none focus:border-violet-600"
-                        />
-                      </div>
-                    </div>
+                {/* Bottom Helper Tip */}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-600 px-1">
+                  <span>
+                    {activeTool === 'pan' ? (
+                      <>
+                        <strong className="text-neutral-900">Pan Mode:</strong> Click and drag to move around the zoomed-in garment.
+                      </>
+                    ) : activeTool === 'scale' ? (
+                      <>
+                        <strong className="text-violet-700">Calibrate Garment Scale:</strong> Drag dotted line{' '}
+                        <strong>A ┄ B</strong> across a known garment size (e.g. 28&quot; front height).
+                      </>
+                    ) : (
+                      <>
+                        <strong className="text-neutral-900">
+                          {LINE_KIND_META[activeTool].title}:
+                        </strong>{' '}
+                        {LINE_KIND_META[activeTool].defaultHint}
+                      </>
+                    )}
+                  </span>
+                  <span className="text-[10px] font-bold text-neutral-500">
+                    💡 Scroll / Pinch to Zoom • Hold Space to Pan
+                  </span>
+                </div>
+              </div>
 
-                    {draftScale ? (
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-violet-200/70 text-[11px]">
-                        <span className="font-bold text-violet-900">
-                          ✓ Calibrated to {draftScale.realWorldInches}&quot;{' '}
-                          {draftScale.referenceFeatureName}
+              {/* Right 5 cols: Clean Collapsible Dropdown Accordions (Never Overwhelming!) */}
+              <div className="lg:col-span-5 flex flex-col justify-between gap-3">
+                <div className="space-y-2.5">
+                  {/* ACCORDION 1: LOGO / GRAPHIC SIZE (WIDTH & HEIGHT) */}
+                  <div className="rounded-xl border border-blue-200 bg-white overflow-hidden shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenAccordion(openAccordion === 'logo_size' ? 'reference_point' : 'logo_size')
+                      }
+                      className="w-full px-3.5 py-2.5 bg-blue-50/70 hover:bg-blue-50 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-md bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                          1
                         </span>
-                        <div className="flex items-center gap-2">
-                          {draftLines.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => recalculateAllLinesWithScale(draftScale, draftLines)}
-                              className="text-[10px] font-extrabold text-violet-700 underline cursor-pointer"
-                            >
-                              Re-measure All
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setDraftScale(null)}
-                            className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
-                          >
-                            Remove Scale
-                          </button>
+                        <div>
+                          <div className="text-xs font-black text-neutral-900">
+                            Logo / Graphic Size (Width &amp; Height)
+                          </div>
+                          <div className="text-[10px] text-neutral-500">
+                            How wide and tall the printed/embroidered logo itself is
+                          </div>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-[11px] font-bold text-violet-800 bg-white/80 border border-violet-200/80 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                        <span>No scale line drawn on garment yet.</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTool('scale')}
-                          className="text-violet-700 underline font-extrabold cursor-pointer shrink-0"
-                        >
-                          Draw Now →
-                        </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(draftWidth || draftHeight) && (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold">
+                            {draftWidth || '?'} × {draftHeight || '?'}
+                          </span>
+                        )}
+                        {openAccordion === 'logo_size' ? (
+                          <ChevronUp size={15} className="text-neutral-500" />
+                        ) : (
+                          <ChevronDown size={15} className="text-neutral-500" />
+                        )}
+                      </div>
+                    </button>
+
+                    {openAccordion === 'logo_size' && (
+                      <div className="p-3.5 space-y-3 border-t border-blue-100 bg-white">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Logo Width */}
+                          <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-200/80 space-y-1.5">
+                            <div className="flex items-center justify-between gap-1">
+                              <label className="text-[10px] font-extrabold uppercase text-blue-800">
+                                Logo Width (in)
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTool('width')}
+                                className={`px-2 py-0.5 rounded text-[9px] font-extrabold border cursor-pointer ${
+                                  activeTool === 'width'
+                                    ? 'bg-blue-600 text-white border-blue-700'
+                                    : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                                }`}
+                              >
+                                Draw A┄B
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={draftWidth}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDraftWidth(val);
+                                setDraftLines((prev) =>
+                                  prev.map((l) => (l.kind === 'width' ? { ...l, label: val } : l))
+                                );
+                              }}
+                              placeholder='e.g. 3.5" or 11.5"'
+                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
+                            />
+                          </div>
+
+                          {/* Logo Height */}
+                          <div className="p-2.5 rounded-xl bg-emerald-50/40 border border-emerald-200/80 space-y-1.5">
+                            <div className="flex items-center justify-between gap-1">
+                              <label className="text-[10px] font-extrabold uppercase text-emerald-800">
+                                Logo Height (in)
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTool('height')}
+                                className={`px-2 py-0.5 rounded text-[9px] font-extrabold border cursor-pointer ${
+                                  activeTool === 'height'
+                                    ? 'bg-emerald-600 text-white border-emerald-700'
+                                    : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                                }`}
+                              >
+                                Draw A┄B
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={draftHeight}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDraftHeight(val);
+                                setDraftLines((prev) =>
+                                  prev.map((l) => (l.kind === 'height' ? { ...l, label: val } : l))
+                                );
+                              }}
+                              placeholder='e.g. 3.5" or 14"'
+                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-[10px] text-neutral-500 leading-snug">
+                          Click <strong>Draw A┄B</strong> and drag across the logo on the garment (zoom in first for tiny chest or sleeve logos!).
+                        </p>
                       </div>
                     )}
                   </div>
 
-                  {/* PLACEMENT DIMENSIONS (SYNCED WITH LINES) */}
-                  <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-2.5">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-800">
-                      Placement Dimensions (Synced with Lines)
-                    </h4>
-
-                    <div>
-                      <label className="flex items-center justify-between text-[10px] font-extrabold uppercase text-blue-700 mb-1">
-                        <span>Width (in)</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTool('width')}
-                          className="underline cursor-pointer"
-                        >
-                          Draw Width Line
-                        </button>
-                      </label>
-                      <input
-                        type="text"
-                        value={draftWidth}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDraftWidth(val);
-                          setDraftLines((prev) =>
-                            prev.map((l) => (l.kind === 'width' ? { ...l, label: val } : l))
-                          );
-                        }}
-                        placeholder='e.g. 11.5"'
-                        className="w-full px-3 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="flex items-center justify-between text-[10px] font-extrabold uppercase text-emerald-700 mb-1">
-                        <span>Height (in)</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTool('height')}
-                          className="underline cursor-pointer"
-                        >
-                          Draw Height Line
-                        </button>
-                      </label>
-                      <input
-                        type="text"
-                        value={draftHeight}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDraftHeight(val);
-                          setDraftLines((prev) =>
-                            prev.map((l) => (l.kind === 'height' ? { ...l, label: val } : l))
-                          );
-                        }}
-                        placeholder='e.g. 14"'
-                        className="w-full px-3 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="flex items-center justify-between text-[10px] font-extrabold uppercase text-amber-700 mb-1">
-                        <span>Distance From Collar</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTool('collar')}
-                          className="underline cursor-pointer"
-                        >
-                          Draw Collar Line
-                        </button>
-                      </label>
-                      <input
-                        type="text"
-                        value={draftCollar}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setDraftCollar(val);
-                          setDraftLines((prev) =>
-                            prev.map((l) => (l.kind === 'collar' ? { ...l, label: val } : l))
-                          );
-                        }}
-                        placeholder='e.g. 3" down from collar seam'
-                        className="w-full px-3 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
-                      />
-                    </div>
-
-                    {activeTool === 'custom' && (
-                      <div>
-                        <label className="block text-[10px] font-extrabold uppercase text-rose-700 mb-1">
-                          Default Label for Next Custom Line
-                        </label>
-                        <input
-                          type="text"
-                          value={customLabelDraft}
-                          onChange={(e) => setCustomLabelDraft(e.target.value)}
-                          placeholder='e.g. 2" above pocket seam (leave blank to auto-measure)'
-                          className="w-full px-3 py-1.5 text-xs font-bold bg-white border border-rose-200 rounded-lg focus:outline-none focus:border-rose-600"
-                        />
+                  {/* ACCORDION 2: DISTANCE FROM GARMENT REFERENCE POINT */}
+                  <div className="rounded-xl border border-amber-200 bg-white overflow-hidden shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenAccordion(
+                          openAccordion === 'reference_point' ? 'logo_size' : 'reference_point'
+                        )
+                      }
+                      className="w-full px-3.5 py-2.5 bg-amber-50/80 hover:bg-amber-50 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-md bg-amber-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                          2
+                        </span>
+                        <div>
+                          <div className="text-xs font-black text-neutral-900">
+                            Distance from Garment Reference Point
+                          </div>
+                          <div className="text-[10px] text-neutral-500">
+                            Where to position the logo relative to collar, zipper, seam, or pocket
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {draftCollar && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold truncate max-w-[130px]">
+                            {draftReferencePoint}: {draftCollar}
+                          </span>
+                        )}
+                        {openAccordion === 'reference_point' ? (
+                          <ChevronUp size={15} className="text-neutral-500" />
+                        ) : (
+                          <ChevronDown size={15} className="text-neutral-500" />
+                        )}
+                      </div>
+                    </button>
 
-                  {/* Drawn Reference Lines List */}
-                  <div className="bg-white border border-neutral-200 rounded-xl p-3.5 space-y-2">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-800">
-                      Drawn Reference Lines ({draftLines.length})
-                    </h4>
-
-                    {draftLines.length === 0 ? (
-                      <p className="text-xs text-neutral-400 italic py-1.5">
-                        Click and drag on the image to draw your dimension reference lines.
-                      </p>
-                    ) : (
-                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                        {draftLines.map((line) => {
-                          const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
-                          const measuredVal = measureLineInRealInches(
-                            line,
-                            draftScale,
-                            canvasAspectRatio
-                          );
-                          return (
-                            <div
-                              key={line.id}
-                              onClick={() => setSelectedLineId(line.id)}
-                              className={`flex items-center justify-between gap-2 p-2 rounded-lg border text-xs cursor-pointer ${
-                                selectedLineId === line.id
-                                  ? 'border-neutral-900 bg-neutral-50'
-                                  : 'border-neutral-200 bg-white'
+                    {openAccordion === 'reference_point' && (
+                      <div className="p-3.5 space-y-3 border-t border-amber-100 bg-white">
+                        {/* Primary Reference Point Selector + Custom Input */}
+                        <div className="p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/80 space-y-2">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-extrabold uppercase text-amber-900">
+                              Primary Reference Point (Point A) &amp; Distance to Logo (Point B)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTool('collar')}
+                              className={`px-2 py-0.5 rounded text-[9px] font-extrabold border cursor-pointer shrink-0 ${
+                                activeTool === 'collar'
+                                  ? 'bg-amber-500 text-white border-amber-600'
+                                  : 'bg-white text-amber-800 border-amber-300 hover:bg-amber-100'
                               }`}
                             >
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                                  style={{ backgroundColor: line.color || meta.color }}
-                                />
-                                <span className="text-[10px] font-extrabold uppercase text-neutral-500 shrink-0">
-                                  {meta.shortPrefix}:
-                                </span>
-                                <input
-                                  type="text"
-                                  value={
-                                    line.kind === 'width'
-                                      ? draftWidth
-                                      : line.kind === 'height'
-                                        ? draftHeight
-                                        : line.kind === 'collar'
-                                          ? draftCollar
-                                          : line.label
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (line.kind === 'width') setDraftWidth(val);
-                                    else if (line.kind === 'height') setDraftHeight(val);
-                                    else if (line.kind === 'collar') setDraftCollar(val);
-                                    setDraftLines((prev) =>
-                                      prev.map((l) => (l.id === line.id ? { ...l, label: val } : l))
-                                    );
-                                  }}
-                                  placeholder="Dimension label..."
-                                  className="w-full px-2 py-1 text-xs font-bold bg-white border border-neutral-200 rounded focus:outline-none focus:border-neutral-900"
-                                />
-                              </div>
-                              {measuredVal !== null && (
+                              Draw A┄B Line
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">
+                                Reference Point on Garment
+                              </label>
+                              <select
+                                value={
+                                  GARMENT_REFERENCE_POINTS.includes(draftReferencePoint)
+                                    ? draftReferencePoint
+                                    : '__custom__'
+                                }
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '__custom__') return;
+                                  setDraftReferencePoint(val);
+                                  setDraftLines((prev) =>
+                                    prev.map((l) =>
+                                      l.kind === 'collar' ? { ...l, referencePoint: val } : l
+                                    )
+                                  );
+                                }}
+                                className="w-full px-2 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600 mb-1.5"
+                              >
+                                {GARMENT_REFERENCE_POINTS.map((pt) => (
+                                  <option key={pt} value={pt}>
+                                    {pt}
+                                  </option>
+                                ))}
+                                <option value="__custom__">Custom Reference Point...</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={draftReferencePoint}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDraftReferencePoint(val);
+                                  setDraftLines((prev) =>
+                                    prev.map((l) =>
+                                      l.kind === 'collar' ? { ...l, referencePoint: val } : l
+                                    )
+                                  );
+                                }}
+                                placeholder="Or type custom point (e.g. Left Zipper)"
+                                className="w-full px-2.5 py-1 text-[11px] font-semibold bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-amber-600"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">
+                                Distance from {draftReferencePoint || 'Reference'}
+                              </label>
+                              <input
+                                type="text"
+                                value={draftCollar}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setDraftCollar(val);
+                                  setDraftLines((prev) =>
+                                    prev.map((l) =>
+                                      l.kind === 'collar' ? { ...l, label: val } : l
+                                    )
+                                  );
+                                }}
+                                placeholder='e.g. 3" down or 2.5" from zipper'
+                                className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                              />
+                              <p className="text-[10px] text-amber-900/80 mt-1 leading-tight">
+                                Point <strong>A</strong> = {draftReferencePoint || 'Reference'} • Point{' '}
+                                <strong>B</strong> = Logo Edge
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Optional Additional Reference Point Distance (e.g. Distance from Zipper AND Distance from Collar) */}
+                        <div className="p-2.5 rounded-xl bg-rose-50/40 border border-rose-200/80 space-y-2">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-extrabold uppercase text-rose-800">
+                              Add 2nd Reference Point Distance (Optional)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTool('custom')}
+                              className={`px-2 py-0.5 rounded text-[9px] font-extrabold border cursor-pointer ${
+                                activeTool === 'custom'
+                                  ? 'bg-rose-600 text-white border-rose-700'
+                                  : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                              }`}
+                            >
+                              Draw 2nd A┄B Line
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={extraRefPointDraft}
+                              onChange={(e) => setExtraRefPointDraft(e.target.value)}
+                              placeholder="2nd Ref Point (e.g. Center Zipper)"
+                              className="w-full px-2 py-1 text-xs font-bold bg-white border border-rose-200 rounded-lg"
+                            />
+                            <input
+                              type="text"
+                              value={extraDistanceDraft}
+                              onChange={(e) => setExtraDistanceDraft(e.target.value)}
+                              placeholder='Distance (or auto-measure)'
+                              className="w-full px-2 py-1 text-xs font-bold bg-white border border-rose-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ACCORDION 3: REAL-WORLD GARMENT SCALE CALIBRATION */}
+                  <div className="rounded-xl border border-violet-200 bg-white overflow-hidden shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenAccordion(openAccordion === 'scale' ? 'logo_size' : 'scale')
+                      }
+                      className="w-full px-3.5 py-2.5 bg-violet-50/70 hover:bg-violet-50 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-5 h-5 rounded-md bg-violet-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
+                          3
+                        </span>
+                        <div>
+                          <div className="text-xs font-black text-neutral-900">
+                            Real-World Garment Scale (Auto-Measure)
+                          </div>
+                          <div className="text-[10px] text-neutral-500">
+                            Provide 1 known garment measurement so lines auto-calculate in inches
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {draftScale ? (
+                          <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-extrabold">
+                            {draftScale.realWorldInches}&quot;
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 text-[10px] font-bold">
+                            Optional
+                          </span>
+                        )}
+                        {openAccordion === 'scale' ? (
+                          <ChevronUp size={15} className="text-neutral-500" />
+                        ) : (
+                          <ChevronDown size={15} className="text-neutral-500" />
+                        )}
+                      </div>
+                    </button>
+
+                    {openAccordion === 'scale' && (
+                      <div className="p-3.5 space-y-2.5 border-t border-violet-100 bg-white">
+                        <div className="flex flex-wrap gap-1">
+                          {SCALE_PRESET_FEATURES.map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => {
+                                setScaleFeatureInput(preset.label);
+                                setScaleInchesInput(preset.defaultInches);
+                                const parsed = parseInchesValue(preset.defaultInches);
+                                if (draftScale && parsed > 0) {
+                                  const nextScale: PlacementScaleCalibration = {
+                                    ...draftScale,
+                                    referenceFeatureName: preset.label,
+                                    realWorldInches: parsed
+                                  };
+                                  setDraftScale(nextScale);
+                                  recalculateAllLinesWithScale(nextScale, draftLines);
+                                } else {
+                                  setActiveTool('scale');
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                scaleFeatureInput === preset.label
+                                  ? 'bg-violet-600 text-white border-violet-700'
+                                  : 'bg-violet-50/60 hover:bg-violet-100 text-violet-800 border-violet-200'
+                              }`}
+                            >
+                              {preset.label} ({preset.defaultInches}&quot;)
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-2">
+                          <div className="col-span-7">
+                            <label className="block text-[10px] font-extrabold uppercase text-violet-800 mb-1">
+                              Known Garment Feature
+                            </label>
+                            <input
+                              type="text"
+                              value={scaleFeatureInput}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setScaleFeatureInput(val);
+                                if (draftScale) {
+                                  setDraftScale({ ...draftScale, referenceFeatureName: val });
+                                }
+                              }}
+                              placeholder="e.g. Front Garment Height"
+                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-violet-200 rounded-lg"
+                            />
+                          </div>
+                          <div className="col-span-5">
+                            <label className="block text-[10px] font-extrabold uppercase text-violet-800 mb-1">
+                              Real Size (in)
+                            </label>
+                            <input
+                              ref={scaleInchesInputRef}
+                              type="text"
+                              value={scaleInchesInput}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setScaleInchesInput(val);
+                                const parsed = parseInchesValue(val);
+                                if (draftScale && parsed > 0) {
+                                  const nextScale: PlacementScaleCalibration = {
+                                    ...draftScale,
+                                    realWorldInches: parsed,
+                                    referenceFeatureName: scaleFeatureInput.trim() || 'Reference'
+                                  };
+                                  setDraftScale(nextScale);
+                                  recalculateAllLinesWithScale(nextScale, draftLines);
+                                }
+                              }}
+                              placeholder="e.g. 28"
+                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-violet-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTool('scale')}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border cursor-pointer ${
+                              activeTool === 'scale'
+                                ? 'bg-violet-700 text-white border-violet-800'
+                                : 'bg-violet-50 hover:bg-violet-600 text-violet-800 hover:text-white border-violet-300'
+                            }`}
+                          >
+                            {draftScale ? 'Redraw Scale Line (A┄B)' : 'Draw Scale Line on Garment (A┄B)'}
+                          </button>
+
+                          {draftScale && (
+                            <div className="flex items-center gap-2">
+                              {draftLines.length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const formatted = formatMeasuredInches(measuredVal, line.kind);
-                                    if (line.kind === 'width') setDraftWidth(formatted);
-                                    else if (line.kind === 'height') setDraftHeight(formatted);
-                                    else if (line.kind === 'collar') setDraftCollar(formatted);
-                                    setDraftLines((prev) =>
-                                      prev.map((l) =>
-                                        l.id === line.id ? { ...l, label: formatted } : l
-                                      )
-                                    );
-                                  }}
-                                  className="px-1.5 py-0.5 rounded bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[9px] font-extrabold shrink-0 cursor-pointer"
-                                  title="Click to apply exact scale-measured inches"
+                                  onClick={() => recalculateAllLinesWithScale(draftScale, draftLines)}
+                                  className="text-[10px] font-extrabold text-violet-700 underline cursor-pointer"
                                 >
-                                  📏 {formatMeasuredInches(measuredVal)}
+                                  Re-measure All
                                 </button>
                               )}
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDraftLines((prev) => prev.filter((l) => l.id !== line.id));
-                                }}
-                                className="p-1 text-neutral-400 hover:text-red-600 cursor-pointer"
-                                title="Delete reference line"
+                                onClick={() => setDraftScale(null)}
+                                className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
                               >
-                                <Trash2 size={13} />
+                                Remove
                               </button>
                             </div>
-                          );
-                        })}
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ACCORDION 4: DRAWN POINT-A TO POINT-B LINES LIST */}
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenAccordion(openAccordion === 'lines' ? 'logo_size' : 'lines')
+                      }
+                      className="w-full px-3.5 py-2.5 bg-neutral-50 hover:bg-neutral-100/80 flex items-center justify-between gap-2 text-left cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Move size={13} className="text-neutral-600" />
+                        <span className="text-xs font-black text-neutral-900">
+                          All Drawn Point A ┄ Point B Lines ({draftLines.length})
+                        </span>
+                      </div>
+                      {openAccordion === 'lines' ? (
+                        <ChevronUp size={15} className="text-neutral-500" />
+                      ) : (
+                        <ChevronDown size={15} className="text-neutral-500" />
+                      )}
+                    </button>
+
+                    {openAccordion === 'lines' && (
+                      <div className="p-3 border-t border-neutral-200 bg-white">
+                        {draftLines.length === 0 ? (
+                          <p className="text-xs text-neutral-400 italic py-1">
+                            No lines drawn yet. Select a tool above and drag from Point A to Point B on the garment.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {draftLines.map((line) => {
+                              const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
+                              const measuredVal = measureLineInRealInches(
+                                line,
+                                draftScale,
+                                canvasAspectRatio
+                              );
+                              return (
+                                <div
+                                  key={line.id}
+                                  onClick={() => setSelectedLineId(line.id)}
+                                  className={`p-2 rounded-lg border text-xs cursor-pointer space-y-1.5 ${
+                                    selectedLineId === line.id
+                                      ? 'border-neutral-900 bg-neutral-50'
+                                      : 'border-neutral-200 bg-white'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                      <span
+                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: line.color || meta.color }}
+                                      />
+                                      <span className="text-[10px] font-extrabold uppercase text-neutral-600 shrink-0">
+                                        {meta.shortPrefix} (A┄B):
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={
+                                          line.kind === 'width'
+                                            ? draftWidth
+                                            : line.kind === 'height'
+                                              ? draftHeight
+                                              : line.kind === 'collar'
+                                                ? draftCollar
+                                                : line.label
+                                        }
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (line.kind === 'width') setDraftWidth(val);
+                                          else if (line.kind === 'height') setDraftHeight(val);
+                                          else if (line.kind === 'collar') setDraftCollar(val);
+                                          setDraftLines((prev) =>
+                                            prev.map((l) =>
+                                              l.id === line.id ? { ...l, label: val } : l
+                                            )
+                                          );
+                                        }}
+                                        placeholder="Measurement..."
+                                        className="w-full px-2 py-0.5 text-xs font-bold bg-white border border-neutral-200 rounded"
+                                      />
+                                    </div>
+                                    {measuredVal !== null && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const formatted = formatMeasuredInches(measuredVal);
+                                          if (line.kind === 'width') setDraftWidth(formatted);
+                                          else if (line.kind === 'height') setDraftHeight(formatted);
+                                          else if (line.kind === 'collar') setDraftCollar(formatted);
+                                          setDraftLines((prev) =>
+                                            prev.map((l) =>
+                                              l.id === line.id ? { ...l, label: formatted } : l
+                                            )
+                                          );
+                                        }}
+                                        className="px-1.5 py-0.5 rounded bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[9px] font-extrabold shrink-0 cursor-pointer"
+                                        title="Apply scale-measured inches"
+                                      >
+                                        📏 {formatMeasuredInches(measuredVal)}
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDraftLines((prev) =>
+                                          prev.filter((l) => l.id !== line.id)
+                                        );
+                                      }}
+                                      className="p-1 text-neutral-400 hover:text-red-600 cursor-pointer"
+                                      title="Delete line"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+
+                                  {(line.kind === 'collar' || line.kind === 'custom') && (
+                                    <div className="flex items-center gap-1.5 pl-4">
+                                      <span className="text-[10px] font-bold text-neutral-500 shrink-0">
+                                        Point A Ref:
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={
+                                          line.kind === 'collar'
+                                            ? draftReferencePoint
+                                            : line.referencePoint || ''
+                                        }
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (line.kind === 'collar') setDraftReferencePoint(val);
+                                          setDraftLines((prev) =>
+                                            prev.map((l) =>
+                                              l.id === line.id ? { ...l, referencePoint: val } : l
+                                            )
+                                          );
+                                        }}
+                                        placeholder="e.g. Collar Seam, Zipper, Pocket..."
+                                        className="w-full px-2 py-0.5 text-[11px] font-semibold bg-neutral-50 border border-neutral-200 rounded"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Bottom Action Buttons */}
                 <div className="pt-2 border-t border-neutral-200 flex items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1650,7 +2299,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-extrabold cursor-pointer"
                   >
                     <Check size={14} />
-                    <span>Save Reference Lines</span>
+                    <span>Save Measurements &amp; Lines</span>
                   </button>
                 </div>
               </div>

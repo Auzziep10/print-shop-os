@@ -8,8 +8,10 @@ import {
   Building2,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Download,
   Edit3,
@@ -35,6 +37,7 @@ import { db, storage } from '../../lib/firebase';
 import { tokens } from '../../lib/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  GARMENT_REFERENCE_POINTS,
   PlacementReferenceSection,
   type PlacementReferenceLine,
   type PlacementScaleCalibration
@@ -44,9 +47,10 @@ export interface PlacementSpec {
   id: string;
   location: string; // e.g., "Front Center", "Left Chest", "Back Center", "Left Sleeve", "Right Sleeve", "Neck Tag"
   method: string; // e.g., "DTF", "Screen Print", "Embroidery", "Puff Print", "Heat Transfer", "Woven Label"
-  widthInches: string;
-  heightInches: string;
-  distanceFromCollar: string;
+  widthInches: string; // Logo Width (in)
+  heightInches: string; // Logo Height (in)
+  distanceFromCollar: string; // Distance from Reference Point (in)
+  referencePoint?: string; // e.g., "Collar Seam", "Center Zipper / Placket", "Pocket Seam / Edge"
   platenOrHoop: string;
   inkOrThreadColors: string;
   placementNotes: string;
@@ -173,6 +177,7 @@ function createDefaultPlacement(location = 'Front Center', method = 'DTF (Direct
     widthInches: '',
     heightInches: '',
     distanceFromCollar: '',
+    referencePoint: 'Collar Seam',
     platenOrHoop: '',
     inkOrThreadColors: '',
     placementNotes: ''
@@ -214,6 +219,27 @@ export function DecoratorNotesPage() {
     images: { src: string; label: string }[];
     index: number;
   } | null>(null);
+
+  // Collapsible dropdown states inside the Garment Recipe Modal so the page is clean and not overwhelming
+  const [openModalSections, setOpenModalSections] = useState<{
+    files: boolean;
+    press: boolean;
+    placements: boolean;
+    notes: boolean;
+  }>({
+    files: true,
+    press: false,
+    placements: true,
+    notes: false
+  });
+  const [collapsedPlacementIds, setCollapsedPlacementIds] = useState<Record<string, boolean>>({});
+  const [expandedAdvancedPlacementIds, setExpandedAdvancedPlacementIds] = useState<
+    Record<string, boolean>
+  >({});
+
+  const toggleModalSection = (key: 'files' | 'press' | 'placements' | 'notes') => {
+    setOpenModalSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Editor form state
   const [formState, setFormState] = useState<{
@@ -1487,9 +1513,11 @@ export function DecoratorNotesPage() {
                               >
                                 {pl.location}
                                 {pl.widthInches || pl.heightInches
-                                  ? `: ${pl.widthInches || '?'}" × ${pl.heightInches || '?'}"`
+                                  ? `: Logo ${pl.widthInches || '?'}" × ${pl.heightInches || '?'}"`
                                   : ''}
-                                {pl.distanceFromCollar ? ` (${pl.distanceFromCollar} from collar)` : ''}
+                                {pl.distanceFromCollar
+                                  ? ` (${pl.distanceFromCollar} from ${pl.referencePoint || 'Collar Seam'})`
+                                  : ''}
                               </span>
                             ))}
                           </div>
@@ -1601,35 +1629,73 @@ export function DecoratorNotesPage() {
               </div>
             </div>
 
-            {/* Modal Scrollable Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* SECTION 1: ARCHIVED MOCK-UPS, LOGOS & PRODUCTION FILES */}
-              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
-                      <ImageIcon size={14} />
-                      <span>Archived Mock-ups, Artwork Files &amp; Sourcing Links</span>
-                    </h3>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
-                      Pulled directly from the Designer Rack and stored in the Decorator Archive for future production runs.
-                    </p>
+            {/* Modal Scrollable Body (Organized into Clean Collapsible Dropdown Sections) */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Quick Expand / Collapse All Control Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3.5 py-2">
+                <span className="text-[11px] font-semibold text-neutral-600">
+                  Click any section header below to expand or collapse details.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpenModalSections({
+                        files: true,
+                        press: true,
+                        placements: true,
+                        notes: true
+                      });
+                      setCollapsedPlacementIds({});
+                    }}
+                    className="text-[11px] font-extrabold text-indigo-600 hover:underline cursor-pointer"
+                  >
+                    Expand All Sections
+                  </button>
+                  <span className="text-neutral-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenModalSections({
+                        files: false,
+                        press: false,
+                        placements: true,
+                        notes: false
+                      })
+                    }
+                    className="text-[11px] font-bold text-neutral-600 hover:text-neutral-900 hover:underline cursor-pointer"
+                  >
+                    Focus on Placements Only
+                  </button>
+                </div>
+              </div>
+
+              {/* DROPDOWN SECTION 1: ARCHIVED MOCK-UPS, LOGOS & PRODUCTION FILES */}
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl overflow-hidden">
+                <div
+                  onClick={() => toggleModalSection('files')}
+                  className="px-4 py-3.5 bg-white hover:bg-neutral-50/80 flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white text-xs font-black flex items-center justify-center shrink-0">
+                      1
+                    </span>
+                    <div>
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                        <ImageIcon size={14} className="text-neutral-700" />
+                        <span>Mock-ups, Artwork Files &amp; Completed Garment Photos</span>
+                      </h3>
+                      <p className="text-[11px] text-neutral-500">
+                        Front/back mock-ups, logo files, PSD links, and real production photos
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 text-xs font-bold shadow-2xs transition-colors cursor-pointer">
-                      <Upload size={13} />
-                      <span>
-                        {uploadingPhoto ? 'Uploading Photo...' : 'Upload Completed Garment Photo'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleUploadProductionPhoto}
-                        className="hidden"
-                      />
-                    </label>
+                  <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <span className="px-2.5 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-[10px] font-extrabold text-neutral-700">
+                      {(activeItem.frontMockupUrl ? 1 : 0) + (activeItem.backMockupUrl ? 1 : 0)} Mock-ups •{' '}
+                      {activeItem.logos.length} Logos • {formState.productionPhotos.length} Real Photos
+                    </span>
                     {activeItem.psdDriveLink && (
                       <a
                         href={
@@ -1639,11 +1705,11 @@ export function DecoratorNotesPage() {
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border border-neutral-300 text-xs font-bold transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border border-neutral-300 text-[11px] font-bold transition-colors"
                       >
-                        <FileText size={13} />
-                        <span>Open PSD / Print Files</span>
-                        <ExternalLink size={11} />
+                        <FileText size={12} />
+                        <span>PSD Files</span>
+                        <ExternalLink size={10} />
                       </a>
                     )}
                     {activeItem.garmentSourcingLink && (
@@ -1655,168 +1721,31 @@ export function DecoratorNotesPage() {
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border border-neutral-300 text-xs font-bold transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border border-neutral-300 text-[11px] font-bold transition-colors"
                       >
-                        <Shirt size={13} />
-                        <span>Blank Supplier Link</span>
-                        <ExternalLink size={11} />
+                        <Shirt size={12} />
+                        <span>Blank Link</span>
+                        <ExternalLink size={10} />
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => toggleModalSection('files')}
+                      className="p-1 rounded-lg hover:bg-neutral-200/70 text-neutral-600 cursor-pointer"
+                    >
+                      {openModalSections.files ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
                   </div>
                 </div>
 
-                {/* Mockups + Logos Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {/* Front Mockup */}
-                  <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
-                        Front Mock-up
-                      </span>
-                      {activeItem.frontMockupUrl && (
-                        <a
-                          href={activeItem.frontMockupUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5"
-                        >
-                          <Download size={10} />
-                          <span>File</span>
-                        </a>
-                      )}
-                    </div>
-                    <div
-                      onClick={() => {
-                        const imgs = getAllItemImages(activeItem);
-                        if (imgs.length > 0) setLightbox({ images: imgs, index: 0 });
-                      }}
-                      className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center p-2 cursor-pointer overflow-hidden"
-                    >
-                      {activeItem.frontMockupUrl ? (
-                        <img
-                          src={activeItem.frontMockupUrl}
-                          alt="Front Mockup"
-                          className="max-w-full max-h-full object-contain mix-blend-multiply"
-                        />
-                      ) : (
-                        <span className="text-xs text-neutral-400">No Front Mock-up</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Back Mockup */}
-                  <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
-                        Back Mock-up
-                      </span>
-                      {activeItem.backMockupUrl && (
-                        <a
-                          href={activeItem.backMockupUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5"
-                        >
-                          <Download size={10} />
-                          <span>File</span>
-                        </a>
-                      )}
-                    </div>
-                    <div
-                      onClick={() => {
-                        const imgs = getAllItemImages(activeItem);
-                        if (activeItem.backMockupUrl && imgs.length > 0) {
-                          setLightbox({ images: imgs, index: activeItem.frontMockupUrl ? 1 : 0 });
-                        }
-                      }}
-                      className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center p-2 cursor-pointer overflow-hidden"
-                    >
-                      {activeItem.backMockupUrl ? (
-                        <img
-                          src={activeItem.backMockupUrl}
-                          alt="Back Mockup"
-                          className="max-w-full max-h-full object-contain mix-blend-multiply"
-                        />
-                      ) : (
-                        <span className="text-xs text-neutral-400">No Back Mock-up</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Logos Box */}
-                  <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
-                        Artwork / Logos ({activeItem.logos.length})
-                      </span>
-                    </div>
-                    {activeItem.logos.length === 0 ? (
-                      <div className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center text-xs text-neutral-400">
-                        No Logo Files
-                      </div>
-                    ) : (
-                      <div className="h-36 overflow-y-auto space-y-1.5 pr-1">
-                        {activeItem.logos.map((logo) => {
-                          const isImg = Boolean(logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i));
-                          return (
-                            <div
-                              key={logo.id}
-                              className="flex items-center justify-between gap-2 p-1.5 rounded-lg border border-neutral-200 bg-neutral-50"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-8 h-8 rounded bg-white border border-neutral-200 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
-                                  {isImg ? (
-                                    <img
-                                      src={logo.url}
-                                      alt={logo.name}
-                                      className="max-w-full max-h-full object-contain"
-                                    />
-                                  ) : (
-                                    <FileText size={14} className="text-neutral-500" />
-                                  )}
-                                </div>
-                                <span className="text-[11px] font-bold text-neutral-800 truncate" title={logo.name}>
-                                  {logo.name || 'Logo File'}
-                                </span>
-                              </div>
-                              <a
-                                href={logo.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1 rounded hover:bg-neutral-200 text-neutral-700 shrink-0"
-                                title="Download / Open Logo File"
-                              >
-                                <Download size={12} />
-                              </a>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Production Reference Photos (Uploaded by Decorator Team) */}
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                        void uploadProductionPhotoFiles(e.dataTransfer.files);
-                      }
-                    }}
-                    className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between"
-                  >
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600 truncate">
-                        Real Garment ({formState.productionPhotos.length})
-                      </span>
-                      <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold cursor-pointer shrink-0 transition-colors">
-                        <Upload size={10} />
-                        <span>{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
+                {openModalSections.files && (
+                  <div className="p-4 border-t border-neutral-200 space-y-3">
+                    <div className="flex items-center justify-end">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 text-xs font-bold shadow-2xs transition-colors cursor-pointer">
+                        <Upload size={13} />
+                        <span>
+                          {uploadingPhoto ? 'Uploading Photo...' : 'Upload Completed Garment Photo'}
+                        </span>
                         <input
                           type="file"
                           accept="image/*"
@@ -1826,557 +1755,1072 @@ export function DecoratorNotesPage() {
                         />
                       </label>
                     </div>
-                    {formState.productionPhotos.length === 0 ? (
-                      <label className="h-36 rounded-lg border-2 border-dashed border-emerald-300/90 bg-emerald-50/40 hover:bg-emerald-50 flex flex-col items-center justify-center gap-1.5 text-center p-2.5 cursor-pointer transition-colors">
-                        <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
-                          <Upload size={14} />
+
+                    {/* Mockups + Logos Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {/* Front Mockup */}
+                      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
+                            Front Mock-up
+                          </span>
+                          {activeItem.frontMockupUrl && (
+                            <a
+                              href={activeItem.frontMockupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                            >
+                              <Download size={10} />
+                              <span>File</span>
+                            </a>
+                          )}
                         </div>
-                        <span className="text-[11px] font-extrabold text-neutral-800">
-                          {uploadingPhoto ? 'Uploading photo...' : 'Upload Completed Garment'}
-                        </span>
-                        <span className="text-[10px] font-medium text-neutral-500 leading-tight">
-                          Click or drag &amp; drop real-life photos of the produced garment
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleUploadProductionPhoto}
-                          className="hidden"
-                        />
-                      </label>
-                    ) : (
-                      <div className="h-36 overflow-y-auto grid grid-cols-2 gap-1.5 pr-0.5">
-                        {formState.productionPhotos.map((photo, pIdx) => (
-                          <div
-                            key={photo.id}
-                            onClick={() => {
-                              const imgs = getAllItemImages(activeItem, formState.productionPhotos);
-                              const targetIdx = Math.max(
-                                0,
-                                imgs.findIndex((im) => im.src === photo.url)
-                              );
-                              if (imgs.length > 0) {
-                                setLightbox({ images: imgs, index: targetIdx });
-                              }
-                            }}
-                            className="relative h-16 rounded-lg border border-neutral-200 bg-neutral-50 overflow-hidden group/ph cursor-pointer"
-                            title="Click to enlarge completed garment photo"
-                          >
+                        <div
+                          onClick={() => {
+                            const imgs = getAllItemImages(activeItem);
+                            if (imgs.length > 0) setLightbox({ images: imgs, index: 0 });
+                          }}
+                          className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center p-2 cursor-pointer overflow-hidden"
+                        >
+                          {activeItem.frontMockupUrl ? (
                             <img
-                              src={photo.url}
-                              alt={photo.name || `Completed Garment ${pIdx + 1}`}
-                              className="w-full h-full object-cover group-hover/ph:scale-105 transition-transform"
+                              src={activeItem.frontMockupUrl}
+                              alt="Front Mockup"
+                              className="max-w-full max-h-full object-contain mix-blend-multiply"
                             />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleRemoveProductionPhoto(photo.id);
-                              }}
-                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover/ph:opacity-100 transition-opacity cursor-pointer"
-                              title="Remove photo"
-                            >
-                              <X size={11} />
-                            </button>
-                          </div>
-                        ))}
+                          ) : (
+                            <span className="text-xs text-neutral-400">No Front Mock-up</span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </div>
 
-              {/* SECTION 2: PRESS / MACHINE PARAMETERS & VERIFICATION */}
-              <div className="bg-white border border-brand-border rounded-2xl p-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
-                    <Flame size={14} className="text-amber-600" />
-                    <span>Primary Decoration Method &amp; Machine / Press Settings</span>
-                  </h3>
-
-                  <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-extrabold cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={formState.verifiedForRepeat}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, verifiedForRepeat: e.target.checked }))
-                      }
-                      className="w-4 h-4 accent-purple-600 rounded cursor-pointer"
-                    />
-                    <Sparkles size={13} className="text-purple-600" />
-                    <span>Verified Master Recipe (Ready for Repeat Production)</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  <div className="col-span-2 sm:col-span-1 lg:col-span-2">
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Decoration Method
-                    </label>
-                    <select
-                      value={formState.decorationMethod}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, decorationMethod: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    >
-                      {DECORATION_METHODS.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Temp (°F)
-                    </label>
-                    <input
-                      type="text"
-                      value={formState.pressTempF}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, pressTempF: e.target.value }))
-                      }
-                      placeholder="e.g. 305"
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      1st Press (Sec)
-                    </label>
-                    <input
-                      type="text"
-                      value={formState.pressTimeSec}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, pressTimeSec: e.target.value }))
-                      }
-                      placeholder="e.g. 12"
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Peel Type
-                    </label>
-                    <select
-                      value={formState.peelType}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, peelType: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    >
-                      {PEEL_OPTIONS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      2nd Press / Seal
-                    </label>
-                    <input
-                      type="text"
-                      value={formState.secondPressSec}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, secondPressSec: e.target.value }))
-                      }
-                      placeholder="e.g. 5s w/ parchment"
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Pressure / Platen Tension
-                    </label>
-                    <select
-                      value={formState.pressPressure}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, pressPressure: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    >
-                      {PRESSURE_OPTIONS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Pre-Press / Pre-Treat Notes
-                    </label>
-                    <input
-                      type="text"
-                      value={formState.preTreatNotes}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, preTreatNotes: e.target.value }))
-                      }
-                      placeholder="e.g. 4s pre-press for moisture, use Teflon pillow"
-                      className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
-                      Cover Sheet / Curing / Finishing
-                    </label>
-                    <input
-                      type="text"
-                      value={formState.curingNotes}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, curingNotes: e.target.value }))
-                      }
-                      placeholder="e.g. Matte finishing sheet, avoid seam edges"
-                      className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: EXACT PLACEMENT BREAKDOWN (FRONT, BACK, SLEEVES, NECK, ETC.) */}
-              <div className="bg-white border border-brand-border rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
-                      <Ruler size={14} className="text-blue-600" />
-                      <span>Exact Print Placements &amp; Dimensions ({formState.placements.length})</span>
-                    </h3>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
-                      Record exact width/height, distance down from collar/seam, platen size, and alignment notes for each print location.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormState((prev) => ({
-                        ...prev,
-                        placements: [
-                          ...prev.placements,
-                          createDefaultPlacement('Left Sleeve', prev.decorationMethod)
-                        ]
-                      }))
-                    }
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    <Plus size={13} />
-                    <span>Add Placement</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {formState.placements.map((pl, idx) => (
-                    <div
-                      key={pl.id}
-                      className="p-4 rounded-xl bg-neutral-50 border border-neutral-200 space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-black text-neutral-900">
-                          Placement #{idx + 1}
-                        </span>
-                        {formState.placements.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.filter((p) => p.id !== pl.id)
-                              }))
+                      {/* Back Mockup */}
+                      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
+                            Back Mock-up
+                          </span>
+                          {activeItem.backMockupUrl && (
+                            <a
+                              href={activeItem.backMockupUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-blue-600 hover:underline inline-flex items-center gap-0.5"
+                            >
+                              <Download size={10} />
+                              <span>File</span>
+                            </a>
+                          )}
+                        </div>
+                        <div
+                          onClick={() => {
+                            const imgs = getAllItemImages(activeItem);
+                            if (activeItem.backMockupUrl && imgs.length > 0) {
+                              setLightbox({ images: imgs, index: activeItem.frontMockupUrl ? 1 : 0 });
                             }
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
-                          >
-                            <Trash2 size={12} />
-                            <span>Remove</span>
-                          </button>
+                          }}
+                          className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center p-2 cursor-pointer overflow-hidden"
+                        >
+                          {activeItem.backMockupUrl ? (
+                            <img
+                              src={activeItem.backMockupUrl}
+                              alt="Back Mockup"
+                              className="max-w-full max-h-full object-contain mix-blend-multiply"
+                            />
+                          ) : (
+                            <span className="text-xs text-neutral-400">No Back Mock-up</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Logos Box */}
+                      <div className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600">
+                            Artwork / Logos ({activeItem.logos.length})
+                          </span>
+                        </div>
+                        {activeItem.logos.length === 0 ? (
+                          <div className="h-36 rounded-lg bg-neutral-50 flex items-center justify-center text-xs text-neutral-400">
+                            No Logo Files
+                          </div>
+                        ) : (
+                          <div className="h-36 overflow-y-auto space-y-1.5 pr-1">
+                            {activeItem.logos.map((logo) => {
+                              const isImg = Boolean(
+                                logo.name?.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)
+                              );
+                              return (
+                                <div
+                                  key={logo.id}
+                                  className="flex items-center justify-between gap-2 p-1.5 rounded-lg border border-neutral-200 bg-neutral-50"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-8 h-8 rounded bg-white border border-neutral-200 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
+                                      {isImg ? (
+                                        <img
+                                          src={logo.url}
+                                          alt={logo.name}
+                                          className="max-w-full max-h-full object-contain"
+                                        />
+                                      ) : (
+                                        <FileText size={14} className="text-neutral-500" />
+                                      )}
+                                    </div>
+                                    <span
+                                      className="text-[11px] font-bold text-neutral-800 truncate"
+                                      title={logo.name}
+                                    >
+                                      {logo.name || 'Logo File'}
+                                    </span>
+                                  </div>
+                                  <a
+                                    href={logo.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded hover:bg-neutral-200 text-neutral-700 shrink-0"
+                                    title="Download / Open Logo File"
+                                  >
+                                    <Download size={12} />
+                                  </a>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                        <div className="col-span-2 sm:col-span-1">
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Location
+                      {/* Production Reference Photos (Uploaded by Decorator Team) */}
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                            void uploadProductionPhotoFiles(e.dataTransfer.files);
+                          }
+                        }}
+                        className="bg-white border border-neutral-200 rounded-xl p-2.5 flex flex-col justify-between"
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-600 truncate">
+                            Real Garment ({formState.productionPhotos.length})
+                          </span>
+                          <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-[10px] font-bold cursor-pointer shrink-0 transition-colors">
+                            <Upload size={10} />
+                            <span>{uploadingPhoto ? 'Uploading...' : 'Upload'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleUploadProductionPhoto}
+                              className="hidden"
+                            />
                           </label>
-                          <select
-                            value={pl.location}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, location: val } : p
-                                )
-                              }));
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          >
-                            {PLACEMENT_LOCATIONS.map((loc) => (
-                              <option key={loc} value={loc}>
-                                {loc}
-                              </option>
+                        </div>
+                        {formState.productionPhotos.length === 0 ? (
+                          <label className="h-36 rounded-lg border-2 border-dashed border-emerald-300/90 bg-emerald-50/40 hover:bg-emerald-50 flex flex-col items-center justify-center gap-1.5 text-center p-2.5 cursor-pointer transition-colors">
+                            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                              <Upload size={14} />
+                            </div>
+                            <span className="text-[11px] font-extrabold text-neutral-800">
+                              {uploadingPhoto ? 'Uploading photo...' : 'Upload Completed Garment'}
+                            </span>
+                            <span className="text-[10px] font-medium text-neutral-500 leading-tight">
+                              Click or drag &amp; drop real-life photos of the produced garment
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleUploadProductionPhoto}
+                              className="hidden"
+                            />
+                          </label>
+                        ) : (
+                          <div className="h-36 overflow-y-auto grid grid-cols-2 gap-1.5 pr-0.5">
+                            {formState.productionPhotos.map((photo, pIdx) => (
+                              <div
+                                key={photo.id}
+                                onClick={() => {
+                                  const imgs = getAllItemImages(
+                                    activeItem,
+                                    formState.productionPhotos
+                                  );
+                                  const targetIdx = Math.max(
+                                    0,
+                                    imgs.findIndex((im) => im.src === photo.url)
+                                  );
+                                  if (imgs.length > 0) {
+                                    setLightbox({ images: imgs, index: targetIdx });
+                                  }
+                                }}
+                                className="relative h-16 rounded-lg border border-neutral-200 bg-neutral-50 overflow-hidden group/ph cursor-pointer"
+                                title="Click to enlarge completed garment photo"
+                              >
+                                <img
+                                  src={photo.url}
+                                  alt={photo.name || `Completed Garment ${pIdx + 1}`}
+                                  className="w-full h-full object-cover group-hover/ph:scale-105 transition-transform"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleRemoveProductionPhoto(photo.id);
+                                  }}
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-red-600 text-white flex items-center justify-center opacity-0 group-hover/ph:opacity-100 transition-opacity cursor-pointer"
+                                  title="Remove photo"
+                                >
+                                  <X size={11} />
+                                </button>
+                              </div>
                             ))}
-                          </select>
-                        </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Width (in)
-                          </label>
-                          <input
-                            type="text"
-                            value={pl.widthInches}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, widthInches: val } : p
-                                )
-                              }));
-                            }}
-                            placeholder='e.g. 11.5"'
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          />
-                        </div>
+              {/* DROPDOWN SECTION 2: PRINT PLACEMENTS — (1) LOGO SIZE & (2) DISTANCE FROM REFERENCE POINT */}
+              <div className="bg-white border border-brand-border rounded-2xl overflow-hidden shadow-2xs">
+                <div
+                  onClick={() => toggleModalSection('placements')}
+                  className="px-4 py-3.5 bg-white hover:bg-neutral-50/80 flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0">
+                      2
+                    </span>
+                    <div>
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                        <Ruler size={14} className="text-blue-600" />
+                        <span>
+                          Print Placements — Logo Size &amp; Distance from Reference Point ({formState.placements.length})
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-neutral-500">
+                        Separate specs for (1) Logo Width &amp; Height and (2) Distance from a chosen Garment Reference Point
+                      </p>
+                    </div>
+                  </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Height (in)
-                          </label>
-                          <input
-                            type="text"
-                            value={pl.heightInches}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, heightInches: val } : p
-                                )
-                              }));
-                            }}
-                            placeholder='e.g. 14"'
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          />
-                        </div>
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenModalSections((prev) => ({ ...prev, placements: true }));
+                        setFormState((prev) => ({
+                          ...prev,
+                          placements: [
+                            ...prev.placements,
+                            createDefaultPlacement('Left Sleeve', prev.decorationMethod)
+                          ]
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Plus size={13} />
+                      <span>Add Placement</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleModalSection('placements')}
+                      className="p-1 rounded-lg hover:bg-neutral-200/70 text-neutral-600 cursor-pointer"
+                    >
+                      {openModalSections.placements ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Distance From Collar
-                          </label>
-                          <input
-                            type="text"
-                            value={pl.distanceFromCollar}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, distanceFromCollar: val } : p
-                                )
-                              }));
-                            }}
-                            placeholder='e.g. 3" down / 3 fingers'
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          />
-                        </div>
+                {openModalSections.placements && (
+                  <div className="p-4 border-t border-neutral-200 space-y-3 bg-neutral-50/40">
+                    {formState.placements.map((pl, idx) => {
+                      const isPlacementCollapsed = Boolean(collapsedPlacementIds[pl.id]);
+                      const isAdvancedOpen = Boolean(expandedAdvancedPlacementIds[pl.id]);
+                      const refPointLabel = pl.referencePoint || 'Collar Seam';
 
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Platen / Hoop Size
-                          </label>
-                          <input
-                            type="text"
-                            value={pl.platenOrHoop}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
+                      return (
+                        <div
+                          key={pl.id}
+                          className="rounded-xl bg-white border border-neutral-200 shadow-2xs overflow-hidden"
+                        >
+                          {/* Placement Card Collapsible Header */}
+                          <div
+                            onClick={() =>
+                              setCollapsedPlacementIds((prev) => ({
                                 ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, platenOrHoop: val } : p
-                                )
-                              }));
-                            }}
-                            placeholder='e.g. 16x20" / Sleeve Platen'
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          />
-                        </div>
+                                [pl.id]: !prev[pl.id]
+                              }))
+                            }
+                            className="px-4 py-2.5 bg-neutral-50 hover:bg-neutral-100/80 border-b border-neutral-200/80 flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-neutral-900">
+                                Placement #{idx + 1}:
+                              </span>
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={pl.location}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormState((prev) => ({
+                                      ...prev,
+                                      placements: prev.placements.map((p) =>
+                                        p.id === pl.id ? { ...p, location: val } : p
+                                      )
+                                    }));
+                                  }}
+                                  className="px-2.5 py-1 text-xs font-extrabold bg-white border border-neutral-300 rounded-lg text-neutral-900 cursor-pointer"
+                                >
+                                  {PLACEMENT_LOCATIONS.map((loc) => (
+                                    <option key={loc} value={loc}>
+                                      {loc}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
 
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                            Ink / Thread / Film Spec
-                          </label>
-                          <input
-                            type="text"
-                            value={pl.inkOrThreadColors}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setFormState((prev) => ({
-                                ...prev,
-                                placements: prev.placements.map((p) =>
-                                  p.id === pl.id ? { ...p, inkOrThreadColors: val } : p
-                                )
-                              }));
-                            }}
-                            placeholder="e.g. Hot Peel DTF / PMS 186C"
-                            className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-neutral-200 rounded-lg"
-                          />
+                              {/* Summary Badges for Logo Size & Reference Point Distance */}
+                              {(pl.widthInches || pl.heightInches) && (
+                                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-extrabold">
+                                  Logo Size: {pl.widthInches || '?'} × {pl.heightInches || '?'}
+                                </span>
+                              )}
+                              {pl.distanceFromCollar && (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-extrabold">
+                                  From {refPointLabel}: {pl.distanceFromCollar}
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              className="flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {formState.placements.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setFormState((prev) => ({
+                                      ...prev,
+                                      placements: prev.placements.filter((p) => p.id !== pl.id)
+                                    }))
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:underline cursor-pointer"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Remove</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setCollapsedPlacementIds((prev) => ({
+                                    ...prev,
+                                    [pl.id]: !prev[pl.id]
+                                  }))
+                                }
+                                className="p-1 rounded-lg hover:bg-neutral-200/70 text-neutral-600 cursor-pointer"
+                                title={
+                                  isPlacementCollapsed
+                                    ? 'Expand placement details'
+                                    : 'Collapse placement details'
+                                }
+                              >
+                                {isPlacementCollapsed ? (
+                                  <ChevronDown size={15} />
+                                ) : (
+                                  <ChevronUp size={15} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {!isPlacementCollapsed && (
+                            <div className="p-4 space-y-3.5">
+                              {/* TWO CLEARLY SEPARATED DIMENSION BOXES: (1) LOGO SIZE vs (2) DISTANCE FROM REFERENCE POINT */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                {/* BOX 1: LOGO / GRAPHIC SIZE */}
+                                <div className="p-3 rounded-xl bg-blue-50/40 border border-blue-200/80 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-900 block">
+                                        1. Logo / Graphic Size
+                                      </span>
+                                      <span className="text-[10px] text-blue-800/75">
+                                        Physical width and height of the logo itself
+                                      </span>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded bg-blue-100/80 text-blue-800 text-[9px] font-extrabold">
+                                      Logo Dimensions
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-2.5">
+                                    <div>
+                                      <label className="block text-[10px] font-extrabold uppercase text-blue-800 mb-1">
+                                        Logo Width (in)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={pl.widthInches}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setFormState((prev) => ({
+                                            ...prev,
+                                            placements: prev.placements.map((p) =>
+                                              p.id === pl.id ? { ...p, widthInches: val } : p
+                                            )
+                                          }));
+                                        }}
+                                        placeholder='e.g. 3.5" or 11.5"'
+                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-extrabold uppercase text-emerald-800 mb-1">
+                                        Logo Height (in)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={pl.heightInches}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setFormState((prev) => ({
+                                            ...prev,
+                                            placements: prev.placements.map((p) =>
+                                              p.id === pl.id ? { ...p, heightInches: val } : p
+                                            )
+                                          }));
+                                        }}
+                                        placeholder='e.g. 3.5" or 14"'
+                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* BOX 2: DISTANCE FROM GARMENT REFERENCE POINT */}
+                                <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/90 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-950 block">
+                                        2. Distance from Garment Reference Point
+                                      </span>
+                                      <span className="text-[10px] text-amber-900/75">
+                                        Choose where on the garment you are measuring from (Point A → Logo Point B)
+                                      </span>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-extrabold">
+                                      Placement Position
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    <div>
+                                      <label className="block text-[10px] font-extrabold uppercase text-amber-900 mb-1">
+                                        Reference Point on Garment
+                                      </label>
+                                      <div className="flex gap-1.5">
+                                        <select
+                                          value={
+                                            GARMENT_REFERENCE_POINTS.includes(refPointLabel)
+                                              ? refPointLabel
+                                              : '__custom__'
+                                          }
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '__custom__') return;
+                                            setFormState((prev) => ({
+                                              ...prev,
+                                              placements: prev.placements.map((p) =>
+                                                p.id === pl.id
+                                                  ? {
+                                                      ...p,
+                                                      referencePoint: val,
+                                                      referenceLines: (p.referenceLines || []).map(
+                                                        (l) =>
+                                                          l.kind === 'collar'
+                                                            ? { ...l, referencePoint: val }
+                                                            : l
+                                                      )
+                                                    }
+                                                  : p
+                                              )
+                                            }));
+                                          }}
+                                          className="w-1/2 px-2 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                        >
+                                          {GARMENT_REFERENCE_POINTS.map((pt) => (
+                                            <option key={pt} value={pt}>
+                                              {pt}
+                                            </option>
+                                          ))}
+                                          <option value="__custom__">Custom...</option>
+                                        </select>
+                                        <input
+                                          type="text"
+                                          value={pl.referencePoint ?? 'Collar Seam'}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormState((prev) => ({
+                                              ...prev,
+                                              placements: prev.placements.map((p) =>
+                                                p.id === pl.id
+                                                  ? {
+                                                      ...p,
+                                                      referencePoint: val,
+                                                      referenceLines: (p.referenceLines || []).map(
+                                                        (l) =>
+                                                          l.kind === 'collar'
+                                                            ? { ...l, referencePoint: val }
+                                                            : l
+                                                      )
+                                                    }
+                                                  : p
+                                              )
+                                            }));
+                                          }}
+                                          placeholder="e.g. Collar Seam / Zipper"
+                                          className="w-1/2 px-2 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-extrabold uppercase text-amber-900 mb-1 truncate">
+                                        Distance from {refPointLabel} (in)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={pl.distanceFromCollar}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setFormState((prev) => ({
+                                            ...prev,
+                                            placements: prev.placements.map((p) =>
+                                              p.id === pl.id ? { ...p, distanceFromCollar: val } : p
+                                            )
+                                          }));
+                                        }}
+                                        placeholder='e.g. 3" down / 2.5" from zipper'
+                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Collapsible Sub-Dropdown for Secondary Placement Specs (Platen, Ink/Thread, Alignment Notes) */}
+                              <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedAdvancedPlacementIds((prev) => ({
+                                      ...prev,
+                                      [pl.id]: !prev[pl.id]
+                                    }))
+                                  }
+                                  className="w-full px-3 py-2 flex items-center justify-between text-left text-[11px] font-bold text-neutral-700 hover:bg-neutral-100/80 transition-colors cursor-pointer"
+                                >
+                                  <span>
+                                    Platen / Hoop Size, Ink / Film Spec &amp; Alignment Notes (Optional)
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {(pl.platenOrHoop || pl.inkOrThreadColors || pl.placementNotes) && (
+                                      <span className="px-2 py-0.5 rounded bg-neutral-200/80 text-neutral-800 text-[10px] font-extrabold">
+                                        {[pl.platenOrHoop, pl.inkOrThreadColors]
+                                          .filter(Boolean)
+                                          .join(' • ') || 'Notes Added'}
+                                      </span>
+                                    )}
+                                    {isAdvancedOpen ? (
+                                      <ChevronUp size={14} className="text-neutral-500" />
+                                    ) : (
+                                      <ChevronDown size={14} className="text-neutral-500" />
+                                    )}
+                                  </div>
+                                </button>
+
+                                {isAdvancedOpen && (
+                                  <div className="p-3 border-t border-neutral-200 bg-white space-y-2.5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                      <div>
+                                        <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
+                                          Platen / Hoop Size
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={pl.platenOrHoop}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormState((prev) => ({
+                                              ...prev,
+                                              placements: prev.placements.map((p) =>
+                                                p.id === pl.id ? { ...p, platenOrHoop: val } : p
+                                              )
+                                            }));
+                                          }}
+                                          placeholder='e.g. 16x20" / Sleeve Platen'
+                                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-lg"
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
+                                          Ink / Thread / Film Spec
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={pl.inkOrThreadColors}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormState((prev) => ({
+                                              ...prev,
+                                              placements: prev.placements.map((p) =>
+                                                p.id === pl.id
+                                                  ? { ...p, inkOrThreadColors: val }
+                                                  : p
+                                              )
+                                            }));
+                                          }}
+                                          placeholder="e.g. Hot Peel DTF / PMS 186C"
+                                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-lg"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
+                                        Specific Alignment Notes for {pl.location}
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={pl.placementNotes}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setFormState((prev) => ({
+                                            ...prev,
+                                            placements: prev.placements.map((p) =>
+                                              p.id === pl.id ? { ...p, placementNotes: val } : p
+                                            )
+                                          }));
+                                        }}
+                                        placeholder="e.g., Center between zipper and armhole seam; scale down 15% on XS/S..."
+                                        className="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Interactive Garment Zoom & Point-A-to-Point-B Ruler Section */}
+                              <PlacementReferenceSection
+                                placementIndex={idx}
+                                placement={pl}
+                                quickSources={[
+                                  ...(activeItem.frontMockupUrl
+                                    ? [{ label: 'Front Mock-up', url: activeItem.frontMockupUrl }]
+                                    : []),
+                                  ...(activeItem.backMockupUrl
+                                    ? [{ label: 'Back Mock-up', url: activeItem.backMockupUrl }]
+                                    : []),
+                                  ...formState.productionPhotos.map((ph, phIdx) => ({
+                                    label: `Real Garment #${phIdx + 1}`,
+                                    url: ph.url
+                                  }))
+                                ]}
+                                uploading={uploadingPlacementId === pl.id}
+                                onUploadFile={(file) =>
+                                  handleUploadPlacementReferenceImage(pl.id, file)
+                                }
+                                onSelectImageUrl={(url, name) => {
+                                  const nextPlacements = formState.placements.map((p) =>
+                                    p.id === pl.id
+                                      ? { ...p, referenceImageUrl: url, referenceImageName: name }
+                                      : p
+                                  );
+                                  setFormState((prev) => ({
+                                    ...prev,
+                                    placements: nextPlacements
+                                  }));
+                                  void persistPlacementsToFirestore(nextPlacements);
+                                }}
+                                onRemoveImage={() => {
+                                  const nextPlacements = formState.placements.map((p) => {
+                                    if (p.id !== pl.id) return p;
+                                    const { scaleCalibration: _removed, ...rest } = p;
+                                    return {
+                                      ...rest,
+                                      referenceImageUrl: '',
+                                      referenceImageName: '',
+                                      referenceLines: []
+                                    };
+                                  });
+                                  setFormState((prev) => ({
+                                    ...prev,
+                                    placements: nextPlacements
+                                  }));
+                                  void persistPlacementsToFirestore(nextPlacements);
+                                }}
+                                onUpdatePlacementAndLines={(updates) => {
+                                  const nextPlacements = formState.placements.map((p) => {
+                                    if (p.id !== pl.id) return p;
+                                    const updated: PlacementSpec = {
+                                      ...p,
+                                      ...(updates.widthInches !== undefined
+                                        ? { widthInches: updates.widthInches }
+                                        : {}),
+                                      ...(updates.heightInches !== undefined
+                                        ? { heightInches: updates.heightInches }
+                                        : {}),
+                                      ...(updates.distanceFromCollar !== undefined
+                                        ? { distanceFromCollar: updates.distanceFromCollar }
+                                        : {}),
+                                      ...(updates.referencePoint !== undefined
+                                        ? { referencePoint: updates.referencePoint }
+                                        : {}),
+                                      referenceLines: updates.referenceLines
+                                    };
+                                    if (updates.scaleCalibration) {
+                                      updated.scaleCalibration = updates.scaleCalibration;
+                                    } else if (updates.scaleCalibration === null) {
+                                      delete updated.scaleCalibration;
+                                    }
+                                    return updated;
+                                  });
+                                  setFormState((prev) => ({
+                                    ...prev,
+                                    placements: nextPlacements
+                                  }));
+                                  void persistPlacementsToFirestore(nextPlacements);
+                                  setSaveSuccessToast(
+                                    `Saved measurements & reference lines for Placement #${idx + 1}!`
+                                  );
+                                  setTimeout(() => setSaveSuccessToast(null), 3000);
+                                }}
+                              />
+                            </div>
+                          )}
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* DROPDOWN SECTION 3: PRESS / MACHINE PARAMETERS & VERIFICATION */}
+              <div className="bg-white border border-brand-border rounded-2xl overflow-hidden shadow-2xs">
+                <div
+                  onClick={() => toggleModalSection('press')}
+                  className="px-4 py-3.5 bg-white hover:bg-neutral-50/80 flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-amber-500 text-white text-xs font-black flex items-center justify-center shrink-0">
+                      3
+                    </span>
+                    <div>
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                        <Flame size={14} className="text-amber-600" />
+                        <span>Decoration Method &amp; Machine / Heat Press Settings</span>
+                      </h3>
+                      <p className="text-[11px] text-neutral-500">
+                        Temperature, press time, peel type, pressure, and pre-treat / curing specs
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="flex flex-wrap items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10px] font-extrabold text-amber-900">
+                      {[
+                        formState.decorationMethod,
+                        formState.pressTempF ? `${formState.pressTempF}°F` : '',
+                        formState.pressTimeSec ? `${formState.pressTimeSec}s` : '',
+                        formState.peelType
+                      ]
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </span>
+
+                    <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-[11px] font-extrabold cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={formState.verifiedForRepeat}
+                        onChange={(e) =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            verifiedForRepeat: e.target.checked
+                          }))
+                        }
+                        className="w-3.5 h-3.5 accent-purple-600 rounded cursor-pointer"
+                      />
+                      <Sparkles size={12} className="text-purple-600" />
+                      <span>Verified Recipe</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleModalSection('press')}
+                      className="p-1 rounded-lg hover:bg-neutral-200/70 text-neutral-600 cursor-pointer"
+                    >
+                      {openModalSections.press ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {openModalSections.press && (
+                  <div className="p-4 border-t border-neutral-200 space-y-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                      <div className="col-span-2 sm:col-span-1 lg:col-span-2">
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Decoration Method
+                        </label>
+                        <select
+                          value={formState.decorationMethod}
+                          onChange={(e) =>
+                            setFormState((prev) => ({
+                              ...prev,
+                              decorationMethod: e.target.value
+                            }))
+                          }
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        >
+                          {DECORATION_METHODS.map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Temp (°F)
+                        </label>
                         <input
                           type="text"
-                          value={pl.placementNotes}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setFormState((prev) => ({
-                              ...prev,
-                              placements: prev.placements.map((p) =>
-                                p.id === pl.id ? { ...p, placementNotes: val } : p
-                              )
-                            }));
-                          }}
-                          placeholder="Specific alignment or placement notes for this location (e.g., center between pocket seam and collar, scale down 15% on XS/S)..."
-                          className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg"
+                          value={formState.pressTempF}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, pressTempF: e.target.value }))
+                          }
+                          placeholder="e.g. 305"
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
                         />
                       </div>
 
-                      <PlacementReferenceSection
-                        placementIndex={idx}
-                        placement={pl}
-                        quickSources={[
-                          ...(activeItem.frontMockupUrl
-                            ? [{ label: 'Front Mock-up', url: activeItem.frontMockupUrl }]
-                            : []),
-                          ...(activeItem.backMockupUrl
-                            ? [{ label: 'Back Mock-up', url: activeItem.backMockupUrl }]
-                            : []),
-                          ...formState.productionPhotos.map((ph, phIdx) => ({
-                            label: `Real Garment #${phIdx + 1}`,
-                            url: ph.url
-                          }))
-                        ]}
-                        uploading={uploadingPlacementId === pl.id}
-                        onUploadFile={(file) => handleUploadPlacementReferenceImage(pl.id, file)}
-                        onSelectImageUrl={(url, name) => {
-                          const nextPlacements = formState.placements.map((p) =>
-                            p.id === pl.id
-                              ? { ...p, referenceImageUrl: url, referenceImageName: name }
-                              : p
-                          );
-                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
-                          void persistPlacementsToFirestore(nextPlacements);
-                        }}
-                        onRemoveImage={() => {
-                          const nextPlacements = formState.placements.map((p) => {
-                            if (p.id !== pl.id) return p;
-                            const { scaleCalibration: _removed, ...rest } = p;
-                            return {
-                              ...rest,
-                              referenceImageUrl: '',
-                              referenceImageName: '',
-                              referenceLines: []
-                            };
-                          });
-                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
-                          void persistPlacementsToFirestore(nextPlacements);
-                        }}
-                        onUpdatePlacementAndLines={(updates) => {
-                          const nextPlacements = formState.placements.map((p) => {
-                            if (p.id !== pl.id) return p;
-                            const updated: PlacementSpec = {
-                              ...p,
-                              ...(updates.widthInches !== undefined
-                                ? { widthInches: updates.widthInches }
-                                : {}),
-                              ...(updates.heightInches !== undefined
-                                ? { heightInches: updates.heightInches }
-                                : {}),
-                              ...(updates.distanceFromCollar !== undefined
-                                ? { distanceFromCollar: updates.distanceFromCollar }
-                                : {}),
-                              referenceLines: updates.referenceLines
-                            };
-                            if (updates.scaleCalibration) {
-                              updated.scaleCalibration = updates.scaleCalibration;
-                            } else if (updates.scaleCalibration === null) {
-                              delete updated.scaleCalibration;
-                            }
-                            return updated;
-                          });
-                          setFormState((prev) => ({ ...prev, placements: nextPlacements }));
-                          void persistPlacementsToFirestore(nextPlacements);
-                          setSaveSuccessToast(`Saved reference lines for Placement #${idx + 1}!`);
-                          setTimeout(() => setSaveSuccessToast(null), 3000);
-                        }}
-                      />
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          1st Press (Sec)
+                        </label>
+                        <input
+                          type="text"
+                          value={formState.pressTimeSec}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, pressTimeSec: e.target.value }))
+                          }
+                          placeholder="e.g. 12"
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Peel Type
+                        </label>
+                        <select
+                          value={formState.peelType}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, peelType: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        >
+                          {PEEL_OPTIONS.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          2nd Press / Seal
+                        </label>
+                        <input
+                          type="text"
+                          value={formState.secondPressSec}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, secondPressSec: e.target.value }))
+                          }
+                          placeholder="e.g. 5s w/ parchment"
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        />
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Pressure / Platen Tension
+                        </label>
+                        <select
+                          value={formState.pressPressure}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, pressPressure: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        >
+                          {PRESSURE_OPTIONS.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Pre-Press / Pre-Treat Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={formState.preTreatNotes}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, preTreatNotes: e.target.value }))
+                          }
+                          placeholder="e.g. 4s pre-press for moisture, use Teflon pillow"
+                          className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                          Cover Sheet / Curing / Finishing
+                        </label>
+                        <input
+                          type="text"
+                          value={formState.curingNotes}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, curingNotes: e.target.value }))
+                          }
+                          placeholder="e.g. Matte finishing sheet, avoid seam edges"
+                          className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* SECTION 4: FULL DECORATOR PRODUCTION NOTES & SPECIAL WARNINGS */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2 bg-white border border-brand-border rounded-2xl p-5">
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-neutral-900 mb-1">
-                    Step-by-Step Decorator Notes (How We Decorated This Garment)
-                  </label>
-                  <p className="text-[11px] text-neutral-500 mb-2.5">
-                    Write down everything the production team needs to know to reproduce this garment identically in the future.
-                  </p>
-                  <textarea
-                    rows={5}
-                    value={formState.decoratorNotes}
-                    onChange={(e) =>
-                      setFormState((prev) => ({ ...prev, decoratorNotes: e.target.value }))
-                    }
-                    placeholder="Example:&#10;1. Thread garment onto 16x20 platen so neck seam hangs off the front edge.&#10;2. Lint roll acid wash fabric thoroughly before pressing.&#10;3. Pre-press 4 seconds to flatten heavy seams.&#10;4. Align front graphic 3 inches below collar rib; press at 305°F for 12s, cold peel, then 5s finish press with matte parchment..."
-                    className="w-full p-3.5 text-xs leading-relaxed bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                  />
-                </div>
-
-                <div className="bg-amber-50/50 border border-amber-200 rounded-2xl p-5 flex flex-col justify-between">
-                  <div>
-                    <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-950 mb-1">
-                      Watch-Outs &amp; Garment Quirks
-                    </label>
-                    <p className="text-[11px] text-amber-800/80 mb-2.5">
-                      Dye migration risks, scorch sensitivity, thick seams, zipper/pocket clearance, or sizing scaling rules.
-                    </p>
-                    <textarea
-                      rows={5}
-                      value={formState.specialHandlingNotes}
-                      onChange={(e) =>
-                        setFormState((prev) => ({ ...prev, specialHandlingNotes: e.target.value }))
-                      }
-                      placeholder="e.g.Pink Hombre hoodie bleeds if pressed over 300°F! Use low-temp 285°F transfer and Teflon pillow under kangaroo pocket seam."
-                      className="w-full p-3 text-xs leading-relaxed bg-white border border-amber-200 rounded-xl focus:outline-none focus:border-amber-600"
-                    />
+              {/* DROPDOWN SECTION 4: STEP-BY-STEP DECORATOR NOTES & GARMENT WATCH-OUTS */}
+              <div className="bg-white border border-brand-border rounded-2xl overflow-hidden shadow-2xs">
+                <div
+                  onClick={() => toggleModalSection('notes')}
+                  className="px-4 py-3.5 bg-white hover:bg-neutral-50/80 flex flex-wrap items-center justify-between gap-2 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0">
+                      4
+                    </span>
+                    <div>
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
+                        <FileText size={14} className="text-emerald-600" />
+                        <span>Step-by-Step Decorator Notes &amp; Garment Watch-Outs</span>
+                      </h3>
+                      <p className="text-[11px] text-neutral-500">
+                        Production instructions, dye migration warnings, seam pillows, and scaling rules
+                      </p>
+                    </div>
                   </div>
 
-                  {activeItem.noteRecord?.updatedAt && (
-                    <div className="mt-3 pt-2.5 border-t border-amber-200/60 text-[10px] text-amber-900 flex items-center gap-1.5">
-                      <Clock size={11} />
-                      <span>
-                        Last updated by <strong>{activeItem.noteRecord.updatedByName || 'Team'}</strong> on{' '}
-                        {new Date(activeItem.noteRecord.updatedAt).toLocaleString()}
+                  <div className="flex items-center gap-2">
+                    {(formState.decoratorNotes.trim() || formState.specialHandlingNotes.trim()) && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-extrabold">
+                        Notes Recorded
                       </span>
-                    </div>
-                  )}
+                    )}
+                    {openModalSections.notes ? (
+                      <ChevronUp size={16} className="text-neutral-600" />
+                    ) : (
+                      <ChevronDown size={16} className="text-neutral-600" />
+                    )}
+                  </div>
                 </div>
+
+                {openModalSections.notes && (
+                  <div className="p-4 border-t border-neutral-200 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="lg:col-span-2">
+                      <label className="block text-xs font-extrabold uppercase tracking-wider text-neutral-900 mb-1">
+                        Step-by-Step Decorator Notes (How We Decorated This Garment)
+                      </label>
+                      <p className="text-[11px] text-neutral-500 mb-2">
+                        Write down everything the production team needs to know to reproduce this garment identically in the future.
+                      </p>
+                      <textarea
+                        rows={5}
+                        value={formState.decoratorNotes}
+                        onChange={(e) =>
+                          setFormState((prev) => ({ ...prev, decoratorNotes: e.target.value }))
+                        }
+                        placeholder="Example:&#10;1. Thread garment onto 16x20 platen so neck seam hangs off the front edge.&#10;2. Lint roll acid wash fabric thoroughly before pressing.&#10;3. Pre-press 4 seconds to flatten heavy seams.&#10;4. Align front graphic 3 inches below collar rib; press at 305°F for 12s, cold peel, then 5s finish press with matte parchment..."
+                        className="w-full p-3.5 text-xs leading-relaxed bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                      />
+                    </div>
+
+                    <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 flex flex-col justify-between">
+                      <div>
+                        <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-950 mb-1">
+                          Watch-Outs &amp; Garment Quirks
+                        </label>
+                        <p className="text-[11px] text-amber-800/80 mb-2">
+                          Dye migration risks, scorch sensitivity, thick seams, zipper/pocket clearance, or sizing scaling rules.
+                        </p>
+                        <textarea
+                          rows={5}
+                          value={formState.specialHandlingNotes}
+                          onChange={(e) =>
+                            setFormState((prev) => ({
+                              ...prev,
+                              specialHandlingNotes: e.target.value
+                            }))
+                          }
+                          placeholder="e.g. Pink Hombre hoodie bleeds if pressed over 300°F! Use low-temp 285°F transfer and Teflon pillow under kangaroo pocket seam."
+                          className="w-full p-3 text-xs leading-relaxed bg-white border border-amber-200 rounded-xl focus:outline-none focus:border-amber-600"
+                        />
+                      </div>
+
+                      {activeItem.noteRecord?.updatedAt && (
+                        <div className="mt-3 pt-2.5 border-t border-amber-200/60 text-[10px] text-amber-900 flex items-center gap-1.5">
+                          <Clock size={11} />
+                          <span>
+                            Last updated by{' '}
+                            <strong>{activeItem.noteRecord.updatedByName || 'Team'}</strong> on{' '}
+                            {new Date(activeItem.noteRecord.updatedAt).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
