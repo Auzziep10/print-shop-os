@@ -273,11 +273,16 @@ export const PlacementReferenceOverlaySvg: React.FC<{
   onStartDragEndpoint
 }) => {
   const safeZoom = Math.max(1, zoom);
-  // Inverse scale so ticks and A/B endpoint markers stay crisp & proportional when zoomed in
-  const tickScale = 1.9 / Math.pow(safeZoom, 0.75);
-  const endpointRadius = (interactive ? 1.55 : 1.05) / Math.pow(safeZoom, 0.8);
-  const endpointFontSize = (interactive ? 1.55 : 1.1) / Math.pow(safeZoom, 0.8);
-  const endpointStrokeWidth = 0.35 / Math.pow(safeZoom, 0.8);
+  // Divide all SVG dimensions, strokes, and dash lengths by exact `safeZoom` so that when the
+  // parent container applies CSS `scale(zoom)`, the dotted lines, ticks, and A/B markers stay
+  // the exact same crisp thickness on screen at 100% and 600% zoom!
+  const tickScale = 1.25 / safeZoom;
+  const endpointRadius = (interactive ? 1.15 : 0.85) / safeZoom;
+  const endpointFontSize = (interactive ? 1.15 : 0.85) / safeZoom;
+  const endpointStrokeWidth = 0.28 / safeZoom;
+  const tickHaloStrokeWidth = 3.2 / safeZoom;
+  const tickColorStrokeWidth = 1.75 / safeZoom;
+  const hitTargetStrokeWidth = 12 / safeZoom;
 
   const renderDottedPointAToPointBLine = (
     line: {
@@ -297,6 +302,11 @@ export const PlacementReferenceOverlaySvg: React.FC<{
     const px = (-dy / len) * tickScale;
     const py = (dx / len) * tickScale;
     const isSelected = selectedLineId === line.id;
+    const haloStrokeWidth = (isSelected ? 4.2 : 3.4) / safeZoom;
+    const mainStrokeWidth = (isSelected ? 2.4 : 1.85) / safeZoom;
+    const dashPattern = isScaleLine
+      ? `${3 / safeZoom} ${3 / safeZoom}`
+      : `${5 / safeZoom} ${3.5 / safeZoom}`;
 
     return (
       <g key={line.id}>
@@ -309,9 +319,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke="#ffffff"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: isSelected ? 6.5 : 5, opacity: 0.92 }}
+          style={{ strokeWidth: haloStrokeWidth, opacity: 0.9 }}
         />
-        {/* Crisp Dotted / Dashed Dimension Line from Point A to Point B */}
+        {/* Crisp Dotted / Dashed Dimension Line from Point A to Point B (constant screen thickness at any zoom) */}
         <line
           x1={line.x1}
           y1={line.y1}
@@ -319,9 +329,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           y2={line.y2}
           stroke={color}
           strokeLinecap="round"
-          strokeDasharray={isScaleLine ? '3 3' : '6 4'}
+          strokeDasharray={dashPattern}
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: isSelected ? 3.5 : 2.75 }}
+          style={{ strokeWidth: mainStrokeWidth }}
         />
         {/* Point A perpendicular architectural tick */}
         <line
@@ -332,7 +342,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke="#ffffff"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: 4.5 }}
+          style={{ strokeWidth: tickHaloStrokeWidth }}
         />
         <line
           x1={line.x1 - px}
@@ -342,7 +352,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke={color}
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: 2.25 }}
+          style={{ strokeWidth: tickColorStrokeWidth }}
         />
         {/* Point B perpendicular architectural tick */}
         <line
@@ -353,7 +363,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke="#ffffff"
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: 4.5 }}
+          style={{ strokeWidth: tickHaloStrokeWidth }}
         />
         <line
           x1={line.x2 - px}
@@ -363,7 +373,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           stroke={color}
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ strokeWidth: 2.25 }}
+          style={{ strokeWidth: tickColorStrokeWidth }}
         />
 
         {/* Point A & Point B Markers (Always visible so user clearly sees Point A to Point B) */}
@@ -451,7 +461,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
             y2={line.y2}
             stroke="transparent"
             vectorEffect="non-scaling-stroke"
-            style={{ strokeWidth: 14, pointerEvents: 'stroke', cursor: 'pointer' }}
+            style={{ strokeWidth: hitTargetStrokeWidth, pointerEvents: 'stroke', cursor: 'pointer' }}
             onMouseDown={(e) => {
               e.stopPropagation();
               onSelectLine?.(line.id);
@@ -1581,7 +1591,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                       }
                     />
 
-                    {/* Scale Calibration Badge on Canvas (Inversely scaled so it stays compact when zoomed in) */}
+                    {/* Scale Calibration Badge on Canvas (Inversely scaled by 1/zoom so it stays constant size when zoomed in) */}
                     {draftScale && !(drawingCurrent && activeTool === 'scale') && (
                       <div
                         onMouseDown={(e) => {
@@ -1592,7 +1602,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                         style={{
                           left: `${(draftScale.x1 + draftScale.x2) / 2}%`,
                           top: `${(draftScale.y1 + draftScale.y2) / 2}%`,
-                          transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                          transform: `translate(-50%, -50%) scale(${1 / zoom})`
                         }}
                         className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer bg-violet-600 text-white border-violet-700 ${
                           selectedLineId === '__scale_calibration__' ? 'ring-2 ring-black' : ''
@@ -1608,7 +1618,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                         style={{
                           left: `${(drawingCurrent.x1 + drawingCurrent.x2) / 2}%`,
                           top: `${(drawingCurrent.y1 + drawingCurrent.y2) / 2}%`,
-                          transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                          transform: `translate(-50%, -50%) scale(${1 / zoom})`
                         }}
                         className="absolute px-2.5 py-1 rounded-lg text-xs font-black bg-neutral-900 text-white border border-white shadow-lg whitespace-nowrap pointer-events-none z-20"
                       >
@@ -1616,7 +1626,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                       </div>
                     )}
 
-                    {/* Midpoint Callout Badges on Canvas (Inversely scaled with zoom so they never obscure small logos) */}
+                    {/* Midpoint Callout Badges on Canvas (Inversely scaled by 1/zoom so they never enlarge when zooming) */}
                     {draftLines.map((line) => {
                       const midX = (line.x1 + line.x2) / 2;
                       const midY = (line.y1 + line.y2) / 2;
@@ -1643,7 +1653,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                           style={{
                             left: `${midX}%`,
                             top: `${midY}%`,
-                            transform: `translate(-50%, -50%) scale(${1 / Math.pow(zoom, 0.85)})`
+                            transform: `translate(-50%, -50%) scale(${1 / zoom})`
                           }}
                           className={`absolute px-2 py-0.5 rounded-md text-[11px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer ${
                             meta.badgeBg
