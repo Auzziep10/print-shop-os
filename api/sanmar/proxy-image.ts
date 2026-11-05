@@ -26,6 +26,8 @@ export default async function handler(req: Request) {
   const isAllowedDomain = 
     host === 'images.sanmar.com' || 
     host === 'cdnm.sanmar.com' ||
+    host === 'cdnp.sanmar.com' ||
+    host === 'cdneu.sanmar.com' ||
     host === 'image.pollinations.ai' ||
     host === 'firebasestorage.googleapis.com' ||
     host === 'storage.googleapis.com' ||

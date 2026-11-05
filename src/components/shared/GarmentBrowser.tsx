@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Search, Check, DollarSign, Shirt, Plus } from 'lucide-react';
+import { X, Search, Check, DollarSign, Shirt, Plus, Loader2 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -240,6 +240,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [customProducts, setCustomProducts] = useState<any[]>([]);
+  const [liveSanMarProducts, setLiveSanMarProducts] = useState<any[]>([]);
+  const [isSearchingLiveSanMar, setIsSearchingLiveSanMar] = useState(false);
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -272,6 +274,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const allCatalog = useMemo(() => {
     const map = new Map<string, any>();
     sanmarCatalog.forEach(p => map.set(p.style.toLowerCase(), p));
+    liveSanMarProducts.forEach(p => map.set(p.style.toLowerCase(), p));
     customProducts.forEach(p => map.set(p.style.toLowerCase(), p));
 
     return Array.from(map.values()).map((p: any) => {
@@ -313,7 +316,44 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
         price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : p.price,
       };
     }) as SanMarProduct[];
-  }, [customProducts, customNames, customPrices]);
+  }, [customProducts, liveSanMarProducts, customNames, customPrices]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!isOpen || q.length < 2) return;
+    const hasLocalMatch = allCatalog.some(
+      (p) =>
+        p.style.toLowerCase().includes(q.toLowerCase()) ||
+        p.title.toLowerCase().includes(q.toLowerCase())
+    );
+    if (hasLocalMatch) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingLiveSanMar(true);
+      try {
+        const res = await fetch(`/api/sanmar/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && Array.isArray(data?.products) && data.products.length > 0) {
+            setLiveSanMarProducts((prev) => {
+              const map = new Map<string, any>();
+              prev.forEach((item) => map.set(item.style.toLowerCase(), item));
+              data.products.forEach((item: any) => map.set(item.style.toLowerCase(), item));
+              return Array.from(map.values());
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Live SanMar search error:', err);
+      } finally {
+        if (!cancelled) setIsSearchingLiveSanMar(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, isOpen, allCatalog]);
 
   // Reset visibleCount when queries or filters change
   useEffect(() => {
@@ -460,9 +500,9 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
           {filteredProducts.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-white border border-brand-border rounded-2xl">
               <div className="w-16 h-16 bg-neutral-50 text-neutral-400 rounded-full flex items-center justify-center border border-neutral-100 mb-4">
-                <Shirt size={28} />
+                {isSearchingLiveSanMar ? <Loader2 size={28} className="animate-spin text-brand-primary" /> : <Shirt size={28} />}
               </div>
-              <h3 className="text-lg font-bold text-brand-primary">No Garments Found</h3>
+              <h3 className="text-lg font-bold text-brand-primary">{isSearchingLiveSanMar ? `Searching Live SanMar Catalog for "${searchQuery}"...` : "No Garments Found"}</h3>
               <p className="text-sm text-brand-secondary mt-1 max-w-xs leading-relaxed">
                 We couldn't find any products matching "{searchQuery}". Try adjusting your keywords or filters.
               </p>
