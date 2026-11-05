@@ -6126,7 +6126,7 @@ export function OrderDetail() {
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
-                                {(() => {
+                                {!isSales && (() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
