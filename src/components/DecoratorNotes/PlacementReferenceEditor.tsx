@@ -22,6 +22,8 @@ import {
 
 export type PlacementLineKind = 'width' | 'height' | 'collar' | 'custom';
 export type StudioToolMode = PlacementLineKind | 'scale' | 'pan';
+export type MeasurementUnit = 'in' | 'cm';
+export const CM_PER_INCH = 2.54;
 
 export interface PlacementReferenceLine {
   id: string;
@@ -173,11 +175,56 @@ export function measureLineInRealInches(
   return Math.round(measured * 100) / 100;
 }
 
-export function formatMeasuredInches(inches: number): string {
+export function formatMeasuredInches(inches: number, unit: MeasurementUnit = 'in'): string {
+  if (unit === 'cm') {
+    const cm = inches * CM_PER_INCH;
+    const roundedCm = Math.round(cm * 10) / 10; // nearest 0.1 cm
+    return Number.isInteger(roundedCm)
+      ? `${roundedCm} cm`
+      : `${Number(roundedCm.toFixed(1))} cm`;
+  }
   const rounded2 = Math.round(inches * 20) / 20; // nearest 0.05"
   return Number.isInteger(rounded2)
     ? `${rounded2}"`
     : `${Number(rounded2.toFixed(2))}"`;
+}
+
+export function formatScaleValueForUnit(inches: number, unit: MeasurementUnit): string {
+  if (!(inches > 0)) return '';
+  if (unit === 'cm') {
+    const cm = Math.round(inches * CM_PER_INCH * 10) / 10;
+    return String(Number.isInteger(cm) ? cm : Number(cm.toFixed(1)));
+  }
+  const rounded = Math.round(inches * 20) / 20;
+  return String(Number.isInteger(rounded) ? rounded : Number(rounded.toFixed(2)));
+}
+
+export function convertMeasurementText(
+  raw: string | undefined,
+  fromUnit: MeasurementUnit,
+  toUnit: MeasurementUnit
+): string {
+  if (!raw || !raw.trim() || fromUnit === toUnit) return raw || '';
+  const trimmed = raw.trim();
+  const hasExplicitCm = /\bcm\b/i.test(trimmed);
+  const hasExplicitIn = /["”″]|\bin(?:ch(?:es)?)?\b/i.test(trimmed);
+  const sourceUnit: MeasurementUnit = hasExplicitCm
+    ? 'cm'
+    : hasExplicitIn
+      ? 'in'
+      : fromUnit;
+  if (sourceUnit === toUnit) return trimmed;
+
+  const parsed = parseInchesValue(trimmed);
+  if (!(parsed > 0)) return trimmed;
+
+  const valInInches = sourceUnit === 'cm' ? parsed / CM_PER_INCH : parsed;
+  const formatted = formatMeasuredInches(valInInches, toUnit);
+  const suffix = trimmed.replace(
+    /^(\d+\s+\d+\/\d+|\d+(?:\.\d+)?)\s*(?:["”″']|in(?:ch(?:es)?)?|cm)?/i,
+    ''
+  );
+  return `${formatted}${suffix}`;
 }
 
 export function resolveLineDisplayLabel(
@@ -187,26 +234,74 @@ export function resolveLineDisplayLabel(
     heightInches?: string;
     distanceFromCollar?: string;
     referencePoint?: string;
-  }
+  },
+  mode: 'full' | 'compact' = 'full'
 ): string {
+  const shortenRefName = (refName: string) => {
+    const firstPart = refName.split('/')[0].trim();
+    return firstPart.length > 14 ? `${firstPart.slice(0, 12)}…` : firstPart;
+  };
+
   if (line.kind === 'width') {
     const val = (placement.widthInches || line.label || '').trim();
+    if (mode === 'compact') return val ? `W: ${val}` : 'W';
     return val ? `Logo W: ${val}` : 'Logo Width';
   }
   if (line.kind === 'height') {
     const val = (placement.heightInches || line.label || '').trim();
+    if (mode === 'compact') return val ? `H: ${val}` : 'H';
     return val ? `Logo H: ${val}` : 'Logo Height';
   }
   if (line.kind === 'collar') {
     const val = (placement.distanceFromCollar || line.label || '').trim();
     const refPt = (line.referencePoint || placement.referencePoint || 'Collar Seam').trim();
+    if (mode === 'compact') {
+      return val ? `${shortenRefName(refPt)}: ${val}` : shortenRefName(refPt);
+    }
     return val ? `From ${refPt}: ${val}` : `From ${refPt}`;
   }
   const customRef = (line.referencePoint || '').trim();
   const customVal = (line.label || '').trim();
+  if (mode === 'compact') {
+    if (customRef && customVal) return `${shortenRefName(customRef)}: ${customVal}`;
+    if (customRef) return shortenRefName(customRef);
+    return customVal || 'Ref';
+  }
   if (customRef && customVal) return `From ${customRef}: ${customVal}`;
   if (customRef) return `From ${customRef}`;
   return customVal || 'Ref Distance';
+}
+
+/**
+ * Computes a screen-space pixel offset perpendicular to a line (x1,y1)->(x2,y2)
+ * so callout badges float cleanly above/beside the dotted line and never cover
+ * the line itself or its Point A / Point B drag handles.
+ */
+function getCalloutPerpendicularOffsetPx(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  offsetDistancePx = 22
+): { xPx: number; yPx: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.001) {
+    return { xPx: 0, yPx: -offsetDistancePx };
+  }
+  // Unit normal vector perpendicular to the line
+  let nx = -dy / len;
+  let ny = dx / len;
+  // Prefer placing the badge ABOVE the line (negative Y in screen space)
+  if (ny > 0.15 || (Math.abs(ny) <= 0.15 && nx < 0)) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return {
+    xPx: Math.round(nx * offsetDistancePx),
+    yPx: Math.round(ny * offsetDistancePx)
+  };
 }
 
 interface QuickSourceImage {
@@ -223,6 +318,7 @@ interface PlacementReferenceSectionProps {
     heightInches: string;
     distanceFromCollar: string;
     referencePoint?: string;
+    measurementUnit?: MeasurementUnit;
     referenceImageUrl?: string;
     referenceImageName?: string;
     referenceLines?: PlacementReferenceLine[];
@@ -238,6 +334,7 @@ interface PlacementReferenceSectionProps {
     heightInches?: string;
     distanceFromCollar?: string;
     referencePoint?: string;
+    measurementUnit?: MeasurementUnit;
     referenceLines: PlacementReferenceLine[];
     scaleCalibration?: PlacementScaleCalibration | null;
   }) => void;
@@ -376,7 +473,23 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           style={{ strokeWidth: tickColorStrokeWidth }}
         />
 
-        {/* Point A & Point B Markers (Always visible so user clearly sees Point A to Point B) */}
+        {interactive && (
+          <line
+            x1={line.x1}
+            y1={line.y1}
+            x2={line.x2}
+            y2={line.y2}
+            stroke="transparent"
+            vectorEffect="non-scaling-stroke"
+            style={{ strokeWidth: hitTargetStrokeWidth, pointerEvents: 'stroke', cursor: 'pointer' }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onSelectLine?.(line.id);
+            }}
+          />
+        )}
+
+        {/* Point A & Point B Markers rendered on top of the line hit-target so they are always easy to grab & drag */}
         <g
           style={
             interactive
@@ -393,6 +506,14 @@ export const PlacementReferenceOverlaySvg: React.FC<{
               : undefined
           }
         >
+          {interactive && (
+            <circle
+              cx={line.x1}
+              cy={line.y1}
+              r={endpointRadius * 1.9}
+              fill="transparent"
+            />
+          )}
           <circle
             cx={line.x1}
             cy={line.y1}
@@ -431,6 +552,14 @@ export const PlacementReferenceOverlaySvg: React.FC<{
               : undefined
           }
         >
+          {interactive && (
+            <circle
+              cx={line.x2}
+              cy={line.y2}
+              r={endpointRadius * 1.9}
+              fill="transparent"
+            />
+          )}
           <circle
             cx={line.x2}
             cy={line.y2}
@@ -452,22 +581,6 @@ export const PlacementReferenceOverlaySvg: React.FC<{
             B
           </text>
         </g>
-
-        {interactive && (
-          <line
-            x1={line.x1}
-            y1={line.y1}
-            x2={line.x2}
-            y2={line.y2}
-            stroke="transparent"
-            vectorEffect="non-scaling-stroke"
-            style={{ strokeWidth: hitTargetStrokeWidth, pointerEvents: 'stroke', cursor: 'pointer' }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              onSelectLine?.(line.id);
-            }}
-          />
-        )}
       </g>
     );
   };
@@ -522,6 +635,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   const [activeTool, setActiveTool] = useState<StudioToolMode>('width');
   const [snapStraight, setSnapStraight] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [labelDisplayMode, setLabelDisplayMode] = useState<'compact' | 'full' | 'hidden'>('compact');
 
   // Collapsible Accordion Sections on the Right Sidebar (prevents visual overload & vertical overflow)
   const [openAccordion, setOpenAccordion] = useState<
@@ -529,6 +643,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   >('logo_size');
 
   // Draft state inside studio modal
+  const [draftUnit, setDraftUnit] = useState<MeasurementUnit>(placement.measurementUnit || 'in');
   const [draftLines, setDraftLines] = useState<PlacementReferenceLine[]>([]);
   const [draftWidth, setDraftWidth] = useState('');
   const [draftHeight, setDraftHeight] = useState('');
@@ -542,6 +657,35 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   const [scaleFeatureInput, setScaleFeatureInput] = useState('Front Garment Height');
   const [scaleInchesInput, setScaleInchesInput] = useState('28');
   const [canvasAspectRatio, setCanvasAspectRatio] = useState(1.25);
+
+  const handleSwitchStudioUnit = (nextUnit: MeasurementUnit) => {
+    if (nextUnit === draftUnit) return;
+    const prevUnit = draftUnit;
+
+    // Convert the Real Size input value between in and cm
+    if (draftScale && draftScale.realWorldInches > 0) {
+      setScaleInchesInput(formatScaleValueForUnit(draftScale.realWorldInches, nextUnit));
+    } else {
+      const parsedRaw = parseInchesValue(scaleInchesInput);
+      if (parsedRaw > 0) {
+        const inches = prevUnit === 'cm' ? parsedRaw / CM_PER_INCH : parsedRaw;
+        setScaleInchesInput(formatScaleValueForUnit(inches, nextUnit));
+      }
+    }
+
+    // Convert Logo Width, Logo Height, Distance from Reference Point, Extra Distance, and all Drawn Line labels
+    setDraftWidth((prev) => convertMeasurementText(prev, prevUnit, nextUnit));
+    setDraftHeight((prev) => convertMeasurementText(prev, prevUnit, nextUnit));
+    setDraftCollar((prev) => convertMeasurementText(prev, prevUnit, nextUnit));
+    setExtraDistanceDraft((prev) => convertMeasurementText(prev, prevUnit, nextUnit));
+    setDraftLines((prev) =>
+      prev.map((l) => ({
+        ...l,
+        label: convertMeasurementText(l.label, prevUnit, nextUnit)
+      }))
+    );
+    setDraftUnit(nextUnit);
+  };
 
   // Zoom & Pan state for inspecting garment areas with crystal-clear Point A -> Point B lines
   const [zoom, setZoom] = useState(1);
@@ -703,7 +847,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     const existingCollarLine = savedLines.find((l) => l.kind === 'collar');
     const initialRefPoint =
       placement.referencePoint || existingCollarLine?.referencePoint || 'Collar Seam';
+    const initialUnit: MeasurementUnit = placement.measurementUnit || 'in';
 
+    setDraftUnit(initialUnit);
     setDraftLines(savedLines.map((l) => ({ ...l })));
     setDraftWidth(placement.widthInches || '');
     setDraftHeight(placement.heightInches || '');
@@ -716,11 +862,13 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       setScaleFeatureInput(
         placement.scaleCalibration.referenceFeatureName || 'Front Garment Height'
       );
-      setScaleInchesInput(String(placement.scaleCalibration.realWorldInches));
+      setScaleInchesInput(
+        formatScaleValueForUnit(placement.scaleCalibration.realWorldInches, initialUnit)
+      );
     } else {
       setDraftScale(null);
       setScaleFeatureInput('Front Garment Height');
-      setScaleInchesInput('28');
+      setScaleInchesInput(formatScaleValueForUnit(28, initialUnit));
     }
     setSelectedLineId(savedLines[0]?.id || null);
     setActiveTool('width');
@@ -730,7 +878,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
   const recalculateAllLinesWithScale = (
     nextScale: PlacementScaleCalibration | null,
-    linesToMeasure: PlacementReferenceLine[] = draftLines
+    linesToMeasure: PlacementReferenceLine[] = draftLines,
+    unitOverride: MeasurementUnit = draftUnit
   ) => {
     if (!nextScale || !(nextScale.realWorldInches > 0)) return;
     const aspect = nextScale.aspectRatio || getCurrentCanvasAspectRatio();
@@ -741,7 +890,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     const updatedLines = linesToMeasure.map((line) => {
       const measured = measureLineInRealInches(line, nextScale, aspect);
       if (measured === null) return line;
-      const formatted = formatMeasuredInches(measured);
+      const formatted = formatMeasuredInches(measured, unitOverride);
       if (line.kind === 'width') updatedW = formatted;
       else if (line.kind === 'height') updatedH = formatted;
       else if (line.kind === 'collar') updatedCollar = formatted;
@@ -853,7 +1002,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
       const measuredInches = measureLineInRealInches(nextCoords, draftScale, aspect);
       const measuredFormatted =
-        measuredInches !== null ? formatMeasuredInches(measuredInches) : null;
+        measuredInches !== null ? formatMeasuredInches(measuredInches, draftUnit) : null;
 
       if (measuredFormatted !== null) {
         if (targetLine.kind === 'width') setDraftWidth(measuredFormatted);
@@ -907,7 +1056,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
     // Handle drawing the Real-World Scale Calibration Line
     if (activeTool === 'scale') {
-      const parsedInches = parseInchesValue(scaleInchesInput) || 28;
+      const rawVal = parseInchesValue(scaleInchesInput);
+      const parsedInches =
+        rawVal > 0 ? (draftUnit === 'cm' ? rawVal / CM_PER_INCH : rawVal) : 28;
       const nextScale: PlacementScaleCalibration = {
         x1: drawingCurrent.x1,
         y1: drawingCurrent.y1,
@@ -920,7 +1071,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       setDraftScale(nextScale);
       setDrawingCurrent(null);
       setSelectedLineId('__scale_calibration__');
-      recalculateAllLinesWithScale(nextScale, draftLines);
+      recalculateAllLinesWithScale(nextScale, draftLines, draftUnit);
       setActiveTool('width');
       setOpenAccordion('logo_size');
       setTimeout(() => {
@@ -940,7 +1091,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
     const measuredInches = measureLineInRealInches(drawingCurrent, draftScale, aspect);
     const measuredFormatted =
-      measuredInches !== null ? formatMeasuredInches(measuredInches) : null;
+      measuredInches !== null ? formatMeasuredInches(measuredInches, draftUnit) : null;
 
     let resolvedLabel = '';
     if (measuredFormatted !== null) {
@@ -949,14 +1100,17 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       else if (activeKind === 'height') setDraftHeight(measuredFormatted);
       else if (activeKind === 'collar') setDraftCollar(measuredFormatted);
     } else {
+      const defLogo = draftUnit === 'cm' ? '9 cm' : '3.5"';
+      const defCollar = draftUnit === 'cm' ? '7.5 cm' : '3"';
+      const defExtra = draftUnit === 'cm' ? '6.5 cm' : '2.5"';
       resolvedLabel =
         activeKind === 'width'
-          ? draftWidth || '3.5"'
+          ? draftWidth || defLogo
           : activeKind === 'height'
-            ? draftHeight || '3.5"'
+            ? draftHeight || defLogo
             : activeKind === 'collar'
-              ? draftCollar || '3"'
-              : extraDistanceDraft.trim() || '2.5"';
+              ? draftCollar || defCollar
+              : extraDistanceDraft.trim() || defExtra;
     }
 
     const resolvedReferencePoint =
@@ -1004,6 +1158,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
       heightInches: draftHeight,
       distanceFromCollar: draftCollar,
       referencePoint: draftReferencePoint.trim() || 'Collar Seam',
+      measurementUnit: draftUnit,
       referenceLines: draftLines,
       scaleCalibration: draftScale
     });
@@ -1014,8 +1169,10 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   const liveDrawingMeasurementLabel = (() => {
     if (!drawingCurrent || activeTool === 'pan') return null;
     if (activeTool === 'scale') {
-      const inches = parseInchesValue(scaleInchesInput) || 28;
-      return `📏 Scale A → B: ${inches}" (${scaleFeatureInput || 'Reference'})`;
+      const rawVal = parseInchesValue(scaleInchesInput);
+      const inches =
+        rawVal > 0 ? (draftUnit === 'cm' ? rawVal / CM_PER_INCH : rawVal) : 28;
+      return `📏 Scale A → B: ${formatMeasuredInches(inches, draftUnit)} (${scaleFeatureInput || 'Reference'})`;
     }
     const measured = measureLineInRealInches(
       drawingCurrent,
@@ -1025,20 +1182,20 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     if (activeTool === 'collar') {
       const refName = draftReferencePoint.trim() || 'Collar Seam';
       return measured !== null
-        ? `A → B (From ${refName}): ${formatMeasuredInches(measured)}`
+        ? `A → B (From ${refName}): ${formatMeasuredInches(measured, draftUnit)}`
         : `A → B (From ${refName})`;
     }
     if (activeTool === 'custom') {
       const refName = extraRefPointDraft.trim() || 'Reference';
       return measured !== null
-        ? `A → B (From ${refName}): ${formatMeasuredInches(measured)}`
+        ? `A → B (From ${refName}): ${formatMeasuredInches(measured, draftUnit)}`
         : `A → B (From ${refName})`;
     }
     if (measured === null) {
       return `A → B (${LINE_KIND_META[activeTool].shortPrefix})`;
     }
     const prefix = LINE_KIND_META[activeTool].shortPrefix;
-    return `A → B (${prefix}): ${formatMeasuredInches(measured)}`;
+    return `A → B (${prefix}): ${formatMeasuredInches(measured, draftUnit)}`;
   })();
 
   const isPanCursor = activeTool === 'pan' || isSpacePressed || Boolean(panningState);
@@ -1187,17 +1344,28 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
             />
             <PlacementReferenceOverlaySvg lines={savedLines} placement={placement} />
 
-            {/* Midpoint Callout Pills */}
+            {/* Midpoint Callout Pills (Offset off the line so Point A -> Point B stays visible) */}
             {savedLines.map((line) => {
               const midX = (line.x1 + line.x2) / 2;
               const midY = (line.y1 + line.y2) / 2;
               const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
-              const text = resolveLineDisplayLabel(line, placement);
+              const text = resolveLineDisplayLabel(line, placement, 'compact');
+              const offset = getCalloutPerpendicularOffsetPx(
+                line.x1,
+                line.y1,
+                line.x2,
+                line.y2,
+                14
+              );
               return (
                 <div
                   key={`${line.id}-pill`}
-                  style={{ left: `${midX}%`, top: `${midY}%` }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[9px] font-extrabold border shadow-xs whitespace-nowrap pointer-events-none ${meta.badgeBg}`}
+                  style={{
+                    left: `${midX}%`,
+                    top: `${midY}%`,
+                    transform: `translate(-50%, -50%) translate(${offset.xPx}px, ${offset.yPx}px)`
+                  }}
+                  className={`absolute px-1.5 py-0.5 rounded text-[9px] font-extrabold border shadow-xs whitespace-nowrap pointer-events-none ${meta.badgeBg}`}
                 >
                   {text}
                 </div>
@@ -1290,7 +1458,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-300 text-[10px] font-extrabold">
                       <Sparkles size={11} />
                       <span>
-                        Scale Active: {draftScale.realWorldInches}&quot; {draftScale.referenceFeatureName}
+                        Scale Active: {formatMeasuredInches(draftScale.realWorldInches, draftUnit)}{' '}
+                        {draftScale.referenceFeatureName}
                       </span>
                     </span>
                   )}
@@ -1302,7 +1471,28 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Global IN / CM Toggle in Studio Header */}
+                <div className="inline-flex items-center gap-1 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+                  <span className="text-[10px] font-extrabold uppercase text-neutral-500 px-1.5">
+                    Units:
+                  </span>
+                  {(['in', 'cm'] as MeasurementUnit[]).map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => handleSwitchStudioUnit(u)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase transition-all cursor-pointer ${
+                        draftUnit === u
+                          ? 'bg-neutral-900 text-white shadow-2xs'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-white/60'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+
                 <button
                   type="button"
                   onClick={handleSaveStudio}
@@ -1404,7 +1594,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                   <Ruler size={12} />
                   <span>
                     {draftScale
-                      ? `Scale (${draftScale.realWorldInches}")`
+                      ? `Scale (${formatMeasuredInches(draftScale.realWorldInches, draftUnit)})`
                       : 'Calibrate Garment Scale'}
                   </span>
                 </button>
@@ -1443,34 +1633,66 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
               <div className="lg:col-span-7 flex flex-col justify-between bg-neutral-100 border border-neutral-200 rounded-2xl p-3 select-none">
                 {/* Floating Zoom & Pan Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1">
-                  <div className="inline-flex items-center gap-1 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeTool === 'pan') setActiveTool('width');
-                      }}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
-                        activeTool !== 'pan'
-                          ? 'bg-neutral-900 text-white'
-                          : 'text-neutral-600 hover:bg-neutral-100'
-                      }`}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="inline-flex items-center gap-1 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (activeTool === 'pan') setActiveTool('width');
+                        }}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
+                          activeTool !== 'pan'
+                            ? 'bg-neutral-900 text-white'
+                            : 'text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <Crosshair size={12} />
+                        <span>Draw A ┄ B</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTool('pan')}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
+                          activeTool === 'pan'
+                            ? 'bg-neutral-900 text-white'
+                            : 'text-neutral-600 hover:bg-neutral-100'
+                        }`}
+                        title="Pan / move around when zoomed in (or hold Spacebar + drag)"
+                      >
+                        <Hand size={12} />
+                        <span>Pan / Move</span>
+                      </button>
+                    </div>
+
+                    {/* Label Visibility Toggle so text never gets in the way of short lines */}
+                    <div
+                      className="inline-flex items-center gap-0.5 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs"
+                      title="Control how measurement text labels appear on the garment canvas"
                     >
-                      <Crosshair size={12} />
-                      <span>Draw A ┄ B</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTool('pan')}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer ${
-                        activeTool === 'pan'
-                          ? 'bg-neutral-900 text-white'
-                          : 'text-neutral-600 hover:bg-neutral-100'
-                      }`}
-                      title="Pan / move around when zoomed in (or hold Spacebar + drag)"
-                    >
-                      <Hand size={12} />
-                      <span>Pan / Move</span>
-                    </button>
+                      <span className="text-[9px] font-extrabold uppercase text-neutral-400 px-1.5">
+                        Labels:
+                      </span>
+                      {(
+                        [
+                          { id: 'compact', label: 'Short' },
+                          { id: 'full', label: 'Full' },
+                          { id: 'hidden', label: 'Hide' }
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setLabelDisplayMode(opt.id)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold transition-colors cursor-pointer ${
+                            labelDisplayMode === opt.id
+                              ? 'bg-neutral-900 text-white'
+                              : 'text-neutral-600 hover:bg-neutral-100'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="inline-flex items-center gap-1 bg-white border border-neutral-200 rounded-xl p-1 shadow-2xs">
@@ -1569,7 +1791,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                               y1: drawingCurrent.y1,
                               x2: drawingCurrent.x2,
                               y2: drawingCurrent.y2,
-                              realWorldInches: parseInchesValue(scaleInchesInput) || 28,
+                              realWorldInches:
+                                (parseInchesValue(scaleInchesInput) || 28) /
+                                (draftUnit === 'cm' ? CM_PER_INCH : 1),
                               referenceFeatureName: scaleFeatureInput || 'Reference',
                               aspectRatio: canvasAspectRatio
                             }
@@ -1591,78 +1815,105 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                       }
                     />
 
-                    {/* Scale Calibration Badge on Canvas (Inversely scaled by 1/zoom so it stays constant size when zoomed in) */}
-                    {draftScale && !(drawingCurrent && activeTool === 'scale') && (
-                      <div
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          setSelectedLineId('__scale_calibration__');
-                          setOpenAccordion('scale');
-                        }}
-                        style={{
-                          left: `${(draftScale.x1 + draftScale.x2) / 2}%`,
-                          top: `${(draftScale.y1 + draftScale.y2) / 2}%`,
-                          transform: `translate(-50%, -50%) scale(${1 / zoom})`
-                        }}
-                        className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer bg-violet-600 text-white border-violet-700 ${
-                          selectedLineId === '__scale_calibration__' ? 'ring-2 ring-black' : ''
-                        }`}
-                      >
-                        📏 Scale A┄B: {draftScale.realWorldInches}&quot; ({draftScale.referenceFeatureName})
-                      </div>
-                    )}
+                    {/* Scale Calibration Badge on Canvas (Offset perpendicular to the line + pointer-events-none so it never blocks dragging A/B) */}
+                    {labelDisplayMode !== 'hidden' &&
+                      draftScale &&
+                      !(drawingCurrent && activeTool === 'scale') &&
+                      (() => {
+                        const offset = getCalloutPerpendicularOffsetPx(
+                          draftScale.x1,
+                          draftScale.y1,
+                          draftScale.x2,
+                          draftScale.y2,
+                          22
+                        );
+                        return (
+                          <div
+                            style={{
+                              left: `${(draftScale.x1 + draftScale.x2) / 2}%`,
+                              top: `${(draftScale.y1 + draftScale.y2) / 2}%`,
+                              transform: `translate(-50%, -50%) scale(${1 / zoom}) translate(${offset.xPx}px, ${offset.yPx}px)`
+                            }}
+                            className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap pointer-events-none bg-violet-600/95 text-white border-violet-700 ${
+                              selectedLineId === '__scale_calibration__' ? 'ring-2 ring-black' : ''
+                            }`}
+                          >
+                            {labelDisplayMode === 'compact'
+                              ? `📏 ${formatMeasuredInches(draftScale.realWorldInches, draftUnit)}`
+                              : `📏 Scale A┄B: ${formatMeasuredInches(draftScale.realWorldInches, draftUnit)} (${draftScale.referenceFeatureName})`}
+                          </div>
+                        );
+                      })()}
 
-                    {/* Live Floating Readout While Actively Dragging Point A -> Point B */}
-                    {drawingCurrent && liveDrawingMeasurementLabel && (
-                      <div
-                        style={{
-                          left: `${(drawingCurrent.x1 + drawingCurrent.x2) / 2}%`,
-                          top: `${(drawingCurrent.y1 + drawingCurrent.y2) / 2}%`,
-                          transform: `translate(-50%, -50%) scale(${1 / zoom})`
-                        }}
-                        className="absolute px-2.5 py-1 rounded-lg text-xs font-black bg-neutral-900 text-white border border-white shadow-lg whitespace-nowrap pointer-events-none z-20"
-                      >
-                        {liveDrawingMeasurementLabel}
-                      </div>
-                    )}
+                    {/* Live Floating Readout While Actively Dragging Point A -> Point B (Offset above the line so it never covers the cursor or line) */}
+                    {drawingCurrent &&
+                      liveDrawingMeasurementLabel &&
+                      (() => {
+                        const offset = getCalloutPerpendicularOffsetPx(
+                          drawingCurrent.x1,
+                          drawingCurrent.y1,
+                          drawingCurrent.x2,
+                          drawingCurrent.y2,
+                          26
+                        );
+                        return (
+                          <div
+                            style={{
+                              left: `${(drawingCurrent.x1 + drawingCurrent.x2) / 2}%`,
+                              top: `${(drawingCurrent.y1 + drawingCurrent.y2) / 2}%`,
+                              transform: `translate(-50%, -50%) scale(${1 / zoom}) translate(${offset.xPx}px, ${offset.yPx}px)`
+                            }}
+                            className="absolute px-2.5 py-1 rounded-lg text-xs font-black bg-neutral-900 text-white border border-white shadow-lg whitespace-nowrap pointer-events-none z-20"
+                          >
+                            {liveDrawingMeasurementLabel}
+                          </div>
+                        );
+                      })()}
 
-                    {/* Midpoint Callout Badges on Canvas (Inversely scaled by 1/zoom so they never enlarge when zooming) */}
-                    {draftLines.map((line) => {
-                      const midX = (line.x1 + line.x2) / 2;
-                      const midY = (line.y1 + line.y2) / 2;
-                      const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
-                      const labelText = resolveLineDisplayLabel(line, {
-                        widthInches: draftWidth,
-                        heightInches: draftHeight,
-                        distanceFromCollar: draftCollar,
-                        referencePoint: draftReferencePoint
-                      });
-                      const isSelected = selectedLineId === line.id;
-                      return (
-                        <div
-                          key={`${line.id}-studio-pill`}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                            setSelectedLineId(line.id);
-                            if (line.kind === 'width' || line.kind === 'height') {
-                              setOpenAccordion('logo_size');
-                            } else {
-                              setOpenAccordion('reference_point');
-                            }
-                          }}
-                          style={{
-                            left: `${midX}%`,
-                            top: `${midY}%`,
-                            transform: `translate(-50%, -50%) scale(${1 / zoom})`
-                          }}
-                          className={`absolute px-2 py-0.5 rounded-md text-[11px] font-extrabold border shadow-md whitespace-nowrap cursor-pointer ${
-                            meta.badgeBg
-                          } ${isSelected ? 'ring-2 ring-black' : ''}`}
-                        >
-                          {labelText}
-                        </div>
-                      );
-                    })}
+                    {/* Midpoint Callout Badges on Canvas (Offset perpendicular to the line & pointer-events-none so they NEVER cover the line or block Point A / Point B handles!) */}
+                    {labelDisplayMode !== 'hidden' &&
+                      draftLines.map((line) => {
+                        const midX = (line.x1 + line.x2) / 2;
+                        const midY = (line.y1 + line.y2) / 2;
+                        const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
+                        const labelText = resolveLineDisplayLabel(
+                          line,
+                          {
+                            widthInches: draftWidth,
+                            heightInches: draftHeight,
+                            distanceFromCollar: draftCollar,
+                            referencePoint: draftReferencePoint
+                          },
+                          labelDisplayMode
+                        );
+                        const isSelected = selectedLineId === line.id;
+                        const offset = getCalloutPerpendicularOffsetPx(
+                          line.x1,
+                          line.y1,
+                          line.x2,
+                          line.y2,
+                          24
+                        );
+                        return (
+                          <div
+                            key={`${line.id}-studio-pill`}
+                            style={{
+                              left: `${midX}%`,
+                              top: `${midY}%`,
+                              transform: `translate(-50%, -50%) scale(${1 / zoom}) translate(${offset.xPx}px, ${offset.yPx}px)`
+                            }}
+                            className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap pointer-events-none transition-opacity ${
+                              meta.badgeBg
+                            } ${isSelected ? 'ring-2 ring-black' : ''} ${
+                              draggingEndpoint && draggingEndpoint.lineId === line.id
+                                ? 'opacity-65'
+                                : 'opacity-95'
+                            }`}
+                          >
+                            {labelText}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
 
@@ -1676,7 +1927,8 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     ) : activeTool === 'scale' ? (
                       <>
                         <strong className="text-violet-700">Calibrate Garment Scale:</strong> Drag dotted line{' '}
-                        <strong>A ┄ B</strong> across a known garment size (e.g. 28&quot; front height).
+                        <strong>A ┄ B</strong> across a known garment size (e.g.{' '}
+                        {draftUnit === 'cm' ? '71.1 cm' : '28"'} front height).
                       </>
                     ) : (
                       <>
@@ -1734,12 +1986,35 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
                     {openAccordion === 'logo_size' && (
                       <div className="p-3.5 space-y-3 border-t border-blue-100 bg-white">
+                        {/* Quick Unit Switcher inside Logo Size Accordion */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold text-neutral-500">
+                            Measurement Unit
+                          </span>
+                          <div className="inline-flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
+                            {(['in', 'cm'] as MeasurementUnit[]).map((u) => (
+                              <button
+                                key={u}
+                                type="button"
+                                onClick={() => handleSwitchStudioUnit(u)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-colors cursor-pointer ${
+                                  draftUnit === u
+                                    ? 'bg-neutral-900 text-white'
+                                    : 'text-neutral-600 hover:text-neutral-900'
+                                }`}
+                              >
+                                {u}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-2.5">
                           {/* Logo Width */}
                           <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-200/80 space-y-1.5">
                             <div className="flex items-center justify-between gap-1">
                               <label className="text-[10px] font-extrabold uppercase text-blue-800">
-                                Logo Width (in)
+                                Logo Width ({draftUnit})
                               </label>
                               <button
                                 type="button"
@@ -1763,7 +2038,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                   prev.map((l) => (l.kind === 'width' ? { ...l, label: val } : l))
                                 );
                               }}
-                              placeholder='e.g. 3.5" or 11.5"'
+                              placeholder={
+                                draftUnit === 'cm' ? 'e.g. 8.9 cm or 29.2 cm' : 'e.g. 3.5" or 11.5"'
+                              }
                               className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
                             />
                           </div>
@@ -1772,7 +2049,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                           <div className="p-2.5 rounded-xl bg-emerald-50/40 border border-emerald-200/80 space-y-1.5">
                             <div className="flex items-center justify-between gap-1">
                               <label className="text-[10px] font-extrabold uppercase text-emerald-800">
-                                Logo Height (in)
+                                Logo Height ({draftUnit})
                               </label>
                               <button
                                 type="button"
@@ -1796,7 +2073,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                   prev.map((l) => (l.kind === 'height' ? { ...l, label: val } : l))
                                 );
                               }}
-                              placeholder='e.g. 3.5" or 14"'
+                              placeholder={
+                                draftUnit === 'cm' ? 'e.g. 8.9 cm or 35.6 cm' : 'e.g. 3.5" or 14"'
+                              }
                               className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
                             />
                           </div>
@@ -1916,9 +2195,27 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                             </div>
 
                             <div>
-                              <label className="block text-[10px] font-bold text-neutral-600 mb-1">
-                                Distance from {draftReferencePoint || 'Reference'}
-                              </label>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <label className="block text-[10px] font-bold text-neutral-600">
+                                  Distance ({draftUnit})
+                                </label>
+                                <div className="inline-flex items-center bg-white p-0.5 rounded border border-amber-200">
+                                  {(['in', 'cm'] as MeasurementUnit[]).map((u) => (
+                                    <button
+                                      key={u}
+                                      type="button"
+                                      onClick={() => handleSwitchStudioUnit(u)}
+                                      className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase cursor-pointer ${
+                                        draftUnit === u
+                                          ? 'bg-amber-600 text-white'
+                                          : 'text-neutral-500 hover:text-neutral-900'
+                                      }`}
+                                    >
+                                      {u}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
                               <input
                                 type="text"
                                 value={draftCollar}
@@ -1931,7 +2228,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                     )
                                   );
                                 }}
-                                placeholder='e.g. 3" down or 2.5" from zipper'
+                                placeholder={
+                                  draftUnit === 'cm'
+                                    ? 'e.g. 7.6 cm down or 6.4 cm from zipper'
+                                    : 'e.g. 3" down or 2.5" from zipper'
+                                }
                                 className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
                               />
                               <p className="text-[10px] text-amber-900/80 mt-1 leading-tight">
@@ -1972,7 +2273,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                               type="text"
                               value={extraDistanceDraft}
                               onChange={(e) => setExtraDistanceDraft(e.target.value)}
-                              placeholder='Distance (or auto-measure)'
+                              placeholder={`Distance in ${draftUnit} (or auto-measure)`}
                               className="w-full px-2 py-1 text-xs font-bold bg-white border border-rose-200 rounded-lg"
                             />
                           </div>
@@ -1999,14 +2300,14 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                             Real-World Garment Scale (Auto-Measure)
                           </div>
                           <div className="text-[10px] text-neutral-500">
-                            Provide 1 known garment measurement so lines auto-calculate in inches
+                            Provide 1 known garment measurement so lines auto-calculate in {draftUnit}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {draftScale ? (
                           <span className="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-extrabold">
-                            {draftScale.realWorldInches}&quot;
+                            {formatMeasuredInches(draftScale.realWorldInches, draftUnit)}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 text-[10px] font-bold">
@@ -2024,35 +2325,38 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     {openAccordion === 'scale' && (
                       <div className="p-3.5 space-y-2.5 border-t border-violet-100 bg-white">
                         <div className="flex flex-wrap gap-1">
-                          {SCALE_PRESET_FEATURES.map((preset) => (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() => {
-                                setScaleFeatureInput(preset.label);
-                                setScaleInchesInput(preset.defaultInches);
-                                const parsed = parseInchesValue(preset.defaultInches);
-                                if (draftScale && parsed > 0) {
-                                  const nextScale: PlacementScaleCalibration = {
-                                    ...draftScale,
-                                    referenceFeatureName: preset.label,
-                                    realWorldInches: parsed
-                                  };
-                                  setDraftScale(nextScale);
-                                  recalculateAllLinesWithScale(nextScale, draftLines);
-                                } else {
-                                  setActiveTool('scale');
-                                }
-                              }}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
-                                scaleFeatureInput === preset.label
-                                  ? 'bg-violet-600 text-white border-violet-700'
-                                  : 'bg-violet-50/60 hover:bg-violet-100 text-violet-800 border-violet-200'
-                              }`}
-                            >
-                              {preset.label} ({preset.defaultInches}&quot;)
-                            </button>
-                          ))}
+                          {SCALE_PRESET_FEATURES.map((preset) => {
+                            const presetInchesNum = parseInchesValue(preset.defaultInches);
+                            const displayPresetVal = formatScaleValueForUnit(presetInchesNum, draftUnit);
+                            return (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => {
+                                  setScaleFeatureInput(preset.label);
+                                  setScaleInchesInput(displayPresetVal);
+                                  if (draftScale && presetInchesNum > 0) {
+                                    const nextScale: PlacementScaleCalibration = {
+                                      ...draftScale,
+                                      referenceFeatureName: preset.label,
+                                      realWorldInches: presetInchesNum
+                                    };
+                                    setDraftScale(nextScale);
+                                    recalculateAllLinesWithScale(nextScale, draftLines, draftUnit);
+                                  } else {
+                                    setActiveTool('scale');
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                                  scaleFeatureInput === preset.label
+                                    ? 'bg-violet-600 text-white border-violet-700'
+                                    : 'bg-violet-50/60 hover:bg-violet-100 text-violet-800 border-violet-200'
+                                }`}
+                              >
+                                {preset.label} ({formatMeasuredInches(presetInchesNum, draftUnit)})
+                              </button>
+                            );
+                          })}
                         </div>
 
                         <div className="grid grid-cols-12 gap-2">
@@ -2075,9 +2379,27 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                             />
                           </div>
                           <div className="col-span-5">
-                            <label className="block text-[10px] font-extrabold uppercase text-violet-800 mb-1">
-                              Real Size (in)
-                            </label>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <label className="block text-[10px] font-extrabold uppercase text-violet-800">
+                                Real Size ({draftUnit})
+                              </label>
+                              <div className="inline-flex items-center bg-violet-100/80 p-0.5 rounded-md border border-violet-200">
+                                {(['in', 'cm'] as MeasurementUnit[]).map((u) => (
+                                  <button
+                                    key={u}
+                                    type="button"
+                                    onClick={() => handleSwitchStudioUnit(u)}
+                                    className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase transition-colors cursor-pointer ${
+                                      draftUnit === u
+                                        ? 'bg-violet-700 text-white shadow-2xs'
+                                        : 'text-violet-700 hover:bg-white/60'
+                                    }`}
+                                  >
+                                    {u}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                             <input
                               ref={scaleInchesInputRef}
                               type="text"
@@ -2087,16 +2409,18 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                 setScaleInchesInput(val);
                                 const parsed = parseInchesValue(val);
                                 if (draftScale && parsed > 0) {
+                                  const nextInches =
+                                    draftUnit === 'cm' ? parsed / CM_PER_INCH : parsed;
                                   const nextScale: PlacementScaleCalibration = {
                                     ...draftScale,
-                                    realWorldInches: parsed,
+                                    realWorldInches: nextInches,
                                     referenceFeatureName: scaleFeatureInput.trim() || 'Reference'
                                   };
                                   setDraftScale(nextScale);
-                                  recalculateAllLinesWithScale(nextScale, draftLines);
+                                  recalculateAllLinesWithScale(nextScale, draftLines, draftUnit);
                                 }
                               }}
-                              placeholder="e.g. 28"
+                              placeholder={draftUnit === 'cm' ? 'e.g. 71.1' : 'e.g. 28'}
                               className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-violet-200 rounded-lg"
                             />
                           </div>
@@ -2120,7 +2444,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                               {draftLines.length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() => recalculateAllLinesWithScale(draftScale, draftLines)}
+                                  onClick={() =>
+                                    recalculateAllLinesWithScale(draftScale, draftLines, draftUnit)
+                                  }
                                   className="text-[10px] font-extrabold text-violet-700 underline cursor-pointer"
                                 >
                                   Re-measure All
@@ -2227,7 +2553,10 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          const formatted = formatMeasuredInches(measuredVal);
+                                          const formatted = formatMeasuredInches(
+                                            measuredVal,
+                                            draftUnit
+                                          );
                                           if (line.kind === 'width') setDraftWidth(formatted);
                                           else if (line.kind === 'height') setDraftHeight(formatted);
                                           else if (line.kind === 'collar') setDraftCollar(formatted);
@@ -2238,9 +2567,9 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                           );
                                         }}
                                         className="px-1.5 py-0.5 rounded bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-[9px] font-extrabold shrink-0 cursor-pointer"
-                                        title="Apply scale-measured inches"
+                                        title={`Apply scale-measured ${draftUnit}`}
                                       >
-                                        📏 {formatMeasuredInches(measuredVal)}
+                                        📏 {formatMeasuredInches(measuredVal, draftUnit)}
                                       </button>
                                     )}
                                     <button

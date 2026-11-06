@@ -762,6 +762,7 @@ export function Dashboard() {
   const [localPriorityOrder, setLocalPriorityOrder] = useState<string[] | null>(null);
   const [openOrdersDropdown, setOpenOrdersDropdown] = useState<{
     key: string;
+    kind: 'orders' | 'quotes';
     top: number;
     left: number;
     companyName: string;
@@ -1129,11 +1130,17 @@ export function Dashboard() {
                 const isSubCustomer = Boolean(c.parentCustomerId);
                 const isNonPriorityParent = Boolean(entry.isContextParent || !c.highPriority);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
-                const activeCustOrders = orders.filter((o: any) => {
+                const activeCustAll = orders.filter((o: any) => {
                   if (o.customerId !== c.id || o.isProjectGroup) return false;
                   const effIdx = getEffectiveOrderStatusIndex(o);
                   return o.fulfillmentType === 'Kitting' ? effIdx < 7 : effIdx < 8;
                 });
+                const activeCustOrders = activeCustAll.filter(
+                  (o: any) => getEffectiveOrderStatusIndex(o) >= 3
+                );
+                const activeCustQuotes = activeCustAll.filter(
+                  (o: any) => getEffectiveOrderStatusIndex(o) < 3
+                );
                 const subtext = c.contactName || c.email || c.location || '';
 
                 return (
@@ -1246,86 +1253,103 @@ export function Dashboard() {
                       </span>
                     </div>
 
-                    {/* Col 4: Active Orders Count & Single-Line Dropdown */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-1.5 flex-nowrap min-w-0 overflow-hidden">
-                      {activeCustOrders.length > 0 ? (
+                    {/* Col 4: Active Orders Dropdown & Active Quotes Dropdown */}
+                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-1.5 flex-wrap min-w-0">
+                      {activeCustOrders.length > 0 || activeCustQuotes.length > 0 ? (
                         <>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (openOrdersDropdown?.key === entry.key) {
-                                setOpenOrdersDropdown(null);
-                                return;
-                              }
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              const dropdownWidth = 340;
-                              const left = Math.max(
-                                8,
-                                Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
-                              );
-                              setOpenOrdersDropdown({
-                                key: entry.key,
-                                top: rect.bottom + 6,
-                                left,
-                                companyName,
-                                orders: activeCustOrders,
-                              });
-                            }}
-                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
-                              isNonPriorityParent
-                                ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
-                                : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100/80'
-                            }`}
-                            title="Click to view orders and statuses"
-                          >
-                            <span>
-                              {activeCustOrders.length} active {activeCustOrders.length === 1 ? 'order' : 'orders'}
-                            </span>
-                            <ChevronDown
-                              size={11}
-                              className={`transition-transform duration-150 ${
-                                openOrdersDropdown?.key === entry.key ? 'rotate-180' : ''
+                          {activeCustOrders.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const dropdownKey = `${entry.key}:orders`;
+                                if (openOrdersDropdown?.key === dropdownKey) {
+                                  setOpenOrdersDropdown(null);
+                                  return;
+                                }
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const dropdownWidth = 360;
+                                const left = Math.max(
+                                  8,
+                                  Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                                );
+                                setOpenOrdersDropdown({
+                                  key: dropdownKey,
+                                  kind: 'orders',
+                                  top: rect.bottom + 6,
+                                  left,
+                                  companyName,
+                                  orders: activeCustOrders,
+                                });
+                              }}
+                              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
+                                isNonPriorityParent
+                                  ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
+                                  : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100/80'
                               }`}
-                            />
-                          </button>
+                              title="Click to view active orders"
+                            >
+                              <span>
+                                {activeCustOrders.length} active{' '}
+                                {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                              </span>
+                              <ChevronDown
+                                size={11}
+                                className={`transition-transform duration-150 ${
+                                  openOrdersDropdown?.key === `${entry.key}:orders`
+                                    ? 'rotate-180'
+                                    : ''
+                                }`}
+                              />
+                            </button>
+                          )}
 
-                          {(() => {
-                            const firstOrd = activeCustOrders[0];
-                            const firstTitle = (firstOrd.title || 'Untitled Order').trim();
-                            const firstStatus = getOrderStatusLabel(firstOrd);
-                            return (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (activeCustOrders.length === 1) {
-                                    navigate(`/orders/${firstOrd.id}`);
-                                  } else {
-                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                    const dropdownWidth = 360;
-                                    const left = Math.max(
-                                      8,
-                                      Math.min(rect.left - 80, window.innerWidth - dropdownWidth - 8)
-                                    );
-                                    setOpenOrdersDropdown({
-                                      key: entry.key,
-                                      top: rect.bottom + 6,
-                                      left,
-                                      companyName,
-                                      orders: activeCustOrders,
-                                    });
-                                  }
-                                }}
-                                title={`${firstTitle} — ${firstStatus}`}
-                                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-opacity hover:opacity-80 cursor-pointer min-w-0 truncate ${getOrderStatusBadgeClasses(firstOrd)}`}
-                              >
-                                <span className="truncate font-semibold normal-case max-w-[120px]">{firstTitle}</span>
-                                <span className="opacity-60 shrink-0">•</span>
-                                <span className="uppercase tracking-wider shrink-0">{firstStatus}</span>
-                              </button>
-                            );
-                          })()}
+                          {activeCustQuotes.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const dropdownKey = `${entry.key}:quotes`;
+                                if (openOrdersDropdown?.key === dropdownKey) {
+                                  setOpenOrdersDropdown(null);
+                                  return;
+                                }
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const dropdownWidth = 360;
+                                const left = Math.max(
+                                  8,
+                                  Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                                );
+                                setOpenOrdersDropdown({
+                                  key: dropdownKey,
+                                  kind: 'quotes',
+                                  top: rect.bottom + 6,
+                                  left,
+                                  companyName,
+                                  orders: activeCustQuotes,
+                                });
+                              }}
+                              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
+                                isNonPriorityParent
+                                  ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
+                                  : 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100/80'
+                              }`}
+                              title="Click to view active quotes"
+                            >
+                              <span>
+                                {activeCustQuotes.length} active{' '}
+                                {activeCustQuotes.length === 1 ? 'quote' : 'quotes'}
+                              </span>
+                              <ChevronDown
+                                size={11}
+                                className={`transition-transform duration-150 ${
+                                  openOrdersDropdown?.key === `${entry.key}:quotes`
+                                    ? 'rotate-180'
+                                    : ''
+                                }`}
+                              />
+                            </button>
+                          )}
                         </>
                       ) : (
                         <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
@@ -1522,7 +1546,14 @@ export function Dashboard() {
                   {openOrdersDropdown.companyName}
                 </p>
                 <p className="text-xs font-bold text-brand-primary">
-                  {openOrdersDropdown.orders.length} Active {openOrdersDropdown.orders.length === 1 ? 'Order' : 'Orders'}
+                  {openOrdersDropdown.orders.length} Active{' '}
+                  {openOrdersDropdown.kind === 'quotes'
+                    ? openOrdersDropdown.orders.length === 1
+                      ? 'Quote'
+                      : 'Quotes'
+                    : openOrdersDropdown.orders.length === 1
+                      ? 'Order'
+                      : 'Orders'}
                 </p>
               </div>
               <button

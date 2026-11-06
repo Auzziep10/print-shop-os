@@ -37,8 +37,10 @@ import { db, storage } from '../../lib/firebase';
 import { tokens } from '../../lib/tokens';
 import { useAuth } from '../../contexts/AuthContext';
 import {
+  convertMeasurementText,
   GARMENT_REFERENCE_POINTS,
   PlacementReferenceSection,
+  type MeasurementUnit,
   type PlacementReferenceLine,
   type PlacementScaleCalibration
 } from '../../components/DecoratorNotes/PlacementReferenceEditor';
@@ -47,10 +49,11 @@ export interface PlacementSpec {
   id: string;
   location: string; // e.g., "Front Center", "Left Chest", "Back Center", "Left Sleeve", "Right Sleeve", "Neck Tag"
   method: string; // e.g., "DTF", "Screen Print", "Embroidery", "Puff Print", "Heat Transfer", "Woven Label"
-  widthInches: string; // Logo Width (in)
-  heightInches: string; // Logo Height (in)
-  distanceFromCollar: string; // Distance from Reference Point (in)
+  widthInches: string; // Logo Width (in / cm)
+  heightInches: string; // Logo Height (in / cm)
+  distanceFromCollar: string; // Distance from Reference Point (in / cm)
   referencePoint?: string; // e.g., "Collar Seam", "Center Zipper / Placket", "Pocket Seam / Edge"
+  measurementUnit?: MeasurementUnit; // 'in' | 'cm'
   platenOrHoop: string;
   inkOrThreadColors: string;
   placementNotes: string;
@@ -2049,6 +2052,44 @@ export function DecoratorNotesPage() {
                       const isPlacementCollapsed = Boolean(collapsedPlacementIds[pl.id]);
                       const isAdvancedOpen = Boolean(expandedAdvancedPlacementIds[pl.id]);
                       const refPointLabel = pl.referencePoint || 'Collar Seam';
+                      const plUnit: MeasurementUnit = pl.measurementUnit === 'cm' ? 'cm' : 'in';
+
+                      const handleSwitchPlacementUnit = (nextUnit: MeasurementUnit) => {
+                        if (nextUnit === plUnit) return;
+                        setFormState((prev) => ({
+                          ...prev,
+                          placements: prev.placements.map((p) => {
+                            if (p.id !== pl.id) return p;
+                            const nextWidth = convertMeasurementText(
+                              p.widthInches,
+                              plUnit,
+                              nextUnit
+                            );
+                            const nextHeight = convertMeasurementText(
+                              p.heightInches,
+                              plUnit,
+                              nextUnit
+                            );
+                            const nextCollar = convertMeasurementText(
+                              p.distanceFromCollar,
+                              plUnit,
+                              nextUnit
+                            );
+                            const nextLines = (p.referenceLines || []).map((line) => ({
+                              ...line,
+                              label: convertMeasurementText(line.label, plUnit, nextUnit)
+                            }));
+                            return {
+                              ...p,
+                              measurementUnit: nextUnit,
+                              widthInches: nextWidth,
+                              heightInches: nextHeight,
+                              distanceFromCollar: nextCollar,
+                              referenceLines: nextLines
+                            };
+                          })
+                        }));
+                      };
 
                       return (
                         <div
@@ -2108,6 +2149,27 @@ export function DecoratorNotesPage() {
                               className="flex items-center gap-2"
                               onClick={(e) => e.stopPropagation()}
                             >
+                              {/* IN / CM Toggle for all measurements in this Placement */}
+                              <div
+                                className="inline-flex items-center bg-white p-0.5 rounded-lg border border-neutral-200 shadow-2xs"
+                                title="Toggle all measurements between inches (in) and centimeters (cm)"
+                              >
+                                {(['in', 'cm'] as MeasurementUnit[]).map((u) => (
+                                  <button
+                                    key={u}
+                                    type="button"
+                                    onClick={() => handleSwitchPlacementUnit(u)}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-colors cursor-pointer ${
+                                      plUnit === u
+                                        ? 'bg-neutral-900 text-white'
+                                        : 'text-neutral-500 hover:text-neutral-900'
+                                    }`}
+                                  >
+                                    {u}
+                                  </button>
+                                ))}
+                              </div>
+
                               {formState.placements.length > 1 && (
                                 <button
                                   type="button"
@@ -2163,14 +2225,14 @@ export function DecoratorNotesPage() {
                                       </span>
                                     </div>
                                     <span className="px-2 py-0.5 rounded bg-blue-100/80 text-blue-800 text-[9px] font-extrabold">
-                                      Logo Dimensions
+                                      Logo Dimensions ({plUnit})
                                     </span>
                                   </div>
 
                                   <div className="grid grid-cols-2 gap-2.5">
                                     <div>
                                       <label className="block text-[10px] font-extrabold uppercase text-blue-800 mb-1">
-                                        Logo Width (in)
+                                        Logo Width ({plUnit})
                                       </label>
                                       <input
                                         type="text"
@@ -2184,14 +2246,18 @@ export function DecoratorNotesPage() {
                                             )
                                           }));
                                         }}
-                                        placeholder='e.g. 3.5" or 11.5"'
+                                        placeholder={
+                                          plUnit === 'cm'
+                                            ? 'e.g. 8.9 cm or 29.2 cm'
+                                            : 'e.g. 3.5" or 11.5"'
+                                        }
                                         className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
                                       />
                                     </div>
 
                                     <div>
                                       <label className="block text-[10px] font-extrabold uppercase text-emerald-800 mb-1">
-                                        Logo Height (in)
+                                        Logo Height ({plUnit})
                                       </label>
                                       <input
                                         type="text"
@@ -2205,7 +2271,11 @@ export function DecoratorNotesPage() {
                                             )
                                           }));
                                         }}
-                                        placeholder='e.g. 3.5" or 14"'
+                                        placeholder={
+                                          plUnit === 'cm'
+                                            ? 'e.g. 8.9 cm or 35.6 cm'
+                                            : 'e.g. 3.5" or 14"'
+                                        }
                                         className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
                                       />
                                     </div>
@@ -2224,7 +2294,7 @@ export function DecoratorNotesPage() {
                                       </span>
                                     </div>
                                     <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-extrabold">
-                                      Placement Position
+                                      Placement Position ({plUnit})
                                     </span>
                                   </div>
 
@@ -2301,7 +2371,7 @@ export function DecoratorNotesPage() {
 
                                     <div>
                                       <label className="block text-[10px] font-extrabold uppercase text-amber-900 mb-1 truncate">
-                                        Distance from {refPointLabel} (in)
+                                        Distance from {refPointLabel} ({plUnit})
                                       </label>
                                       <input
                                         type="text"
@@ -2315,7 +2385,11 @@ export function DecoratorNotesPage() {
                                             )
                                           }));
                                         }}
-                                        placeholder='e.g. 3" down / 2.5" from zipper'
+                                        placeholder={
+                                          plUnit === 'cm'
+                                            ? 'e.g. 7.6 cm down / 6.4 cm from zipper'
+                                            : 'e.g. 3" down / 2.5" from zipper'
+                                        }
                                         className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
                                       />
                                     </div>
@@ -2491,6 +2565,9 @@ export function DecoratorNotesPage() {
                                         : {}),
                                       ...(updates.referencePoint !== undefined
                                         ? { referencePoint: updates.referencePoint }
+                                        : {}),
+                                      ...(updates.measurementUnit !== undefined
+                                        ? { measurementUnit: updates.measurementUnit }
                                         : {}),
                                       referenceLines: updates.referenceLines
                                     };
