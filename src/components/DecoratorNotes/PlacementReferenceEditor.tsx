@@ -632,6 +632,18 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
   onUpdatePlacementAndLines
 }) => {
   const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [viewerZoom, setViewerZoom] = useState(1);
+  const [viewerPan, setViewerPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [viewerPanning, setViewerPanning] = useState<{
+    startX: number;
+    startY: number;
+    originPanX: number;
+    originPanY: number;
+  } | null>(null);
+  const [viewerLabelMode, setViewerLabelMode] = useState<'compact' | 'full' | 'hidden'>('full');
+  const viewerViewportRef = useRef<HTMLDivElement | null>(null);
+
   const [activeTool, setActiveTool] = useState<StudioToolMode>('width');
   const [snapStraight, setSnapStraight] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -766,6 +778,129 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
     setZoom(nextZoom);
     setPan(clampPan(rawPan, nextZoom));
   };
+
+  // Double-click on an area in Studio to zoom in toward that exact spot (or reset if deeply zoomed)
+  const handleStudioDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const rect = vp.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const nextZoom = zoom < 2.4 ? 2.5 : zoom < 4.4 ? 4.5 : 1;
+    if (nextZoom <= 1.01) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      return;
+    }
+    const scaleRatio = nextZoom / zoom;
+    const nextPan = {
+      x: clickX - (clickX - pan.x) * scaleRatio,
+      y: clickY - (clickY - pan.y) * scaleRatio
+    };
+    setZoom(nextZoom);
+    setPan(clampPan(nextPan, nextZoom));
+  };
+
+  // Read-only Full-Size Garment Viewer helpers (zoom by double-click, scroll wheel, or trackpad pinch)
+  const clampViewerPan = (nextPan: { x: number; y: number }, nextZoom: number) => {
+    if (nextZoom <= 1.01) return { x: 0, y: 0 };
+    const vp = viewerViewportRef.current;
+    if (!vp) return nextPan;
+    const w = vp.clientWidth || 800;
+    const h = vp.clientHeight || 600;
+    const minX = w - w * nextZoom;
+    const minY = h - h * nextZoom;
+    return {
+      x: Math.min(0, Math.max(minX, nextPan.x)),
+      y: Math.min(0, Math.max(minY, nextPan.y))
+    };
+  };
+
+  const openViewer = () => {
+    setViewerZoom(1);
+    setViewerPan({ x: 0, y: 0 });
+    setViewerPanning(null);
+    setIsViewerOpen(true);
+  };
+
+  const adjustViewerZoomByStep = (delta: number) => {
+    const vp = viewerViewportRef.current;
+    const nextZoom = Math.min(6, Math.max(1, Number((viewerZoom + delta).toFixed(2))));
+    if (nextZoom === viewerZoom) return;
+    if (!vp || nextZoom <= 1.01) {
+      setViewerZoom(1);
+      setViewerPan({ x: 0, y: 0 });
+      return;
+    }
+    const centerX = vp.clientWidth / 2;
+    const centerY = vp.clientHeight / 2;
+    const scaleFactor = nextZoom / viewerZoom;
+    const rawPan = {
+      x: centerX - (centerX - viewerPan.x) * scaleFactor,
+      y: centerY - (centerY - viewerPan.y) * scaleFactor
+    };
+    setViewerZoom(nextZoom);
+    setViewerPan(clampViewerPan(rawPan, nextZoom));
+  };
+
+  const handleViewerDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const vp = viewerViewportRef.current;
+    if (!vp) return;
+    const rect = vp.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const nextZoom = viewerZoom < 2.4 ? 2.5 : viewerZoom < 4.4 ? 4.5 : 1;
+    if (nextZoom <= 1.01) {
+      setViewerZoom(1);
+      setViewerPan({ x: 0, y: 0 });
+      return;
+    }
+    const scaleRatio = nextZoom / viewerZoom;
+    const nextPan = {
+      x: clickX - (clickX - viewerPan.x) * scaleRatio,
+      y: clickY - (clickY - viewerPan.y) * scaleRatio
+    };
+    setViewerZoom(nextZoom);
+    setViewerPan(clampViewerPan(nextPan, nextZoom));
+  };
+
+  useEffect(() => {
+    if (!isViewerOpen) return;
+    const vp = viewerViewportRef.current;
+    if (!vp) return;
+
+    const handleViewerWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = vp.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const sensitivity = e.ctrlKey ? 0.012 : 0.0022;
+      const factor = Math.exp(-e.deltaY * sensitivity);
+      const nextZoom = Math.min(6, Math.max(1, Number((viewerZoom * factor).toFixed(3))));
+      if (Math.abs(nextZoom - viewerZoom) < 0.005) return;
+
+      if (nextZoom <= 1.01) {
+        setViewerZoom(1);
+        setViewerPan({ x: 0, y: 0 });
+        return;
+      }
+
+      const scaleRatio = nextZoom / viewerZoom;
+      const nextPan = {
+        x: mouseX - (mouseX - viewerPan.x) * scaleRatio,
+        y: mouseY - (mouseY - viewerPan.y) * scaleRatio
+      };
+      setViewerZoom(nextZoom);
+      setViewerPan(clampViewerPan(nextPan, nextZoom));
+    };
+
+    vp.addEventListener('wheel', handleViewerWheel, { passive: false });
+    return () => vp.removeEventListener('wheel', handleViewerWheel);
+  }, [isViewerOpen, viewerZoom, viewerPan]);
 
   // Native wheel listener for smooth mouse-wheel zoom & trackpad pinch-to-zoom toward cursor
   useEffect(() => {
@@ -1331,11 +1466,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
         </div>
       ) : (
         <div className="bg-white border border-neutral-200 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4">
-          {/* Interactive Thumbnail with Dotted Point-A-to-Point-B Reference Lines */}
+          {/* Interactive Thumbnail: Click to open Full-Size Read-Only Viewer with Zoom & Measurement Lines */}
           <div
-            onClick={openStudio}
+            onClick={openViewer}
             className="relative w-full sm:w-56 h-44 rounded-lg border border-neutral-200 bg-neutral-100/70 flex items-center justify-center overflow-hidden cursor-pointer group/canvas shrink-0"
-            title="Click to open zoomable garment ruler & edit Point A to Point B lines"
+            title="Click to view full-size garment & zoom in on measurement lines"
           >
             <img
               src={placement.referenceImageUrl}
@@ -1375,7 +1510,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-2.5 py-1.5 flex items-center justify-between text-white opacity-95 group-hover/canvas:opacity-100 transition-opacity">
               <span className="text-[10px] font-bold flex items-center gap-1">
                 <ZoomIn size={11} />
-                <span>Click to Zoom &amp; Measure (A ┄ B)</span>
+                <span>Click to View Full Size (A ┄ B)</span>
               </span>
               <Maximize2 size={11} />
             </div>
@@ -1383,18 +1518,28 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
 
           {/* Right side: Clear breakdown of Logo Size vs Reference Point Distances */}
           <div className="flex-1 min-w-0 w-full space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-xs font-extrabold text-neutral-900">
                 {placement.location} — Visual Dimension Summary
               </span>
-              <button
-                type="button"
-                onClick={openStudio}
-                className="text-[11px] font-extrabold text-indigo-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
-              >
-                <ZoomIn size={12} />
-                <span>Open Zoomable Studio</span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={openViewer}
+                  className="text-[11px] font-extrabold text-neutral-700 hover:text-neutral-900 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Maximize2 size={11} />
+                  <span>View Full Size</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openStudio}
+                  className="text-[11px] font-extrabold text-indigo-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Edit3 size={11} />
+                  <span>Edit Lines in Studio</span>
+                </button>
+              </div>
             </div>
 
             {savedLines.length === 0 ? (
@@ -1430,6 +1575,259 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SIZE READ-ONLY GARMENT & MEASUREMENT VIEWER MODAL (Opens when clicking the thumbnail) */}
+      {isViewerOpen && placement.referenceImageUrl && (
+        <div
+          className="fixed inset-0 z-[290] bg-black/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-5 overflow-y-auto"
+          onClick={() => setIsViewerOpen(false)}
+        >
+          <div
+            className="bg-white max-w-5xl w-full rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto max-h-[95vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Read-Only Viewer Header */}
+            <div className="px-5 py-3 bg-white border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-md bg-neutral-900 text-white text-[10px] font-extrabold uppercase tracking-wider">
+                    Placement #{placementIndex + 1} • {placement.location}
+                  </span>
+                  <h3 className="text-sm sm:text-base font-black text-neutral-900">
+                    Full-Size Garment &amp; Measurement View (Read-Only)
+                  </h3>
+                  {(placement.widthInches || placement.heightInches) && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-extrabold">
+                      Logo: {placement.widthInches || '?'} × {placement.heightInches || '?'}
+                    </span>
+                  )}
+                  {placement.distanceFromCollar && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-extrabold">
+                      From {placement.referencePoint || 'Collar Seam'}: {placement.distanceFromCollar}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  <strong>Double-click</strong> any area on the garment, <strong>scroll</strong> with your mouse wheel, or{' '}
+                  <strong>pinch</strong> on your trackpad to zoom in. Click &amp; drag to pan around.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Label Visibility Toggle */}
+                <div className="inline-flex items-center gap-0.5 bg-neutral-100 border border-neutral-200 rounded-xl p-1">
+                  <span className="text-[9px] font-extrabold uppercase text-neutral-500 px-1.5">
+                    Labels:
+                  </span>
+                  {(
+                    [
+                      { id: 'full', label: 'Full' },
+                      { id: 'compact', label: 'Short' },
+                      { id: 'hidden', label: 'Hide' }
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setViewerLabelMode(opt.id)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold transition-colors cursor-pointer ${
+                        viewerLabelMode === opt.id
+                          ? 'bg-neutral-900 text-white'
+                          : 'text-neutral-600 hover:bg-white'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Zoom Controls */}
+                <div className="inline-flex items-center gap-1 bg-neutral-100 border border-neutral-200 rounded-xl p-1">
+                  <button
+                    type="button"
+                    onClick={() => adjustViewerZoomByStep(-0.5)}
+                    disabled={viewerZoom <= 1.01}
+                    className="p-1 rounded-lg hover:bg-white text-neutral-700 disabled:opacity-35 cursor-pointer"
+                    title="Zoom Out"
+                  >
+                    <ZoomOut size={13} />
+                  </button>
+                  <span className="px-2 text-[11px] font-black tabular-nums text-neutral-800">
+                    {Math.round(viewerZoom * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => adjustViewerZoomByStep(0.5)}
+                    disabled={viewerZoom >= 5.95}
+                    className="p-1 rounded-lg hover:bg-white text-neutral-700 disabled:opacity-35 cursor-pointer"
+                  >
+                    <ZoomIn size={13} />
+                  </button>
+                  {viewerZoom > 1.02 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewerZoom(1);
+                        setViewerPan({ x: 0, y: 0 });
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white hover:bg-neutral-200 text-[10px] font-extrabold text-neutral-700 cursor-pointer ml-0.5"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Optional Jump to Edit Studio */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsViewerOpen(false);
+                    openStudio();
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-extrabold transition-colors cursor-pointer"
+                >
+                  <Edit3 size={12} />
+                  <span>Edit Lines</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsViewerOpen(false)}
+                  className="p-1.5 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+            </div>
+
+            {/* Read-Only Full-Size Zoomable & Pannable Viewport */}
+            <div className="p-3 sm:p-4 bg-neutral-100 flex-1 min-h-0 flex flex-col justify-between">
+              <div
+                ref={viewerViewportRef}
+                onDoubleClick={handleViewerDoubleClick}
+                onMouseDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  setViewerPanning({
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    originPanX: viewerPan.x,
+                    originPanY: viewerPan.y
+                  });
+                }}
+                onMouseMove={(e) => {
+                  if (!viewerPanning) return;
+                  const dx = e.clientX - viewerPanning.startX;
+                  const dy = e.clientY - viewerPanning.startY;
+                  setViewerPan(
+                    clampViewerPan(
+                      {
+                        x: viewerPanning.originPanX + dx,
+                        y: viewerPanning.originPanY + dy
+                      },
+                      viewerZoom
+                    )
+                  );
+                }}
+                onMouseUp={() => setViewerPanning(null)}
+                onMouseLeave={() => setViewerPanning(null)}
+                className={`relative w-full h-[70vh] min-h-[420px] max-h-[720px] bg-white rounded-xl border border-neutral-200 overflow-hidden ${
+                  viewerPanning
+                    ? 'cursor-grabbing'
+                    : viewerZoom > 1.02
+                      ? 'cursor-grab'
+                      : 'cursor-zoom-in'
+                }`}
+              >
+                <div
+                  style={{
+                    transform: `translate(${viewerPan.x}px, ${viewerPan.y}px) scale(${viewerZoom})`,
+                    transformOrigin: '0 0'
+                  }}
+                  className="relative w-full h-full flex items-center justify-center"
+                >
+                  <img
+                    src={placement.referenceImageUrl}
+                    alt={`${placement.location} Full Size`}
+                    draggable={false}
+                    className="w-full h-full object-contain select-none pointer-events-none"
+                  />
+
+                  <PlacementReferenceOverlaySvg
+                    lines={savedLines}
+                    scaleCalibration={placement.scaleCalibration}
+                    showScaleLine={false}
+                    zoom={viewerZoom}
+                    placement={placement}
+                    interactive={false}
+                  />
+
+                  {/* Read-Only Callout Badges (Offset perpendicular to lines & inversely scaled by 1/viewerZoom) */}
+                  {viewerLabelMode !== 'hidden' &&
+                    savedLines.map((line) => {
+                      const midX = (line.x1 + line.x2) / 2;
+                      const midY = (line.y1 + line.y2) / 2;
+                      const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
+                      const text = resolveLineDisplayLabel(line, placement, viewerLabelMode);
+                      const offset = getCalloutPerpendicularOffsetPx(
+                        line.x1,
+                        line.y1,
+                        line.x2,
+                        line.y2,
+                        24
+                      );
+                      return (
+                        <div
+                          key={`${line.id}-viewer-pill`}
+                          style={{
+                            left: `${midX}%`,
+                            top: `${midY}%`,
+                            transform: `translate(-50%, -50%) scale(${1 / viewerZoom}) translate(${offset.xPx}px, ${offset.yPx}px)`
+                          }}
+                          className={`absolute px-2 py-0.5 rounded-md text-[10px] font-extrabold border shadow-md whitespace-nowrap pointer-events-none ${meta.badgeBg}`}
+                        >
+                          {text}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Bottom Summary Strip of All Drawn Measurement Lines */}
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {savedLines.length === 0 ? (
+                    <span className="text-xs text-neutral-500">
+                      No measurement lines drawn on this placement yet.
+                    </span>
+                  ) : (
+                    savedLines.map((line) => {
+                      const meta = LINE_KIND_META[line.kind] || LINE_KIND_META.custom;
+                      return (
+                        <span
+                          key={`${line.id}-viewer-summary`}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${meta.badgeText}`}
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: line.color || meta.color }}
+                          />
+                          <span>{resolveLineDisplayLabel(line, placement, 'full')}</span>
+                          <span className="text-[9px] opacity-65 font-extrabold">(A┄B)</span>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+                <span className="text-[10px] font-bold text-neutral-500">
+                  💡 Double-click any spot to zoom in • Scroll or Pinch to zoom • Drag to pan
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1734,6 +2132,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 {/* Zoomable Viewport Container */}
                 <div
                   ref={viewportRef}
+                  onDoubleClick={handleStudioDoubleClick}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={finishDrawingOrDragging}
@@ -2041,7 +2440,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                               placeholder={
                                 draftUnit === 'cm' ? 'e.g. 8.9 cm or 29.2 cm' : 'e.g. 3.5" or 11.5"'
                               }
-                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
+                              className={`w-full px-2.5 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                draftWidth.trim()
+                                  ? 'bg-blue-600 text-white border border-blue-700 text-xs font-black shadow-2xs focus:bg-white focus:text-neutral-950 focus:border-blue-600'
+                                  : 'bg-white/70 border border-dashed border-blue-300 text-xs font-normal text-neutral-700 placeholder:text-blue-400/75 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-blue-600 focus:font-bold'
+                              }`}
                             />
                           </div>
 
@@ -2076,7 +2479,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                               placeholder={
                                 draftUnit === 'cm' ? 'e.g. 8.9 cm or 35.6 cm' : 'e.g. 3.5" or 14"'
                               }
-                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
+                              className={`w-full px-2.5 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                draftHeight.trim()
+                                  ? 'bg-emerald-600 text-white border border-emerald-700 text-xs font-black shadow-2xs focus:bg-white focus:text-neutral-950 focus:border-emerald-600'
+                                  : 'bg-white/70 border border-dashed border-emerald-300 text-xs font-normal text-neutral-700 placeholder:text-emerald-500/70 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-emerald-600 focus:font-bold'
+                              }`}
                             />
                           </div>
                         </div>
@@ -2190,7 +2597,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                   );
                                 }}
                                 placeholder="Or type custom point (e.g. Left Zipper)"
-                                className="w-full px-2.5 py-1 text-[11px] font-semibold bg-white border border-neutral-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                className={`w-full px-2.5 py-1 rounded-lg transition-all focus:outline-none ${
+                                  draftReferencePoint.trim()
+                                    ? 'bg-amber-600 text-white border border-amber-700 text-[11px] font-black shadow-2xs focus:bg-white focus:text-neutral-950 focus:border-amber-600'
+                                    : 'bg-white/70 border border-dashed border-amber-300 text-[11px] font-normal text-neutral-700 placeholder:text-amber-500/70 placeholder:italic focus:bg-white focus:border-solid focus:border-amber-600'
+                                }`}
                               />
                             </div>
 
@@ -2233,7 +2644,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                                     ? 'e.g. 7.6 cm down or 6.4 cm from zipper'
                                     : 'e.g. 3" down or 2.5" from zipper'
                                 }
-                                className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                className={`w-full px-2.5 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                  draftCollar.trim()
+                                    ? 'bg-amber-600 text-white border border-amber-700 text-xs font-black shadow-2xs focus:bg-white focus:text-neutral-950 focus:border-amber-600'
+                                    : 'bg-white/70 border border-dashed border-amber-300 text-xs font-normal text-neutral-700 placeholder:text-amber-500/70 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-amber-600 focus:font-bold'
+                                }`}
                               />
                               <p className="text-[10px] text-amber-900/80 mt-1 leading-tight">
                                 Point <strong>A</strong> = {draftReferencePoint || 'Reference'} • Point{' '}

@@ -239,6 +239,26 @@ export function DecoratorNotesPage() {
   const [expandedAdvancedPlacementIds, setExpandedAdvancedPlacementIds] = useState<
     Record<string, boolean>
   >({});
+  const [isEditingDecoratorNotes, setIsEditingDecoratorNotes] = useState(false);
+  const [isEditingSpecialHandlingNotes, setIsEditingSpecialHandlingNotes] = useState(false);
+  const [editingPlacementNoteIds, setEditingPlacementNoteIds] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const parseTextToBulletItems = (raw: string): string[] => {
+    if (!raw || !raw.trim()) return [];
+    const lines = raw
+      .split(/\r?\n|•/)
+      .map((line) => line.replace(/^\s*(?:[-*•]+|\d+[.)])\s*/, '').trim())
+      .filter(Boolean);
+    if (lines.length === 1 && lines[0].includes('. ')) {
+      return lines[0]
+        .split(/\.\s+(?=[A-Z0-9])/)
+        .map((s) => s.replace(/\.$/, '').trim())
+        .filter(Boolean);
+    }
+    return lines;
+  };
 
   const toggleModalSection = (key: 'files' | 'press' | 'placements' | 'notes') => {
     setOpenModalSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -612,6 +632,9 @@ export function DecoratorNotesPage() {
       productionPhotos: Array.isArray(rec?.productionPhotos) ? rec.productionPhotos : [],
       verifiedForRepeat: Boolean(rec?.verifiedForRepeat)
     });
+    setIsEditingDecoratorNotes(false);
+    setIsEditingSpecialHandlingNotes(false);
+    setEditingPlacementNoteIds({});
   }, [activeItem?.archiveKey]);
 
   const handleOpenItemModal = (item: UnifiedDecoratorItem) => {
@@ -1478,62 +1501,134 @@ export function DecoratorNotesPage() {
                     </div>
                   </div>
 
-                  {/* Decorator Notes Preview */}
-                  <div className="rounded-xl border border-neutral-200/80 bg-neutral-50/60 p-3 min-h-[78px] flex flex-col justify-between">
+                  {/* Decorator Notes Preview — Spreadsheet-Aligned Spec Table */}
+                  <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden min-h-[78px] flex flex-col justify-between shadow-2xs">
                     {hasNotes ? (
-                      <div className="space-y-1.5">
-                        {(rec?.pressTempF || rec?.pressTimeSec || rec?.peelType) && (
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-neutral-700">
-                            {rec.pressTempF && (
-                              <span className="px-1.5 py-0.5 rounded bg-white border border-neutral-200">
-                                {rec.pressTempF}°F
-                              </span>
-                            )}
-                            {rec.pressTimeSec && (
-                              <span className="px-1.5 py-0.5 rounded bg-white border border-neutral-200">
-                                {rec.pressTimeSec}s
-                              </span>
-                            )}
-                            {rec.pressPressure && rec.pressPressure !== 'N/A' && (
-                              <span className="px-1.5 py-0.5 rounded bg-white border border-neutral-200">
-                                {rec.pressPressure}
-                              </span>
-                            )}
-                            {rec.peelType && rec.peelType !== 'N/A' && (
-                              <span className="px-1.5 py-0.5 rounded bg-white border border-neutral-200">
-                                {rec.peelType}
-                              </span>
-                            )}
+                      <div className="divide-y divide-neutral-200/80 text-left">
+                        {/* Row 1: Press & Cure Spec Grid (4 Aligned Columns) */}
+                        {(rec?.pressTempF ||
+                          rec?.pressTimeSec ||
+                          (rec?.pressPressure && rec.pressPressure !== 'N/A') ||
+                          (rec?.peelType && rec.peelType !== 'N/A')) && (
+                          <div className="grid grid-cols-4 divide-x divide-neutral-200/80 bg-neutral-50/70">
+                            <div className="px-2.5 py-1.5 min-w-0">
+                              <div className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                                Temp
+                              </div>
+                              <div className="text-[11px] font-black text-neutral-900 tabular-nums truncate mt-0.5">
+                                {rec?.pressTempF ? `${rec.pressTempF}°F` : '—'}
+                              </div>
+                            </div>
+                            <div className="px-2.5 py-1.5 min-w-0">
+                              <div className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                                Time
+                              </div>
+                              <div className="text-[11px] font-black text-neutral-900 tabular-nums truncate mt-0.5">
+                                {rec?.pressTimeSec
+                                  ? `${rec.pressTimeSec}s${rec.secondPressSec ? ` + ${rec.secondPressSec}s` : ''}`
+                                  : '—'}
+                              </div>
+                            </div>
+                            <div className="px-2.5 py-1.5 min-w-0" title={rec?.pressPressure || ''}>
+                              <div className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                                Pressure
+                              </div>
+                              <div className="text-[11px] font-black text-neutral-900 truncate mt-0.5">
+                                {rec?.pressPressure && rec.pressPressure !== 'N/A'
+                                  ? rec.pressPressure.replace(/\s*\([^)]*\)/, '')
+                                  : '—'}
+                              </div>
+                            </div>
+                            <div className="px-2.5 py-1.5 min-w-0">
+                              <div className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                                Peel
+                              </div>
+                              <div className="text-[11px] font-black text-neutral-900 truncate mt-0.5">
+                                {rec?.peelType && rec.peelType !== 'N/A' ? rec.peelType : '—'}
+                              </div>
+                            </div>
                           </div>
                         )}
 
+                        {/* Row 2: Placements Spreadsheet Table */}
                         {placements.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {placements.slice(0, 3).map((pl) => (
-                              <span
-                                key={pl.id}
-                                className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200"
-                              >
-                                {pl.location}
-                                {pl.widthInches || pl.heightInches
-                                  ? `: Logo ${pl.widthInches || '?'}" × ${pl.heightInches || '?'}"`
-                                  : ''}
-                                {pl.distanceFromCollar
-                                  ? ` (${pl.distanceFromCollar} from ${pl.referencePoint || 'Collar Seam'})`
-                                  : ''}
-                              </span>
-                            ))}
+                          <div className="divide-y divide-neutral-200/70">
+                            <div className="grid grid-cols-12 divide-x divide-neutral-200/70 bg-neutral-100/70 text-[9px] font-extrabold uppercase tracking-wider text-neutral-500">
+                              <div className="col-span-4 px-2.5 py-1 truncate">Placement</div>
+                              <div className="col-span-4 px-2.5 py-1 truncate">Logo W × H</div>
+                              <div className="col-span-4 px-2.5 py-1 truncate">Ref / Offset</div>
+                            </div>
+                            {placements.slice(0, 4).map((pl) => {
+                              const unitSuffix = pl.measurementUnit === 'cm' ? ' cm' : '"';
+                              const sizeLabel =
+                                pl.widthInches || pl.heightInches
+                                  ? `${pl.widthInches || '?'}${unitSuffix} × ${pl.heightInches || '?'}${unitSuffix}`
+                                  : '—';
+                              const refLabel =
+                                pl.distanceFromCollar && pl.referencePoint
+                                  ? `${pl.distanceFromCollar} (${pl.referencePoint})`
+                                  : pl.distanceFromCollar
+                                    ? pl.distanceFromCollar
+                                    : pl.referencePoint && pl.referencePoint !== 'Collar Seam'
+                                      ? pl.referencePoint
+                                      : pl.placementNotes || '—';
+
+                              return (
+                                <div
+                                  key={pl.id}
+                                  className="grid grid-cols-12 divide-x divide-neutral-200/70 text-[11px] bg-white items-center"
+                                >
+                                  <div
+                                    className="col-span-4 px-2.5 py-1.5 font-extrabold text-emerald-950 bg-emerald-50/40 truncate"
+                                    title={pl.location}
+                                  >
+                                    {pl.location}
+                                  </div>
+                                  <div
+                                    className="col-span-4 px-2.5 py-1.5 font-bold text-neutral-900 tabular-nums truncate"
+                                    title={sizeLabel}
+                                  >
+                                    {sizeLabel}
+                                  </div>
+                                  <div
+                                    className="col-span-4 px-2.5 py-1.5 font-medium text-neutral-600 truncate"
+                                    title={refLabel}
+                                  >
+                                    {refLabel}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
 
-                        {rec?.decoratorNotes && (
-                          <p className="text-xs text-neutral-800 line-clamp-2 font-medium leading-snug">
-                            {rec.decoratorNotes}
-                          </p>
+                        {/* Row 3: Bullet-Point Notes & Watch-Outs */}
+                        {(rec?.decoratorNotes || rec?.specialHandlingNotes) && (
+                          <div className="px-2.5 py-2 bg-neutral-50/40 space-y-1">
+                            <div className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400">
+                              Production Notes
+                            </div>
+                            <ul className="space-y-1">
+                              {[
+                                ...parseTextToBulletItems(rec?.decoratorNotes || ''),
+                                ...parseTextToBulletItems(rec?.specialHandlingNotes || '')
+                              ]
+                                .slice(0, 3)
+                                .map((bullet, idx) => (
+                                  <li
+                                    key={idx}
+                                    className="flex items-start gap-1.5 text-[11px] font-semibold text-neutral-800 leading-snug"
+                                  >
+                                    <span className="mt-1.5 w-1 h-1 rounded-full bg-neutral-800 shrink-0" />
+                                    <span className="line-clamp-1">{bullet}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
                         )}
                       </div>
                     ) : (
-                      <div className="text-xs text-neutral-400 italic flex items-center gap-1.5 my-auto">
+                      <div className="text-xs text-neutral-400 italic flex items-center gap-1.5 my-auto p-3">
                         <Edit3 size={13} className="shrink-0" />
                         <span>
                           Click to record how we decorated this garment (measurements, press temp/time, placement, notes)...
@@ -2231,9 +2326,16 @@ export function DecoratorNotesPage() {
 
                                   <div className="grid grid-cols-2 gap-2.5">
                                     <div>
-                                      <label className="block text-[10px] font-extrabold uppercase text-blue-800 mb-1">
-                                        Logo Width ({plUnit})
-                                      </label>
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="block text-[10px] font-extrabold uppercase text-blue-800">
+                                          Logo Width ({plUnit})
+                                        </label>
+                                        {pl.widthInches.trim() && (
+                                          <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-blue-700">
+                                            <Check size={10} strokeWidth={3} /> Set
+                                          </span>
+                                        )}
+                                      </div>
                                       <input
                                         type="text"
                                         value={pl.widthInches}
@@ -2251,14 +2353,26 @@ export function DecoratorNotesPage() {
                                             ? 'e.g. 8.9 cm or 29.2 cm'
                                             : 'e.g. 3.5" or 11.5"'
                                         }
-                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-blue-200 rounded-lg focus:outline-none focus:border-blue-600"
+                                        title="Click to edit Logo Width"
+                                        className={`w-full px-3 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                          pl.widthInches.trim()
+                                            ? 'bg-blue-600 text-white border border-blue-700 text-sm font-black tracking-tight shadow-xs hover:bg-blue-700 focus:bg-white focus:text-neutral-950 focus:border-blue-600 focus:ring-2 focus:ring-blue-200'
+                                            : 'bg-white/70 border border-dashed border-blue-300 text-xs font-normal text-neutral-700 placeholder:text-blue-400/75 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-blue-600 focus:font-bold'
+                                        }`}
                                       />
                                     </div>
 
                                     <div>
-                                      <label className="block text-[10px] font-extrabold uppercase text-emerald-800 mb-1">
-                                        Logo Height ({plUnit})
-                                      </label>
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="block text-[10px] font-extrabold uppercase text-emerald-800">
+                                          Logo Height ({plUnit})
+                                        </label>
+                                        {pl.heightInches.trim() && (
+                                          <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-emerald-700">
+                                            <Check size={10} strokeWidth={3} /> Set
+                                          </span>
+                                        )}
+                                      </div>
                                       <input
                                         type="text"
                                         value={pl.heightInches}
@@ -2276,7 +2390,12 @@ export function DecoratorNotesPage() {
                                             ? 'e.g. 8.9 cm or 35.6 cm'
                                             : 'e.g. 3.5" or 14"'
                                         }
-                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-600"
+                                        title="Click to edit Logo Height"
+                                        className={`w-full px-3 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                          pl.heightInches.trim()
+                                            ? 'bg-emerald-600 text-white border border-emerald-700 text-sm font-black tracking-tight shadow-xs hover:bg-emerald-700 focus:bg-white focus:text-neutral-950 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200'
+                                            : 'bg-white/70 border border-dashed border-emerald-300 text-xs font-normal text-neutral-700 placeholder:text-emerald-500/70 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-emerald-600 focus:font-bold'
+                                        }`}
                                       />
                                     </div>
                                   </div>
@@ -2331,7 +2450,7 @@ export function DecoratorNotesPage() {
                                               )
                                             }));
                                           }}
-                                          className="w-1/2 px-2 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                          className="w-1/2 px-2 py-1.5 text-xs font-extrabold bg-white border border-amber-300 rounded-lg text-amber-950 focus:outline-none focus:border-amber-600 cursor-pointer"
                                         >
                                           {GARMENT_REFERENCE_POINTS.map((pt) => (
                                             <option key={pt} value={pt}>
@@ -2364,15 +2483,27 @@ export function DecoratorNotesPage() {
                                             }));
                                           }}
                                           placeholder="e.g. Collar Seam / Zipper"
-                                          className="w-1/2 px-2 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                          title="Click to edit Reference Point"
+                                          className={`w-1/2 px-2.5 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                            (pl.referencePoint ?? 'Collar Seam').trim()
+                                              ? 'bg-amber-600 text-white border border-amber-700 text-xs font-black shadow-xs hover:bg-amber-700 focus:bg-white focus:text-neutral-950 focus:border-amber-600 focus:ring-2 focus:ring-amber-200'
+                                              : 'bg-white/70 border border-dashed border-amber-300 text-xs font-normal text-neutral-700 placeholder:text-amber-500/70 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-amber-600 focus:font-bold'
+                                          }`}
                                         />
                                       </div>
                                     </div>
 
                                     <div>
-                                      <label className="block text-[10px] font-extrabold uppercase text-amber-900 mb-1 truncate">
-                                        Distance from {refPointLabel} ({plUnit})
-                                      </label>
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="block text-[10px] font-extrabold uppercase text-amber-900 truncate">
+                                          Distance from {refPointLabel} ({plUnit})
+                                        </label>
+                                        {pl.distanceFromCollar.trim() && (
+                                          <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-amber-800 shrink-0">
+                                            <Check size={10} strokeWidth={3} /> Set
+                                          </span>
+                                        )}
+                                      </div>
                                       <input
                                         type="text"
                                         value={pl.distanceFromCollar}
@@ -2390,7 +2521,12 @@ export function DecoratorNotesPage() {
                                             ? 'e.g. 7.6 cm down / 6.4 cm from zipper'
                                             : 'e.g. 3" down / 2.5" from zipper'
                                         }
-                                        className="w-full px-2.5 py-1.5 text-xs font-bold bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-amber-600"
+                                        title="Click to edit Distance from Reference Point"
+                                        className={`w-full px-3 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                          pl.distanceFromCollar.trim()
+                                            ? 'bg-amber-600 text-white border border-amber-700 text-sm font-black tracking-tight shadow-xs hover:bg-amber-700 focus:bg-white focus:text-neutral-950 focus:border-amber-600 focus:ring-2 focus:ring-amber-200'
+                                            : 'bg-white/70 border border-dashed border-amber-300 text-xs font-normal text-neutral-700 placeholder:text-amber-500/70 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-amber-600 focus:font-bold'
+                                        }`}
                                       />
                                     </div>
                                   </div>
@@ -2432,9 +2568,16 @@ export function DecoratorNotesPage() {
                                   <div className="p-3 border-t border-neutral-200 bg-white space-y-2.5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                       <div>
-                                        <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                                          Platen / Hoop Size
-                                        </label>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <label className="block text-[10px] font-bold uppercase text-neutral-500">
+                                            Platen / Hoop Size
+                                          </label>
+                                          {pl.platenOrHoop.trim() && (
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-emerald-700">
+                                              <Check size={10} strokeWidth={3} /> Set
+                                            </span>
+                                          )}
+                                        </div>
                                         <input
                                           type="text"
                                           value={pl.platenOrHoop}
@@ -2448,14 +2591,26 @@ export function DecoratorNotesPage() {
                                             }));
                                           }}
                                           placeholder='e.g. 16x20" / Sleeve Platen'
-                                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-lg"
+                                          title="Click to edit Platen / Hoop Size"
+                                          className={`w-full px-3 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                            pl.platenOrHoop.trim()
+                                              ? 'bg-neutral-900 text-white border border-neutral-900 text-xs font-extrabold shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 text-xs font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                                          }`}
                                         />
                                       </div>
 
                                       <div>
-                                        <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                                          Ink / Thread / Film Spec
-                                        </label>
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <label className="block text-[10px] font-bold uppercase text-neutral-500">
+                                            Ink / Thread / Film Spec
+                                          </label>
+                                          {pl.inkOrThreadColors.trim() && (
+                                            <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase text-emerald-700">
+                                              <Check size={10} strokeWidth={3} /> Set
+                                            </span>
+                                          )}
+                                        </div>
                                         <input
                                           type="text"
                                           value={pl.inkOrThreadColors}
@@ -2471,30 +2626,89 @@ export function DecoratorNotesPage() {
                                             }));
                                           }}
                                           placeholder="e.g. Hot Peel DTF / PMS 186C"
-                                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-lg"
+                                          title="Click to edit Ink / Thread / Film Spec"
+                                          className={`w-full px-3 py-1.5 rounded-lg transition-all focus:outline-none ${
+                                            pl.inkOrThreadColors.trim()
+                                              ? 'bg-neutral-900 text-white border border-neutral-900 text-xs font-extrabold shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 text-xs font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                                          }`}
                                         />
                                       </div>
                                     </div>
 
                                     <div>
-                                      <label className="block text-[10px] font-bold uppercase text-neutral-500 mb-1">
-                                        Specific Alignment Notes for {pl.location}
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={pl.placementNotes}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          setFormState((prev) => ({
-                                            ...prev,
-                                            placements: prev.placements.map((p) =>
-                                              p.id === pl.id ? { ...p, placementNotes: val } : p
-                                            )
-                                          }));
-                                        }}
-                                        placeholder="e.g., Center between zipper and armhole seam; scale down 15% on XS/S..."
-                                        className="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg"
-                                      />
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <label className="block text-[10px] font-bold uppercase text-neutral-500">
+                                          Specific Alignment Notes for {pl.location}
+                                        </label>
+                                        {pl.placementNotes.trim() && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingPlacementNoteIds((prev) => ({
+                                                ...prev,
+                                                [pl.id]: !prev[pl.id]
+                                              }))
+                                            }
+                                            className="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-600 hover:underline cursor-pointer"
+                                          >
+                                            <Edit3 size={10} />
+                                            <span>
+                                              {editingPlacementNoteIds[pl.id] ? 'Done' : 'Edit'}
+                                            </span>
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {pl.placementNotes.trim() && !editingPlacementNoteIds[pl.id] ? (
+                                        <div
+                                          onClick={() =>
+                                            setEditingPlacementNoteIds((prev) => ({
+                                              ...prev,
+                                              [pl.id]: true
+                                            }))
+                                          }
+                                          title="Click anywhere to edit alignment notes"
+                                          className="py-1.5 px-1 cursor-pointer group/bnotes"
+                                        >
+                                          <ul className="space-y-1">
+                                            {parseTextToBulletItems(pl.placementNotes).map(
+                                              (bullet, bIdx) => (
+                                                <li
+                                                  key={bIdx}
+                                                  className="flex items-start gap-2 text-xs font-extrabold text-neutral-900 leading-snug"
+                                                >
+                                                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-900 mt-1.5 shrink-0" />
+                                                  <span>{bullet}</span>
+                                                </li>
+                                              )
+                                            )}
+                                          </ul>
+                                        </div>
+                                      ) : (
+                                        <textarea
+                                          rows={2}
+                                          autoFocus={Boolean(editingPlacementNoteIds[pl.id])}
+                                          value={pl.placementNotes}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormState((prev) => ({
+                                              ...prev,
+                                              placements: prev.placements.map((p) =>
+                                                p.id === pl.id ? { ...p, placementNotes: val } : p
+                                              )
+                                            }));
+                                          }}
+                                          onBlur={() =>
+                                            setEditingPlacementNoteIds((prev) => ({
+                                              ...prev,
+                                              [pl.id]: false
+                                            }))
+                                          }
+                                          placeholder="e.g., Center between zipper and armhole seam (one bullet per line)..."
+                                          className="w-full px-3 py-1.5 text-xs bg-neutral-50/70 border border-dashed border-neutral-300 rounded-lg text-neutral-800 placeholder:text-neutral-400/80 placeholder:italic focus:outline-none focus:bg-white focus:border-solid focus:border-neutral-900"
+                                        />
+                                      )}
                                     </div>
                                   </div>
                                 )}
@@ -2700,7 +2914,12 @@ export function DecoratorNotesPage() {
                             setFormState((prev) => ({ ...prev, pressTempF: e.target.value }))
                           }
                           placeholder="e.g. 305"
-                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          title="Click to edit Press Temp"
+                          className={`w-full px-3 py-2 text-xs rounded-xl transition-all focus:outline-none ${
+                            formState.pressTempF.trim()
+                              ? 'bg-neutral-900 text-white border border-neutral-900 font-black shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                          }`}
                         />
                       </div>
 
@@ -2715,7 +2934,12 @@ export function DecoratorNotesPage() {
                             setFormState((prev) => ({ ...prev, pressTimeSec: e.target.value }))
                           }
                           placeholder="e.g. 12"
-                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          title="Click to edit 1st Press Time"
+                          className={`w-full px-3 py-2 text-xs rounded-xl transition-all focus:outline-none ${
+                            formState.pressTimeSec.trim()
+                              ? 'bg-neutral-900 text-white border border-neutral-900 font-black shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                          }`}
                         />
                       </div>
 
@@ -2728,7 +2952,7 @@ export function DecoratorNotesPage() {
                           onChange={(e) =>
                             setFormState((prev) => ({ ...prev, peelType: e.target.value }))
                           }
-                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          className="w-full px-3 py-2 text-xs font-extrabold bg-white border border-neutral-300 rounded-xl text-neutral-950 focus:outline-none focus:border-neutral-900 cursor-pointer"
                         >
                           {PEEL_OPTIONS.map((p) => (
                             <option key={p} value={p}>
@@ -2749,7 +2973,12 @@ export function DecoratorNotesPage() {
                             setFormState((prev) => ({ ...prev, secondPressSec: e.target.value }))
                           }
                           placeholder="e.g. 5s w/ parchment"
-                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          title="Click to edit 2nd Press / Seal"
+                          className={`w-full px-3 py-2 text-xs rounded-xl transition-all focus:outline-none ${
+                            formState.secondPressSec.trim()
+                              ? 'bg-neutral-900 text-white border border-neutral-900 font-black shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                          }`}
                         />
                       </div>
                     </div>
@@ -2764,7 +2993,7 @@ export function DecoratorNotesPage() {
                           onChange={(e) =>
                             setFormState((prev) => ({ ...prev, pressPressure: e.target.value }))
                           }
-                          className="w-full px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          className="w-full px-3 py-2 text-xs font-extrabold bg-white border border-neutral-300 rounded-xl text-neutral-950 focus:outline-none focus:border-neutral-900 cursor-pointer"
                         >
                           {PRESSURE_OPTIONS.map((p) => (
                             <option key={p} value={p}>
@@ -2785,7 +3014,12 @@ export function DecoratorNotesPage() {
                             setFormState((prev) => ({ ...prev, preTreatNotes: e.target.value }))
                           }
                           placeholder="e.g. 4s pre-press for moisture, use Teflon pillow"
-                          className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          title="Click to edit Pre-Press / Pre-Treat Notes"
+                          className={`w-full px-3 py-2 text-xs rounded-xl transition-all focus:outline-none ${
+                            formState.preTreatNotes.trim()
+                              ? 'bg-neutral-900 text-white border border-neutral-900 font-extrabold shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                          }`}
                         />
                       </div>
 
@@ -2800,7 +3034,12 @@ export function DecoratorNotesPage() {
                             setFormState((prev) => ({ ...prev, curingNotes: e.target.value }))
                           }
                           placeholder="e.g. Matte finishing sheet, avoid seam edges"
-                          className="w-full px-3 py-2 text-xs font-medium bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
+                          title="Click to edit Cover Sheet / Curing / Finishing"
+                          className={`w-full px-3 py-2 text-xs rounded-xl transition-all focus:outline-none ${
+                            formState.curingNotes.trim()
+                              ? 'bg-neutral-900 text-white border border-neutral-900 font-extrabold shadow-xs hover:bg-neutral-800 focus:bg-white focus:text-neutral-950 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-200'
+                              : 'bg-neutral-50/70 border border-dashed border-neutral-300 font-normal text-neutral-600 placeholder:text-neutral-400/80 placeholder:italic placeholder:font-normal focus:bg-white focus:border-solid focus:border-neutral-900 focus:font-bold'
+                          }`}
                         />
                       </div>
                     </div>
@@ -2846,43 +3085,123 @@ export function DecoratorNotesPage() {
                 {openModalSections.notes && (
                   <div className="p-4 border-t border-neutral-200 grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2">
-                      <label className="block text-xs font-extrabold uppercase tracking-wider text-neutral-900 mb-1">
-                        Step-by-Step Decorator Notes (How We Decorated This Garment)
-                      </label>
-                      <p className="text-[11px] text-neutral-500 mb-2">
-                        Write down everything the production team needs to know to reproduce this garment identically in the future.
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label className="block text-xs font-extrabold uppercase tracking-wider text-neutral-900">
+                          Step-by-Step Decorator Notes (How We Decorated This Garment)
+                        </label>
+                        {formState.decoratorNotes.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingDecoratorNotes((prev) => !prev)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[10px] font-extrabold transition-colors cursor-pointer"
+                          >
+                            <Edit3 size={11} />
+                            <span>{isEditingDecoratorNotes ? 'Done Editing' : 'Edit Notes'}</span>
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-neutral-500 mb-2.5">
+                        Write down everything the production team needs to know to reproduce this garment identically in the future (each line displays as a bullet point).
                       </p>
-                      <textarea
-                        rows={5}
-                        value={formState.decoratorNotes}
-                        onChange={(e) =>
-                          setFormState((prev) => ({ ...prev, decoratorNotes: e.target.value }))
-                        }
-                        placeholder="Example:&#10;1. Thread garment onto 16x20 platen so neck seam hangs off the front edge.&#10;2. Lint roll acid wash fabric thoroughly before pressing.&#10;3. Pre-press 4 seconds to flatten heavy seams.&#10;4. Align front graphic 3 inches below collar rib; press at 305°F for 12s, cold peel, then 5s finish press with matte parchment..."
-                        className="w-full p-3.5 text-xs leading-relaxed bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:bg-white focus:border-neutral-900"
-                      />
+
+                      {formState.decoratorNotes.trim() && !isEditingDecoratorNotes ? (
+                        <div
+                          onClick={() => setIsEditingDecoratorNotes(true)}
+                          title="Click anywhere to edit Step-by-Step Decorator Notes"
+                          className="py-2 px-1 cursor-pointer group/notes transition-colors hover:bg-neutral-50/80 rounded-xl"
+                        >
+                          <ul className="space-y-2">
+                            {parseTextToBulletItems(formState.decoratorNotes).map((bullet, bIdx) => (
+                              <li
+                                key={bIdx}
+                                className="flex items-start gap-2.5 text-xs font-bold text-neutral-900 leading-relaxed"
+                              >
+                                <span className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
+                                <span>{bullet}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-neutral-400 group-hover/notes:text-indigo-600 mt-2.5 transition-colors">
+                            <Edit3 size={10} />
+                            <span>Click to edit or add bullet points</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <textarea
+                          rows={5}
+                          autoFocus={isEditingDecoratorNotes}
+                          value={formState.decoratorNotes}
+                          onChange={(e) =>
+                            setFormState((prev) => ({ ...prev, decoratorNotes: e.target.value }))
+                          }
+                          onBlur={() => setIsEditingDecoratorNotes(false)}
+                          placeholder="Example (one bullet point per line):&#10;Thread garment onto 16x20 platen so neck seam hangs off the front edge&#10;Lint roll acid wash fabric thoroughly before pressing&#10;Pre-press 4 seconds to flatten heavy seams&#10;Align front graphic 3 inches below collar rib; press at 305°F for 12s, cold peel"
+                          className="w-full p-3.5 text-xs leading-relaxed bg-neutral-50/70 border border-dashed border-neutral-300 rounded-xl text-neutral-900 placeholder:text-neutral-400/80 placeholder:italic focus:outline-none focus:bg-white focus:border-solid focus:border-neutral-900"
+                        />
+                      )}
                     </div>
 
                     <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 flex flex-col justify-between">
                       <div>
-                        <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-950 mb-1">
-                          Watch-Outs &amp; Garment Quirks
-                        </label>
-                        <p className="text-[11px] text-amber-800/80 mb-2">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label className="block text-xs font-extrabold uppercase tracking-wider text-amber-950">
+                            Watch-Outs &amp; Garment Quirks
+                          </label>
+                          {formState.specialHandlingNotes.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingSpecialHandlingNotes((prev) => !prev)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 text-[10px] font-extrabold transition-colors cursor-pointer"
+                            >
+                              <Edit3 size={10} />
+                              <span>{isEditingSpecialHandlingNotes ? 'Done' : 'Edit'}</span>
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-amber-800/80 mb-2.5">
                           Dye migration risks, scorch sensitivity, thick seams, zipper/pocket clearance, or sizing scaling rules.
                         </p>
-                        <textarea
-                          rows={5}
-                          value={formState.specialHandlingNotes}
-                          onChange={(e) =>
-                            setFormState((prev) => ({
-                              ...prev,
-                              specialHandlingNotes: e.target.value
-                            }))
-                          }
-                          placeholder="e.g. Pink Hombre hoodie bleeds if pressed over 300°F! Use low-temp 285°F transfer and Teflon pillow under kangaroo pocket seam."
-                          className="w-full p-3 text-xs leading-relaxed bg-white border border-amber-200 rounded-xl focus:outline-none focus:border-amber-600"
-                        />
+
+                        {formState.specialHandlingNotes.trim() && !isEditingSpecialHandlingNotes ? (
+                          <div
+                            onClick={() => setIsEditingSpecialHandlingNotes(true)}
+                            title="Click anywhere to edit Watch-Outs & Garment Quirks"
+                            className="py-1.5 px-1 cursor-pointer group/quirks transition-colors hover:bg-amber-100/40 rounded-lg"
+                          >
+                            <ul className="space-y-2">
+                              {parseTextToBulletItems(formState.specialHandlingNotes).map(
+                                (bullet, bIdx) => (
+                                  <li
+                                    key={bIdx}
+                                    className="flex items-start gap-2 text-xs font-bold text-amber-950 leading-relaxed"
+                                  >
+                                    <span className="w-2 h-2 rounded-full bg-amber-600 mt-1.5 shrink-0" />
+                                    <span>{bullet}</span>
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700/70 group-hover/quirks:text-amber-950 mt-2 transition-colors">
+                              <Edit3 size={10} />
+                              <span>Click to edit or add bullet points</span>
+                            </span>
+                          </div>
+                        ) : (
+                          <textarea
+                            rows={5}
+                            autoFocus={isEditingSpecialHandlingNotes}
+                            value={formState.specialHandlingNotes}
+                            onChange={(e) =>
+                              setFormState((prev) => ({
+                                ...prev,
+                                specialHandlingNotes: e.target.value
+                              }))
+                            }
+                            onBlur={() => setIsEditingSpecialHandlingNotes(false)}
+                            placeholder="e.g. Pink Hombre hoodie bleeds if pressed over 300°F!&#10;Use low-temp 285°F transfer&#10;Place Teflon pillow under kangaroo pocket seam"
+                            className="w-full p-3 text-xs leading-relaxed bg-white/70 border border-dashed border-amber-300 rounded-xl text-neutral-900 placeholder:text-amber-500/70 placeholder:italic focus:outline-none focus:bg-white focus:border-solid focus:border-amber-600"
+                          />
+                        )}
                       </div>
 
                       {activeItem.noteRecord?.updatedAt && (
