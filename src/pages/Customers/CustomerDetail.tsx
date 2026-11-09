@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box, GripVertical } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { DEFAULT_PORTAL_AGREEMENTS, type PortalAgreementPage } from '../../lib/portalAgreements';
 import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
@@ -1106,6 +1106,45 @@ export function CustomerDetail() {
     } catch (err) {
       console.error(`Error saving ${isSample ? 'sample' : 'suggested'} item:`, err);
       alert(`Failed to save ${isSample ? 'sample' : 'suggested'} garment.`);
+    }
+  };
+
+  const [draggedSuggestedIndex, setDraggedSuggestedIndex] = useState<number | null>(null);
+  const [dragOverSuggestedIndex, setDragOverSuggestedIndex] = useState<number | null>(null);
+  const [draggedSampleIndex, setDraggedSampleIndex] = useState<number | null>(null);
+  const [dragOverSampleIndex, setDragOverSampleIndex] = useState<number | null>(null);
+
+  const handleReorderSuggestedItems = async (fromIndex: number, toIndex: number) => {
+    if (!id || fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= suggestedItems.length || toIndex >= suggestedItems.length) {
+      return;
+    }
+    const updated = [...suggestedItems];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setSuggestedItems(updated);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        suggestedItems: updated
+      });
+    } catch (err) {
+      console.error("Error reordering suggested items:", err);
+    }
+  };
+
+  const handleReorderSampleItems = async (fromIndex: number, toIndex: number) => {
+    if (!id || fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= sampleItems.length || toIndex >= sampleItems.length) {
+      return;
+    }
+    const updated = [...sampleItems];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setSampleItems(updated);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        sampleItems: updated
+      });
+    } catch (err) {
+      console.error("Error reordering sample items:", err);
     }
   };
 
@@ -5005,8 +5044,50 @@ export function CustomerDetail() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-                    {suggestedItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                    {suggestedItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        draggable={!isSales && suggestedItems.length > 1}
+                        onDragStart={(e) => {
+                          setDraggedSuggestedIndex(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedSuggestedIndex === null) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (dragOverSuggestedIndex !== idx) {
+                            setDragOverSuggestedIndex(idx);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedSuggestedIndex !== null && draggedSuggestedIndex !== idx) {
+                            void handleReorderSuggestedItems(draggedSuggestedIndex, idx);
+                          }
+                          setDraggedSuggestedIndex(null);
+                          setDragOverSuggestedIndex(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedSuggestedIndex(null);
+                          setDragOverSuggestedIndex(null);
+                        }}
+                        className={`flex items-center gap-3 bg-brand-bg/30 border rounded-2xl p-3 transition-all ${
+                          draggedSuggestedIndex === idx
+                            ? 'opacity-45 border-neutral-400 scale-[0.99]'
+                            : dragOverSuggestedIndex === idx && draggedSuggestedIndex !== null
+                              ? 'border-neutral-900 bg-neutral-100/70 ring-1 ring-neutral-900/20'
+                              : 'border-brand-border/60 hover:border-brand-primary/20'
+                        }`}
+                      >
+                        {!isSales && suggestedItems.length > 1 && (
+                          <div
+                            className="text-neutral-300 hover:text-neutral-600 cursor-grab active:cursor-grabbing shrink-0 -ml-0.5"
+                            title="Drag to reorder"
+                          >
+                            <GripVertical size={16} />
+                          </div>
+                        )}
                         <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
                           <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
                         </div>
@@ -5020,7 +5101,29 @@ export function CustomerDetail() {
                           <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
                         </div>
                         {!isSales && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {suggestedItems.length > 1 && (
+                            <div className="flex flex-col mr-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => void handleReorderSuggestedItems(idx, idx - 1)}
+                                className="text-neutral-400 hover:text-neutral-900 disabled:opacity-25 disabled:pointer-events-none transition-colors p-0.5 rounded hover:bg-neutral-200/60 cursor-pointer"
+                                title="Move Up"
+                              >
+                                <ChevronUp size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === suggestedItems.length - 1}
+                                onClick={() => void handleReorderSuggestedItems(idx, idx + 1)}
+                                className="text-neutral-400 hover:text-neutral-900 disabled:opacity-25 disabled:pointer-events-none transition-colors p-0.5 rounded hover:bg-neutral-200/60 cursor-pointer"
+                                title="Move Down"
+                              >
+                                <ChevronDown size={13} />
+                              </button>
+                            </div>
+                          )}
                           <button
                             onClick={() => openEditModal(item, 'suggested')}
                             className="text-neutral-400 hover:text-brand-primary transition-colors p-2 cursor-pointer"
@@ -5050,8 +5153,50 @@ export function CustomerDetail() {
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-                    {sampleItems.map((item) => (
-                      <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                    {sampleItems.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        draggable={!isSales && sampleItems.length > 1}
+                        onDragStart={(e) => {
+                          setDraggedSampleIndex(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedSampleIndex === null) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (dragOverSampleIndex !== idx) {
+                            setDragOverSampleIndex(idx);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (draggedSampleIndex !== null && draggedSampleIndex !== idx) {
+                            void handleReorderSampleItems(draggedSampleIndex, idx);
+                          }
+                          setDraggedSampleIndex(null);
+                          setDragOverSampleIndex(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedSampleIndex(null);
+                          setDragOverSampleIndex(null);
+                        }}
+                        className={`flex items-center gap-3 bg-brand-bg/30 border rounded-2xl p-3 transition-all ${
+                          draggedSampleIndex === idx
+                            ? 'opacity-45 border-neutral-400 scale-[0.99]'
+                            : dragOverSampleIndex === idx && draggedSampleIndex !== null
+                              ? 'border-neutral-900 bg-neutral-100/70 ring-1 ring-neutral-900/20'
+                              : 'border-brand-border/60 hover:border-brand-primary/20'
+                        }`}
+                      >
+                        {!isSales && sampleItems.length > 1 && (
+                          <div
+                            className="text-neutral-300 hover:text-neutral-600 cursor-grab active:cursor-grabbing shrink-0 -ml-0.5"
+                            title="Drag to reorder"
+                          >
+                            <GripVertical size={16} />
+                          </div>
+                        )}
                         <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
                           <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
                         </div>
@@ -5080,7 +5225,29 @@ export function CustomerDetail() {
                           <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
                         </div>
                         {!isSales && (
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {sampleItems.length > 1 && (
+                            <div className="flex flex-col mr-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => void handleReorderSampleItems(idx, idx - 1)}
+                                className="text-neutral-400 hover:text-neutral-900 disabled:opacity-25 disabled:pointer-events-none transition-colors p-0.5 rounded hover:bg-neutral-200/60 cursor-pointer"
+                                title="Move Up"
+                              >
+                                <ChevronUp size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === sampleItems.length - 1}
+                                onClick={() => void handleReorderSampleItems(idx, idx + 1)}
+                                className="text-neutral-400 hover:text-neutral-900 disabled:opacity-25 disabled:pointer-events-none transition-colors p-0.5 rounded hover:bg-neutral-200/60 cursor-pointer"
+                                title="Move Down"
+                              >
+                                <ChevronDown size={13} />
+                              </button>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => openEditModal(item, 'sample')}
