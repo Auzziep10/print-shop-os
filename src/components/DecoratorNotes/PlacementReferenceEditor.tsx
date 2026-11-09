@@ -351,6 +351,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
     referencePoint?: string;
   };
   zoom?: number;
+  aspectRatio?: number;
   selectedLineId?: string | null;
   interactive?: boolean;
   onSelectLine?: (id: string) => void;
@@ -364,18 +365,20 @@ export const PlacementReferenceOverlaySvg: React.FC<{
   scaleCalibration,
   showScaleLine = false,
   zoom = 1,
+  aspectRatio = 1.25,
   selectedLineId,
   interactive = false,
   onSelectLine,
   onStartDragEndpoint
 }) => {
   const safeZoom = Math.max(1, zoom);
+  const safeAspect = aspectRatio > 0 ? aspectRatio : 1.25;
   // Divide all SVG dimensions, strokes, and dash lengths by exact `safeZoom` so that when the
   // parent container applies CSS `scale(zoom)`, the dotted lines, ticks, and A/B markers stay
   // the exact same crisp thickness on screen at 100% and 600% zoom!
   const tickScale = 1.25 / safeZoom;
-  const endpointRadius = (interactive ? 1.15 : 0.85) / safeZoom;
-  const endpointFontSize = (interactive ? 1.15 : 0.85) / safeZoom;
+  const endpointRadius = (interactive ? 1.25 : 0.95) / safeZoom;
+  const endpointFontSize = (interactive ? 1.2 : 0.95) / safeZoom;
   const endpointStrokeWidth = 0.28 / safeZoom;
   const tickHaloStrokeWidth = 3.2 / safeZoom;
   const tickColorStrokeWidth = 1.75 / safeZoom;
@@ -395,9 +398,12 @@ export const PlacementReferenceOverlaySvg: React.FC<{
     const color = line.color;
     const dx = line.x2 - line.x1;
     const dy = line.y2 - line.y1;
-    const len = Math.hypot(dx, dy) || 1;
-    const px = (-dy / len) * tickScale;
-    const py = (dx / len) * tickScale;
+    // Aspect-corrected perpendicular tick mark so horizontal & vertical ticks have identical screen length
+    const screenDx = dx * safeAspect;
+    const screenDy = dy;
+    const screenLen = Math.hypot(screenDx, screenDy) || 1;
+    const px = ((-screenDy / screenLen) * tickScale) / safeAspect;
+    const py = (screenDx / screenLen) * tickScale;
     const isSelected = selectedLineId === line.id;
     const haloStrokeWidth = (isSelected ? 4.2 : 3.4) / safeZoom;
     const mainStrokeWidth = (isSelected ? 2.4 : 1.85) / safeZoom;
@@ -489,8 +495,9 @@ export const PlacementReferenceOverlaySvg: React.FC<{
           />
         )}
 
-        {/* Point A & Point B Markers rendered on top of the line hit-target so they are always easy to grab & drag */}
+        {/* Point A & Point B Markers: aspect-compensated (`scale(1 / safeAspect, 1)`) so they render as true 1:1 circles */}
         <g
+          transform={`translate(${line.x1}, ${line.y1}) scale(${1 / safeAspect}, 1)`}
           style={
             interactive
               ? { pointerEvents: 'all', cursor: 'grab' }
@@ -508,23 +515,23 @@ export const PlacementReferenceOverlaySvg: React.FC<{
         >
           {interactive && (
             <circle
-              cx={line.x1}
-              cy={line.y1}
+              cx={0}
+              cy={0}
               r={endpointRadius * 1.9}
               fill="transparent"
             />
           )}
           <circle
-            cx={line.x1}
-            cy={line.y1}
+            cx={0}
+            cy={0}
             r={endpointRadius}
             fill={color}
             stroke="#ffffff"
             strokeWidth={endpointStrokeWidth}
           />
           <text
-            x={line.x1}
-            y={line.y1}
+            x={0}
+            y={0}
             textAnchor="middle"
             dominantBaseline="central"
             fill="#ffffff"
@@ -537,6 +544,7 @@ export const PlacementReferenceOverlaySvg: React.FC<{
         </g>
 
         <g
+          transform={`translate(${line.x2}, ${line.y2}) scale(${1 / safeAspect}, 1)`}
           style={
             interactive
               ? { pointerEvents: 'all', cursor: 'grab' }
@@ -554,23 +562,23 @@ export const PlacementReferenceOverlaySvg: React.FC<{
         >
           {interactive && (
             <circle
-              cx={line.x2}
-              cy={line.y2}
+              cx={0}
+              cy={0}
               r={endpointRadius * 1.9}
               fill="transparent"
             />
           )}
           <circle
-            cx={line.x2}
-            cy={line.y2}
+            cx={0}
+            cy={0}
             r={endpointRadius}
             fill={color}
             stroke="#ffffff"
             strokeWidth={endpointStrokeWidth}
           />
           <text
-            x={line.x2}
-            y={line.y2}
+            x={0}
+            y={0}
             textAnchor="middle"
             dominantBaseline="central"
             fill="#ffffff"
@@ -1469,7 +1477,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
           {/* Interactive Thumbnail: Click to open Full-Size Read-Only Viewer with Zoom & Measurement Lines */}
           <div
             onClick={openViewer}
-            className="relative w-full sm:w-56 h-44 rounded-lg border border-neutral-200 bg-neutral-100/70 flex items-center justify-center overflow-hidden cursor-pointer group/canvas shrink-0"
+            className="relative w-full sm:w-56 aspect-[5/4] rounded-lg border border-neutral-200 bg-neutral-100/70 flex items-center justify-center overflow-hidden cursor-pointer group/canvas shrink-0"
             title="Click to view full-size garment & zoom in on measurement lines"
           >
             <img
@@ -1477,7 +1485,11 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
               alt={`${placement.location} Reference`}
               className="w-full h-full object-contain select-none pointer-events-none"
             />
-            <PlacementReferenceOverlaySvg lines={savedLines} placement={placement} />
+            <PlacementReferenceOverlaySvg
+              lines={savedLines}
+              placement={placement}
+              aspectRatio={1.25}
+            />
 
             {/* Midpoint Callout Pills (Offset off the line so Point A -> Point B stays visible) */}
             {savedLines.map((line) => {
@@ -1735,7 +1747,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                 }}
                 onMouseUp={() => setViewerPanning(null)}
                 onMouseLeave={() => setViewerPanning(null)}
-                className={`relative w-full h-[70vh] min-h-[420px] max-h-[720px] bg-white rounded-xl border border-neutral-200 overflow-hidden ${
+                className={`relative w-full max-w-[780px] aspect-[5/4] max-h-[70vh] mx-auto bg-white rounded-xl border border-neutral-200 overflow-hidden ${
                   viewerPanning
                     ? 'cursor-grabbing'
                     : viewerZoom > 1.02
@@ -1762,6 +1774,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                     scaleCalibration={placement.scaleCalibration}
                     showScaleLine={false}
                     zoom={viewerZoom}
+                    aspectRatio={1.25}
                     placement={placement}
                     interactive={false}
                   />
@@ -2137,7 +2150,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={finishDrawingOrDragging}
                   onMouseLeave={finishDrawingOrDragging}
-                  className={`relative w-full h-[54vh] min-h-[360px] max-h-[540px] bg-white rounded-xl border border-neutral-200 overflow-hidden ${
+                  className={`relative w-full aspect-[5/4] max-h-[540px] mx-auto bg-white rounded-xl border border-neutral-200 overflow-hidden ${
                     isPanCursor
                       ? panningState
                         ? 'cursor-grabbing'
@@ -2200,6 +2213,7 @@ export const PlacementReferenceSection: React.FC<PlacementReferenceSectionProps>
                       }
                       showScaleLine
                       zoom={zoom}
+                      aspectRatio={canvasAspectRatio || 1.25}
                       placement={{
                         widthInches: draftWidth,
                         heightInches: draftHeight,
