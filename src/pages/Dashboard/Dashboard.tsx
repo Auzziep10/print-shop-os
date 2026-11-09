@@ -19,6 +19,7 @@ import {
   getEffectiveOrderStatusIndex,
   getOrderDeliveryEtaShort,
   getOrderTrackingReceivedMilestone,
+  getUpdatedTimelineMilestonesForStatusChange,
   hasOrderShippedTracking,
 } from '../../lib/timelineUtils';
 import { useLiveTracking } from '../../lib/liveTracking';
@@ -1030,6 +1031,60 @@ export function Dashboard() {
     }
   };
 
+  const handleUpdatePriorityItemTone = async (
+    itemType: 'customer' | 'order',
+    id: string,
+    nextTone: 'auto' | 'active' | 'shipped' | 'received'
+  ) => {
+    try {
+      const collectionName = itemType === 'customer' ? 'customers' : 'orders';
+      await updateDoc(doc(db, collectionName, id), {
+        highPriorityStatus: nextTone === 'auto' ? null : nextTone,
+      });
+    } catch (err) {
+      console.error('Failed to update high priority item status:', err);
+    }
+  };
+
+  const handleQuickOrderStatusChange = async (orderObj: any, newStatusIndex: number) => {
+    if (!orderObj?.id || Number.isNaN(newStatusIndex)) return;
+    try {
+      const cust = orderObj.customerId ? customers[orderObj.customerId] : null;
+      const activeFt = orderObj.fulfillmentType || cust?.fulfillmentType || 'Standard';
+      const nextMilestones = getUpdatedTimelineMilestonesForStatusChange(
+        orderObj.timelineMilestones,
+        newStatusIndex,
+        new Date().toISOString(),
+        activeFt
+      );
+      const statusStr =
+        newStatusIndex === 8
+          ? activeFt === 'Kitting'
+            ? 'Live'
+            : 'Received'
+          : newStatusIndex === 7
+            ? activeFt === 'Kitting'
+              ? 'Inventory'
+              : 'Shipped'
+            : getOrderStatusLabel(newStatusIndex);
+
+      await updateDoc(doc(db, 'orders', orderObj.id), {
+        statusIndex: newStatusIndex,
+        status: statusStr,
+        highPriorityStatus: null,
+        timelineMilestones: nextMilestones,
+      });
+
+      if (orderObj.customerId && customers[orderObj.customerId]?.highPriorityStatus) {
+        await updateDoc(doc(db, 'customers', orderObj.customerId), {
+          highPriorityStatus: null,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update order status from priority list:', err);
+    }
+  };
+
   const statCards = [
     { label: 'New Quotes', value: newQuoteRequests.length.toString(), trend: newQuoteRequests.length > 0 ? 'Requires attention' : 'All clear' },
     { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
@@ -1130,18 +1185,73 @@ export function Dashboard() {
                 const isSubCustomer = Boolean(c.parentCustomerId);
                 const isNonPriorityParent = Boolean(entry.isContextParent || !c.highPriority);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
-                const activeCustAll = orders.filter((o: any) => {
-                  if (o.customerId !== c.id || o.isProjectGroup) return false;
+                const allCustItems = orders.filter(
+                  (o: any) => o.customerId === c.id && !o.isProjectGroup
+                );
+                const activeCustAll = allCustItems.filter((o: any) => {
                   const effIdx = getEffectiveOrderStatusIndex(o);
                   return o.fulfillmentType === 'Kitting' ? effIdx < 7 : effIdx < 8;
                 });
                 const activeCustOrders = activeCustAll.filter(
                   (o: any) => getEffectiveOrderStatusIndex(o) >= 3
                 );
+                const receivedCustOrders = allCustItems.filter((o: any) => {
+                  const effIdx = getEffectiveOrderStatusIndex(o);
+                  return o.fulfillmentType === 'Kitting' ? effIdx >= 7 : effIdx >= 8;
+                });
                 const activeCustQuotes = activeCustAll.filter(
                   (o: any) => getEffectiveOrderStatusIndex(o) < 3
                 );
                 const subtext = c.contactName || c.email || c.location || '';
+
+                const autoCustTone: 'active' | 'shipped' | 'received' =
+                  activeCustOrders.length > 0 &&
+                  activeCustOrders.every((o: any) => getEffectiveOrderStatusIndex(o) === 7)
+                    ? 'shipped'
+                    : activeCustOrders.length === 0 && receivedCustOrders.length > 0
+                      ? 'received'
+                      : 'active';
+
+                const manualCustTone =
+                  c.highPriorityStatus === 'shipped' ||
+                  c.highPriorityStatus === 'received' ||
+                  c.highPriorityStatus === 'active'
+                    ? (c.highPriorityStatus as 'active' | 'shipped' | 'received')
+                    : null;
+
+                const rowTone: 'active' | 'shipped' | 'received' =
+                  manualCustTone || autoCustTone;
+
+                const isShippedRow = rowTone === 'shipped';
+                const isReceivedRow = rowTone === 'received';
+
+                const rowSurfaceClass = isReceivedRow
+                  ? 'border-l-neutral-700 bg-neutral-300/90'
+                  : isShippedRow
+                    ? 'border-l-neutral-400 bg-neutral-100'
+                    : isNonPriorityParent
+                      ? 'border-l-neutral-300 bg-neutral-50/70'
+                      : isSubCustomer
+                        ? 'border-l-red-600 bg-red-50/15'
+                        : 'border-l-red-600 bg-white';
+
+                const rowHoverClass = isDragging
+                  ? 'opacity-40 bg-red-50'
+                  : isDragOver
+                    ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
+                    : isReceivedRow
+                      ? 'hover:bg-neutral-300'
+                      : isShippedRow
+                        ? 'hover:bg-neutral-200/70'
+                        : isNonPriorityParent
+                          ? 'hover:bg-neutral-100/80'
+                          : 'hover:bg-red-50/40';
+
+                const colBorderClass = isReceivedRow
+                  ? 'md:border-neutral-400/50'
+                  : isShippedRow
+                    ? 'md:border-neutral-200/90'
+                    : 'md:border-red-100/60';
 
                 return (
                   <div
@@ -1173,22 +1283,16 @@ export function Dashboard() {
                       setDragOverPriorityKey(null);
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
-                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${
-                      isNonPriorityParent ? 'border-l-neutral-300 bg-neutral-50/70' : isSubCustomer ? 'border-l-red-600 bg-red-50/15' : 'border-l-red-600 bg-white'
-                    } transition-all cursor-pointer group select-none ${
-                      isDragging
-                        ? 'opacity-40 bg-red-50'
-                        : isDragOver
-                          ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
-                          : isNonPriorityParent
-                            ? 'hover:bg-neutral-100/80'
-                            : 'hover:bg-red-50/40'
-                    }`}
+                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${rowSurfaceClass} transition-all cursor-pointer group select-none ${rowHoverClass}`}
                   >
                     {/* Col 1: Rank & Grip */}
                     <div
-                      className={`px-3 py-2.5 flex items-center justify-center gap-1 text-neutral-400 ${
-                        isNonPriorityParent ? 'group-hover:text-neutral-700' : 'group-hover:text-red-600'
+                      className={`px-3 py-2.5 flex items-center justify-center gap-1 ${
+                        isReceivedRow
+                          ? 'text-neutral-600 group-hover:text-neutral-900'
+                          : isShippedRow || isNonPriorityParent
+                            ? 'text-neutral-400 group-hover:text-neutral-700'
+                            : 'text-neutral-400 group-hover:text-red-600'
                       } cursor-grab active:cursor-grabbing shrink-0`}
                       title="Drag to reorder"
                       onClick={(e) => e.stopPropagation()}
@@ -1196,7 +1300,11 @@ export function Dashboard() {
                       <GripVertical size={15} />
                       <span
                         className={`text-[11px] font-extrabold w-4 text-center tabular-nums ${
-                          isNonPriorityParent ? 'text-neutral-500' : 'text-red-700/80'
+                          isReceivedRow
+                            ? 'text-neutral-800'
+                            : isShippedRow || isNonPriorityParent
+                              ? 'text-neutral-500'
+                              : 'text-red-700/80'
                         }`}
                       >
                         {idx + 1}
@@ -1204,7 +1312,7 @@ export function Dashboard() {
                     </div>
 
                     {/* Col 2: Logo & Name */}
-                    <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
+                    <div className={`px-3 py-2.5 md:border-l ${colBorderClass} flex items-center gap-2.5 min-w-0`}>
                       {Boolean(c.isMvp) && (
                         <MvpStarIcon size={14} title="VIP Customer" />
                       )}
@@ -1215,9 +1323,11 @@ export function Dashboard() {
                       ) : (
                         <div
                           className={`w-7 h-7 rounded-md border flex items-center justify-center shrink-0 ${
-                            isNonPriorityParent
-                              ? 'bg-neutral-100 border-neutral-200 text-neutral-500'
-                              : 'bg-red-50 border-red-200 text-red-600'
+                            isReceivedRow
+                              ? 'bg-neutral-200 border-neutral-400 text-neutral-700'
+                              : isShippedRow || isNonPriorityParent
+                                ? 'bg-neutral-100 border-neutral-200 text-neutral-500'
+                                : 'bg-red-50 border-red-200 text-red-600'
                           }`}
                         >
                           <Building2 size={14} />
@@ -1225,14 +1335,25 @@ export function Dashboard() {
                       )}
                       {isSubCustomer && (
                         <span title="Sub-Brand" className="inline-flex shrink-0 -mr-1">
-                          <CornerDownRight size={13} className="text-red-400" />
+                          <CornerDownRight
+                            size={13}
+                            className={
+                              isReceivedRow
+                                ? 'text-neutral-600'
+                                : isShippedRow
+                                  ? 'text-neutral-400'
+                                  : 'text-red-400'
+                            }
+                          />
                         </span>
                       )}
                       <span
                         className={`font-bold text-sm transition-colors truncate flex items-center gap-1.5 ${
-                          isNonPriorityParent
-                            ? 'text-neutral-700 group-hover:text-black'
-                            : 'text-brand-primary group-hover:text-red-700'
+                          isReceivedRow
+                            ? 'text-neutral-800 group-hover:text-black'
+                            : isShippedRow || isNonPriorityParent
+                              ? 'text-neutral-600 group-hover:text-neutral-900'
+                              : 'text-brand-primary group-hover:text-red-700'
                         }`}
                         title={companyName}
                       >
@@ -1241,137 +1362,246 @@ export function Dashboard() {
                     </div>
 
                     {/* Col 3: Type Badge */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center`}>
                       <span
                         className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[108px] text-center truncate ${
-                          isNonPriorityParent
-                            ? 'bg-neutral-200 text-neutral-700'
-                            : 'bg-red-600 text-white'
+                          isReceivedRow
+                            ? 'bg-neutral-700 text-white'
+                            : isShippedRow || isNonPriorityParent
+                              ? 'bg-neutral-200 text-neutral-700 border border-neutral-300'
+                              : 'bg-red-600 text-white'
                         }`}
                       >
                         {isSubCustomer ? 'Brand' : 'Customer'}
                       </span>
                     </div>
 
-                    {/* Col 4: Active Orders Dropdown & Active Quotes Dropdown */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-1.5 flex-wrap min-w-0">
-                      {activeCustOrders.length > 0 || activeCustQuotes.length > 0 ? (
-                        <>
-                          {activeCustOrders.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const dropdownKey = `${entry.key}:orders`;
-                                if (openOrdersDropdown?.key === dropdownKey) {
-                                  setOpenOrdersDropdown(null);
-                                  return;
-                                }
-                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                const dropdownWidth = 360;
-                                const left = Math.max(
-                                  8,
-                                  Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
-                                );
-                                setOpenOrdersDropdown({
-                                  key: dropdownKey,
-                                  kind: 'orders',
-                                  top: rect.bottom + 6,
-                                  left,
-                                  companyName,
-                                  orders: activeCustOrders,
-                                });
-                              }}
-                              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
-                                isNonPriorityParent
-                                  ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
+                    {/* Col 4: Active Orders Dropdown, Quotes Dropdown & Row Status Selector */}
+                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center justify-between gap-1.5 flex-wrap min-w-0`}>
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        {activeCustOrders.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dropdownKey = `${entry.key}:orders`;
+                              if (openOrdersDropdown?.key === dropdownKey) {
+                                setOpenOrdersDropdown(null);
+                                return;
+                              }
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const dropdownWidth = 380;
+                              const left = Math.max(
+                                8,
+                                Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                              );
+                              setOpenOrdersDropdown({
+                                key: dropdownKey,
+                                kind: 'orders',
+                                top: rect.bottom + 6,
+                                left,
+                                companyName,
+                                orders: [...activeCustOrders, ...receivedCustOrders],
+                              });
+                            }}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
+                              isReceivedRow
+                                ? 'text-neutral-800 bg-neutral-200 border-neutral-400 hover:bg-neutral-100'
+                                : isShippedRow || isNonPriorityParent
+                                  ? 'text-neutral-700 bg-white/80 border-neutral-300 hover:bg-white'
                                   : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100/80'
+                            }`}
+                            title="Click to view and update active orders"
+                          >
+                            <span>
+                              {activeCustOrders.length} active{' '}
+                              {activeCustOrders.length === 1 ? 'order' : 'orders'}
+                            </span>
+                            <ChevronDown
+                              size={11}
+                              className={`transition-transform duration-150 ${
+                                openOrdersDropdown?.key === `${entry.key}:orders`
+                                  ? 'rotate-180'
+                                  : ''
                               }`}
-                              title="Click to view active orders"
-                            >
-                              <span>
-                                {activeCustOrders.length} active{' '}
-                                {activeCustOrders.length === 1 ? 'order' : 'orders'}
-                              </span>
-                              <ChevronDown
-                                size={11}
-                                className={`transition-transform duration-150 ${
-                                  openOrdersDropdown?.key === `${entry.key}:orders`
-                                    ? 'rotate-180'
-                                    : ''
-                                }`}
-                              />
-                            </button>
-                          )}
+                            />
+                          </button>
+                        )}
 
-                          {activeCustQuotes.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const dropdownKey = `${entry.key}:quotes`;
-                                if (openOrdersDropdown?.key === dropdownKey) {
-                                  setOpenOrdersDropdown(null);
-                                  return;
-                                }
-                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                const dropdownWidth = 360;
-                                const left = Math.max(
-                                  8,
-                                  Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
-                                );
-                                setOpenOrdersDropdown({
-                                  key: dropdownKey,
-                                  kind: 'quotes',
-                                  top: rect.bottom + 6,
-                                  left,
-                                  companyName,
-                                  orders: activeCustQuotes,
-                                });
-                              }}
-                              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
-                                isNonPriorityParent
-                                  ? 'text-neutral-700 bg-neutral-100 border-neutral-200 hover:bg-neutral-200/80'
-                                  : 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100/80'
+                        {activeCustOrders.length === 0 && receivedCustOrders.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dropdownKey = `${entry.key}:orders`;
+                              if (openOrdersDropdown?.key === dropdownKey) {
+                                setOpenOrdersDropdown(null);
+                                return;
+                              }
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const dropdownWidth = 380;
+                              const left = Math.max(
+                                8,
+                                Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                              );
+                              setOpenOrdersDropdown({
+                                key: dropdownKey,
+                                kind: 'orders',
+                                top: rect.bottom + 6,
+                                left,
+                                companyName,
+                                orders: receivedCustOrders,
+                              });
+                            }}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
+                              isReceivedRow
+                                ? 'text-neutral-800 bg-neutral-200 border-neutral-400 hover:bg-neutral-100'
+                                : 'text-neutral-700 bg-neutral-100 border-neutral-300 hover:bg-neutral-200/80'
+                            }`}
+                            title="Click to view received orders"
+                          >
+                            <span>
+                              {receivedCustOrders.length} received{' '}
+                              {receivedCustOrders.length === 1 ? 'order' : 'orders'}
+                            </span>
+                            <ChevronDown
+                              size={11}
+                              className={`transition-transform duration-150 ${
+                                openOrdersDropdown?.key === `${entry.key}:orders`
+                                  ? 'rotate-180'
+                                  : ''
                               }`}
-                              title="Click to view active quotes"
+                            />
+                          </button>
+                        )}
+
+                        {activeCustQuotes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const dropdownKey = `${entry.key}:quotes`;
+                              if (openOrdersDropdown?.key === dropdownKey) {
+                                setOpenOrdersDropdown(null);
+                                return;
+                              }
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const dropdownWidth = 380;
+                              const left = Math.max(
+                                8,
+                                Math.min(rect.left, window.innerWidth - dropdownWidth - 8)
+                              );
+                              setOpenOrdersDropdown({
+                                key: dropdownKey,
+                                kind: 'quotes',
+                                top: rect.bottom + 6,
+                                left,
+                                companyName,
+                                orders: activeCustQuotes,
+                              });
+                            }}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums transition-colors cursor-pointer ${
+                              isReceivedRow
+                                ? 'text-neutral-800 bg-neutral-200 border-neutral-400 hover:bg-neutral-100'
+                                : isShippedRow || isNonPriorityParent
+                                  ? 'text-neutral-700 bg-white/80 border-neutral-300 hover:bg-white'
+                                  : 'text-amber-800 bg-amber-50 border-amber-200 hover:bg-amber-100/80'
+                            }`}
+                            title="Click to view active quotes"
+                          >
+                            <span>
+                              {activeCustQuotes.length} active{' '}
+                              {activeCustQuotes.length === 1 ? 'quote' : 'quotes'}
+                            </span>
+                            <ChevronDown
+                              size={11}
+                              className={`transition-transform duration-150 ${
+                                openOrdersDropdown?.key === `${entry.key}:quotes`
+                                  ? 'rotate-180'
+                                  : ''
+                              }`}
+                            />
+                          </button>
+                        )}
+
+                        {activeCustOrders.length === 0 &&
+                          receivedCustOrders.length === 0 &&
+                          activeCustQuotes.length === 0 && (
+                            <span
+                              className={`text-xs font-medium pl-1 ${
+                                isReceivedRow ? 'text-neutral-600' : 'text-neutral-300'
+                              }`}
                             >
-                              <span>
-                                {activeCustQuotes.length} active{' '}
-                                {activeCustQuotes.length === 1 ? 'quote' : 'quotes'}
-                              </span>
-                              <ChevronDown
-                                size={11}
-                                className={`transition-transform duration-150 ${
-                                  openOrdersDropdown?.key === `${entry.key}:quotes`
-                                    ? 'rotate-180'
-                                    : ''
-                                }`}
-                              />
-                            </button>
+                              —
+                            </span>
                           )}
-                        </>
-                      ) : (
-                        <span className="text-xs text-neutral-300 font-medium pl-1">—</span>
-                      )}
+                      </div>
+
+                      {/* Line Item Status Selector (Active / Shipped / Received) */}
+                      <select
+                        value={manualCustTone || rowTone}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleUpdatePriorityItemTone(
+                            'customer',
+                            c.id,
+                            e.target.value as 'auto' | 'active' | 'shipped' | 'received'
+                          );
+                        }}
+                        title="Change line item status (Shipped = light grey, Received = dark grey)"
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 cursor-pointer outline-none transition-colors ${
+                          isReceivedRow
+                            ? 'bg-neutral-700 text-white border-neutral-800 hover:bg-neutral-800'
+                            : isShippedRow
+                              ? 'bg-neutral-200 text-neutral-700 border-neutral-300 hover:bg-neutral-300/80'
+                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-red-300 hover:text-red-700'
+                        }`}
+                      >
+                        <option value="active">Active</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="received">Received</option>
+                        {manualCustTone && (
+                          <option value="auto">Auto (Orders)</option>
+                        )}
+                      </select>
                     </div>
 
                     {/* Col 5: Contact / Subtext */}
-                    <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
+                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center min-w-0`}>
                       {subtext ? (
-                        <span className="text-xs text-brand-secondary truncate" title={subtext}>
+                        <span
+                          className={`text-xs truncate ${
+                            isReceivedRow
+                              ? 'text-neutral-700'
+                              : isShippedRow
+                                ? 'text-neutral-600'
+                                : 'text-brand-secondary'
+                          }`}
+                          title={subtext}
+                        >
                           {subtext}
                         </span>
                       ) : (
-                        <span className="text-xs text-neutral-300 font-medium">—</span>
+                        <span
+                          className={`text-xs font-medium ${
+                            isReceivedRow ? 'text-neutral-600' : 'text-neutral-300'
+                          }`}
+                        >
+                          —
+                        </span>
                       )}
                     </div>
 
                     {/* Col 6: Action & Remove */}
-                    <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
+                    <div className={`px-3 py-2.5 md:border-l ${colBorderClass} flex items-center justify-end gap-2 shrink-0`}>
                       <span
-                        className={`inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary transition-colors ${
-                          isNonPriorityParent ? 'group-hover:text-black' : 'group-hover:text-red-700'
+                        className={`inline-flex items-center gap-0.5 text-[11px] font-semibold transition-colors ${
+                          isReceivedRow
+                            ? 'text-neutral-800 group-hover:text-black'
+                            : isShippedRow || isNonPriorityParent
+                              ? 'text-neutral-600 group-hover:text-black'
+                              : 'text-brand-secondary group-hover:text-red-700'
                         }`}
                       >
                         Profile <ChevronRight size={13} />
@@ -1381,7 +1611,11 @@ export function Dashboard() {
                           type="button"
                           onClick={(e) => handleRemoveCustomerHighPriority(e, c.id)}
                           title="Remove High Priority from Customer"
-                          className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
+                          className={`p-1 rounded-lg transition-colors shrink-0 ${
+                            isReceivedRow
+                              ? 'text-neutral-600 hover:text-red-700 hover:bg-neutral-400/50'
+                              : 'text-neutral-400 hover:text-red-600 hover:bg-red-100/70'
+                          }`}
                         >
                           <X size={14} />
                         </button>
@@ -1403,6 +1637,41 @@ export function Dashboard() {
                 'Customer';
               const displayId = o.portalId || o.id.substring(0, 8);
               const dueStr = o.targetCompletionDate || o.date;
+              const effOrderIdx = getEffectiveOrderStatusIndex(o);
+              const autoOrderTone: 'active' | 'shipped' | 'received' =
+                effOrderIdx >= 8 ? 'received' : effOrderIdx === 7 ? 'shipped' : 'active';
+              const manualOrderTone =
+                o.highPriorityStatus === 'shipped' ||
+                o.highPriorityStatus === 'received' ||
+                o.highPriorityStatus === 'active'
+                  ? (o.highPriorityStatus as 'active' | 'shipped' | 'received')
+                  : null;
+              const orderRowTone: 'active' | 'shipped' | 'received' =
+                manualOrderTone || autoOrderTone;
+              const isOrderShippedRow = orderRowTone === 'shipped';
+              const isOrderReceivedRow = orderRowTone === 'received';
+
+              const orderSurfaceClass = isOrderReceivedRow
+                ? 'border-l-neutral-700 bg-neutral-300/90'
+                : isOrderShippedRow
+                  ? 'border-l-neutral-400 bg-neutral-100'
+                  : 'border-l-red-600 bg-white';
+
+              const orderHoverClass = isDragging
+                ? 'opacity-40 bg-red-50'
+                : isDragOver
+                  ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
+                  : isOrderReceivedRow
+                    ? 'hover:bg-neutral-300'
+                    : isOrderShippedRow
+                      ? 'hover:bg-neutral-200/70'
+                      : 'hover:bg-red-50/40';
+
+              const orderColBorderClass = isOrderReceivedRow
+                ? 'md:border-neutral-400/50'
+                : isOrderShippedRow
+                  ? 'md:border-neutral-200/90'
+                  : 'md:border-red-100/60';
 
               return (
                 <div
@@ -1434,36 +1703,58 @@ export function Dashboard() {
                     setDragOverPriorityKey(null);
                   }}
                   onClick={() => navigate(`/orders/${o.id}`)}
-                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 border-l-red-600 bg-white transition-all cursor-pointer group select-none ${
-                    isDragging
-                      ? 'opacity-40 bg-red-50'
-                      : isDragOver
-                        ? 'bg-red-50/90 ring-2 ring-inset ring-red-400'
-                        : 'hover:bg-red-50/40'
-                  }`}
+                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${orderSurfaceClass} transition-all cursor-pointer group select-none ${orderHoverClass}`}
                 >
                   {/* Col 1: Rank & Grip */}
                   <div
-                    className="px-3 py-2.5 flex items-center justify-center gap-1 text-neutral-400 group-hover:text-red-600 cursor-grab active:cursor-grabbing shrink-0"
+                    className={`px-3 py-2.5 flex items-center justify-center gap-1 ${
+                      isOrderReceivedRow
+                        ? 'text-neutral-600 group-hover:text-neutral-900'
+                        : isOrderShippedRow
+                          ? 'text-neutral-400 group-hover:text-neutral-700'
+                          : 'text-neutral-400 group-hover:text-red-600'
+                    } cursor-grab active:cursor-grabbing shrink-0`}
                     title="Drag to reorder"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <GripVertical size={15} />
-                    <span className="text-[11px] font-extrabold text-red-700/80 w-4 text-center tabular-nums">
+                    <span
+                      className={`text-[11px] font-extrabold w-4 text-center tabular-nums ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-800'
+                          : isOrderShippedRow
+                            ? 'text-neutral-500'
+                            : 'text-red-700/80'
+                      }`}
+                    >
                       {idx + 1}
                     </span>
                   </div>
 
                   {/* Col 2: Icon & Order Title */}
-                  <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2.5 min-w-0">
+                  <div className={`px-3 py-2.5 md:border-l ${orderColBorderClass} flex items-center gap-2.5 min-w-0`}>
                     {Boolean(o.isMvp || o.personalInfo?.isMvp) && (
                       <MvpStarIcon size={14} title="VIP" />
                     )}
-                    <div className="w-7 h-7 rounded-md bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                    <div
+                      className={`w-7 h-7 rounded-md border flex items-center justify-center shrink-0 ${
+                        isOrderReceivedRow
+                          ? 'bg-neutral-200 border-neutral-400 text-neutral-700'
+                          : isOrderShippedRow
+                            ? 'bg-white border-neutral-300 text-neutral-600'
+                            : 'bg-red-50 border-red-200 text-red-600'
+                      }`}
+                    >
                       <Package size={14} />
                     </div>
                     <span
-                      className="font-bold text-sm text-brand-primary group-hover:text-red-700 transition-colors truncate flex items-center gap-1.5"
+                      className={`font-bold text-sm transition-colors truncate flex items-center gap-1.5 ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-800 group-hover:text-black'
+                          : isOrderShippedRow
+                            ? 'text-neutral-600 group-hover:text-neutral-900'
+                            : 'text-brand-primary group-hover:text-red-700'
+                      }`}
                       title={o.title || 'Untitled Order'}
                     >
                       <span className="truncate">{o.title || 'Untitled Order'}</span>
@@ -1476,9 +1767,15 @@ export function Dashboard() {
                   </div>
 
                   {/* Col 3: Order Badge */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center">
+                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center`}>
                     <span
-                      className="inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded w-[108px] text-center truncate tabular-nums"
+                      className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[108px] text-center truncate tabular-nums ${
+                        isOrderReceivedRow
+                          ? 'bg-neutral-700 text-white border border-neutral-800'
+                          : isOrderShippedRow
+                            ? 'bg-neutral-200 text-neutral-700 border border-neutral-300'
+                            : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}
                       title={`Order #${displayId}`}
                     >
                       Order #{displayId}
@@ -1486,34 +1783,80 @@ export function Dashboard() {
                   </div>
 
                   {/* Col 4: Status & Due Date */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center gap-2 flex-nowrap min-w-0 overflow-hidden">
-                    <span className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 truncate ${getOrderStatusBadgeClasses(o)}`}>
-                      {getOrderStatusLabel(o)}
-                    </span>
+                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center gap-2 flex-nowrap min-w-0 overflow-hidden`}>
+                    <select
+                      value={effOrderIdx}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleQuickOrderStatusChange(o, parseInt(e.target.value, 10));
+                      }}
+                      title="Change order status (Shipped = light grey, Received = dark grey)"
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 cursor-pointer outline-none ${
+                        isOrderReceivedRow
+                          ? 'bg-neutral-700 text-white border-neutral-800'
+                          : getOrderStatusBadgeClasses(o)
+                      }`}
+                    >
+                      <option value={0}>New Quote</option>
+                      <option value={1}>Pending Approval</option>
+                      <option value={2}>Quote Prepared</option>
+                      <option value={3}>New Order</option>
+                      <option value={4}>Sourcing</option>
+                      <option value={5}>{isSales ? 'Preproduction' : 'Garments Ordered'}</option>
+                      <option value={6}>In Production</option>
+                      <option value={7}>{o?.fulfillmentType === 'Kitting' ? 'Inventory / Shipped' : 'Shipped'}</option>
+                      <option value={8}>{o?.fulfillmentType === 'Kitting' ? 'Live' : 'Received'}</option>
+                    </select>
                     {dueStr && (
-                      <span className="text-[11px] font-semibold text-neutral-600 truncate tabular-nums">
+                      <span
+                        className={`text-[11px] font-semibold truncate tabular-nums ${
+                          isOrderReceivedRow ? 'text-neutral-700' : 'text-neutral-600'
+                        }`}
+                      >
                         Due {dueStr}
                       </span>
                     )}
                   </div>
 
                   {/* Col 5: Company Name */}
-                  <div className="px-3 py-2 md:py-2.5 md:border-l md:border-red-100/60 flex items-center min-w-0">
-                    <span className="text-xs text-brand-secondary truncate" title={companyName}>
+                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center min-w-0`}>
+                    <span
+                      className={`text-xs truncate ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-700'
+                          : isOrderShippedRow
+                            ? 'text-neutral-600'
+                            : 'text-brand-secondary'
+                      }`}
+                      title={companyName}
+                    >
                       {companyName}
                     </span>
                   </div>
 
                   {/* Col 6: Action & Remove */}
-                  <div className="px-3 py-2.5 md:border-l md:border-red-100/60 flex items-center justify-end gap-2 shrink-0">
-                    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand-secondary group-hover:text-red-700 transition-colors">
+                  <div className={`px-3 py-2.5 md:border-l ${orderColBorderClass} flex items-center justify-end gap-2 shrink-0`}>
+                    <span
+                      className={`inline-flex items-center gap-0.5 text-[11px] font-semibold transition-colors ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-800 group-hover:text-black'
+                          : isOrderShippedRow
+                            ? 'text-neutral-600 group-hover:text-black'
+                            : 'text-brand-secondary group-hover:text-red-700'
+                      }`}
+                    >
                       Order <ChevronRight size={13} />
                     </span>
                     <button
                       type="button"
                       onClick={(e) => handleRemoveHighPriority(e, o)}
                       title="Remove High Priority"
-                      className="p-1 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-100/70 transition-colors shrink-0"
+                      className={`p-1 rounded-lg transition-colors shrink-0 ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-600 hover:text-red-700 hover:bg-neutral-400/50'
+                          : 'text-neutral-400 hover:text-red-600 hover:bg-red-100/70'
+                      }`}
                     >
                       <X size={14} />
                     </button>
@@ -1534,7 +1877,7 @@ export function Dashboard() {
               position: 'fixed',
               top: openOrdersDropdown.top,
               left: openOrdersDropdown.left,
-              width: 360,
+              width: 380,
               zIndex: 350,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1546,11 +1889,11 @@ export function Dashboard() {
                   {openOrdersDropdown.companyName}
                 </p>
                 <p className="text-xs font-bold text-brand-primary">
-                  {openOrdersDropdown.orders.length} Active{' '}
+                  {openOrdersDropdown.orders.length}{' '}
                   {openOrdersDropdown.kind === 'quotes'
                     ? openOrdersDropdown.orders.length === 1
-                      ? 'Quote'
-                      : 'Quotes'
+                      ? 'Active Quote'
+                      : 'Active Quotes'
                     : openOrdersDropdown.orders.length === 1
                       ? 'Order'
                       : 'Orders'}
@@ -1564,32 +1907,50 @@ export function Dashboard() {
                 <X size={13} />
               </button>
             </div>
-            <div className="divide-y divide-brand-border/60 max-h-[260px] overflow-y-auto custom-scrollbar">
+            <div className="divide-y divide-brand-border/60 max-h-[280px] overflow-y-auto custom-scrollbar">
               {openOrdersDropdown.orders.map((rawOrd: any) => {
                 const ord = orders.find((o: any) => o.id === rawOrd.id) || rawOrd;
                 const ordTitle = (ord.title || 'Untitled Order').trim();
-                const statusLabel = getOrderStatusLabel(ord);
+                const effIdx = getEffectiveOrderStatusIndex(ord);
                 return (
-                  <button
+                  <div
                     key={ord.id}
-                    type="button"
-                    onClick={() => {
-                      setOpenOrdersDropdown(null);
-                      navigate(`/orders/${ord.id}`);
-                    }}
-                    className="w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-neutral-50 transition-colors cursor-pointer group"
+                    className="w-full px-3.5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-neutral-50 transition-colors group"
                   >
-                    <span className="text-xs font-semibold text-brand-primary group-hover:text-red-700 truncate min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenOrdersDropdown(null);
+                        navigate(`/orders/${ord.id}`);
+                      }}
+                      className="text-xs font-semibold text-brand-primary hover:text-red-700 truncate min-w-0 text-left flex-1 cursor-pointer"
+                      title={`Open ${ordTitle}`}
+                    >
                       {ordTitle}
-                    </span>
-                    <span
-                      className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${getOrderStatusBadgeClasses(
+                    </button>
+                    <select
+                      value={effIdx}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleQuickOrderStatusChange(ord, parseInt(e.target.value, 10));
+                      }}
+                      title="Change status"
+                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 cursor-pointer outline-none ${getOrderStatusBadgeClasses(
                         ord
                       )}`}
                     >
-                      {statusLabel}
-                    </span>
-                  </button>
+                      <option value={0}>New Quote</option>
+                      <option value={1}>Pending Approval</option>
+                      <option value={2}>Quote Prepared</option>
+                      <option value={3}>New Order</option>
+                      <option value={4}>Sourcing</option>
+                      <option value={5}>{isSales ? 'Preproduction' : 'Garments Ordered'}</option>
+                      <option value={6}>In Production</option>
+                      <option value={7}>{ord?.fulfillmentType === 'Kitting' ? 'Inventory / Shipped' : 'Shipped'}</option>
+                      <option value={8}>{ord?.fulfillmentType === 'Kitting' ? 'Live' : 'Received'}</option>
+                    </select>
+                  </div>
                 );
               })}
             </div>
