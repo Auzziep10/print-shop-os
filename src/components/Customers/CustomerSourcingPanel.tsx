@@ -227,7 +227,7 @@ export function CustomerSourcingPanel({
   // Filter eligible orders
   const filteredOrders = useMemo(() => {
     return (orders || []).filter((o: any) => {
-      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup) return false;
+      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup || o.isArchived) return false;
       if (brandFilter !== 'all' && o.customerId !== brandFilter) return false;
 
       const sIdx = Number(o.statusIndex ?? 0);

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box, GripVertical } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, ChevronDown, ChevronUp, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Palette, QrCode, GitMerge, Percent, Tag, Truck, Users, UserPlus, Copy, AlertTriangle, ShieldCheck, PenTool, RotateCcw, Box, GripVertical, Archive } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { DEFAULT_PORTAL_AGREEMENTS, type PortalAgreementPage } from '../../lib/portalAgreements';
 import { SignedAgreementsViewerModal } from '../../components/Portal/PortalAgreementGate';
@@ -50,6 +50,19 @@ export function CustomerDetail() {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   
   const { orders } = useOrders(id);
+  const [quotesView, setQuotesView] = useState<'active' | 'archived'>('active');
+  const { activeQuotesCount, archivedQuotesCount } = useMemo(() => {
+    let active = 0;
+    let archived = 0;
+    (orders || []).forEach((o: any) => {
+      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup) return;
+      if ((o.statusIndex ?? 0) <= 2) {
+        if (o.isArchived) archived++;
+        else active++;
+      }
+    });
+    return { activeQuotesCount: active, archivedQuotesCount: archived };
+  }, [orders]);
 
   const pastGarments = useMemo(() => {
     if (!orders) return [];
@@ -96,7 +109,7 @@ export function CustomerDetail() {
       return delta === 0 ? clean : sizeLadder[Math.max(0, Math.min(sizeLadder.length - 1, i + delta))];
     };
     orders.forEach((o: any) => {
-      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup) return;
+      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup || o.isArchived) return;
       const idx = Number(o.statusIndex ?? 0);
       if (idx >= 7) return;
       const items = Array.isArray(o.items) ? o.items : [];
@@ -5865,52 +5878,101 @@ export function CustomerDetail() {
 
         {/* Quotes using Portal Component */}
         <div className="mt-8 border-t border-brand-border pt-12">
-           <div className="flex items-center justify-between mb-8">
+           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
               <div>
-                 <h2 className={tokens.typography.h2}>Active Quotes</h2>
-                 <p className="text-sm text-brand-secondary mt-1">Estimates and requests pending approval.</p>
+                 <h2 className={tokens.typography.h2}>
+                   {quotesView === 'archived' ? 'Archived Quotes' : 'Active Quotes'}
+                 </h2>
+                 <p className="text-sm text-brand-secondary mt-1">
+                   {quotesView === 'archived'
+                     ? 'Hidden from the customer portal. Restore anytime to make active again.'
+                     : 'Estimates and requests pending approval.'}
+                 </p>
               </div>
-              <div className="relative">
-                <PillButton variant="filled" className="gap-2" onClick={() => setIsShopifyMenuOpen(!isShopifyMenuOpen)}>
-                  <Plus size={16} />
-                  New Quote
-                </PillButton>
-                {isShopifyMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsShopifyMenuOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-brand-border py-2 z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                      <button 
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors text-left"
-                        onClick={() => { setIsShopifyMenuOpen(false); setNewOrderForm(prev => ({ ...prev, statusIndex: 0 })); setIsNewOrderDialogOpen(true); }}
-                      >
-                        <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
-                          <Plus size={16} />
-                        </div>
-                        <div>
-                          <p className="font-bold">Blank Quote</p>
-                          <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Start from scratch</p>
-                        </div>
-                      </button>
-                      <button 
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors border-t border-brand-border/40 text-left"
-                        onClick={() => { setIsShopifyMenuOpen(false); setIsShopifyImportOpen(true); }}
-                      >
-                         <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
-                           <ShoppingBag size={16} />
-                         </div>
-                         <div>
-                          <p className="font-bold flex items-center gap-2">Import Shopify</p>
-                          <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Sync cart items</p>
-                         </div>
-                      </button>
-                    </div>
-                  </>
-                )}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="inline-flex items-center bg-neutral-100 p-1 rounded-full border border-brand-border/80">
+                  <button
+                    type="button"
+                    onClick={() => setQuotesView('active')}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      quotesView === 'active'
+                        ? 'bg-white text-brand-primary shadow-xs border border-brand-border/60'
+                        : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    <span>Active</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                      quotesView === 'active' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-600'
+                    }`}>
+                      {activeQuotesCount}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuotesView('archived')}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      quotesView === 'archived'
+                        ? 'bg-white text-brand-primary shadow-xs border border-brand-border/60'
+                        : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                  >
+                    <Archive size={12} />
+                    <span>Archived</span>
+                    {archivedQuotesCount > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                        quotesView === 'archived' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'
+                      }`}>
+                        {archivedQuotesCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+                <div className="relative">
+                  <PillButton variant="filled" className="gap-2" onClick={() => setIsShopifyMenuOpen(!isShopifyMenuOpen)}>
+                    <Plus size={16} />
+                    New Quote
+                  </PillButton>
+                  {isShopifyMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsShopifyMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-brand-border py-2 z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                        <button 
+                          className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors text-left"
+                          onClick={() => { setIsShopifyMenuOpen(false); setNewOrderForm(prev => ({ ...prev, statusIndex: 0 })); setIsNewOrderDialogOpen(true); }}
+                        >
+                          <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
+                            <Plus size={16} />
+                          </div>
+                          <div>
+                            <p className="font-bold">Blank Quote</p>
+                            <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Start from scratch</p>
+                          </div>
+                        </button>
+                        <button 
+                          className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors border-t border-brand-border/40 text-left"
+                          onClick={() => { setIsShopifyMenuOpen(false); setIsShopifyImportOpen(true); }}
+                        >
+                           <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
+                             <ShoppingBag size={16} />
+                           </div>
+                           <div>
+                            <p className="font-bold flex items-center gap-2">Import Shopify</p>
+                            <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Sync cart items</p>
+                           </div>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
            </div>
            {/* Injecting the exact visual component the customer sees! */}
            <div className="w-full">
-             <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="quotes" />
+             <PortalOrders
+               overrideCustomerId={id}
+               hideHeader={true}
+               filterType={quotesView === 'archived' ? 'archived-quotes' : 'quotes'}
+             />
            </div>
         </div>
       </div>

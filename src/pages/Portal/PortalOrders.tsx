@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,7 +23,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
   </div>
 );
 
-export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'orders' | 'all' }) {
+export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'archived-quotes' | 'orders' | 'all' }) {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const { hasPermission, userData } = useAuth();
@@ -188,7 +188,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           await setDoc(orderRef, {
             paymentStatus: 'paid',
             statusIndex: 3,
-            status: 'In Production'
+            status: 'In Production',
+            isArchived: false
           }, { merge: true });
         } catch (err) {
           console.error("Error updating order payment status:", err);
@@ -553,13 +554,51 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     }
   };
 
+  const handleToggleArchiveQuote = async (order: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!order?.id) return;
+    setOrderContextMenu(null);
+    const nextArchived = !Boolean(order.isArchived);
+    const nowIso = new Date().toISOString();
+    const actorName = userData?.name || userData?.email || 'Admin';
+    const activityEntry = {
+      id: `act-${Date.now()}`,
+      type: nextArchived ? 'quote_archived' : 'quote_restored',
+      message: nextArchived
+        ? 'Quote archived (hidden from customer portal).'
+        : 'Quote restored from archive.',
+      user: actorName,
+      timestamp: nowIso,
+    };
+    try {
+      await setDoc(
+        doc(db, 'orders', order.id),
+        {
+          isArchived: nextArchived,
+          archivedAt: nextArchived ? nowIso : null,
+          archivedBy: nextArchived ? actorName : null,
+          activities: [activityEntry, ...(order.activities || [])],
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error('Error updating quote archive status:', err);
+      alert('Failed to update quote archive status.');
+    }
+  };
+
   useEffect(() => {
     if (orders) {
       let filtered = orders;
+      if (!overrideCustomerId) {
+        filtered = filtered.filter(o => !o.isArchived);
+      }
       if (filterType === 'quotes') {
-          filtered = filtered.filter(o => o.statusIndex <= 2);
+          filtered = filtered.filter(o => o.statusIndex <= 2 && !o.isArchived);
+      } else if (filterType === 'archived-quotes') {
+          filtered = filtered.filter(o => o.statusIndex <= 2 && Boolean(o.isArchived));
       } else if (filterType === 'orders') {
-          filtered = filtered.filter(o => o.statusIndex > 2);
+          filtered = filtered.filter(o => o.statusIndex > 2 && !o.isArchived);
       }
       
       const sorted = [...filtered].sort((a, b) => {
@@ -610,7 +649,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         });
       }
     }
-  }, [orders, filterType]);
+  }, [orders, filterType, overrideCustomerId]);
 
   const handleDragStartOrder = (e: React.DragEvent, id: string) => {
     e.stopPropagation();
@@ -785,7 +824,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   }
 
   const activeTour = localStorage.getItem('wovn_active_tour') || '';
-  if (orders.length === 0 && activeTour !== 'tracking') {
+  const visibleCustomerOrders = overrideCustomerId ? orders : orders.filter(o => !o.isArchived);
+  if (!overrideCustomerId && visibleCustomerOrders.length === 0 && activeTour !== 'tracking') {
     return (
       <div className="max-w-[800px] mx-auto mt-20 flex flex-col items-center justify-center text-center gap-6">
         {activeCartCount > 0 && (
@@ -867,6 +907,23 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           </button>
         </div>
       )}
+      {overrideCustomerId && localOrders.length === 0 && (
+        <div className="w-full py-10 px-6 rounded-3xl border border-dashed border-brand-border bg-neutral-50/50 flex flex-col items-center justify-center text-center gap-2">
+          {filterType === 'archived-quotes' ? (
+            <>
+              <Archive size={24} className="text-neutral-300" />
+              <p className="text-sm font-semibold text-brand-primary">No archived quotes</p>
+              <p className="text-xs text-brand-secondary max-w-sm">
+                Quotes you archive will move here and stay hidden from the customer portal.
+              </p>
+            </>
+          ) : filterType === 'quotes' ? (
+            <p className="text-sm text-brand-secondary font-medium">No active quotes right now.</p>
+          ) : (
+            <p className="text-sm text-brand-secondary font-medium">No active orders yet.</p>
+          )}
+        </div>
+      )}
       {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
 
@@ -882,7 +939,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           }
         });
 
-         const needsAction = order.statusIndex === 2 || order.statusIndex === 3;
+         const isArchivedQuote = Boolean(order.isArchived);
+         const needsAction = !isArchivedQuote && (order.statusIndex === 2 || order.statusIndex === 3);
          const orderSubBrand =
            order.customerId && order.customerId !== currentCustomerId
              ? familyBrands.find((b: any) => b.id === order.customerId)
@@ -931,10 +989,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       setExpandedId(isExpanded ? null : order.id);
                     }
                   }}
-                  className={`w-full relative group/card bg-white border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${
-                    needsAction 
-                      ? 'border-red-300 shadow-[0_0_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_25px_rgba(239,68,68,0.22)] hover:border-red-400' 
-                      : `border-brand-border ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'}`
+                  className={`w-full relative group/card border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${
+                    isArchivedQuote
+                      ? 'bg-neutral-50/70 border-neutral-200/90 opacity-90 hover:opacity-100 hover:border-neutral-400'
+                      : needsAction 
+                        ? 'bg-white border-red-300 shadow-[0_0_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_25px_rgba(239,68,68,0.22)] hover:border-red-400' 
+                        : `bg-white border-brand-border ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'}`
                   } ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
                 >
                   
@@ -997,7 +1057,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           }
                         }}
                       >
-                        {needsAction && (
+                        {isArchivedQuote ? (
+                          <div className="col-span-2 mb-0.5">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase bg-neutral-200/80 text-neutral-700 border border-neutral-300 w-fit">
+                              <Archive size={10} />
+                              Archived &bull; Hidden from Portal
+                            </span>
+                          </div>
+                        ) : needsAction && (
                           <div className="col-span-2 mb-0.5">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase bg-red-50 text-red-600 border border-red-100 w-fit">
                               <span className="relative flex h-1.5 w-1.5">
@@ -1675,7 +1742,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         className={`flex-1 xl:flex-none text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
                           isModified 
                             ? 'bg-emerald-600 border border-emerald-600 hover:bg-emerald-700 text-white animate-pulse'
-                            : 'bg-black border border-black hover:bg-neutral-800 text-white animate-pulse-black'
+                            : isArchivedQuote
+                              ? 'bg-neutral-800 border border-neutral-800 hover:bg-black text-white shadow-none'
+                              : 'bg-black border border-black hover:bg-neutral-800 text-white animate-pulse-black'
                         }`}
                         onClick={(e) => {
                           if (isModified) {
@@ -1735,13 +1804,27 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                 >
                   Order Info
                 </button>
-                <button 
-                  className="w-[48px] xl:w-[52px] shrink-0 bg-white border border-brand-border hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary rounded-full transition-all flex items-center justify-center text-gray-600"
-                  onClick={(e) => handleExportOrderCSV(e, order)}
-                  title="Export Order CSV"
-                >
-                  <Download size={16} strokeWidth={2.5} />
-                </button>
+                {overrideCustomerId && order.statusIndex <= 2 ? (
+                  <button 
+                    className={`w-[48px] xl:w-[52px] shrink-0 border rounded-full transition-all flex items-center justify-center cursor-pointer ${
+                      isArchivedQuote
+                        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-600 hover:border-amber-600 hover:text-white'
+                        : 'bg-white border-brand-border text-gray-600 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white'
+                    }`}
+                    onClick={(e) => handleToggleArchiveQuote(order, e)}
+                    title={isArchivedQuote ? 'Restore Quote (show in customer portal)' : 'Archive Quote (hide from customer portal)'}
+                  >
+                    {isArchivedQuote ? <RotateCcw size={16} strokeWidth={2.5} /> : <Archive size={16} strokeWidth={2.25} />}
+                  </button>
+                ) : (
+                  <button 
+                    className="w-[48px] xl:w-[52px] shrink-0 bg-white border border-brand-border hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary rounded-full transition-all flex items-center justify-center text-gray-600"
+                    onClick={(e) => handleExportOrderCSV(e, order)}
+                    title="Export Order CSV"
+                  >
+                    <Download size={16} strokeWidth={2.5} />
+                  </button>
+                )}
               </div>
              </div>
            </div>
@@ -1749,24 +1832,44 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       })}
     </div>
 
-      {/* Right-Click Context Menu for Moving Quotes & Orders between Parent & Brands */}
+      {/* Right-Click Context Menu for Moving / Archiving Quotes & Orders */}
       {orderContextMenu && (
         <div
           className="fixed z-[300] bg-white border border-brand-border rounded-2xl shadow-[0_20px_50px_-10px_rgba(0,0,0,0.2)] py-2 w-64 animate-in fade-in zoom-in-95 duration-150"
           style={{
             left: Math.min(orderContextMenu.x, typeof window !== 'undefined' ? window.innerWidth - 270 : orderContextMenu.x),
-            top: Math.min(orderContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 280 : orderContextMenu.y),
+            top: Math.min(orderContextMenu.y, typeof window !== 'undefined' ? window.innerHeight - 320 : orderContextMenu.y),
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3.5 py-1.5 border-b border-brand-border/60 mb-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-brand-muted">
-              Move {orderContextMenu.order.statusIndex === 0 ? 'Quote' : 'Order'}
+              {orderContextMenu.order.statusIndex <= 2 ? 'Quote Actions' : 'Order Actions'}
             </p>
             <p className="text-xs font-bold text-brand-primary truncate">
               {orderContextMenu.order.title || orderContextMenu.order.portalId || orderContextMenu.order.id}
             </p>
           </div>
+          {orderContextMenu.order.statusIndex <= 2 && (
+            <div className="px-1.5 pb-1 mb-1 border-b border-brand-border/60">
+              <button
+                onClick={(e) => handleToggleArchiveQuote(orderContextMenu.order, e)}
+                className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-brand-bg transition-colors flex items-center gap-2 text-xs font-bold text-brand-primary cursor-pointer"
+              >
+                {orderContextMenu.order.isArchived ? (
+                  <>
+                    <RotateCcw size={13} className="text-amber-700 shrink-0" />
+                    <span>Restore Quote to Active</span>
+                  </>
+                ) : (
+                  <>
+                    <Archive size={13} className="text-brand-secondary shrink-0" />
+                    <span>Archive Quote (Hide from Portal)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
           {moveTargets.length > 0 ? (
             <div className="max-h-60 overflow-y-auto px-1.5 space-y-0.5">
               {moveTargets.map((target) => (

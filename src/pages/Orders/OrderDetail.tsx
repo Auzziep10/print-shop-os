@@ -6,7 +6,7 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowRight, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin, Archive } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
@@ -2929,6 +2929,7 @@ export function OrderDetail() {
         statusIndex: newIndex,
         timelineMilestones: getUpdatedTimelineMilestonesForStatusChange(order.timelineMilestones, newIndex, nowIso, activeFt, fulfillmentPipelines),
         ...(shouldResetPaid ? { paymentStatus: 'unpaid', paymentDate: null } : {}),
+        ...(newIndex >= 3 && order.isArchived ? { isArchived: false } : {}),
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -4991,6 +4992,7 @@ export function OrderDetail() {
         date: editForm.date,
         targetCompletionDate: editForm.date,
         statusIndex: editForm.statusIndex,
+        ...(editForm.statusIndex >= 3 && order.isArchived ? { isArchived: false } : {}),
         paymentStatus: nextPaymentStatus,
         ...(nextPaymentStatus !== 'paid' ? { paymentDate: null } : {}),
         total: updatedTotal,
@@ -5083,6 +5085,33 @@ export function OrderDetail() {
     }
   };
 
+  const handleToggleArchiveQuote = async () => {
+    if (!id || !order) return;
+    const nextArchived = !Boolean(order.isArchived);
+    const nowIso = new Date().toISOString();
+    const actorName = userData?.name || user?.email || 'Team Member';
+    const activity = {
+      id: `act-${Date.now()}`,
+      type: nextArchived ? 'quote_archived' : 'quote_restored',
+      message: nextArchived
+        ? 'Quote archived (hidden from customer portal).'
+        : 'Quote restored from archive.',
+      user: actorName,
+      timestamp: nowIso,
+    };
+    try {
+      await setDoc(doc(db, 'orders', id), {
+        isArchived: nextArchived,
+        archivedAt: nextArchived ? nowIso : null,
+        archivedBy: nextArchived ? actorName : null,
+        activities: [activity, ...(order.activities || [])],
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error toggling quote archive status:', err);
+      alert('Failed to update quote archive status.');
+    }
+  };
+
   const handleApproveAndSave = async () => {
     if (!id || !order) return;
     if (!validatePersonalInfo()) return;
@@ -5149,6 +5178,7 @@ export function OrderDetail() {
         date: editForm.date,
         targetCompletionDate: editForm.date,
         statusIndex: 3,
+        isArchived: false,
         total: updatedTotal,
         calculatedTotal: updatedTotal,
         trackingCarrier: editForm.trackingCarrier,
@@ -5363,6 +5393,21 @@ export function OrderDetail() {
             <Users size={16} />
             Team
           </PillButton>
+          {(order.statusIndex <= 2 || Boolean(order.isArchived)) && (
+            <PillButton
+              variant="outline"
+              onClick={handleToggleArchiveQuote}
+              className={`gap-2 transition-all ${
+                order.isArchived
+                  ? 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-600 hover:text-white hover:border-amber-600'
+                  : 'border-brand-border text-brand-secondary hover:bg-neutral-900 hover:text-white hover:border-neutral-900'
+              }`}
+              title={order.isArchived ? 'Restore quote to active & show in customer portal' : 'Archive quote & hide from customer portal'}
+            >
+              {order.isArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
+              {order.isArchived ? 'Restore Quote' : 'Archive Quote'}
+            </PillButton>
+          )}
           <PillButton variant="filled" className="gap-2" onClick={() => setIsEditDialogOpen(true)}>
             <Edit3 size={16} />
             Edit Order
@@ -5373,6 +5418,36 @@ export function OrderDetail() {
       <div>
         {/* Top Section: Order Information */}
         <div className="space-y-8">
+          
+          {/* Archived Quote Banner */}
+          {Boolean(order.isArchived) && (
+            <div className="bg-neutral-100 border border-neutral-300 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-neutral-200 text-neutral-700 flex items-center justify-center shrink-0 border border-neutral-300">
+                  <Archive size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-neutral-900 text-base">Archived Quote</h4>
+                    <span className="bg-neutral-200 text-neutral-700 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Hidden from Customer Portal
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-600 font-medium mt-1">
+                    This quote is hidden from the customer&apos;s portal and active quote counters.
+                    {order.archivedAt ? ` Archived on ${formatDisplayDate(order.archivedAt) || order.archivedAt.split('T')[0]}.` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleArchiveQuote}
+                className="bg-neutral-900 hover:bg-black text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shrink-0 cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <RotateCcw size={14} strokeWidth={2.5} /> Restore to Active
+              </button>
+            </div>
+          )}
           
           {/* Resubmitted Quote Notification Banner */}
           {order.hasUnreadCustomerUpdate && (

@@ -162,6 +162,7 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
       } else if (
         o?.id &&
         (o.statusIndex === 0 || o.statusIndex === undefined) &&
+        !o.isArchived &&
         !o.isProjectGroup &&
         o.customerId !== 'Shopify Temporary'
       ) {

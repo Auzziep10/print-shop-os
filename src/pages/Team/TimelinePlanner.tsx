@@ -889,10 +889,10 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
         <div className="p-5 border-t border-brand-border bg-white flex flex-col gap-3">
           <h3 className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest">Active Orders (Click to Assign)</h3>
           <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar flex-nowrap">
-            {orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).length === 0 ? (
+            {orders.filter(o => !o.isArchived && o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).length === 0 ? (
               <span className="text-sm text-brand-muted italic">No active orders right now.</span>
             ) : (
-              orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).map(order => {
+              orders.filter(o => !o.isArchived && o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).map(order => {
                 const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
                 const displayId = order.portalId || order.id.substring(0, 8);
                 return (

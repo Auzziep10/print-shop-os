@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy, Box } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, Loader2, Check, RefreshCw, Globe, X, Copy, Box, Archive, RotateCcw } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
@@ -25,7 +25,7 @@ import {
 } from '../../lib/timelineUtils';
 
 export function OrdersList() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, userData } = useAuth();
   const { pipelines: fulfillmentPipelines } = useFulfillmentPipelines();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -42,6 +42,9 @@ export function OrdersList() {
     });
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'calendar';
+  const quotesView = searchParams.get('view') === 'archived' ? 'archived' : 'active';
+  const activeQuotesTotal = nonTempOrders.filter(o => o.statusIndex <= 2 && !o.isArchived).length;
+  const archivedQuotesTotal = nonTempOrders.filter(o => o.statusIndex <= 2 && Boolean(o.isArchived)).length;
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
@@ -198,8 +201,13 @@ export function OrdersList() {
   const displayedOrders = nonTempOrders.filter(order => {
     // 1. Tab filter
     const isQuote = order.statusIndex <= 2;
-    if (currentTab === 'orders' && isQuote) return false;
-    if (currentTab === 'quotes' && !isQuote) return false;
+    const isArchived = Boolean(order.isArchived);
+    if (currentTab === 'calendar' && isArchived) return false;
+    if (currentTab === 'orders' && (isQuote || isArchived)) return false;
+    if (currentTab === 'quotes') {
+      if (!isQuote) return false;
+      if (quotesView === 'archived' ? !isArchived : isArchived) return false;
+    }
 
     // 2. Search filter
     if (search.trim()) {
@@ -243,12 +251,41 @@ export function OrdersList() {
       );
       await updateDoc(doc(db, 'orders', orderId), {
         statusIndex: nextIndex,
-        timelineMilestones: nextMilestones
+        timelineMilestones: nextMilestones,
+        ...(nextIndex >= 3 ? { isArchived: false } : {})
       });
       sendOrderStatusSMS(orderId, nextIndex);
       sendOrderStatusEmail(orderId, nextIndex);
     } catch (err) {
       console.error("Error updating status: ", err);
+    }
+  };
+
+  const handleToggleArchiveQuote = async (e: React.MouseEvent, order: any) => {
+    e.stopPropagation();
+    if (!order?.id) return;
+    const nextArchived = !Boolean(order.isArchived);
+    const nowIso = new Date().toISOString();
+    const actorName = userData?.name || userData?.email || 'Admin';
+    const activityEntry = {
+      id: `act-${Date.now()}`,
+      type: nextArchived ? 'quote_archived' : 'quote_restored',
+      message: nextArchived
+        ? 'Quote archived (hidden from customer portal).'
+        : 'Quote restored from archive.',
+      user: actorName,
+      timestamp: nowIso,
+    };
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        isArchived: nextArchived,
+        archivedAt: nextArchived ? nowIso : null,
+        archivedBy: nextArchived ? actorName : null,
+        activities: [activityEntry, ...(order.activities || [])],
+      });
+    } catch (err) {
+      console.error('Error updating quote archive status:', err);
+      alert('Failed to update quote archive status.');
     }
   };
 
@@ -325,25 +362,73 @@ export function OrdersList() {
       {/* Filters and Search Bar */}
       {currentTab !== 'production' && currentTab !== 'reports' && (
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 gap-4">
-        <div className="flex gap-2 w-full max-w-md">
-           <div className="relative flex-1">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} />
-             <input 
-               type="text" 
-               placeholder="Search orders..." 
-               value={search}
-               onChange={(e) => setSearch(e.target.value)}
-               className="w-full pl-10 pr-4 py-2 bg-white border border-brand-border rounded-lg text-sm focus:border-brand-primary focus:outline-none transition-colors"
-             />
-           </div>
-           <button className="px-4 py-2 bg-white border border-brand-border rounded-lg text-brand-secondary hover:text-brand-primary hover:bg-brand-bg transition-colors flex items-center gap-2 text-sm font-medium">
-             <Filter size={16} />
-             <span className="hidden sm:inline">Filter</span>
-           </button>
+        <div className="flex items-center gap-3 flex-wrap flex-1">
+          <div className="flex gap-2 w-full max-w-md">
+             <div className="relative flex-1">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} />
+               <input 
+                 type="text" 
+                 placeholder={currentTab === 'quotes' ? 'Search quotes...' : 'Search orders...'} 
+                 value={search}
+                 onChange={(e) => setSearch(e.target.value)}
+                 className="w-full pl-10 pr-4 py-2 bg-white border border-brand-border rounded-lg text-sm focus:border-brand-primary focus:outline-none transition-colors"
+               />
+             </div>
+             <button className="px-4 py-2 bg-white border border-brand-border rounded-lg text-brand-secondary hover:text-brand-primary hover:bg-brand-bg transition-colors flex items-center gap-2 text-sm font-medium">
+               <Filter size={16} />
+               <span className="hidden sm:inline">Filter</span>
+             </button>
+          </div>
+          {currentTab === 'quotes' && (
+            <div className="inline-flex items-center bg-neutral-100 p-1 rounded-full border border-brand-border/80">
+              <button
+                type="button"
+                onClick={() => setSearchParams({ tab: 'quotes' })}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  quotesView === 'active'
+                    ? 'bg-white text-brand-primary shadow-xs border border-brand-border/60'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                <span>Active</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  quotesView === 'active' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-600'
+                }`}>
+                  {activeQuotesTotal}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchParams({ tab: 'quotes', view: 'archived' })}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  quotesView === 'archived'
+                    ? 'bg-white text-brand-primary shadow-xs border border-brand-border/60'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                <Archive size={12} />
+                <span>Archived</span>
+                {archivedQuotesTotal > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    quotesView === 'archived' ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-700'
+                  }`}>
+                    {archivedQuotesTotal}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span> {currentTab === 'quotes' ? 'active quotes' : currentTab === 'orders' ? 'active orders' : 'scheduled items'}
+          Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span>{' '}
+          {currentTab === 'quotes'
+            ? quotesView === 'archived'
+              ? 'archived quotes'
+              : 'active quotes'
+            : currentTab === 'orders'
+              ? 'active orders'
+              : 'scheduled items'}
         </div>
       </div>
       )}
@@ -382,6 +467,19 @@ export function OrdersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
+            {displayedOrders.length === 0 && (
+              <div className="py-14 px-6 text-center flex flex-col items-center justify-center gap-2 text-brand-secondary">
+                {currentTab === 'quotes' && quotesView === 'archived' ? (
+                  <>
+                    <Archive size={26} className="text-neutral-300" />
+                    <p className="text-sm font-semibold text-brand-primary">No archived quotes found</p>
+                    <p className="text-xs text-brand-secondary">Archived quotes are hidden from customer portals and stored here for easy reference.</p>
+                  </>
+                ) : (
+                  <p className="text-sm font-medium">No matching {currentTab === 'quotes' ? 'quotes' : 'orders'} found.</p>
+                )}
+              </div>
+            )}
             {displayedOrders.map((order) => {
               
               // Calculate dynamic sums from the line items array
@@ -508,7 +606,12 @@ export function OrdersList() {
                         </span>
                       )}
                     </span>
-                    {order.hasUnreadCustomerUpdate && (
+                    {Boolean(order.isArchived) && (
+                      <span className="bg-neutral-100 border border-neutral-300 text-neutral-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1" title="Archived — hidden from customer portal">
+                        <Archive size={10} /> Archived
+                      </span>
+                    )}
+                    {order.hasUnreadCustomerUpdate && !order.isArchived && (
                       <span className="bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="Customer resubmitted new size quantities">
                         <RefreshCw size={10} className="text-amber-600" /> Updated Qty
                       </span>
@@ -545,8 +648,22 @@ export function OrdersList() {
                        </span>
                      ))}
                   </div>
-                  <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">
-                    {formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}
+                  <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors flex items-center justify-end gap-2">
+                    <span>{formatDisplayDate(order.date || order.targetCompletionDate || order.neededByDate) || '-'}</span>
+                    {order.statusIndex <= 2 && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleArchiveQuote(e, order)}
+                        title={order.isArchived ? 'Restore Quote (show in customer portal)' : 'Archive Quote (hide from customer portal)'}
+                        className={`p-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
+                          order.isArchived
+                            ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-600 hover:border-amber-600 hover:text-white'
+                            : 'opacity-0 group-hover:opacity-100 bg-white border-brand-border text-brand-secondary hover:border-neutral-900 hover:bg-neutral-900 hover:text-white'
+                        }`}
+                      >
+                        {order.isArchived ? <RotateCcw size={13} /> : <Archive size={13} />}
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -725,9 +725,9 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
-  const newQuoteRequests = orders.filter(o => (getEffectiveOrderStatusIndex(o) === 0) && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const pendingApprovalOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
-  const quotePreparedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 2 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const newQuoteRequests = orders.filter(o => (getEffectiveOrderStatusIndex(o) === 0) && !o.isArchived && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const pendingApprovalOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 1 && !o.isArchived && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const quotePreparedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 2 && !o.isArchived && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const newApprovedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const sourcingOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 4 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const blanksOrderedOrders = orders.filter(o => getEffectiveOrderStatusIndex(o) === 5 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
@@ -798,6 +798,7 @@ export function Dashboard() {
     return orders.filter(
       (o: any) =>
         (o.highPriority || o.priority === 'rush' || o.priority === 'high') &&
+        !o.isArchived &&
         !o.isProjectGroup &&
         o.customerId !== 'Shopify Temporary'
     );
@@ -1186,7 +1187,7 @@ export function Dashboard() {
                 const isNonPriorityParent = Boolean(entry.isContextParent || !c.highPriority);
                 const companyName = c.company && c.company !== '-' ? c.company : (c.contactName || c.name || c.email || 'Customer');
                 const allCustItems = orders.filter(
-                  (o: any) => o.customerId === c.id && !o.isProjectGroup
+                  (o: any) => o.customerId === c.id && !o.isProjectGroup && !o.isArchived
                 );
                 const activeCustAll = allCustItems.filter((o: any) => {
                   const effIdx = getEffectiveOrderStatusIndex(o);
