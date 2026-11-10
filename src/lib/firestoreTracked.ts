@@ -1,6 +1,7 @@
 export * from 'firebase/firestore';
 
 import {
+  doc as realDoc,
   updateDoc as realUpdateDoc,
   setDoc as realSetDoc,
   addDoc as realAddDoc,
@@ -80,19 +81,22 @@ export const setDoc: typeof realSetDoc = (async (reference: any, data: any, opti
 
 export const addDoc: typeof realAddDoc = (async (reference: any, data: any) => {
   const cleanInput = data && typeof data === 'object' ? stripUndefinedDeep(data) : data;
-  const docRef = await (realAddDoc as any)(reference, cleanInput);
-  if (cleanInput && typeof cleanInput === 'object' && docRef?.path) {
-    const { pendingEvent } = prepareTrackedWritePayload(
-      reference?.firestore || docRef.firestore,
+  if (cleanInput && typeof cleanInput === 'object' && reference?.path) {
+    const docRef = realDoc(reference);
+    const { enrichedData, pendingEvent } = prepareTrackedWritePayload(
+      reference.firestore || docRef.firestore,
       docRef.path,
       'create',
       cleanInput
     );
+    const payload = stripUndefinedDeep(enrichedData ?? cleanInput);
+    await (realSetDoc as any)(docRef, payload);
     if (pendingEvent) {
-      finalizeTrackedWriteEvent(reference?.firestore || docRef.firestore, pendingEvent);
+      finalizeTrackedWriteEvent(reference.firestore || docRef.firestore, pendingEvent);
     }
+    return docRef;
   }
-  return docRef;
+  return (realAddDoc as any)(reference, cleanInput);
 }) as typeof realAddDoc;
 
 export const deleteDoc: typeof realDeleteDoc = (async (reference: any) => {

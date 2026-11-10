@@ -666,24 +666,35 @@ function describeOrderChanges(
   prevOrder?: Record<string, any>
 ): { actionSummary: string; changeDetails: ActivityChangeDetail[] } {
   if (op === 'create') {
-    const title = data?.title || orderTitle || 'New Order';
+    const isQuote = typeof data?.statusIndex === 'number' ? data.statusIndex <= 2 : true;
+    const labelWord = isQuote ? 'quote' : 'order';
+    const fieldLabel = isQuote ? 'New Quote Created' : 'New Order Created';
+    const title = data?.title || orderTitle || (isQuote ? 'New Quote' : 'New Order');
     const itemCount = Array.isArray(data?.items) ? data.items.length : 0;
     const changeDetails: ActivityChangeDetail[] = [
       {
-        field: 'New Order Created',
+        field: fieldLabel,
         after: title,
-        summary: `Created order "${title}"${itemCount > 0 ? ` with ${itemCount} line item(s)` : ''}`
+        summary: `Created ${labelWord} "${title}"${itemCount > 0 ? ` with ${itemCount} line item(s)` : ''}`
       }
     ];
-    if (data?.customer || data?.customerName) {
+    const custLabel =
+      data?.customer ||
+      data?.customerName ||
+      data?.contactDetails?.company ||
+      data?.contactDetails?.name ||
+      data?.shippingAddress?.company ||
+      (data?.customerId && customerCache.get(data.customerId)?.name) ||
+      '';
+    if (custLabel) {
       changeDetails.push({
         field: 'Customer',
-        after: data.customer || data.customerName,
-        summary: `Assigned to customer "${data.customer || data.customerName}"`
+        after: custLabel,
+        summary: `Assigned to customer "${custLabel}"`
       });
     }
     return {
-      actionSummary: `Created new order "${title}"`,
+      actionSummary: `Created new ${labelWord} "${title}"`,
       changeDetails
     };
   }
@@ -1358,12 +1369,23 @@ export function prepareTrackedWritePayload(
   }
 
   const actor = currentActor;
-  if (!actor || !actor.role) {
+  const isOrderCreation = collectionName === 'orders' && op === 'create' && Boolean(data);
+  if ((!actor || !actor.role) && !isOrderCreation) {
     return { enrichedData: data };
   }
 
-  const actorName = actor.name || actor.email?.split('@')[0] || 'Team Member';
-  const actorRole = actor.role;
+  const fallbackActorName =
+    data?.contactDetails?.name ||
+    data?.shippingAddress?.name ||
+    data?.shippingAddress?.company ||
+    data?.customerName ||
+    data?.customer ||
+    (data?.customerId && customerCache.get(data.customerId)?.name) ||
+    'Customer';
+  const actorName = actor?.name || actor?.email?.split('@')[0] || fallbackActorName || 'Team Member';
+  const actorRole = actor?.role || (data?.isWebLead ? 'Web Lead' : 'Customer');
+  const actorId = actor?.id || actor?.uid || actor?.email || data?.contactDetails?.email || data?.customerId || 'customer';
+  const actorEmail = actor?.email || data?.contactDetails?.email || '';
   const isSales = isSalesRole(actorRole);
   const isDesigner = isDesignerRole(actorRole);
   const nowMs = Date.now();
@@ -1393,9 +1415,9 @@ export function prepareTrackedWritePayload(
       const event: ActivityPopupEvent = {
         id: `act_rack_${docId}_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
         category: 'designer_rack',
-        actorId: actor.id || actor.uid || actor.email,
+        actorId,
         actorName,
-        actorEmail: actor.email || '',
+        actorEmail,
         actorRole,
         actionTitle: rackDiff.actionTitle,
         actionSummary: rackDiff.actionSummary,
@@ -1422,9 +1444,9 @@ export function prepareTrackedWritePayload(
     return { enrichedData: data };
   }
 
-  // CASE 2: Order changes by Sales role OR Designer role
+  // CASE 2: Any new Quote/Order creation OR Order changes by Sales / Designer role
   if (collectionName === 'orders') {
-    if (!isSales && !isDesigner) {
+    if (!isSales && !isDesigner && op !== 'create') {
       return { enrichedData: data };
     }
     if (data && isPassiveOrderWrite(data)) {
@@ -1445,6 +1467,8 @@ export function prepareTrackedWritePayload(
       data?.customerName ||
       data?.contactDetails?.company ||
       data?.contactDetails?.name ||
+      data?.shippingAddress?.company ||
+      (data?.customerId && customerCache.get(data.customerId)?.name) ||
       cachedOrder?.customerName ||
       '';
     const targetLabel = customerName
@@ -1478,14 +1502,24 @@ export function prepareTrackedWritePayload(
         ? itemsSource[0]?.image || itemsSource[0]?.customizedFrontImage || ''
         : '';
 
+    const isQuoteCreate =
+      op === 'create' && (typeof data?.statusIndex === 'number' ? data.statusIndex <= 2 : true);
+    const actionTitle = isQuoteCreate
+      ? 'New Quote Created'
+      : op === 'create'
+        ? 'New Order Created'
+        : isSales
+          ? 'Order Change by Sales'
+          : 'Order Change by Designer';
+
     const event: ActivityPopupEvent = {
       id: `act_ord_${docId}_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
-      category: isSales ? 'sales_order' : 'designer_platform',
-      actorId: actor.id || actor.uid || actor.email,
+      category: isDesigner ? 'designer_platform' : 'sales_order',
+      actorId,
       actorName,
-      actorEmail: actor.email || '',
+      actorEmail,
       actorRole,
-      actionTitle: isSales ? 'Order Change by Sales' : 'Order Change by Designer',
+      actionTitle,
       actionSummary,
       ...(changeDetails.length ? { changeDetails } : {}),
       targetType: 'order',
@@ -1604,4 +1638,84 @@ export function finalizeTrackedWriteEvent(db: Firestore | undefined, event?: Act
   if (targetDb) {
     void persistPopupEventToSettings(targetDb, event);
   }
+}
+
+export function buildMissingQuotePopupEvent(order: any): ActivityPopupEvent | null {
+  if (!order || !order.id) return null;
+  const portalId = String(order.portalId || order.orderNumber || order.id.substring(0, 8));
+  const rawOrderTitle = order.title || `Order #${portalId}`;
+  const customerName =
+    order.customer ||
+    order.customerName ||
+    order.contactDetails?.company ||
+    order.contactDetails?.name ||
+    order.shippingAddress?.company ||
+    (order.customerId && customerCache.get(order.customerId)?.name) ||
+    '';
+  const targetLabel = customerName
+    ? `${rawOrderTitle} · ${customerName}`
+    : `Order #${portalId} · ${rawOrderTitle}`;
+
+  const earliestAct =
+    Array.isArray(order.activities) && order.activities.length > 0
+      ? order.activities[order.activities.length - 1]
+      : null;
+
+  const actorName =
+    order.createdByName ||
+    earliestAct?.user ||
+    order.contactDetails?.name ||
+    order.shippingAddress?.name ||
+    customerName ||
+    'Team Member';
+
+  const actorRole =
+    order.createdByRole ||
+    (order.isWebLead ? 'Web Lead' : order.contactDetails?.email ? 'Customer' : 'Quote Request');
+
+  const parsedMs = order.createdAt ? Date.parse(order.createdAt) : NaN;
+  const createdAtMs = Number.isFinite(parsedMs) ? parsedMs : Date.now();
+  const createdAt = Number.isFinite(parsedMs)
+    ? new Date(parsedMs).toISOString()
+    : new Date(createdAtMs).toISOString();
+
+  const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+  const firstItemImg =
+    itemCount > 0
+      ? order.items[0]?.image || order.items[0]?.customizedFrontImage || ''
+      : '';
+
+  const changeDetails: ActivityChangeDetail[] = [
+    {
+      field: 'New Quote Created',
+      after: `Order #${portalId}`,
+      summary: `Created quote "${rawOrderTitle}"${itemCount > 0 ? ` with ${itemCount} line item(s)` : ''}`
+    }
+  ];
+  if (customerName) {
+    changeDetails.push({
+      field: 'Customer',
+      after: customerName,
+      summary: `Customer: ${customerName}`
+    });
+  }
+
+  return {
+    id: `act_quote_init_${order.id}`,
+    category: 'sales_order',
+    actorId: order.createdByEmail || order.contactDetails?.email || order.customerId || order.id,
+    actorName,
+    actorEmail: order.createdByEmail || order.contactDetails?.email || '',
+    actorRole,
+    actionTitle: 'New Quote Created',
+    actionSummary: `Created new quote "${rawOrderTitle}" (Order #${portalId})`,
+    changeDetails,
+    targetType: 'order',
+    targetId: order.id,
+    targetLabel,
+    targetRoute: `/orders/${order.id}`,
+    ...(firstItemImg ? { mockupUrl: firstItemImg } : {}),
+    createdAt,
+    createdAtMs
+  };
 }

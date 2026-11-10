@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
 import {
   ACTIVITY_POPUPS_DOC_ID,
+  buildMissingQuotePopupEvent,
   runWithSuppressedActivityTracking,
   shouldShowActivityPopupsForRole,
   subscribeLocalActivityPopup,
@@ -76,11 +77,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
 
   const enqueueActivityPopup = (event: ActivityPopupEvent | undefined | null, isInitialSnapshot: boolean) => {
     if (!event || !event.id) return;
-    if (dismissedIdsRef.current.has(event.id) || seenPopupIdsRef.current.has(event.id)) {
+    const isNewQuoteEvent = event.actionTitle === 'New Quote Created';
+    const syntheticQuoteId =
+      isNewQuoteEvent && event.targetId ? `act_quote_init_${event.targetId}` : null;
+    if (
+      dismissedIdsRef.current.has(event.id) ||
+      (syntheticQuoteId && dismissedIdsRef.current.has(syntheticQuoteId)) ||
+      seenPopupIdsRef.current.has(event.id)
+    ) {
       return;
     }
-    // On initial page load, ignore older historical events (> 45s before this tab booted) so refresh doesn't replay old alerts
-    if (isInitialSnapshot && event.createdAtMs < SESSION_BOOT_MS - 45000) {
+    // On initial page load, show undismissed new quotes from the last 7 days and other undismissed activity from the last 24 hours
+    const maxInitialAgeMs = isNewQuoteEvent
+      ? 7 * 24 * 60 * 60 * 1000
+      : 24 * 60 * 60 * 1000;
+    if (isInitialSnapshot && event.createdAtMs < SESSION_BOOT_MS - maxInitialAgeMs) {
       seenPopupIdsRef.current.add(event.id);
       return;
     }
@@ -89,6 +100,11 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
       const filtered = prev.filter(
         (p) =>
           p.id !== event.id &&
+          !(
+            isNewQuoteEvent &&
+            p.actionTitle === 'New Quote Created' &&
+            p.targetId === event.targetId
+          ) &&
           !(
             p.actorId === event.actorId &&
             p.targetId === event.targetId &&
@@ -102,12 +118,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
 
   const handleDismissPopup = (popupId: string) => {
     dismissedIdsRef.current.add(popupId);
+    const matching = activePopups.find((p) => p.id === popupId);
+    if (matching?.targetType === 'order' && matching.targetId) {
+      dismissedIdsRef.current.add(`act_quote_init_${matching.targetId}`);
+    }
     saveDismissedPopupIds(dismissedIdsRef.current);
     setActivePopups((prev) => prev.filter((p) => p.id !== popupId));
   };
 
   const handleDismissAllPopups = () => {
-    activePopups.forEach((p) => dismissedIdsRef.current.add(p.id));
+    activePopups.forEach((p) => {
+      dismissedIdsRef.current.add(p.id);
+      if (p.targetType === 'order' && p.targetId) {
+        dismissedIdsRef.current.add(`act_quote_init_${p.targetId}`);
+      }
+    });
     saveDismissedPopupIds(dismissedIdsRef.current);
     setActivePopups([]);
   };
@@ -134,6 +159,16 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
     orders.forEach((o: any) => {
       if (o?.lastActivityPopup?.id) {
         enqueueActivityPopup(o.lastActivityPopup, isInitial);
+      } else if (
+        o?.id &&
+        (o.statusIndex === 0 || o.statusIndex === undefined) &&
+        !o.isProjectGroup &&
+        o.customerId !== 'Shopify Temporary'
+      ) {
+        const fallbackQuotePopup = buildMissingQuotePopupEvent(o);
+        if (fallbackQuotePopup) {
+          enqueueActivityPopup(fallbackQuotePopup, isInitial);
+        }
       }
     });
   }, [orders]);
