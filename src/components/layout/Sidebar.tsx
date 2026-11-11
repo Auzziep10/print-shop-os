@@ -29,7 +29,8 @@ import {
   Droplet,
   Truck,
   TrendingUp,
-  Calculator
+  Calculator,
+  Timer
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
@@ -193,6 +194,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     ...((hasPermission('manageInventory') && !isDesigner) ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
     ...((hasPermission('manageTeam') && !isDesigner) ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
+    ...((hasPermission('manageOrders') || isSales) ? [{ label: 'Turnaround', icon: Timer, path: '/turnaround' }] : []),
     ...((hasPermission('viewDashboard') && !isSales && !isDesigner) ? [{ label: 'Capacity Calc', icon: Calculator, path: '/capacity-calculator' }] : []),
   ];
 

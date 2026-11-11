@@ -64,6 +64,7 @@ const ShopPage = safeLazy(() => import('./pages/Shop/ShopPage').then(m => ({ def
 const ShopProductPage = safeLazy(() => import('./pages/Shop/ShopProductPage').then(m => ({ default: m.ShopProductPage })));
 const ShopSuccess = safeLazy(() => import('./pages/Shop/ShopSuccess').then(m => ({ default: m.ShopSuccess })));
 const CapacityCalculator = safeLazy(() => import('./pages/Tools/CapacityCalculator').then(m => ({ default: m.CapacityCalculator })));
+const TurnaroundEstimator = safeLazy(() => import('./pages/Tools/TurnaroundEstimator').then(m => ({ default: m.TurnaroundEstimator })));
 const DecoratorNotesPage = safeLazy(() => import('./pages/DecoratorNotes/DecoratorNotesPage').then(m => ({ default: m.DecoratorNotesPage })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -368,6 +369,15 @@ function AppRoutes() {
               element={
                 <PermissionGuard permission="viewDashboard">
                   <CapacityCalculator />
+                </PermissionGuard>
+              }
+            />
+            {/* manageOrders so Sales reps (who pass that guard) can open it */}
+            <Route
+              path="turnaround"
+              element={
+                <PermissionGuard permission="manageOrders">
+                  <TurnaroundEstimator />
                 </PermissionGuard>
               }
             />

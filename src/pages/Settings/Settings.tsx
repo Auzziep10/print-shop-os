@@ -16,6 +16,7 @@ import { QuoTab } from './QuoTab';
 import { MetaAdsTab } from './MetaAdsTab';
 import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 import { StudioQrTab } from './StudioQrTab';
+import { TurnaroundSettingsTab } from './TurnaroundSettingsTab';
 import { MergeCustomersTab } from './MergeCustomersTab';
 import { ArtistCollabTab } from './ArtistCollabTab';
 import { XCollabTab } from './XCollabTab';
@@ -160,6 +161,16 @@ export function Settings() {
                   }`}
                 >
                   Auto-Quoting & DTF Pricing
+                </button>
+                <button
+                  onClick={() => setActiveTab('turnaround')}
+                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'turnaround'
+                      ? 'bg-brand-primary text-white'
+                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                  }`}
+                >
+                  Turnaround Matrix
                 </button>
                 <button
                   onClick={() => setActiveTab('apps')}
@@ -311,6 +322,7 @@ export function Settings() {
           {activeTab === 'fulfillment-pipelines' && <FulfillmentPipelinesTab />}
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'pricing' && <DtfPricingSettingsTab />}
+          {activeTab === 'turnaround' && <TurnaroundSettingsTab />}
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'meta-ads' && <MetaAdsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
