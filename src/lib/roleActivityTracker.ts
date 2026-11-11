@@ -1574,9 +1574,9 @@ export function prepareTrackedWritePayload(
       const event: ActivityPopupEvent = {
         id: `act_cust_${docId}_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
         category: 'designer_platform',
-        actorId: actor.id || actor.uid || actor.email,
+        actorId,
         actorName,
-        actorEmail: actor.email || '',
+        actorEmail,
         actorRole,
         actionTitle: 'Customer Updated by Designer',
         actionSummary,
@@ -1605,9 +1605,9 @@ export function prepareTrackedWritePayload(
     const event: ActivityPopupEvent = {
       id: `act_plat_${collectionName}_${docId}_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
       category: 'designer_platform',
-      actorId: actor.id || actor.uid || actor.email,
+      actorId,
       actorName,
-      actorEmail: actor.email || '',
+      actorEmail,
       actorRole,
       actionTitle: 'Platform Change by Designer',
       actionSummary: platformDesc.actionSummary,
