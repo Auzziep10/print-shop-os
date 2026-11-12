@@ -113,14 +113,43 @@ export const measureVisibleBounds = (
     }
 };
 
-/** Loads an image (CORS-enabled so its pixels can be read) and measures its visible bounds. */
-export const measureVisibleBoundsFromUrl = (url: string): Promise<VisibleBounds | null> =>
+const loadImageElement = (src: string, cors: boolean): Promise<HTMLImageElement | null> =>
     new Promise((resolve) => {
         const img = new window.Image();
-        if (!url.startsWith('blob:') && !url.startsWith('data:')) {
-            img.crossOrigin = 'anonymous';
-        }
-        img.onload = () => resolve(measureVisibleBounds(img));
+        if (cors) img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
         img.onerror = () => resolve(null);
-        img.src = url;
+        img.src = src;
     });
+
+/**
+ * Loads an image so its pixels can be read on a canvas.
+ * A plain CORS image load can fail when the browser already cached the same URL from a normal
+ * <img> tag (the cached copy has no CORS headers). In that case the file is re-fetched,
+ * bypassing the cache, and loaded from a local blob instead.
+ */
+export const loadImageForCanvas = async (url: string): Promise<HTMLImageElement | null> => {
+    if (!url) return null;
+    if (url.startsWith('blob:') || url.startsWith('data:')) return loadImageElement(url, false);
+
+    const direct = await loadImageElement(url, true);
+    if (direct) return direct;
+
+    try {
+        const res = await fetch(url, { mode: 'cors', cache: 'reload' });
+        if (!res.ok) return null;
+        const blobUrl = URL.createObjectURL(await res.blob());
+        const img = await loadImageElement(blobUrl, false);
+        if (!img) URL.revokeObjectURL(blobUrl);
+        return img;
+    } catch (err) {
+        console.warn('Could not load artwork for canvas use:', url, err);
+        return null;
+    }
+};
+
+/** Loads an image and measures its visible bounds. Resolves null when it cannot be loaded. */
+export const measureVisibleBoundsFromUrl = async (url: string): Promise<VisibleBounds | null> => {
+    const img = await loadImageForCanvas(url);
+    return img ? measureVisibleBounds(img) : null;
+};
