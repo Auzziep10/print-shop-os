@@ -55,6 +55,11 @@ const PERMISSIONS_META: PermissionMeta[] = [
     key: 'viewPricing',
     label: 'Pricing Visibility',
     description: 'Permits viewing prices, quotes amounts, item unit costs, and financial calculations.'
+  },
+  {
+    key: 'viewTurnaround',
+    label: 'Turnaround Time',
+    description: 'Access to the project turnaround estimator and its link in the sidebar.'
   }
 ];
 

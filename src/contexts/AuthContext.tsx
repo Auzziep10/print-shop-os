@@ -19,7 +19,7 @@ export interface UserData {
   website?: string;
 }
 
-export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings' | 'viewPricing';
+export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings' | 'viewPricing' | 'viewTurnaround';
 
 export type RolePermissions = Record<PermissionKey, boolean>;
 export type PermissionsData = Record<UserRole, RolePermissions>;
@@ -33,6 +33,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: true,
     manageSettings: true,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Leadership: {
     viewDashboard: true,
@@ -42,6 +43,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: true,
     manageSettings: true,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Manager: {
     viewDashboard: true,
@@ -51,6 +53,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: true,
     manageSettings: false,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Staff: {
     viewDashboard: true,
@@ -60,6 +63,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: true,
     manageSettings: false,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Sales: {
     viewDashboard: false,
@@ -69,6 +73,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: false,
     manageSettings: false,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Designer: {
     viewDashboard: false,
@@ -78,6 +83,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: false,
     manageSettings: true,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Printer: {
     viewDashboard: true,
@@ -87,6 +93,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: true,
     manageSettings: false,
     viewPricing: true,
+    viewTurnaround: true,
   },
   Client: {
     viewDashboard: false,
@@ -96,6 +103,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: false,
     manageSettings: false,
     viewPricing: false,
+    viewTurnaround: false,
   },
   Pending: {
     viewDashboard: false,
@@ -105,6 +113,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageTeam: false,
     manageSettings: false,
     viewPricing: false,
+    viewTurnaround: false,
   },
 };
 
@@ -562,7 +571,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const rolePermissions = permissions?.[effectiveUserData.role];
     if (rolePermissions) {
-      return !!rolePermissions[permission];
+      // A permission added after the roles were last saved has no stored value yet: use its default.
+      return !!(rolePermissions[permission] ?? DEFAULT_PERMISSIONS[effectiveUserData.role]?.[permission]);
     }
 
     // Fallback to hardcoded defaults

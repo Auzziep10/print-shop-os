@@ -372,11 +372,11 @@ function AppRoutes() {
                 </PermissionGuard>
               }
             />
-            {/* manageOrders so Sales reps (who pass that guard) can open it */}
+            {/* Toggled per role in Settings -> Role Permissions -> Turnaround Time */}
             <Route
               path="turnaround"
               element={
-                <PermissionGuard permission="manageOrders">
+                <PermissionGuard permission="viewTurnaround">
                   <TurnaroundEstimator />
                 </PermissionGuard>
               }
