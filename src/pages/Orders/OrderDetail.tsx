@@ -204,12 +204,16 @@ const drawGraphtecRegistrationMarks = (
 };
 
 // Cut outlines are solid lines with the corners left open: each side stops 0.5 mm short of both
-// of its corners, so the four sides are separate strokes that never meet.
+// of its corners, so the four sides never meet. Every side also has 3 evenly spaced 1 mm
+// uncut spaces (at 1/4, 1/2 and 3/4 of its length), which splits it into 4 strokes.
 const CUT_CORNER_GAP_MM = 0.5;
+const CUT_SIDE_GAP_MM = 1;
+const CUT_SIDE_GAP_COUNT = 3;
 // All production files are built at 300 DPI
 const CUT_CORNER_GAP_PX = (CUT_CORNER_GAP_MM / 25.4) * 300;
+const CUT_SIDE_GAP_PX = (CUT_SIDE_GAP_MM / 25.4) * 300;
 
-// Builds the four line segments of a cut outline (one solid line per side, corners left blank)
+// Builds the line segments of a cut outline (corners left blank, 3 uncut spaces per side)
 const getCutRectSegments = (
     x: number,
     y: number,
@@ -219,12 +223,33 @@ const getCutRectSegments = (
     // On very short sides the gap shrinks so half of the side is still cut
     const gapX = Math.min(CUT_CORNER_GAP_PX, Math.abs(w) / 4);
     const gapY = Math.min(CUT_CORNER_GAP_PX, Math.abs(h) / 4);
-    return [
+    const sides: Array<[number, number, number, number]> = [
         [x + gapX, y, x + w - gapX, y],         // Top edge
         [x + w, y + gapY, x + w, y + h - gapY], // Right edge
         [x + w - gapX, y + h, x + gapX, y + h], // Bottom edge
         [x, y + h - gapY, x, y + gapY]          // Left edge
     ];
+
+    const segments: Array<[number, number, number, number]> = [];
+    const pieces = CUT_SIDE_GAP_COUNT + 1;
+    for (const [x1, y1, x2, y2] of sides) {
+        const length = Math.hypot(x2 - x1, y2 - y1);
+        if (length <= 0) continue;
+        // On very short sides the spaces shrink so at least half of the side is still cut
+        const space = Math.min(CUT_SIDE_GAP_PX, length / (2 * CUT_SIDE_GAP_COUNT));
+        const half = space / 2 / length;
+        for (let i = 0; i < pieces; i++) {
+            const tStart = i === 0 ? 0 : i / pieces + half;
+            const tEnd = i === pieces - 1 ? 1 : (i + 1) / pieces - half;
+            segments.push([
+                x1 + (x2 - x1) * tStart,
+                y1 + (y2 - y1) * tStart,
+                x1 + (x2 - x1) * tEnd,
+                y1 + (y2 - y1) * tEnd
+            ]);
+        }
+    }
+    return segments;
 };
 
 const strokeCutRectCanvas = (
@@ -7590,7 +7615,7 @@ export function OrderDetail() {
                         <div className="flex flex-col gap-0.5 border-t border-neutral-805 pt-3 text-xs">
                           <span className="text-neutral-200 font-bold text-[11px]">Cut lines</span>
                           <span className="text-[10px] text-neutral-500 leading-tight">
-                            Solid lines, with {CUT_CORNER_GAP_MM} mm left uncut on both sides of every corner.
+                            Solid lines with {CUT_SIDE_GAP_COUNT} uncut {CUT_SIDE_GAP_MM} mm spaces on every side, and {CUT_CORNER_GAP_MM} mm left uncut at every corner.
                           </span>
                         </div>
 
