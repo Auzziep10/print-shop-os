@@ -146,7 +146,9 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
   </div>
 );
 
-// Utility to draw solid black Graphtec Type 1 registration marks (L-marks) in the 4 corners of the sheet's printable area
+// Utility to draw Graphtec Type 1 registration marks (L-marks) in the 4 corners of the sheet's printable area.
+// With drawBackground (the print file) the marks are white on black horizontal strips;
+// without it (the cut file) they are plain black marks.
 const drawGraphtecRegistrationMarks = (
     ctx: CanvasRenderingContext2D,
     width: number,
@@ -158,7 +160,7 @@ const drawGraphtecRegistrationMarks = (
     const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
     const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
     const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
-    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch padding around registration marks for the white horizontal strips)
+    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch padding around registration marks for the black horizontal strips)
 
     const xLeft = margin;
     const xRight = width - margin;
@@ -166,23 +168,23 @@ const drawGraphtecRegistrationMarks = (
     const yBottom = height - margin;
 
     if (drawBackground) {
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = 'black';
 
         const stripX = Math.max(0, xLeft - padding);
         const stripW = Math.min(width, xRight + padding) - stripX;
 
-        // 1. Top Horizontal White Strip (connects top-left and top-right registration marks all the way across)
+        // 1. Top Horizontal Black Strip (connects top-left and top-right registration marks all the way across)
         const topStripY = Math.max(0, yTop - padding);
         const topStripH = Math.min(height, yTop + markLength + padding) - topStripY;
         ctx.fillRect(stripX, topStripY, stripW, topStripH);
 
-        // 2. Bottom Horizontal White Strip (connects bottom-left and bottom-right registration marks all the way across)
+        // 2. Bottom Horizontal Black Strip (connects bottom-left and bottom-right registration marks all the way across)
         const bottomStripY = Math.max(0, yBottom - markLength - padding);
         const bottomStripH = Math.min(height, yBottom + padding) - bottomStripY;
         ctx.fillRect(stripX, bottomStripY, stripW, bottomStripH);
     }
 
-    ctx.fillStyle = 'black';
+    ctx.fillStyle = drawBackground ? 'white' : 'black';
 
     // 1. Top-Left L-Mark (Corner pointing down-right)
     ctx.fillRect(xLeft, yTop, markLength, thickness);
