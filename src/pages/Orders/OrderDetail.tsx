@@ -203,9 +203,9 @@ const drawGraphtecRegistrationMarks = (
     ctx.fillRect(xRight - thickness, yBottom - markLength, thickness, markLength);
 };
 
-// Cut outlines are solid lines with the corners left open: each side stops 5 mm short of both
+// Cut outlines are solid lines with the corners left open: each side stops 0.5 mm short of both
 // of its corners, so the four sides are separate strokes that never meet.
-const CUT_CORNER_GAP_MM = 5;
+const CUT_CORNER_GAP_MM = 0.5;
 // All production files are built at 300 DPI
 const CUT_CORNER_GAP_PX = (CUT_CORNER_GAP_MM / 25.4) * 300;
 
