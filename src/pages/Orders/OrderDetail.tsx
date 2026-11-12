@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
@@ -24,6 +24,7 @@ import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickO
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
+import { measureVisibleBounds, measureVisibleBoundsFromUrl, type VisibleBounds } from '../../lib/artworkBounds';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
@@ -592,11 +593,28 @@ const generateFinalSheetsForPrintAndCut = async (
         });
     }
 
+    // Visible (non-transparent) bounds of every logo, so the entered width applies to the artwork
+    // that actually prints and logos pack by their real edges, not by blank PNG padding.
+    const visibleBounds: Record<string, VisibleBounds> = {};
+    if (isSingleTransferLayout) {
+        Object.keys(loadedImages).forEach((url) => {
+            visibleBounds[url] = measureVisibleBounds(loadedImages[url]);
+        });
+    }
+    // Source rectangle to draw for a placement: trimmed artwork, or the whole file when trimming is off
+    const getSourceRect = (url: string, trim: boolean) => {
+        const img = loadedImages[url];
+        const b = trim ? visibleBounds[url] : undefined;
+        if (b) return { sx: b.sx, sy: b.sy, sw: b.sw, sh: b.sh };
+        return { sx: 0, sy: 0, sw: img?.naturalWidth || 1, sh: img?.naturalHeight || 1 };
+    };
+
     const SPACING_INCHES = 0.5;
 
     // Define placement instances for auto-repeated single transfer layout
     interface Placement {
         url: string;
+        trim: boolean; // size/draw by visible artwork bounds instead of the full image canvas
         x: number; // inches
         y: number; // inches
         w: number; // inches
@@ -616,6 +634,7 @@ const generateFinalSheetsForPrintAndCut = async (
             url: string;
             w: number;
             h: number;
+            trim: boolean;
         }> = [];
 
         if (artworks.length > 0) {
@@ -624,24 +643,30 @@ const generateFinalSheetsForPrintAndCut = async (
                 const w = parseFloat(art.width) || 3.5;
                 const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
                 
+                // Pre-built full sheets keep their whole canvas; individual logos are sized by visible artwork
+                const trim = !art.keepFullCanvas;
+
                 // Get actual loaded image dimensions to calculate proportional height
                 const loadedImg = loadedImages[url];
                 let aspect = 1.0;
                 if (loadedImg && loadedImg.naturalWidth) {
-                    aspect = loadedImg.naturalHeight / loadedImg.naturalWidth;
+                    const src = getSourceRect(url, trim);
+                    aspect = src.sh / src.sw;
                 } else if (art.aspectRatio) {
                     aspect = art.aspectRatio;
                 } else if (art.height && art.width) {
                     aspect = art.height / art.width;
                 }
                 
-                const h = parseFloat((w * aspect).toFixed(2));
+                // Keep full precision so the printed artwork keeps its exact aspect ratio
+                const h = w * aspect;
 
                 for (let i = 0; i < qty; i++) {
                     instances.push({
                         url,
                         w,
-                        h
+                        h,
+                        trim
                     });
                 }
             });
@@ -654,7 +679,8 @@ const generateFinalSheetsForPrintAndCut = async (
                 instances.push({
                     url,
                     w,
-                    h
+                    h,
+                    trim: false
                 });
             }
         }
@@ -685,7 +711,7 @@ const generateFinalSheetsForPrintAndCut = async (
         const MAX_CHUNK_HEIGHT_INCHES = 100;
 
         const runPacking = (
-            items: Array<{ url: string; w: number; h: number }>,
+            items: Array<{ url: string; w: number; h: number; trim: boolean }>,
             rotationMode: 'none' | 'auto' | 'force'
         ): PackResult => {
             const sheets: SheetPack[] = [
@@ -743,6 +769,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     if (shelf.currentX + dims.w <= designWidthInches) {
                         const newPlacement: Placement = {
                             url: inst.url,
+                            trim: inst.trim,
                             x: shelf.currentX,
                             y: shelf.y,
                             w: dims.w,
@@ -787,6 +814,7 @@ const generateFinalSheetsForPrintAndCut = async (
                         const firstY = SPACING_INCHES;
                         const newPlacement: Placement = {
                             url: inst.url,
+                            trim: inst.trim,
                             x: 0,
                             y: firstY,
                             w: dims.w,
@@ -805,6 +833,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     } else {
                         const newPlacement: Placement = {
                             url: inst.url,
+                            trim: inst.trim,
                             x: 0,
                             y: newY,
                             w: dims.w,
@@ -879,6 +908,7 @@ const generateFinalSheetsForPrintAndCut = async (
 
         interface PixelPlacement {
             url: string;
+            trim: boolean;
             x: number;
             y: number;
             wPx: number;
@@ -887,6 +917,7 @@ const generateFinalSheetsForPrintAndCut = async (
         }
         const placements: PixelPlacement[] = (sheetPlan.placements || []).map(p => ({
             url: p.url,
+            trim: p.trim,
             x: p.x * BASE_DPI,
             y: p.y * BASE_DPI,
             wPx: p.w * BASE_DPI,
@@ -930,21 +961,23 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 const img = loadedImages[p.url];
                 if (img) {
+                    // Draw only the visible artwork so it fills the placement box exactly
+                    const { sx, sy, sw, sh } = getSourceRect(p.url, p.trim);
                     if (p.rotated) {
                         printCtx.save();
                         printCtx.translate(printX + p.wPx / 2, printY + p.hPx / 2);
                         printCtx.rotate(Math.PI / 2);
-                        printCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                        printCtx.drawImage(img, sx, sy, sw, sh, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
                         printCtx.restore();
 
                         designCtx.save();
                         designCtx.translate(designX + p.wPx / 2, designY + p.hPx / 2);
                         designCtx.rotate(Math.PI / 2);
-                        designCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                        designCtx.drawImage(img, sx, sy, sw, sh, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
                         designCtx.restore();
                     } else {
-                        printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
-                        designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
+                        printCtx.drawImage(img, sx, sy, sw, sh, printX, printY, p.wPx, p.hPx);
+                        designCtx.drawImage(img, sx, sy, sw, sh, designX, designY, p.wPx, p.hPx);
                     }
                 }
 
@@ -1165,6 +1198,100 @@ const generateFinalSheetsForPrintAndCut = async (
     return outputSheets;
 };
 
+
+// "Dots per cut line" = number of dashes drawn along each side of a cut outline (1 = solid line).
+// The cap is not a cutter limit: every dash becomes its own segment in the cut SVG for every logo
+// copy on the sheet, so file size grows with dots x copies (about 140 KB per logo copy at 1000,
+// measured: 300 copies at 1000 dots = 42 MB SVG). 1000 is already finer than a cutter can
+// resolve (about 0.01" dashes on a 22" edge), so going higher only makes the file bigger.
+const MIN_CUT_LINE_DOTS = 1;
+const MAX_CUT_LINE_DOTS = 1000;
+const DEFAULT_CUT_LINE_DOTS = 12;
+const clampCutLineDots = (value: number): number => {
+  if (!Number.isFinite(value)) return DEFAULT_CUT_LINE_DOTS;
+  return Math.max(MIN_CUT_LINE_DOTS, Math.min(MAX_CUT_LINE_DOTS, Math.round(value)));
+};
+
+const GANG_SHEET_WIDTH_INCHES = 22;
+
+// Stepper for the dots-per-cut-line value. The text field keeps its own draft while typing so it
+// can be selected, cleared and retyped; the value is validated and clamped on blur or Enter.
+function CutLineDotsInput({
+  value,
+  onChange,
+  inputClassName,
+  buttonClassName
+}: {
+  value: number;
+  onChange: (next: number) => void;
+  inputClassName: string;
+  buttonClassName: string;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const parsed = parseInt(draft, 10);
+    if (Number.isFinite(parsed)) onChange(clampCutLineDots(parsed));
+    setDraft(null);
+  };
+
+  const step = (delta: number) => {
+    const base = draft !== null && Number.isFinite(parseInt(draft, 10)) ? parseInt(draft, 10) : value;
+    setDraft(null);
+    onChange(clampCutLineDots(base + delta));
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        disabled={value <= MIN_CUT_LINE_DOTS}
+        aria-label="Fewer dots per cut line"
+        title="Fewer dots"
+        className={buttonClassName}
+      >
+        -
+      </button>
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label="Dots per cut line"
+        title={`Type a number from ${MIN_CUT_LINE_DOTS} to ${MAX_CUT_LINE_DOTS}, then press Enter`}
+        value={draft ?? String(value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === 'Escape') {
+            setDraft(null);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            step(1);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            step(-1);
+          }
+        }}
+        className={inputClassName}
+      />
+      <button
+        type="button"
+        onClick={() => step(1)}
+        disabled={value >= MAX_CUT_LINE_DOTS}
+        aria-label="More dots per cut line"
+        title="More dots"
+        className={buttonClassName}
+      >
+        +
+      </button>
+    </div>
+  );
+}
 
 const isPrintableItem = (item: any) => {
   if (!item) return false;
@@ -2280,12 +2407,48 @@ export function OrderDetail() {
   const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
   const [cutLineDots, setCutLineDots] = useState<number>(() => {
     const saved = Number(localStorage.getItem('defaultCutLineDots'));
-    return saved > 0 ? saved : 12;
+    return saved > 0 ? clampCutLineDots(saved) : DEFAULT_CUT_LINE_DOTS;
   });
+  const updateCutLineDots = (next: number) => {
+    const clamped = clampCutLineDots(next);
+    setCutLineDots(clamped);
+    localStorage.setItem('defaultCutLineDots', String(clamped));
+  };
+  // Progress text shown while the master sheet is being built and uploaded
+  const [generationStatus, setGenerationStatus] = useState('');
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
+  const [specsError, setSpecsError] = useState('');
+  // Height/width of each logo's visible artwork (transparent padding ignored), keyed by image URL.
+  // 0 means the image could not be measured.
+  const [visibleAspects, setVisibleAspects] = useState<Record<string, number>>({});
+  const requestedAspectUrls = useRef<Set<string>>(new Set());
+  // Aspect ratio used to show a logo's print height: visible artwork first, saved value as fallback
+  const getArtAspect = (art: any): number => {
+    const url = art?.url || art?.imageUrl || art?.originalUrl;
+    const measured = !art?.keepFullCanvas && url ? visibleAspects[url] : 0;
+    if (measured) return measured;
+    if (art?.aspectRatio) return art.aspectRatio;
+    const w = parseFloat(art?.width);
+    const h = parseFloat(art?.height);
+    return w > 0 && h > 0 ? h / w : 1.0;
+  };
   const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
+
+  // Measure the visible artwork of every logo being edited so the Height shown matches what prints
+  const editItemArtworks = editItemObj?.artworks;
+  useEffect(() => {
+    const arts: any[] = [...editingArtworks, ...(Array.isArray(editItemArtworks) ? editItemArtworks : [])];
+    arts.forEach((art) => {
+      const url = art?.url || art?.imageUrl || art?.originalUrl;
+      if (!url || requestedAspectUrls.current.has(url)) return;
+      requestedAspectUrls.current.add(url);
+      measureVisibleBoundsFromUrl(url).then((bounds) => {
+        setVisibleAspects(prev => ({ ...prev, [url]: bounds ? bounds.aspect : 0 }));
+      });
+    });
+  }, [editingArtworks, editItemArtworks]);
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [isTransferCustomerModalOpen, setIsTransferCustomerModalOpen] = useState(false);
   const [transferSizesTarget, setTransferSizesTarget] = useState<{ itemId: string, size?: string | null } | null>(null);
@@ -3625,7 +3788,8 @@ export function OrderDetail() {
         imgObj.onload = resolve;
         imgObj.onerror = resolve;
       });
-      const aspect = imgObj.naturalWidth ? (imgObj.naturalHeight / imgObj.naturalWidth) : 1.0;
+      // Aspect ratio of the visible artwork (transparent padding around the logo is ignored)
+      const aspect = imgObj.naturalWidth ? measureVisibleBounds(imgObj).aspect : 1.0;
 
       const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/logo-${idx}-${Date.now()}`);
       await uploadBytes(storageRef, file);
@@ -3674,7 +3838,8 @@ export function OrderDetail() {
         imgObj.onload = resolve;
         imgObj.onerror = resolve;
       });
-      const aspect = imgObj.naturalWidth ? (imgObj.naturalHeight / imgObj.naturalWidth) : 1.0;
+      // Aspect ratio of the visible artwork (transparent padding around the logo is ignored)
+      const aspect = imgObj.naturalWidth ? measureVisibleBounds(imgObj).aspect : 1.0;
 
       const storageRef = ref(storage, `orders/${id}/items/${itemId}/logo-${idx}-${Date.now()}`);
       await uploadBytes(storageRef, file);
@@ -3715,14 +3880,20 @@ export function OrderDetail() {
 
   const handleSaveInlineSpecs = async (item: any) => {
     if (!id || !order) return;
+    const missingWidth = editingArtworks.filter(art => !(parseFloat(art.width) > 0));
+    if (missingWidth.length > 0) {
+      setSpecsError(`Enter a print width in inches for: ${missingWidth.map(a => a.name || 'Unnamed Logo').join(', ')}`);
+      return;
+    }
+    setSpecsError('');
     try {
       if (item.id === 'master-combined-item') {
         const itemsMap: Record<string, any[]> = {};
         editingArtworks.forEach(art => {
           const w = parseFloat(art.width) || 3.5;
-          const aspect = art.aspectRatio || 1.0;
+          const aspect = getArtAspect(art);
           const h = parseFloat((w * aspect).toFixed(2));
-          const updatedArt = { ...art, width: w, height: h };
+          const updatedArt = { ...art, width: w, height: h, aspectRatio: aspect, quantity: Math.max(1, parseInt(art.quantity) || 1) };
 
           const targetItemId = art.itemId;
           if (targetItemId) {
@@ -3743,7 +3914,7 @@ export function OrderDetail() {
 
         await updateDoc(doc(db, 'orders', id), { items: updatedItems });
         setEditingSpecsCardId(null);
-        alert("All order item print specifications updated successfully!");
+        alert("Sizes and quantities saved. Click \"Regenerate Production Files\" to apply them to the print and cut files.");
         return;
       }
 
@@ -3751,12 +3922,14 @@ export function OrderDetail() {
         if (orderItem.id === item.id) {
           const mappedArtworks = editingArtworks.map(art => {
             const w = parseFloat(art.width) || 3.5;
-            const aspect = art.aspectRatio || 1.0;
+            const aspect = getArtAspect(art);
             const h = parseFloat((w * aspect).toFixed(2));
             return {
               ...art,
               width: w,
-              height: h
+              height: h,
+              aspectRatio: aspect,
+              quantity: Math.max(1, parseInt(art.quantity) || 1)
             };
           });
           return {
@@ -3772,7 +3945,7 @@ export function OrderDetail() {
       });
 
       setEditingSpecsCardId(null);
-      alert("Specifications updated successfully!");
+      alert("Sizes and quantities saved. Click \"Regenerate Production Files\" to apply them to the print and cut files.");
     } catch (err) {
       console.error("Failed to save inline specs:", err);
       alert("Failed to save specifications.");
@@ -3801,6 +3974,8 @@ export function OrderDetail() {
               url,
               width: parseFloat(art.width) || 3.5,
               quantity: qty,
+              // Customer-built gang sheets keep their full canvas so designs stay at their built size
+              keepFullCanvas: item.itemType === 'gang_sheet',
             });
           }
         });
@@ -3828,6 +4003,7 @@ export function OrderDetail() {
             url: item.originalSheetUrl || item.image,
             width: parseFloat(item.sheetWidth) || 22,
             quantity: item.quantity || 1,
+            keepFullCanvas: true,
           });
         }
       }
@@ -3856,6 +4032,7 @@ export function OrderDetail() {
       };
 
       localStorage.setItem('defaultCutLineDots', String(cutLineDots));
+      setGenerationStatus('Loading artwork and building sheets at 300 DPI…');
       const sheets = await generateFinalSheetsForPrintAndCut(
         syntheticItem,
         order.id,
@@ -3877,6 +4054,9 @@ export function OrderDetail() {
         const printStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-print.png`);
         const cutStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-cut.svg`);
 
+        setGenerationStatus(sheets.length > 1
+          ? `Uploading sheet ${sheet.sheetNumber} of ${sheets.length}…`
+          : 'Uploading print and cut files…');
         await uploadString(printStorageRef, sheet.printDataUrl, 'data_url');
         await uploadString(cutStorageRef, sheet.cutDataUrl, 'data_url');
 
@@ -3913,6 +4093,7 @@ export function OrderDetail() {
       alert('Failed to generate master combined sheet: ' + (err as Error).message);
     } finally {
       setIsGeneratingCombined(false);
+      setGenerationStatus('');
     }
   };
 
@@ -6950,42 +7131,14 @@ export function OrderDetail() {
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
                 </div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 bg-neutral-100 border border-brand-border rounded-full px-3 py-1" title="Number of dotted cut segments per side of each cut outline (1 = solid line)">
+                  <div className="flex items-center gap-1.5 bg-neutral-100 border border-brand-border rounded-full px-3 py-1" title={`Number of dashes along each side of every cut outline (1 = solid line, max ${MAX_CUT_LINE_DOTS}). Regenerate the files after changing it.`}>
                     <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">Dots / Cut Line:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = Math.max(1, cutLineDots - 1);
-                        setCutLineDots(next);
-                        localStorage.setItem('defaultCutLineDots', String(next));
-                      }}
-                      className="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
+                    <CutLineDotsInput
                       value={cutLineDots}
-                      onChange={(e) => {
-                        const val = Math.max(1, Math.min(100, parseInt(e.target.value) || 1));
-                        setCutLineDots(val);
-                        localStorage.setItem('defaultCutLineDots', String(val));
-                      }}
-                      className="w-11 text-center bg-white border border-neutral-300 rounded-md py-0.5 text-xs font-extrabold text-neutral-900 focus:outline-none"
+                      onChange={updateCutLineDots}
+                      inputClassName="w-14 text-center bg-white border border-neutral-300 rounded-md py-0.5 text-xs font-extrabold text-neutral-900 focus:outline-none focus:border-neutral-500"
+                      buttonClassName="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = Math.min(100, cutLineDots + 1);
-                        setCutLineDots(next);
-                        localStorage.setItem('defaultCutLineDots', String(next));
-                      }}
-                      className="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer"
-                    >
-                      +
-                    </button>
                   </div>
                   <button
                     type="button"
@@ -7131,6 +7284,7 @@ export function OrderDetail() {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setSpecsError('');
                                   if (editingSpecsCardId === card.id) {
                                     setEditingSpecsCardId(null);
                                   } else {
@@ -7152,6 +7306,7 @@ export function OrderDetail() {
                                                 url,
                                                 width: parseFloat(art.width) || 3.5,
                                                 quantity: parseInt(art.quantity) || garmentQty,
+                                                keepFullCanvas: item.itemType === 'gang_sheet',
                                               });
                                             }
                                           });
@@ -7186,7 +7341,7 @@ export function OrderDetail() {
                                 }}
                                 className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider underline cursor-pointer mt-1.5 block"
                               >
-                                {editingSpecsCardId === card.id ? 'Cancel Adjusting' : (card.isMaster ? 'Adjust All Order Logos / Widths' : 'Adjust Layout/Logos')}
+                                {editingSpecsCardId === card.id ? 'Close Without Saving' : (card.isMaster ? 'Edit Logo Sizes & Quantities' : 'Edit Logos, Sizes & Quantities')}
                               </button>
                             )}
                             {card.type === 'tag' && (
@@ -7234,7 +7389,7 @@ export function OrderDetail() {
                           <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto transition-all">
                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-1">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                                {card.isMaster ? 'Configure All Order Logos & Widths' : 'Configure Logos'}
+                                {card.isMaster ? 'Logo Sizes & Quantities (All Items)' : 'Logo Sizes & Quantities'}
                               </span>
                               {!card.isMaster && (
                                 <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
@@ -7249,6 +7404,10 @@ export function OrderDetail() {
                               )}
                             </div>
                             
+                            <p className="text-[10px] text-neutral-400 leading-relaxed -mt-1">
+                              Width is the printed size of the visible artwork in inches. Transparent space around the PNG is ignored, and height follows automatically.
+                            </p>
+
                             {editingArtworks.length === 0 ? (
                               <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos configured. Click Add Logo.</p>
                             ) : (
@@ -7261,6 +7420,8 @@ export function OrderDetail() {
                                       onClick={() => {
                                         setEditingArtworks(prev => prev.filter((_, i) => i !== idx));
                                       }}
+                                      title="Remove this logo from the sheet"
+                                      aria-label="Remove this logo from the sheet"
                                       className="absolute top-2 right-2 text-red-450 hover:text-red-500 cursor-pointer"
                                     >
                                       <Trash2 size={12} />
@@ -7323,60 +7484,92 @@ export function OrderDetail() {
                                     {/* Width, Height, Quantity inputs */}
                                     <div className="grid grid-cols-3 gap-1.5 mt-1">
                                       <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Width (in)</label>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Print Width (in)</label>
                                         <input
                                           type="number"
                                           step="0.1"
-                                          placeholder="Required width"
+                                          min="0"
+                                          placeholder="e.g. 3.5"
                                           className={`w-full bg-neutral-950 border rounded px-1.5 py-1 text-[10px] text-white font-bold ${
                                             (!art.width || parseFloat(art.width) <= 0)
                                               ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
                                               : 'border-neutral-850'
                                           }`}
                                           value={art.width || ''}
+                                          onFocus={(e) => e.currentTarget.select()}
                                           onChange={(e) => {
-                                            const w = parseFloat(e.target.value) || 0;
+                                            // Keep the raw text while typing; it is parsed on save and on generate
+                                            const raw = e.target.value;
+                                            const w = parseFloat(raw) || 0;
+                                            setSpecsError('');
                                             setEditingArtworks(prev => {
                                               const next = [...prev];
-                                              const aspect = next[idx].aspectRatio || 1.0;
-                                              const newHeight = parseFloat((w * aspect).toFixed(2));
-                                              next[idx] = { ...next[idx], width: w, height: newHeight };
+                                              const newHeight = parseFloat((w * getArtAspect(next[idx])).toFixed(2));
+                                              next[idx] = { ...next[idx], width: raw, height: newHeight };
                                               return next;
                                             });
                                           }}
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Height (in)</label>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Height (in, auto)</label>
                                         <input
                                           type="text"
                                           disabled
+                                          title="Calculated from the width to keep the artwork's proportions"
                                           className="w-full bg-neutral-950/60 border border-neutral-850/60 rounded px-1.5 py-1 text-[10px] text-neutral-500 font-bold cursor-not-allowed"
-                                          value={art.height || 3.5}
+                                          value={parseFloat(art.width) > 0 ? (parseFloat(art.width) * getArtAspect(art)).toFixed(2) : '—'}
                                         />
                                       </div>
                                       <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Quantity</label>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Copies</label>
                                         <input
                                           type="number"
+                                          min="1"
+                                          step="1"
+                                          title="How many times this logo is printed on the sheet"
                                           className="w-full bg-neutral-950 border border-neutral-850 rounded px-1.5 py-1 text-[10px] text-white font-bold"
-                                          value={art.quantity || 1}
+                                          value={art.quantity ?? 1}
+                                          onFocus={(e) => e.currentTarget.select()}
                                           onChange={(e) => {
-                                            const q = parseInt(e.target.value) || 1;
+                                            const raw = e.target.value;
                                             setEditingArtworks(prev => {
                                               const next = [...prev];
-                                              next[idx] = { ...next[idx], quantity: q };
+                                              next[idx] = { ...next[idx], quantity: raw };
+                                              return next;
+                                            });
+                                          }}
+                                          onBlur={() => {
+                                            setEditingArtworks(prev => {
+                                              const next = [...prev];
+                                              if (!next[idx]) return prev;
+                                              next[idx] = { ...next[idx], quantity: Math.max(1, parseInt(next[idx].quantity) || 1) };
                                               return next;
                                             });
                                           }}
                                         />
                                       </div>
                                     </div>
+                                    {(() => {
+                                      const w = parseFloat(art.width);
+                                      if (!(w > 0)) {
+                                        return <p className="text-[9px] font-bold text-red-400">Enter the print width in inches.</p>;
+                                      }
+                                      const h = w * getArtAspect(art);
+                                      if (Math.min(w, h) > GANG_SHEET_WIDTH_INCHES) {
+                                        return <p className="text-[9px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" sheet — it will run off the edge.</p>;
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 ))}
                               </div>
                             )}
                             
+                            {specsError && (
+                              <p className="text-[10px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => handleSaveInlineSpecs(card.item)}
@@ -7389,7 +7582,7 @@ export function OrderDetail() {
                                   <span>Uploading Image...</span>
                                 </>
                               ) : (
-                                <span>Save Specs</span>
+                                <span>Save Sizes & Quantities</span>
                               )}
                             </button>
                           </div>
@@ -7479,43 +7672,28 @@ export function OrderDetail() {
 
                         {/* Cut Line Dots Adjuster */}
                         <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
-                          <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Dots Per Cut Line:</span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const next = Math.max(1, cutLineDots - 1);
-                                setCutLineDots(next);
-                                localStorage.setItem('defaultCutLineDots', String(next));
-                              }}
-                              className="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={cutLineDots}
-                              onChange={(e) => {
-                                const val = Math.max(1, Math.min(100, parseInt(e.target.value) || 1));
-                                setCutLineDots(val);
-                                localStorage.setItem('defaultCutLineDots', String(val));
-                              }}
-                              className="w-12 text-center bg-neutral-950 border border-neutral-800 rounded-md py-1 text-xs font-bold text-white focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const next = Math.min(100, cutLineDots + 1);
-                                setCutLineDots(next);
-                                localStorage.setItem('defaultCutLineDots', String(next));
-                              }}
-                              className="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer"
-                            >
-                              +
-                            </button>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Dots Per Cut Line:</span>
+                            <span className="text-[9px] text-neutral-500 leading-tight">
+                              Dashes on each side of a cut outline · 1 = solid · max {MAX_CUT_LINE_DOTS}
+                            </span>
+                            {cutLineDots > 300 && (
+                              <span className="text-[9px] text-neutral-400 leading-tight">
+                                High values make a large cut file on sheets with many logos.
+                              </span>
+                            )}
+                            {card.isPrintReady && card.type === 'art' && typeof order.cutLineDots === 'number' && order.cutLineDots !== cutLineDots && (
+                              <span className="text-[9px] font-bold text-amber-400 leading-tight">
+                                Current files use {order.cutLineDots} — regenerate to apply {cutLineDots}
+                              </span>
+                            )}
                           </div>
+                          <CutLineDotsInput
+                            value={cutLineDots}
+                            onChange={updateCutLineDots}
+                            inputClassName="w-14 text-center bg-neutral-950 border border-neutral-800 rounded-md py-1 text-xs font-bold text-white focus:outline-none focus:border-neutral-500"
+                            buttonClassName="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          />
                         </div>
 
                         {/* Actions Footer */}
@@ -7537,11 +7715,18 @@ export function OrderDetail() {
                               </>
                             )}
                           </button>
+                          {card.isGenerating && (
+                            <p className="text-[10px] text-amber-300 text-center font-semibold leading-snug" role="status">
+                              {(card.type === 'art' && generationStatus) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
+                            </p>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             <a
                               href={card.printUrl || '#'}
                               target="_blank"
                               rel="noreferrer"
+                              title={card.printUrl ? 'Open the 300 DPI print file (transparent PNG) in a new tab' : 'Generate the production files first'}
+                              aria-disabled={!card.printUrl}
                               className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.printUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
@@ -7551,6 +7736,8 @@ export function OrderDetail() {
                               href={card.cutUrl || '#'}
                               target="_blank"
                               rel="noreferrer"
+                              title={card.cutUrl ? 'Open the cut-line file (SVG) for the cutter in a new tab' : 'Generate the production files first'}
+                              aria-disabled={!card.cutUrl}
                               className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.cutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
@@ -7561,6 +7748,7 @@ export function OrderDetail() {
                           <div className="grid grid-cols-2 gap-2 mt-1">
                             <button
                               onClick={() => handleToggleItemReadyToPrint(card.item.id, card.type)}
+                              title={card.isReady ? 'Marked ready to print. Click to undo.' : 'Mark this sheet as ready so the printer knows to run it'}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
                                 card.isReady
                                   ? 'border-purple-800 text-purple-300 bg-purple-955/40 hover:bg-purple-955 hover:text-white'
@@ -7572,6 +7760,7 @@ export function OrderDetail() {
                             </button>
                             <button
                               onClick={() => handleToggleItemPrinted(card.item.id, card.type)}
+                              title={card.isPrinted ? 'Marked printed. Click to undo.' : 'Mark this sheet as printed'}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
                                 card.isPrinted
                                   ? 'border-emerald-800 text-emerald-300 bg-emerald-955/40 hover:bg-emerald-955 hover:text-white'
@@ -10832,7 +11021,7 @@ export function OrderDetail() {
                                              onChange={(e) => {
                                                 const val = parseFloat(e.target.value) || 0;
                                                 const newArtworks = [...(editItemObj.artworks || [])];
-                                                const aspect = art.aspectRatio || (art.height && art.width ? (art.height / art.width) : 1.0);
+                                                const aspect = getArtAspect(art);
                                                 const newHeight = parseFloat((val * aspect).toFixed(2));
                                                 newArtworks[idx] = { ...newArtworks[idx], width: val, height: newHeight, aspectRatio: aspect };
                                                 setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
@@ -10846,8 +11035,9 @@ export function OrderDetail() {
                                           <input
                                              type="number"
                                              step="0.1"
-                                             value={art.height ? parseFloat(art.height.toFixed(2)) : ''}
+                                             value={parseFloat(art.width) > 0 ? parseFloat((parseFloat(art.width) * getArtAspect(art)).toFixed(2)) : ''}
                                              disabled
+                                             title="Calculated from the width. Sizes apply to the visible artwork; transparent space around the PNG is ignored."
                                              className="w-full bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold text-brand-secondary/70 cursor-not-allowed focus:outline-none"
                                              placeholder="Auto"
                                           />
