@@ -24,7 +24,7 @@ import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickO
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
-import { measureVisibleBounds, measureVisibleBoundsFromUrl, type VisibleBounds } from '../../lib/artworkBounds';
+import { loadImageForCanvas, measureVisibleBounds, measureVisibleBoundsFromUrl, type VisibleBounds } from '../../lib/artworkBounds';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
@@ -578,19 +578,12 @@ const generateFinalSheetsForPrintAndCut = async (
     }
 
     for (const url of Array.from(urlsToLoad)) {
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise((resolve) => {
-            img.onload = () => {
-                loadedImages[url] = img;
-                resolve(null);
-            };
-            img.onerror = (err) => {
-                console.error('Failed to load image:', url, err);
-                resolve(null);
-            };
-            img.src = url;
-        });
+        const img = await loadImageForCanvas(url);
+        if (img) {
+            loadedImages[url] = img;
+        } else {
+            console.error('Failed to load image:', url);
+        }
     }
 
     // Visible (non-transparent) bounds of every logo, so the entered width applies to the artwork
@@ -2420,6 +2413,11 @@ export function OrderDetail() {
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [specsError, setSpecsError] = useState('');
+  // Set after sizes are saved, until the production files are regenerated
+  const [needsRegenerate, setNeedsRegenerate] = useState(false);
+  // Production Assets starts collapsed on every order; remembers which order it was opened for
+  const [productionExpandedFor, setProductionExpandedFor] = useState<string | null>(null);
+  const isProductionCollapsed = productionExpandedFor !== (id || '');
   // Height/width of each logo's visible artwork (transparent padding ignored), keyed by image URL.
   // 0 means the image could not be measured.
   const [visibleAspects, setVisibleAspects] = useState<Record<string, number>>({});
@@ -2433,6 +2431,14 @@ export function OrderDetail() {
     const w = parseFloat(art?.width);
     const h = parseFloat(art?.height);
     return w > 0 && h > 0 ? h / w : 1.0;
+  };
+  // Printed height text for a logo row: "…" while the artwork is still being measured
+  const getArtHeightText = (art: any): string => {
+    const w = parseFloat(art?.width);
+    if (!(w > 0)) return '—';
+    const url = art?.url || art?.imageUrl || art?.originalUrl;
+    if (url && !art?.keepFullCanvas && visibleAspects[url] === undefined) return '…';
+    return (w * getArtAspect(art)).toFixed(2);
   };
   const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
 
@@ -3914,7 +3920,7 @@ export function OrderDetail() {
 
         await updateDoc(doc(db, 'orders', id), { items: updatedItems });
         setEditingSpecsCardId(null);
-        alert("Sizes and quantities saved. Click \"Regenerate Production Files\" to apply them to the print and cut files.");
+        setNeedsRegenerate(true);
         return;
       }
 
@@ -3945,7 +3951,7 @@ export function OrderDetail() {
       });
 
       setEditingSpecsCardId(null);
-      alert("Sizes and quantities saved. Click \"Regenerate Production Files\" to apply them to the print and cut files.");
+      setNeedsRegenerate(true);
     } catch (err) {
       console.error("Failed to save inline specs:", err);
       alert("Failed to save specifications.");
@@ -4082,6 +4088,7 @@ export function OrderDetail() {
         masterReadyToPrint: true,
         cutLineDots,
       });
+      setNeedsRegenerate(false);
 
       if (uploadedSheets.length > 1) {
         alert(`Successfully generated ${uploadedSheets.length} master gang sheets (all strictly 300 DPI) for this order!`);
@@ -7125,12 +7132,49 @@ export function OrderDetail() {
           {/* Production Assets Section */}
           {order.items?.some(isPrintableItem) && (
             <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 pb-2 border-b border-brand-border">
-                <div className="flex items-center gap-2">
+              <div
+                className="flex justify-between items-center gap-4 cursor-pointer select-none group"
+                role="button"
+                tabIndex={0}
+                aria-expanded={!isProductionCollapsed}
+                onClick={() => setProductionExpandedFor(isProductionCollapsed ? (id || '') : null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setProductionExpandedFor(isProductionCollapsed ? (id || '') : null);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
                   <Printer className="text-brand-primary" size={22} />
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                    order.masterPrinted
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : (order.masterPrintReadyUrl && order.masterCutReadyUrl)
+                        ? 'text-purple-700 bg-purple-50 border-purple-200'
+                        : 'text-amber-700 bg-amber-50 border-amber-200'
+                  }`}>
+                    {order.masterPrinted
+                      ? 'Printed'
+                      : (order.masterPrintReadyUrl && order.masterCutReadyUrl)
+                        ? (order.masterReadyToPrint ? 'Ready to print' : 'Files generated')
+                        : 'Files not generated'}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2.5 flex-wrap">
+                <div className="flex items-center gap-2 text-brand-secondary group-hover:text-brand-primary transition-colors text-xs font-bold uppercase tracking-wider shrink-0">
+                  <span>{isProductionCollapsed ? 'Show' : 'Hide'}</span>
+                  <ChevronDown
+                    size={18}
+                    className={`transform transition-transform duration-200 ${isProductionCollapsed ? '' : 'rotate-180'}`}
+                  />
+                </div>
+              </div>
+
+              {!isProductionCollapsed && (
+              <>
+              <div className="flex justify-end mt-4 mb-6 pb-4 border-b border-brand-border">
+                <div className="flex items-center gap-2.5 flex-wrap justify-end">
                   <div className="flex items-center gap-1.5 bg-neutral-100 border border-brand-border rounded-full px-3 py-1" title={`Number of dashes along each side of every cut outline (1 = solid line, max ${MAX_CUT_LINE_DOTS}). Regenerate the files after changing it.`}>
                     <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">Dots / Cut Line:</span>
                     <CutLineDotsInput
@@ -7339,9 +7383,10 @@ export function OrderDetail() {
                                     }
                                   }
                                 }}
-                                className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider underline cursor-pointer mt-1.5 block"
+                                className={`mt-2.5 items-center gap-1.5 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${editingSpecsCardId === card.id ? 'hidden' : 'inline-flex'}`}
                               >
-                                {editingSpecsCardId === card.id ? 'Close Without Saving' : (card.isMaster ? 'Edit Logo Sizes & Quantities' : 'Edit Logos, Sizes & Quantities')}
+                                <Edit3 size={12} />
+                                <span>Edit sizes &amp; copies</span>
                               </button>
                             )}
                             {card.type === 'tag' && (
@@ -7356,44 +7401,39 @@ export function OrderDetail() {
                           </div>
                           
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <div className="flex items-center gap-1.5">
-                              {card.isPrinted ? (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5">
-                                  <Check size={10} strokeWidth={3} /> Printed
-                                </span>
-                              ) : card.isReady ? (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-450 bg-purple-955/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5 animate-pulse">
-                                  <Printer size={10} /> Ready
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-850 border border-neutral-700 px-2 py-0.5 rounded shadow-sm">
-                                  Not Ready
-                                </span>
-                              )}
-
-                              {card.isPrintReady ? (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-455 bg-emerald-955/80 border border-emerald-850 px-2 py-0.5 rounded shadow-sm">
-                                  Print Ready
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-955/80 border border-amber-850 px-2 py-0.5 rounded shadow-sm">
-                                  Not Generated
-                                </span>
-                              )}
-                            </div>
+                            {card.isPrinted ? (
+                              <span title="This sheet has been marked as printed" className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                <Check size={10} strokeWidth={3} /> Printed
+                              </span>
+                            ) : !card.isPrintReady ? (
+                              <span title="Print and cut files have not been generated yet" className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-955/80 border border-amber-850 px-2 py-0.5 rounded shadow-sm">
+                                No files yet
+                              </span>
+                            ) : card.isReady ? (
+                              <span title="Files are generated and the sheet is marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-purple-450 bg-purple-955/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                <Printer size={10} /> Ready to print
+                              </span>
+                            ) : (
+                              <span title="Files are generated but the sheet is not marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 bg-neutral-850 border border-neutral-700 px-2 py-0.5 rounded shadow-sm">
+                                Files generated
+                              </span>
+                            )}
                           </div>
                         </div>
 
                         {/* Preview Box */}
                         {editingSpecsCardId === card.id ? (
-                          <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto transition-all">
-                            <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                                {card.isMaster ? 'Logo Sizes & Quantities (All Items)' : 'Logo Sizes & Quantities'}
-                              </span>
+                          <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-800 p-4 rounded-xl">
+                            <div className="flex justify-between items-start gap-3">
+                              <div>
+                                <p className="text-xs font-bold text-neutral-100">Logo sizes &amp; copies</p>
+                                <p className="text-[11px] text-neutral-400 leading-snug mt-0.5">
+                                  Type the width you want printed. Height adjusts automatically, and empty space around the logo is not counted.
+                                </p>
+                              </div>
                               {!card.isMaster && (
-                                <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
-                                  <Plus size={10} /> Add Logo
+                                <label className="shrink-0 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer flex items-center gap-1 transition-colors">
+                                  <Plus size={12} /> Add logo
                                   <input
                                     type="file"
                                     className="hidden"
@@ -7403,32 +7443,19 @@ export function OrderDetail() {
                                 </label>
                               )}
                             </div>
-                            
-                            <p className="text-[10px] text-neutral-400 leading-relaxed -mt-1">
-                              Width is the printed size of the visible artwork in inches. Transparent space around the PNG is ignored, and height follows automatically.
-                            </p>
 
                             {editingArtworks.length === 0 ? (
-                              <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos configured. Click Add Logo.</p>
+                              <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos yet. Click Add logo.</p>
                             ) : (
-                              <div className="flex flex-col gap-3">
-                                {editingArtworks.map((art, idx) => (
-                                  <div key={art.id || idx} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 relative flex flex-col gap-2">
-                                    {/* Delete button */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingArtworks(prev => prev.filter((_, i) => i !== idx));
-                                      }}
-                                      title="Remove this logo from the sheet"
-                                      aria-label="Remove this logo from the sheet"
-                                      className="absolute top-2 right-2 text-red-450 hover:text-red-500 cursor-pointer"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
-
+                              <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
+                                {editingArtworks.map((art, idx) => {
+                                  const widthNum = parseFloat(art.width);
+                                  const widthMissing = !(widthNum > 0);
+                                  const tooBig = !widthMissing && Math.min(widthNum, widthNum * getArtAspect(art)) > GANG_SHEET_WIDTH_INCHES;
+                                  return (
+                                  <div key={art.id || idx} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col gap-2.5">
                                     <div className="flex gap-3 items-center">
-                                      <div className="w-10 h-10 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard group">
+                                      <div className="w-11 h-11 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard">
                                         {art.url ? (
                                           <>
                                             <img
@@ -7436,11 +7463,11 @@ export function OrderDetail() {
                                               alt={art.name || 'Logo preview'}
                                               className="w-full h-full object-contain p-0.5 cursor-pointer hover:scale-105 transition-transform"
                                               onClick={() => setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview', item: card.item, itemStyle: card.title })}
-                                              title="Click to view larger image"
+                                              title="Click to view larger"
                                             />
-                                            <label 
+                                            <label
                                               className="absolute bottom-0 right-0 w-4 h-4 bg-black/75 hover:bg-black text-white rounded-tl flex items-center justify-center cursor-pointer transition-colors z-10"
-                                              title="Upload / Replace logo file"
+                                              title="Replace this logo file"
                                               onClick={(e) => e.stopPropagation()}
                                             >
                                               <Upload size={8} />
@@ -7453,7 +7480,7 @@ export function OrderDetail() {
                                             </label>
                                           </>
                                         ) : (
-                                          <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center hover:bg-neutral-800 transition-colors">
+                                          <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center hover:bg-neutral-800 transition-colors" title="Upload a logo file">
                                             <Upload size={12} className="text-neutral-500" />
                                             <input
                                               type="file"
@@ -7464,71 +7491,81 @@ export function OrderDetail() {
                                           </label>
                                         )}
                                       </div>
-                                      
+
                                       <div className="flex-1 min-w-0">
-                                        {art.itemStyle && (
-                                          <span className="text-[9px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800/80 px-1.5 py-0.5 rounded mr-1.5 inline-block mb-0.5">
-                                            {art.itemStyle}
-                                          </span>
-                                        )}
-                                        <p 
-                                          className="text-[10px] font-bold text-neutral-350 hover:text-white truncate inline-block cursor-pointer transition-colors" 
-                                          title={art.url ? `Click to view ${art.name || 'Logo'}` : (art.name || 'Unnamed Logo')}
-                                          onClick={() => art.url && setExpandedImage({ src: art.url, alt: art.name || 'Logo Preview', item: card.item, itemStyle: card.title })}
-                                        >
-                                          {art.name || 'Unnamed Logo'}
+                                        <p className="text-xs font-bold text-neutral-100 truncate" title={art.name || 'Unnamed logo'}>
+                                          {art.name || 'Unnamed logo'}
                                         </p>
+                                        {art.itemStyle && (
+                                          <p className="text-[10px] text-neutral-500 truncate" title={`Line item: ${art.itemStyle}`}>
+                                            On: {art.itemStyle}
+                                          </p>
+                                        )}
                                       </div>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingArtworks(prev => prev.filter((_, i) => i !== idx));
+                                        }}
+                                        title="Remove this logo from the sheet"
+                                        aria-label="Remove this logo from the sheet"
+                                        className="shrink-0 p-1.5 rounded-md text-neutral-500 hover:text-red-400 hover:bg-neutral-850 cursor-pointer transition-colors"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
                                     </div>
 
-                                    {/* Width, Height, Quantity inputs */}
-                                    <div className="grid grid-cols-3 gap-1.5 mt-1">
-                                      <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Print Width (in)</label>
-                                        <input
-                                          type="number"
-                                          step="0.1"
-                                          min="0"
-                                          placeholder="e.g. 3.5"
-                                          className={`w-full bg-neutral-950 border rounded px-1.5 py-1 text-[10px] text-white font-bold ${
-                                            (!art.width || parseFloat(art.width) <= 0)
-                                              ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
-                                              : 'border-neutral-850'
-                                          }`}
-                                          value={art.width || ''}
-                                          onFocus={(e) => e.currentTarget.select()}
-                                          onChange={(e) => {
-                                            // Keep the raw text while typing; it is parsed on save and on generate
-                                            const raw = e.target.value;
-                                            const w = parseFloat(raw) || 0;
-                                            setSpecsError('');
-                                            setEditingArtworks(prev => {
-                                              const next = [...prev];
-                                              const newHeight = parseFloat((w * getArtAspect(next[idx])).toFixed(2));
-                                              next[idx] = { ...next[idx], width: raw, height: newHeight };
-                                              return next;
-                                            });
-                                          }}
-                                        />
+                                    <div className="flex items-end gap-x-4 gap-y-2 flex-wrap">
+                                      <label className="flex flex-col gap-1">
+                                        <span className="text-[10px] font-bold text-neutral-400">Width</span>
+                                        <span className="flex items-center gap-1.5">
+                                          <input
+                                            type="number"
+                                            step="0.1"
+                                            min="0"
+                                            placeholder="3.5"
+                                            aria-label={`Print width in inches for ${art.name || 'logo'}`}
+                                            className={`w-20 bg-neutral-950 border rounded-md px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-neutral-500 ${
+                                              widthMissing
+                                                ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
+                                                : 'border-neutral-700'
+                                            }`}
+                                            value={art.width || ''}
+                                            onFocus={(e) => e.currentTarget.select()}
+                                            onChange={(e) => {
+                                              // Keep the raw text while typing; it is parsed on save and on generate
+                                              const raw = e.target.value;
+                                              const w = parseFloat(raw) || 0;
+                                              setSpecsError('');
+                                              setEditingArtworks(prev => {
+                                                const next = [...prev];
+                                                const newHeight = parseFloat((w * getArtAspect(next[idx])).toFixed(2));
+                                                next[idx] = { ...next[idx], width: raw, height: newHeight };
+                                                return next;
+                                              });
+                                            }}
+                                          />
+                                          <span className="text-[11px] text-neutral-400">in</span>
+                                        </span>
+                                      </label>
+
+                                      <div className="flex flex-col gap-1" title="Calculated from the width to keep the logo's proportions">
+                                        <span className="text-[10px] font-bold text-neutral-400">Height (auto)</span>
+                                        <span className="py-1.5 text-xs font-bold text-neutral-300 whitespace-nowrap">
+                                          × {getArtHeightText(art)} in
+                                        </span>
                                       </div>
-                                      <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Height (in, auto)</label>
-                                        <input
-                                          type="text"
-                                          disabled
-                                          title="Calculated from the width to keep the artwork's proportions"
-                                          className="w-full bg-neutral-950/60 border border-neutral-850/60 rounded px-1.5 py-1 text-[10px] text-neutral-500 font-bold cursor-not-allowed"
-                                          value={parseFloat(art.width) > 0 ? (parseFloat(art.width) * getArtAspect(art)).toFixed(2) : '—'}
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Copies</label>
+
+                                      <label className="flex flex-col gap-1 ml-auto">
+                                        <span className="text-[10px] font-bold text-neutral-400">Copies</span>
                                         <input
                                           type="number"
                                           min="1"
                                           step="1"
+                                          aria-label={`Number of copies of ${art.name || 'logo'}`}
                                           title="How many times this logo is printed on the sheet"
-                                          className="w-full bg-neutral-950 border border-neutral-850 rounded px-1.5 py-1 text-[10px] text-white font-bold"
+                                          className="w-20 bg-neutral-950 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-neutral-500"
                                           value={art.quantity ?? 1}
                                           onFocus={(e) => e.currentTarget.select()}
                                           onChange={(e) => {
@@ -7548,43 +7585,52 @@ export function OrderDetail() {
                                             });
                                           }}
                                         />
-                                      </div>
+                                      </label>
                                     </div>
-                                    {(() => {
-                                      const w = parseFloat(art.width);
-                                      if (!(w > 0)) {
-                                        return <p className="text-[9px] font-bold text-red-400">Enter the print width in inches.</p>;
-                                      }
-                                      const h = w * getArtAspect(art);
-                                      if (Math.min(w, h) > GANG_SHEET_WIDTH_INCHES) {
-                                        return <p className="text-[9px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" sheet — it will run off the edge.</p>;
-                                      }
-                                      return null;
-                                    })()}
+
+                                    {widthMissing && (
+                                      <p className="text-[10px] font-bold text-red-400">Enter a width in inches.</p>
+                                    )}
+                                    {tooBig && (
+                                      <p className="text-[10px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" sheet. It will run off the edge.</p>
+                                    )}
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
-                            
+
                             {specsError && (
-                              <p className="text-[10px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
+                              <p className="text-[11px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => handleSaveInlineSpecs(card.item)}
-                              disabled={isUploadingInlineLogo}
-                              className="w-full mt-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              {isUploadingInlineLogo ? (
-                                <>
-                                  <Loader2 size={12} className="animate-spin" />
-                                  <span>Uploading Image...</span>
-                                </>
-                              ) : (
-                                <span>Save Sizes & Quantities</span>
-                              )}
-                            </button>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpecsError('');
+                                  setEditingSpecsCardId(null);
+                                }}
+                                className="border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-850 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveInlineSpecs(card.item)}
+                                disabled={isUploadingInlineLogo}
+                                className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                {isUploadingInlineLogo ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>Uploading…</span>
+                                  </>
+                                ) : (
+                                  <span>Save</span>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
@@ -7673,18 +7719,18 @@ export function OrderDetail() {
                         {/* Cut Line Dots Adjuster */}
                         <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
                           <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Dots Per Cut Line:</span>
-                            <span className="text-[9px] text-neutral-500 leading-tight">
-                              Dashes on each side of a cut outline · 1 = solid · max {MAX_CUT_LINE_DOTS}
+                            <span className="text-neutral-200 font-bold text-[11px]">Dots per cut line</span>
+                            <span className="text-[10px] text-neutral-500 leading-tight">
+                              Dashes on each side of a cut outline. 1 = solid line, max {MAX_CUT_LINE_DOTS}.
                             </span>
                             {cutLineDots > 300 && (
-                              <span className="text-[9px] text-neutral-400 leading-tight">
+                              <span className="text-[10px] text-neutral-400 leading-tight">
                                 High values make a large cut file on sheets with many logos.
                               </span>
                             )}
                             {card.isPrintReady && card.type === 'art' && typeof order.cutLineDots === 'number' && order.cutLineDots !== cutLineDots && (
-                              <span className="text-[9px] font-bold text-amber-400 leading-tight">
-                                Current files use {order.cutLineDots} — regenerate to apply {cutLineDots}
+                              <span className="text-[10px] font-bold text-amber-400 leading-tight">
+                                Current files use {order.cutLineDots}. Regenerate to apply {cutLineDots}.
                               </span>
                             )}
                           </div>
@@ -7698,10 +7744,19 @@ export function OrderDetail() {
 
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">
+                          {needsRegenerate && card.type === 'art' && !card.isGenerating && (
+                            <p className="text-[11px] font-bold text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-lg px-2.5 py-1.5 text-center" role="status">
+                              Sizes saved. Regenerate to update the print and cut files.
+                            </p>
+                          )}
                           <button
                             onClick={card.generateFunc}
                             disabled={card.isGenerating}
-                            className="w-full bg-white hover:bg-neutral-100 text-black py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
+                              needsRegenerate && card.type === 'art'
+                                ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
+                                : 'bg-white hover:bg-neutral-100 text-black'
+                            }`}
                           >
                             {card.isGenerating ? (
                               <>
@@ -7720,6 +7775,7 @@ export function OrderDetail() {
                               {(card.type === 'art' && generationStatus) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
                             </p>
                           )}
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Download</p>
                           <div className="grid grid-cols-2 gap-2">
                             <a
                               href={card.printUrl || '#'}
@@ -7730,7 +7786,7 @@ export function OrderDetail() {
                               className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.printUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
-                              <span>Print PNG</span>
+                              <span>Print file (PNG)</span>
                             </a>
                             <a
                               href={card.cutUrl || '#'}
@@ -7741,22 +7797,23 @@ export function OrderDetail() {
                               className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.cutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
-                              <span>Cut SVG</span>
+                              <span>Cut file (SVG)</span>
                             </a>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 mt-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Status</p>
+                          <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => handleToggleItemReadyToPrint(card.item.id, card.type)}
-                              title={card.isReady ? 'Marked ready to print. Click to undo.' : 'Mark this sheet as ready so the printer knows to run it'}
+                              title={card.isReady ? 'Marked ready to print. Click to undo.' : 'Mark this sheet as ready so the print team knows to run it'}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
                                 card.isReady
                                   ? 'border-purple-800 text-purple-300 bg-purple-955/40 hover:bg-purple-955 hover:text-white'
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
-                              <Printer size={12} />
-                              <span>{card.isReady ? 'Ready (Notified)' : 'Notify Printer'}</span>
+                              {card.isReady ? <Check size={12} /> : <Printer size={12} />}
+                              <span>{card.isReady ? 'Ready to print (undo)' : 'Mark ready to print'}</span>
                             </button>
                             <button
                               onClick={() => handleToggleItemPrinted(card.item.id, card.type)}
@@ -7768,7 +7825,7 @@ export function OrderDetail() {
                               }`}
                             >
                               <Check size={12} />
-                              <span>{card.isPrinted ? 'Printed (Reset)' : 'Mark Printed'}</span>
+                              <span>{card.isPrinted ? 'Printed (undo)' : 'Mark printed'}</span>
                             </button>
                           </div>
                         </div>
@@ -7777,6 +7834,8 @@ export function OrderDetail() {
                   });
                 })()}
               </div>
+              </>
+              )}
             </div>
           )}
           
@@ -11035,7 +11094,7 @@ export function OrderDetail() {
                                           <input
                                              type="number"
                                              step="0.1"
-                                             value={parseFloat(art.width) > 0 ? parseFloat((parseFloat(art.width) * getArtAspect(art)).toFixed(2)) : ''}
+                                             value={parseFloat(art.width) > 0 ? parseFloat((parseFloat(art.width) * getArtAspect(art)).toFixed(2)) || '' : ''}
                                              disabled
                                              title="Calculated from the width. Sizes apply to the visible artwork; transparent space around the PNG is ignored."
                                              className="w-full bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold text-brand-secondary/70 cursor-not-allowed focus:outline-none"
