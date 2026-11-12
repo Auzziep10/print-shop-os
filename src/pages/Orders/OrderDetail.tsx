@@ -204,16 +204,16 @@ const drawGraphtecRegistrationMarks = (
 };
 
 // Cut outlines are solid lines with the corners left open: each side stops 0.5 mm short of both
-// of its corners, so the four sides never meet. Every side also has 3 evenly spaced 1 mm
-// uncut spaces (at 1/4, 1/2 and 3/4 of its length), which splits it into 4 strokes.
+// of its corners, so the four sides never meet. Every side also has 2 evenly spaced 0.5 mm
+// uncut spaces (at 1/3 and 2/3 of its length), which splits it into 3 strokes.
 const CUT_CORNER_GAP_MM = 0.5;
-const CUT_SIDE_GAP_MM = 1;
-const CUT_SIDE_GAP_COUNT = 3;
+const CUT_SIDE_GAP_MM = 0.5;
+const CUT_SIDE_GAP_COUNT = 2;
 // All production files are built at 300 DPI
 const CUT_CORNER_GAP_PX = (CUT_CORNER_GAP_MM / 25.4) * 300;
 const CUT_SIDE_GAP_PX = (CUT_SIDE_GAP_MM / 25.4) * 300;
 
-// Builds the line segments of a cut outline (corners left blank, 3 uncut spaces per side)
+// Builds the line segments of a cut outline (corners left blank, 2 uncut spaces per side)
 const getCutRectSegments = (
     x: number,
     y: number,
@@ -464,7 +464,9 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
     physData[7] = physPxPerMeter & 0xff;
     physData[8] = 1; // unit meter
 
-    const typeBytes = new Uint8Array([112, 72, 121, 115]); // 'pHYs' (lowercase s is 115, not 83)
+    // 'pHYs' = p(112) H(72) Y(89) s(115). The Y must be uppercase: with a lowercase y the chunk is
+    // not a DPI chunk at all and software opens the PNG at its own default resolution.
+    const typeBytes = new Uint8Array([112, 72, 89, 115]);
 
     // Compute CRC32
     const computeCrc32 = (data: Uint8Array): number => {
@@ -544,7 +546,14 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
 };
 
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
-export interface FinalSheetOutput {
+export // Full printable width of the film. Finished print and cut files are exactly this wide.
+const PRINTABLE_FILM_WIDTH_INCHES = 22;
+// Margin on each side of the sheet that holds the registration marks
+const SHEET_SIDE_MARGIN_INCHES = 1;
+// Width left for logos between the side margins
+const GANG_SHEET_WIDTH_INCHES = PRINTABLE_FILM_WIDTH_INCHES - (2 * SHEET_SIDE_MARGIN_INCHES);
+
+interface FinalSheetOutput {
     printDataUrl: string;
     cutDataUrl: string;
     sheetHeight: number;
@@ -559,7 +568,7 @@ const generateFinalSheetsForPrintAndCut = async (
     shippingAddress: any,
 ): Promise<FinalSheetOutput[]> => {
     const HEADER_HEIGHT_INCHES = 1;
-    const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
+    const MARGIN_INCHES = SHEET_SIDE_MARGIN_INCHES; // 1 inch margin on all sides to hold Graphtec registration marks
     const HEADER_TO_DESIGN_GAP_INCHES = 0.5;
 
     const isVinyl = isVinylItem(orderItem);
@@ -573,7 +582,9 @@ const generateFinalSheetsForPrintAndCut = async (
         (artworks.length > 0 && artworks.some((art: any) => art.url && art.url !== orderItem.image));
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
-    let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
+    // The finished print and cut files are exactly PRINTABLE_FILM_WIDTH_INCHES wide (margins and
+    // registration marks included), so they are used at 100% with no scaling in the print or cut software.
+    let designWidthInches = isSingleTransferLayout ? GANG_SHEET_WIDTH_INCHES : (orderItem.sheetWidth || 22);
 
     // Preload all unique images first to inspect actual aspect ratios
     const loadedImages: Record<string, HTMLImageElement> = {};
@@ -644,11 +655,16 @@ const generateFinalSheetsForPrintAndCut = async (
         if (artworks.length > 0) {
             artworks.forEach((art: any) => {
                 const qty = parseInt(art.quantity) || 1;
-                const w = parseFloat(art.width) || 3.5;
+                let w = parseFloat(art.width) || 3.5;
                 const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
                 
                 // Pre-built full sheets keep their whole canvas; individual logos are sized by visible artwork
                 const trim = !art.keepFullCanvas;
+                // A pre-built sheet wider than the usable width is scaled down to fit it
+                if (art.keepFullCanvas && w > designWidthInches) {
+                    console.warn(`"${art.name}" is ${w}" wide; fitted to the ${designWidthInches}" usable width.`);
+                    w = designWidthInches;
+                }
 
                 // Get actual loaded image dimensions to calculate proportional height
                 const loadedImg = loadedImages[url];
@@ -1115,7 +1131,7 @@ const generateFinalSheetsForPrintAndCut = async (
         drawHeader(cutCtx, true);
 
         // --- Generate SVG Cut File ---
-        let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+        let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth / 300}in" height="${finalCanvasHeight / 300}in" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
         svgContent += `  <!-- Background -->\n`;
         svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
 
@@ -1200,8 +1216,6 @@ const generateFinalSheetsForPrintAndCut = async (
     return outputSheets;
 };
 
-
-const GANG_SHEET_WIDTH_INCHES = 22;
 
 const isPrintableItem = (item: any) => {
   if (!item) return false;
@@ -4208,7 +4222,7 @@ export function OrderDetail() {
       drawHeader(printCtx, false);
       drawHeader(cutCtx, true);
 
-      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth / 300}in" height="${finalCanvasHeight / 300}in" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
       svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
 
       const xLeft = MARGIN_PX / 2;
@@ -7487,7 +7501,7 @@ export function OrderDetail() {
                                       <p className="text-[10px] font-bold text-red-400">Enter a width in inches.</p>
                                     )}
                                     {tooBig && (
-                                      <p className="text-[10px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" sheet. It will run off the edge.</p>
+                                      <p className="text-[10px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" usable width of the sheet. It will run off the edge.</p>
                                     )}
                                   </div>
                                   );
