@@ -170,8 +170,9 @@ const drawGraphtecRegistrationMarks = (
     if (drawBackground) {
         ctx.fillStyle = 'black';
 
-        const stripX = Math.max(0, xLeft - padding);
-        const stripW = Math.min(width, xRight + padding) - stripX;
+        // The bars run the full width of the sheet; logos line up with their ends
+        const stripX = 0;
+        const stripW = width;
 
         // 1. Top Horizontal Black Strip (connects top-left and top-right registration marks all the way across)
         const topStripY = Math.max(0, yTop - padding);
@@ -548,9 +549,10 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
 export // Full printable width of the film. Finished print and cut files are exactly this wide.
 const PRINTABLE_FILM_WIDTH_INCHES = 22;
-// Margin on each side of the sheet that holds the registration marks
-const SHEET_SIDE_MARGIN_INCHES = 1;
-// Width left for logos between the side margins
+// Margin on the left and right edge of the sheet. None: the registration marks sit in the bars
+// above and below the logo area, and logos may run the full width of those bars.
+const SHEET_SIDE_MARGIN_INCHES = 0;
+// Width available for logos
 const GANG_SHEET_WIDTH_INCHES = PRINTABLE_FILM_WIDTH_INCHES - (2 * SHEET_SIDE_MARGIN_INCHES);
 
 interface FinalSheetOutput {
@@ -568,7 +570,7 @@ const generateFinalSheetsForPrintAndCut = async (
     shippingAddress: any,
 ): Promise<FinalSheetOutput[]> => {
     const HEADER_HEIGHT_INCHES = 1;
-    const MARGIN_INCHES = SHEET_SIDE_MARGIN_INCHES; // 1 inch margin on all sides to hold Graphtec registration marks
+    const MARGIN_INCHES = 1.0; // 1 inch band above and below the logo area that holds the Graphtec registration marks
     const HEADER_TO_DESIGN_GAP_INCHES = 0.5;
 
     const isVinyl = isVinylItem(orderItem);
@@ -705,20 +707,8 @@ const generateFinalSheetsForPrintAndCut = async (
             }
         }
 
-        // Sort instances by height descending for optimal shelf packing
-        instances.sort((a, b) => b.h - a.h);
-
-        // Multiple orientation shelf packing runs to find the absolute minimum sheet height
-        interface Shelf {
-            y: number;
-            height: number;
-            currentX: number;
-            placements: Placement[];
-        }
-
         interface SheetPack {
             placements: Placement[];
-            shelves: Shelf[];
             height: number;
         }
 
@@ -727,168 +717,160 @@ const generateFinalSheetsForPrintAndCut = async (
             totalHeight: number;
         }
 
+        type PackItem = { url: string; w: number; h: number; trim: boolean };
+
         // Max height per individual gang sheet chunk in inches (100" at 300 DPI stays safely within browser memory and allocation limits)
         const MAX_CHUNK_HEIGHT_INCHES = 100;
 
+        // Skyline packing: the sheet's occupied top edge is tracked as a row of flat segments, and
+        // every logo goes to the spot where its bottom edge ends up highest on the sheet (ties go
+        // to the left). Unlike row-by-row packing, small logos stack up beside tall ones instead
+        // of leaving the space next to them empty.
+        // Each logo reserves its own size plus SPACING_INCHES on its right and bottom, which keeps
+        // the gap between neighbours.
         const runPacking = (
-            items: Array<{ url: string; w: number; h: number; trim: boolean }>,
+            items: PackItem[],
             rotationMode: 'none' | 'auto' | 'force'
         ): PackResult => {
-            const sheets: SheetPack[] = [
-                { placements: [], shelves: [], height: 0 }
-            ];
+            const EPS = 1e-6;
+            const binWidth = designWidthInches + SPACING_INCHES;
 
-            const getDims = (w: number, h: number, currentX: number, shelfHeight?: number) => {
-                const normW = w;
-                const normH = h;
-                const rotW = h;
-                const rotH = w;
+            interface SkyNode { x: number; y: number; w: number; }
+            interface SkySheet extends SheetPack { skyline: SkyNode[]; }
 
-                if (rotationMode === 'none') {
-                    return { w: normW, h: normH, rotated: false };
-                }
-                if (rotationMode === 'force') {
-                    return { w: rotW, h: rotH, rotated: true };
-                }
-
-                // 'auto' mode:
-                const fitsNorm = currentX + normW <= designWidthInches;
-                const fitsRot = currentX + rotW <= designWidthInches;
-
-                if (fitsNorm && fitsRot) {
-                    const currentH = shelfHeight || 0;
-                    const expNorm = Math.max(currentH, normH);
-                    const expRot = Math.max(currentH, rotH);
-                    if (expNorm < expRot) {
-                        return { w: normW, h: normH, rotated: false };
-                    } else if (expRot < expNorm) {
-                        return { w: rotW, h: rotH, rotated: true };
-                    } else {
-                        return normW <= rotW 
-                            ? { w: normW, h: normH, rotated: false }
-                            : { w: rotW, h: rotH, rotated: true };
-                    }
-                } else if (fitsNorm) {
-                    return { w: normW, h: normH, rotated: false };
-                } else if (fitsRot) {
-                    return { w: rotW, h: rotH, rotated: true };
-                } else {
-                    return normH <= rotH 
-                        ? { w: normW, h: normH, rotated: false }
-                        : { w: rotW, h: rotH, rotated: true };
-                }
-            };
-
-            items.forEach(inst => {
-                let placed = false;
-                let currentSheet = sheets[sheets.length - 1];
-
-                for (let sIdx = 0; sIdx < currentSheet.shelves.length; sIdx++) {
-                    const shelf = currentSheet.shelves[sIdx];
-                    const dims = getDims(inst.w, inst.h, shelf.currentX, shelf.height);
-                    if (shelf.currentX + dims.w <= designWidthInches) {
-                        const newPlacement: Placement = {
-                            url: inst.url,
-                            trim: inst.trim,
-                            x: shelf.currentX,
-                            y: shelf.y,
-                            w: dims.w,
-                            h: dims.h,
-                            rotated: dims.rotated
-                        };
-                        currentSheet.placements.push(newPlacement);
-                        shelf.placements.push(newPlacement);
-                        shelf.currentX += dims.w + SPACING_INCHES;
-
-                        if (dims.h > shelf.height) {
-                            const deltaY = dims.h - shelf.height;
-                            shelf.height = dims.h;
-                            for (let nextIdx = sIdx + 1; nextIdx < currentSheet.shelves.length; nextIdx++) {
-                                const lowerShelf = currentSheet.shelves[nextIdx];
-                                lowerShelf.y += deltaY;
-                                lowerShelf.placements.forEach(p => {
-                                    p.y += deltaY;
-                                });
-                            }
-                            currentSheet.height = Math.max(...currentSheet.shelves.map(s => s.y + s.height)) + SPACING_INCHES;
-                        }
-                        placed = true;
-                        break;
-                    }
-                }
-
-                if (!placed) {
-                    const dims = getDims(inst.w, inst.h, 0);
-                    const newY = currentSheet.shelves.length === 0 
-                        ? SPACING_INCHES 
-                        : currentSheet.shelves[currentSheet.shelves.length - 1].y + currentSheet.shelves[currentSheet.shelves.length - 1].height + SPACING_INCHES;
-                    
-                    if (newY + dims.h + SPACING_INCHES > MAX_CHUNK_HEIGHT_INCHES && currentSheet.placements.length > 0) {
-                        currentSheet = {
-                            placements: [],
-                            shelves: [],
-                            height: 0
-                        };
-                        sheets.push(currentSheet);
-
-                        const firstY = SPACING_INCHES;
-                        const newPlacement: Placement = {
-                            url: inst.url,
-                            trim: inst.trim,
-                            x: 0,
-                            y: firstY,
-                            w: dims.w,
-                            h: dims.h,
-                            rotated: dims.rotated
-                        };
-                        const newShelf: Shelf = {
-                            y: firstY,
-                            height: dims.h,
-                            currentX: dims.w + SPACING_INCHES,
-                            placements: [newPlacement]
-                        };
-                        currentSheet.shelves.push(newShelf);
-                        currentSheet.placements.push(newPlacement);
-                        currentSheet.height = firstY + dims.h + SPACING_INCHES;
-                    } else {
-                        const newPlacement: Placement = {
-                            url: inst.url,
-                            trim: inst.trim,
-                            x: 0,
-                            y: newY,
-                            w: dims.w,
-                            h: dims.h,
-                            rotated: dims.rotated
-                        };
-                        const newShelf: Shelf = {
-                            y: newY,
-                            height: dims.h,
-                            currentX: dims.w + SPACING_INCHES,
-                            placements: [newPlacement]
-                        };
-                        currentSheet.shelves.push(newShelf);
-                        currentSheet.placements.push(newPlacement);
-                        currentSheet.height = newY + dims.h + SPACING_INCHES;
-                    }
-                }
+            const newSheet = (): SkySheet => ({
+                placements: [],
+                height: 0,
+                skyline: [{ x: 0, y: SPACING_INCHES, w: binWidth }]
             });
 
-            const totalHeight = sheets.reduce((sum, s) => sum + s.height, 0);
-            return { sheets, totalHeight };
+            // Lowest spot for a footprint of the given width; null when it is wider than the sheet
+            const findSpot = (skyline: SkyNode[], footW: number, footH: number) => {
+                let best: { x: number; y: number; top: number } | null = null;
+                for (let i = 0; i < skyline.length; i++) {
+                    const x = skyline[i].x;
+                    if (x + footW > binWidth + EPS) break;
+                    let y = 0;
+                    let remaining = footW;
+                    for (let j = i; j < skyline.length && remaining > EPS; j++) {
+                        y = Math.max(y, skyline[j].y);
+                        remaining -= skyline[j].w;
+                    }
+                    const top = y + footH;
+                    if (!best || top < best.top - EPS) {
+                        best = { x, y, top };
+                    }
+                }
+                return best;
+            };
+
+            // Raise the skyline to `top` across [x, x + footW)
+            const raiseSkyline = (skyline: SkyNode[], x: number, footW: number, top: number): SkyNode[] => {
+                const endX = Math.min(binWidth, x + footW);
+                const next: SkyNode[] = [];
+                for (const node of skyline) {
+                    const nodeEnd = node.x + node.w;
+                    if (nodeEnd <= x + EPS || node.x >= endX - EPS) {
+                        next.push(node);
+                        continue;
+                    }
+                    if (node.x < x - EPS) next.push({ x: node.x, y: node.y, w: x - node.x });
+                    if (nodeEnd > endX + EPS) next.push({ x: endX, y: node.y, w: nodeEnd - endX });
+                }
+                next.push({ x, y: top, w: endX - x });
+                next.sort((n1, n2) => n1.x - n2.x);
+                const merged: SkyNode[] = [];
+                for (const node of next) {
+                    const last = merged[merged.length - 1];
+                    if (last && Math.abs(last.y - node.y) <= EPS) {
+                        last.w += node.w;
+                    } else {
+                        merged.push({ ...node });
+                    }
+                }
+                return merged;
+            };
+
+            const sheets: SkySheet[] = [newSheet()];
+
+            items.forEach(inst => {
+                const upright = { w: inst.w, h: inst.h, rotated: false };
+                const turned = { w: inst.h, h: inst.w, rotated: true };
+                let options = rotationMode === 'none' ? [upright]
+                    : rotationMode === 'force' ? [turned]
+                    : [upright, turned];
+                // Drop orientations that are wider than the sheet when another one fits
+                const fitting = options.filter(o => o.w <= designWidthInches + EPS);
+                if (fitting.length > 0) options = fitting;
+
+                const choose = (sheet: SkySheet) => {
+                    let pick: { x: number; y: number; top: number; w: number; h: number; rotated: boolean } | null = null;
+                    for (const o of options) {
+                        const spot = findSpot(sheet.skyline, o.w + SPACING_INCHES, o.h + SPACING_INCHES)
+                            // Wider than the sheet: start at the left edge below everything (it will overhang, as before)
+                            || (() => {
+                                const y = Math.max(...sheet.skyline.map(n => n.y));
+                                return { x: 0, y, top: y + o.h + SPACING_INCHES };
+                            })();
+                        // Upright is tried first and a turned logo must be strictly better to win
+                        if (!pick || spot.top < pick.top - EPS) {
+                            pick = { ...spot, w: o.w, h: o.h, rotated: o.rotated };
+                        }
+                    }
+                    return pick!;
+                };
+
+                let sheet = sheets[sheets.length - 1];
+                let pick = choose(sheet);
+                if (pick.top > MAX_CHUNK_HEIGHT_INCHES && sheet.placements.length > 0) {
+                    sheet = newSheet();
+                    sheets.push(sheet);
+                    pick = choose(sheet);
+                }
+
+                sheet.placements.push({
+                    url: inst.url,
+                    trim: inst.trim,
+                    x: pick.x,
+                    y: pick.y,
+                    w: pick.w,
+                    h: pick.h,
+                    rotated: pick.rotated
+                });
+                sheet.skyline = raiseSkyline(sheet.skyline, pick.x, pick.w + SPACING_INCHES, pick.top);
+                sheet.height = Math.max(sheet.height, pick.top);
+            });
+
+            const totalHeight = sheets.reduce((sum, sh) => sum + sh.height, 0);
+            return { sheets: sheets.map(sh => ({ placements: sh.placements, height: sh.height })), totalHeight };
         };
 
-        const resultNone = runPacking(instances, 'none');
-        const resultAuto = runPacking(instances, 'auto');
-        const resultForce = runPacking(instances, 'force');
+        // Film actually used: sheets are rounded up to a whole inch with a 12" minimum
+        const filmUsed = (r: PackResult) => r.sheets.reduce((sum, sh) => sum + Math.max(12, Math.ceil(sh.height)), 0);
+        const score = (r: PackResult) => (r.sheets.length * 10000) + filmUsed(r);
 
-        let bestResult = resultNone;
-        const score = (r: PackResult) => (r.sheets.length * 10000) + r.totalHeight;
-        if (score(resultAuto) < score(bestResult)) {
-            bestResult = resultAuto;
+        // Try several placing orders and rotation rules and keep the one that uses the least film.
+        // Sorting is stable, so copies of the same logo stay together. Candidates are listed from
+        // the tidiest (nothing turned) to the least tidy, and a later one must be strictly shorter to win.
+        const longSide = (i: PackItem) => Math.max(i.w, i.h);
+        const orders: PackItem[][] = [
+            [...instances].sort((i1, i2) => i2.h - i1.h),
+            [...instances].sort((i1, i2) => longSide(i2) - longSide(i1)),
+            [...instances].sort((i1, i2) => (i2.w * i2.h) - (i1.w * i1.h)),
+            [...instances].sort((i1, i2) => i2.w - i1.w)
+        ];
+        const modes: Array<'none' | 'auto' | 'force'> = ['none', 'auto', 'force'];
+
+        let bestResult: PackResult | null = null;
+        for (const mode of modes) {
+            for (const order of orders) {
+                const result = runPacking(order, mode);
+                if (!bestResult || score(result) < score(bestResult)) {
+                    bestResult = result;
+                }
+            }
         }
-        if (score(resultForce) < score(bestResult)) {
-            bestResult = resultForce;
-        }
+        if (!bestResult) bestResult = { sheets: [], totalHeight: 0 };
 
         sheetsToRender = bestResult.sheets.map(s => ({
             placements: s.placements,
@@ -903,7 +885,8 @@ const generateFinalSheetsForPrintAndCut = async (
     // Strictly enforce 300 DPI for all print & cut master gang sheets (1 inch = 300 pixels)
     const BASE_DPI = 300;
     const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px at 300 DPI
-    const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI
+    const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI (top and bottom)
+    const SIDE_MARGIN_PX = Math.round(SHEET_SIDE_MARGIN_INCHES * BASE_DPI); // left and right
     const HEADER_TO_DESIGN_GAP = HEADER_TO_DESIGN_GAP_INCHES * BASE_DPI; // 150px at 300 DPI
     const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP;
 
@@ -945,7 +928,7 @@ const generateFinalSheetsForPrintAndCut = async (
             rotated: !!p.rotated
         }));
 
-        const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
+        const finalCanvasWidth = Math.round(designWidthInches * BASE_DPI) + (2 * SIDE_MARGIN_PX);
         const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP + (0.25 * BASE_DPI);
 
         // 1. Create PRINT Canvas
@@ -971,10 +954,21 @@ const generateFinalSheetsForPrintAndCut = async (
         const designCtx = designCanvas.getContext('2d');
         if (!designCtx) throw new Error('No design context');
 
+        // Cut outline for a logo: 0.08" (24px, ~2mm) outside the artwork. On the left and right
+        // it stops at the sheet edge (half a line width in), so logos that touch the edge of the
+        // printable width are cut along that edge instead of outside the file.
+        const getCutBox = (artX: number, artY: number, artW: number, artH: number) => {
+            const paddingPx = 0.08 * BASE_DPI;
+            const edgeInset = 3;
+            const left = Math.max(edgeInset, artX - paddingPx);
+            const right = Math.min(finalCanvasWidth - edgeInset, artX + artW + paddingPx);
+            return { x: left, y: artY - paddingPx, w: right - left, h: artH + (2 * paddingPx) };
+        };
+
         // --- Draw Main Content ---
         if (isSingleTransferLayout) {
             placements.forEach(p => {
-                const printX = p.x + MARGIN_PX;
+                const printX = p.x + SIDE_MARGIN_PX;
                 const printY = p.y + yOffset;
                 const designX = p.x;
                 const designY = p.y;
@@ -1004,14 +998,8 @@ const generateFinalSheetsForPrintAndCut = async (
                 if (!isVinyl) {
                     cutCtx.strokeStyle = 'black';
                     cutCtx.lineWidth = 6;
-                    const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
-                    strokeCutRectCanvas(
-                        cutCtx,
-                        printX - paddingPx,
-                        printY - paddingPx,
-                        p.wPx + (2 * paddingPx),
-                        p.hPx + (2 * paddingPx)
-                    );
+                    const cutBox = getCutBox(printX, printY, p.wPx, p.hPx);
+                    strokeCutRectCanvas(cutCtx, cutBox.x, cutBox.y, cutBox.w, cutBox.h);
                 }
             });
         } else {
@@ -1030,11 +1018,11 @@ const generateFinalSheetsForPrintAndCut = async (
                         const artW = art.width * BASE_DPI;
                         const artH = art.height * BASE_DPI;
 
-                        printCtx.drawImage(sourceImage, artX + MARGIN_PX, artY + yOffset, artW, artH);
+                        printCtx.drawImage(sourceImage, artX + SIDE_MARGIN_PX, artY + yOffset, artW, artH);
                         designCtx.drawImage(sourceImage, artX, artY, artW, artH);
                     });
                 } else {
-                    printCtx.drawImage(sourceImage, MARGIN_PX, yOffset, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
+                    printCtx.drawImage(sourceImage, SIDE_MARGIN_PX, yOffset, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
                     designCtx.drawImage(sourceImage, 0, 0, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
                 }
             }
@@ -1045,7 +1033,7 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
                     sheetArtworks.forEach((art: any) => {
-                        const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
                         const targetPadding = 0.08 * BASE_DPI;
@@ -1065,7 +1053,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     const contentMargin = 0.25 * BASE_DPI;
                     strokeCutRectCanvas(
                         cutCtx,
-                        MARGIN_PX + contentMargin,
+                        SIDE_MARGIN_PX + contentMargin,
                         yOffset + contentMargin,
                         (designWidthInches * BASE_DPI) - (contentMargin * 2),
                         ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
@@ -1078,7 +1066,7 @@ const generateFinalSheetsForPrintAndCut = async (
             designCtx.globalCompositeOperation = 'source-in';
             designCtx.fillStyle = 'black';
             designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
-            cutCtx.drawImage(designCanvas, MARGIN_PX, yOffset);
+            cutCtx.drawImage(designCanvas, SIDE_MARGIN_PX, yOffset);
         }
 
         // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
@@ -1157,13 +1145,11 @@ const generateFinalSheetsForPrintAndCut = async (
         if (!isVinyl) {
             if (isSingleTransferLayout) {
                 placements.forEach(p => {
-                    const artW = p.wPx;
-                    const artH = p.hPx;
-                    const printX = p.x + MARGIN_PX;
+                    const printX = p.x + SIDE_MARGIN_PX;
                     const printY = p.y + yOffset;
-                    const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
+                    const cutBox = getCutBox(printX, printY, p.wPx, p.hPx);
                     
-                    svgContent += `  ${buildCutRectSvgPath(printX - paddingPx, printY - paddingPx, artW + (2 * paddingPx), artH + (2 * paddingPx), 6)}\n`;
+                    svgContent += `  ${buildCutRectSvgPath(cutBox.x, cutBox.y, cutBox.w, cutBox.h, 6)}\n`;
                 });
             } else {
                 const sheetArtworks = (orderItem.artworks || []).filter(
@@ -1172,7 +1158,7 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
                     sheetArtworks.forEach((art: any) => {
-                        const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
                         const targetPadding = 0.08 * BASE_DPI;
@@ -1187,7 +1173,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     });
                 } else {
                     const contentMargin = 0.25 * BASE_DPI;
-                    const rectX = MARGIN_PX + contentMargin;
+                    const rectX = SIDE_MARGIN_PX + contentMargin;
                     const rectY = yOffset + contentMargin;
                     const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
                     const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
