@@ -201,52 +201,38 @@ const drawGraphtecRegistrationMarks = (
     ctx.fillRect(xRight - thickness, yBottom - markLength, thickness, markLength);
 };
 
-// Builds line segments for a dotted/dashed rectangle outline with a configurable number of dots per edge
-const getDottedRectSegments = (
+// Cut outlines are solid lines with the corners left open: each side stops 5 mm short of both
+// of its corners, so the four sides are separate strokes that never meet.
+const CUT_CORNER_GAP_MM = 5;
+// All production files are built at 300 DPI
+const CUT_CORNER_GAP_PX = (CUT_CORNER_GAP_MM / 25.4) * 300;
+
+// Builds the four line segments of a cut outline (one solid line per side, corners left blank)
+const getCutRectSegments = (
     x: number,
     y: number,
     w: number,
-    h: number,
-    dotsPerLine: number
+    h: number
 ): Array<[number, number, number, number]> => {
-    const n = Math.max(1, Math.round(dotsPerLine || 1));
-    const edges: Array<[number, number, number, number]> = [
-        [x, y, x + w, y],         // Top edge
-        [x + w, y, x + w, y + h], // Right edge
-        [x + w, y + h, x, y + h], // Bottom edge
-        [x, y + h, x, y]          // Left edge
+    // On very short sides the gap shrinks so half of the side is still cut
+    const gapX = Math.min(CUT_CORNER_GAP_PX, Math.abs(w) / 4);
+    const gapY = Math.min(CUT_CORNER_GAP_PX, Math.abs(h) / 4);
+    return [
+        [x + gapX, y, x + w - gapX, y],         // Top edge
+        [x + w, y + gapY, x + w, y + h - gapY], // Right edge
+        [x + w - gapX, y + h, x + gapX, y + h], // Bottom edge
+        [x, y + h - gapY, x, y + gapY]          // Left edge
     ];
-    if (n <= 1) {
-        return edges;
-    }
-    const segments: Array<[number, number, number, number]> = [];
-    const totalSubdivisions = 2 * n - 1;
-    for (const [x1, y1, x2, y2] of edges) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        for (let i = 0; i < n; i++) {
-            const tStart = (2 * i) / totalSubdivisions;
-            const tEnd = (2 * i + 1) / totalSubdivisions;
-            segments.push([
-                x1 + dx * tStart,
-                y1 + dy * tStart,
-                x1 + dx * tEnd,
-                y1 + dy * tEnd
-            ]);
-        }
-    }
-    return segments;
 };
 
-const strokeDottedRectCanvas = (
+const strokeCutRectCanvas = (
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
     w: number,
-    h: number,
-    dotsPerLine: number
+    h: number
 ) => {
-    const segments = getDottedRectSegments(x, y, w, h, dotsPerLine);
+    const segments = getCutRectSegments(x, y, w, h);
     ctx.beginPath();
     for (const [x1, y1, x2, y2] of segments) {
         ctx.moveTo(x1, y1);
@@ -255,16 +241,15 @@ const strokeDottedRectCanvas = (
     ctx.stroke();
 };
 
-const buildDottedRectSvgPath = (
+const buildCutRectSvgPath = (
     x: number,
     y: number,
     w: number,
     h: number,
-    dotsPerLine: number,
     strokeWidth: number = 6,
     transformAttr: string = ''
 ): string => {
-    const segments = getDottedRectSegments(x, y, w, h, dotsPerLine);
+    const segments = getCutRectSegments(x, y, w, h);
     const d = segments
         .map(([x1, y1, x2, y2]) => `M ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)}`)
         .join(' ');
@@ -545,7 +530,6 @@ const generateFinalSheetsForPrintAndCut = async (
     orderId: string,
     customerName: string,
     shippingAddress: any,
-    dotsPerCutLine: number = 12,
 ): Promise<FinalSheetOutput[]> => {
     const HEADER_HEIGHT_INCHES = 1;
     const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
@@ -978,13 +962,12 @@ const generateFinalSheetsForPrintAndCut = async (
                     cutCtx.strokeStyle = 'black';
                     cutCtx.lineWidth = 6;
                     const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
-                    strokeDottedRectCanvas(
+                    strokeCutRectCanvas(
                         cutCtx,
                         printX - paddingPx,
                         printY - paddingPx,
                         p.wPx + (2 * paddingPx),
-                        p.hPx + (2 * paddingPx),
-                        dotsPerCutLine
+                        p.hPx + (2 * paddingPx)
                     );
                 }
             });
@@ -1031,19 +1014,18 @@ const generateFinalSheetsForPrintAndCut = async (
 
                         const wPx = art.width * BASE_DPI + (2 * safePadding);
                         const hPx = art.height * BASE_DPI + (2 * safePadding);
-                        strokeDottedRectCanvas(cutCtx, -wPx / 2, -hPx / 2, wPx, hPx, dotsPerCutLine);
+                        strokeCutRectCanvas(cutCtx, -wPx / 2, -hPx / 2, wPx, hPx);
 
                         cutCtx.restore();
                     });
                 } else {
                     const contentMargin = 0.25 * BASE_DPI;
-                    strokeDottedRectCanvas(
+                    strokeCutRectCanvas(
                         cutCtx,
                         MARGIN_PX + contentMargin,
                         yOffset + contentMargin,
                         (designWidthInches * BASE_DPI) - (contentMargin * 2),
-                        ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2),
-                        dotsPerCutLine
+                        ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
                     );
                 }
             }
@@ -1138,7 +1120,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     const printY = p.y + yOffset;
                     const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
                     
-                    svgContent += `  ${buildDottedRectSvgPath(printX - paddingPx, printY - paddingPx, artW + (2 * paddingPx), artH + (2 * paddingPx), dotsPerCutLine, 6)}\n`;
+                    svgContent += `  ${buildCutRectSvgPath(printX - paddingPx, printY - paddingPx, artW + (2 * paddingPx), artH + (2 * paddingPx), 6)}\n`;
                 });
             } else {
                 const sheetArtworks = (orderItem.artworks || []).filter(
@@ -1157,7 +1139,7 @@ const generateFinalSheetsForPrintAndCut = async (
                         const hPx = art.height * BASE_DPI + (2 * safePadding);
 
                         svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${art.rotation || 0})">\n`;
-                        svgContent += `    ${buildDottedRectSvgPath(-wPx / 2, -hPx / 2, wPx, hPx, dotsPerCutLine, 6)}\n`;
+                        svgContent += `    ${buildCutRectSvgPath(-wPx / 2, -hPx / 2, wPx, hPx, 6)}\n`;
                         svgContent += `  </g>\n`;
                     });
                 } else {
@@ -1166,7 +1148,7 @@ const generateFinalSheetsForPrintAndCut = async (
                     const rectY = yOffset + contentMargin;
                     const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
                     const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
-                    svgContent += `  ${buildDottedRectSvgPath(rectX, rectY, rectW, rectH, dotsPerCutLine, 6)}\n`;
+                    svgContent += `  ${buildCutRectSvgPath(rectX, rectY, rectW, rectH, 6)}\n`;
                 }
             }
         }
@@ -1192,99 +1174,7 @@ const generateFinalSheetsForPrintAndCut = async (
 };
 
 
-// "Dots per cut line" = number of dashes drawn along each side of a cut outline (1 = solid line).
-// The cap is not a cutter limit: every dash becomes its own segment in the cut SVG for every logo
-// copy on the sheet, so file size grows with dots x copies (about 140 KB per logo copy at 1000,
-// measured: 300 copies at 1000 dots = 42 MB SVG). 1000 is already finer than a cutter can
-// resolve (about 0.01" dashes on a 22" edge), so going higher only makes the file bigger.
-const MIN_CUT_LINE_DOTS = 1;
-const MAX_CUT_LINE_DOTS = 1000;
-const DEFAULT_CUT_LINE_DOTS = 12;
-const clampCutLineDots = (value: number): number => {
-  if (!Number.isFinite(value)) return DEFAULT_CUT_LINE_DOTS;
-  return Math.max(MIN_CUT_LINE_DOTS, Math.min(MAX_CUT_LINE_DOTS, Math.round(value)));
-};
-
 const GANG_SHEET_WIDTH_INCHES = 22;
-
-// Stepper for the dots-per-cut-line value. The text field keeps its own draft while typing so it
-// can be selected, cleared and retyped; the value is validated and clamped on blur or Enter.
-function CutLineDotsInput({
-  value,
-  onChange,
-  inputClassName,
-  buttonClassName
-}: {
-  value: number;
-  onChange: (next: number) => void;
-  inputClassName: string;
-  buttonClassName: string;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-
-  const commit = () => {
-    if (draft === null) return;
-    const parsed = parseInt(draft, 10);
-    if (Number.isFinite(parsed)) onChange(clampCutLineDots(parsed));
-    setDraft(null);
-  };
-
-  const step = (delta: number) => {
-    const base = draft !== null && Number.isFinite(parseInt(draft, 10)) ? parseInt(draft, 10) : value;
-    setDraft(null);
-    onChange(clampCutLineDots(base + delta));
-  };
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={() => step(-1)}
-        disabled={value <= MIN_CUT_LINE_DOTS}
-        aria-label="Fewer dots per cut line"
-        title="Fewer dots"
-        className={buttonClassName}
-      >
-        -
-      </button>
-      <input
-        type="text"
-        inputMode="numeric"
-        aria-label="Dots per cut line"
-        title={`Type a number from ${MIN_CUT_LINE_DOTS} to ${MAX_CUT_LINE_DOTS}, then press Enter`}
-        value={draft ?? String(value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 5))}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.currentTarget.blur();
-          } else if (e.key === 'Escape') {
-            setDraft(null);
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            step(1);
-          } else if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            step(-1);
-          }
-        }}
-        className={inputClassName}
-      />
-      <button
-        type="button"
-        onClick={() => step(1)}
-        disabled={value >= MAX_CUT_LINE_DOTS}
-        aria-label="More dots per cut line"
-        title="More dots"
-        className={buttonClassName}
-      >
-        +
-      </button>
-    </div>
-  );
-}
 
 const isPrintableItem = (item: any) => {
   if (!item) return false;
@@ -2398,15 +2288,6 @@ export function OrderDetail() {
   const [isZipping, setIsZipping] = useState(false);
   const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
   const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
-  const [cutLineDots, setCutLineDots] = useState<number>(() => {
-    const saved = Number(localStorage.getItem('defaultCutLineDots'));
-    return saved > 0 ? clampCutLineDots(saved) : DEFAULT_CUT_LINE_DOTS;
-  });
-  const updateCutLineDots = (next: number) => {
-    const clamped = clampCutLineDots(next);
-    setCutLineDots(clamped);
-    localStorage.setItem('defaultCutLineDots', String(clamped));
-  };
   // Progress text shown while the master sheet is being built and uploaded
   const [generationStatus, setGenerationStatus] = useState('');
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
@@ -4037,14 +3918,12 @@ export function OrderDetail() {
         quantity: 1,
       };
 
-      localStorage.setItem('defaultCutLineDots', String(cutLineDots));
       setGenerationStatus('Loading artwork and building sheets at 300 DPI…');
       const sheets = await generateFinalSheetsForPrintAndCut(
         syntheticItem,
         order.id,
         order.customerName || 'Customer',
-        order.shippingAddress || null,
-        cutLineDots
+        order.shippingAddress || null
       );
 
       const uploadedSheets: Array<{
@@ -4086,7 +3965,6 @@ export function OrderDetail() {
         masterSheetHeight: totalHeight,
         masterSheets: uploadedSheets,
         masterReadyToPrint: true,
-        cutLineDots,
       });
       setNeedsRegenerate(false);
 
@@ -4322,7 +4200,6 @@ export function OrderDetail() {
       svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
       svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
 
-      localStorage.setItem('defaultCutLineDots', String(cutLineDots));
       cutCtx.strokeStyle = 'black';
       cutCtx.lineWidth = 4;
       placements.forEach(p => {
@@ -4331,9 +4208,9 @@ export function OrderDetail() {
         cutCtx.save();
         cutCtx.translate(cx, cy);
         cutCtx.rotate((45 * Math.PI) / 180);
-        strokeDottedRectCanvas(cutCtx, -tagDim / 2, -tagDim / 2, tagDim, tagDim, cutLineDots);
+        strokeCutRectCanvas(cutCtx, -tagDim / 2, -tagDim / 2, tagDim, tagDim);
         cutCtx.restore();
-        svgContent += `  ${buildDottedRectSvgPath(p.x, p.y, tagDim, tagDim, cutLineDots, 4, `rotate(45, ${cx}, ${cy})`)}\n`;
+        svgContent += `  ${buildCutRectSvgPath(p.x, p.y, tagDim, tagDim, 4, `rotate(45, ${cx}, ${cy})`)}\n`;
       });
       svgContent += `</svg>`;
 
@@ -7175,15 +7052,6 @@ export function OrderDetail() {
               <>
               <div className="flex justify-end mt-4 mb-6 pb-4 border-b border-brand-border">
                 <div className="flex items-center gap-2.5 flex-wrap justify-end">
-                  <div className="flex items-center gap-1.5 bg-neutral-100 border border-brand-border rounded-full px-3 py-1" title={`Number of dashes along each side of every cut outline (1 = solid line, max ${MAX_CUT_LINE_DOTS}). Regenerate the files after changing it.`}>
-                    <span className="text-[11px] font-bold text-neutral-600 whitespace-nowrap">Dots / Cut Line:</span>
-                    <CutLineDotsInput
-                      value={cutLineDots}
-                      onChange={updateCutLineDots}
-                      inputClassName="w-14 text-center bg-white border border-neutral-300 rounded-md py-0.5 text-xs font-extrabold text-neutral-900 focus:outline-none focus:border-neutral-500"
-                      buttonClassName="w-5 h-5 rounded-full bg-white border border-neutral-300 hover:bg-neutral-200 text-neutral-800 font-bold text-xs flex items-center justify-center leading-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    />
-                  </div>
                   <button
                     type="button"
                     onClick={handleGenerateCombinedOrderGangSheet}
@@ -7716,30 +7584,12 @@ export function OrderDetail() {
                           </div>
                         )}
 
-                        {/* Cut Line Dots Adjuster */}
-                        <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
-                          <div className="flex flex-col gap-0.5 min-w-0">
-                            <span className="text-neutral-200 font-bold text-[11px]">Dots per cut line</span>
-                            <span className="text-[10px] text-neutral-500 leading-tight">
-                              Dashes on each side of a cut outline. 1 = solid line, max {MAX_CUT_LINE_DOTS}.
-                            </span>
-                            {cutLineDots > 300 && (
-                              <span className="text-[10px] text-neutral-400 leading-tight">
-                                High values make a large cut file on sheets with many logos.
-                              </span>
-                            )}
-                            {card.isPrintReady && card.type === 'art' && typeof order.cutLineDots === 'number' && order.cutLineDots !== cutLineDots && (
-                              <span className="text-[10px] font-bold text-amber-400 leading-tight">
-                                Current files use {order.cutLineDots}. Regenerate to apply {cutLineDots}.
-                              </span>
-                            )}
-                          </div>
-                          <CutLineDotsInput
-                            value={cutLineDots}
-                            onChange={updateCutLineDots}
-                            inputClassName="w-14 text-center bg-neutral-950 border border-neutral-800 rounded-md py-1 text-xs font-bold text-white focus:outline-none focus:border-neutral-500"
-                            buttonClassName="w-6 h-6 rounded-md bg-neutral-950 border border-neutral-800 hover:border-neutral-600 text-white font-bold text-xs flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                          />
+                        {/* Cut line style */}
+                        <div className="flex flex-col gap-0.5 border-t border-neutral-805 pt-3 text-xs">
+                          <span className="text-neutral-200 font-bold text-[11px]">Cut lines</span>
+                          <span className="text-[10px] text-neutral-500 leading-tight">
+                            Solid lines, with {CUT_CORNER_GAP_MM} mm left uncut on both sides of every corner.
+                          </span>
                         </div>
 
                         {/* Actions Footer */}
