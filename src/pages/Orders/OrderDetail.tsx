@@ -207,6 +207,8 @@ const drawGraphtecRegistrationMarks = (
 // Cut outlines are solid lines with the corners left open: each side stops 0.5 mm short of both
 // of its corners, so the four sides never meet. Every side also has 2 evenly spaced 0.5 mm
 // uncut spaces (at 1/3 and 2/3 of its length), which splits it into 3 strokes.
+// Space between the edge of a logo and its cut line: 0.12 in (36px at 300 DPI, about 3 mm)
+const CUT_PADDING_INCHES = 0.12;
 const CUT_CORNER_GAP_MM = 0.5;
 const CUT_SIDE_GAP_MM = 0.5;
 const CUT_SIDE_GAP_COUNT = 2;
@@ -1016,11 +1018,11 @@ const generateFinalSheetsForPrintAndCut = async (
         const designCtx = designCanvas.getContext('2d');
         if (!designCtx) throw new Error('No design context');
 
-        // Cut outline for a logo: 0.08" (24px, ~2mm) outside the artwork. On the left and right
+        // Cut outline for a logo: CUT_PADDING_INCHES outside the artwork. On the left and right
         // it stops at the sheet edge (half a line width in), so logos that touch the edge of the
         // printable width are cut along that edge instead of outside the file.
         const getCutBox = (artX: number, artY: number, artW: number, artH: number) => {
-            const paddingPx = 0.08 * BASE_DPI;
+            const paddingPx = CUT_PADDING_INCHES * BASE_DPI;
             const edgeInset = 3;
             const left = Math.max(edgeInset, artX - paddingPx);
             const right = Math.min(finalCanvasWidth - edgeInset, artX + artW + paddingPx);
@@ -1098,7 +1100,7 @@ const generateFinalSheetsForPrintAndCut = async (
                         const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
-                        const targetPadding = 0.08 * BASE_DPI;
+                        const targetPadding = CUT_PADDING_INCHES * BASE_DPI;
                         const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
 
                         cutCtx.save();
@@ -1226,7 +1228,7 @@ const generateFinalSheetsForPrintAndCut = async (
                         const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
-                        const targetPadding = 0.08 * BASE_DPI;
+                        const targetPadding = CUT_PADDING_INCHES * BASE_DPI;
                         const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
 
                         const wPx = art.width * BASE_DPI + (2 * safePadding);
