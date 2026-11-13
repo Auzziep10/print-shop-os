@@ -253,6 +253,53 @@ const getCutRectSegments = (
     return segments;
 };
 
+// Builds one cut path from many strokes, ordered for a roll plotter: the stroke that starts
+// lowest on the sheet is cut first and the work only ever moves up the sheet. For a row of logos
+// that means every bottom edge first, then the side pieces from the bottom up, then the top edges.
+// Strokes at the same height are cut left to right. Upright strokes are drawn from the bottom up.
+const buildOrderedCutPathSvg = (
+    segments: Array<[number, number, number, number]>,
+    strokeWidth: number = 6
+): string => {
+    const oriented = segments.map(([x1, y1, x2, y2]): [number, number, number, number] => {
+        const upright = Math.abs(y2 - y1) > Math.abs(x2 - x1);
+        if (upright) return y1 >= y2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
+        return x1 <= x2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
+    });
+    // Rounded so strokes meant to be level with each other are not reordered by tiny decimals
+    const startHeight = (seg: [number, number, number, number]) => Math.round(Math.max(seg[1], seg[3]) * 100);
+    oriented.sort((a, b) => (startHeight(b) - startHeight(a)) || (a[0] - b[0]));
+    const d = oriented
+        .map(([x1, y1, x2, y2]) => `M ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)}`)
+        .join(' ');
+    return `<path d="${d}" fill="none" stroke="black" stroke-width="${strokeWidth}" />`;
+};
+
+// Orders cut outlines for the plotter: bottom of the sheet first, working upward. Outlines whose
+// bottom edges are within `tolerance` of each other count as one row and are cut left to right.
+const orderBottomToTop = <T,>(
+    items: T[],
+    bottom: (item: T) => number,
+    left: (item: T) => number,
+    tolerance: number
+): T[] => {
+    const sorted = [...items].sort((a, b) => bottom(b) - bottom(a));
+    const ordered: T[] = [];
+    let row: T[] = [];
+    let rowBottom = 0;
+    const flush = () => {
+        ordered.push(...row.sort((a, b) => left(a) - left(b)));
+        row = [];
+    };
+    for (const item of sorted) {
+        if (row.length > 0 && rowBottom - bottom(item) > tolerance) flush();
+        if (row.length === 0) rowBottom = bottom(item);
+        row.push(item);
+    }
+    flush();
+    return ordered;
+};
+
 const strokeCutRectCanvas = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -1144,20 +1191,23 @@ const generateFinalSheetsForPrintAndCut = async (
         svgContent += `  <!-- Cut Paths -->\n`;
         if (!isVinyl) {
             if (isSingleTransferLayout) {
+                // All cut strokes on the sheet go into one path, ordered so the plotter only ever
+                // works its way up the sheet (see buildOrderedCutPathSvg)
+                const allSegments: Array<[number, number, number, number]> = [];
                 placements.forEach(p => {
                     const printX = p.x + SIDE_MARGIN_PX;
                     const printY = p.y + yOffset;
                     const cutBox = getCutBox(printX, printY, p.wPx, p.hPx);
-                    
-                    svgContent += `  ${buildCutRectSvgPath(cutBox.x, cutBox.y, cutBox.w, cutBox.h, 6)}\n`;
+                    allSegments.push(...getCutRectSegments(cutBox.x, cutBox.y, cutBox.w, cutBox.h));
                 });
+                svgContent += `  ${buildOrderedCutPathSvg(allSegments, 6)}\n`;
             } else {
                 const sheetArtworks = (orderItem.artworks || []).filter(
                     (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
                 );
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
-                    sheetArtworks.forEach((art: any) => {
+                    orderBottomToTop(sheetArtworks, (art: any) => art.y + art.height, (art: any) => art.x, 0.25).forEach((art: any) => {
                         const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
@@ -4229,7 +4279,7 @@ export function OrderDetail() {
 
       cutCtx.strokeStyle = 'black';
       cutCtx.lineWidth = 4;
-      placements.forEach(p => {
+      orderBottomToTop(placements, p => p.y + tagDim, p => p.x, 0.25 * BASE_DPI).forEach(p => {
         const cx = p.x + tagDim / 2;
         const cy = p.y + tagDim / 2;
         cutCtx.save();
