@@ -267,6 +267,11 @@ const cutStrokeSvg = (
     return `<path d="M ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)}" fill="none" stroke="black" stroke-width="${strokeWidth}"${transformStr} />`;
 };
 
+// Graphtec Studio stacks the objects of an imported SVG with the last one in the file at the top
+// of its layer list, and cuts from the top of that list down. So the cut order is the file order
+// back to front, and everything below writes its strokes in the reverse of the wanted cut order.
+const toCutFileOrder = <T,>(inCutOrder: T[]): T[] => [...inCutOrder].reverse();
+
 // Writes the cut strokes of a whole sheet as separate objects, ordered for a roll plotter that is
 // loaded bottom end first: the stroke that starts lowest on the sheet comes first and the work
 // only ever moves up the sheet toward the QR code end. For a row of logos that means every
@@ -284,7 +289,7 @@ const buildOrderedCutPathSvg = (
     // Rounded so strokes meant to be level with each other are not reordered by tiny decimals
     const startHeight = (seg: [number, number, number, number]) => Math.round(Math.max(seg[1], seg[3]) * 100);
     oriented.sort((a, b) => (startHeight(b) - startHeight(a)) || (a[0] - b[0]));
-    return oriented.map(seg => cutStrokeSvg(seg, strokeWidth)).join('\n  ');
+    return toCutFileOrder(oriented).map(seg => cutStrokeSvg(seg, strokeWidth)).join('\n  ');
 };
 
 // Orders cut outlines for the plotter: bottom of the sheet first, working up toward the QR code
@@ -344,7 +349,7 @@ const buildCutRectSvgPath = (
     const ordered = segments.length === 4 * n
         ? [...segments.slice(2 * n, 3 * n), ...segments.slice(3 * n), ...segments.slice(n, 2 * n), ...segments.slice(0, n)]
         : segments;
-    return ordered
+    return toCutFileOrder(ordered)
         .map(seg => cutStrokeSvg(seg, strokeWidth, transformAttr))
         .join('\n  ');
 };
@@ -1224,7 +1229,7 @@ const generateFinalSheetsForPrintAndCut = async (
                 );
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
-                    orderBottomToTop(sheetArtworks, (art: any) => art.y + art.height, (art: any) => art.x, 0.25).forEach((art: any) => {
+                    toCutFileOrder(orderBottomToTop(sheetArtworks, (art: any) => art.y + art.height, (art: any) => art.x, 0.25)).forEach((art: any) => {
                         const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
@@ -4295,7 +4300,7 @@ export function OrderDetail() {
 
       cutCtx.strokeStyle = 'black';
       cutCtx.lineWidth = 4;
-      orderBottomToTop(placements, p => p.y + tagDim, p => p.x, 0.25 * BASE_DPI).forEach(p => {
+      toCutFileOrder(orderBottomToTop(placements, p => p.y + tagDim, p => p.x, 0.25 * BASE_DPI)).forEach(p => {
         const cx = p.x + tagDim / 2;
         const cy = p.y + tagDim / 2;
         cutCtx.save();
