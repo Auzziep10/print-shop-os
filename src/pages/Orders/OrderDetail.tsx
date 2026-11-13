@@ -253,47 +253,50 @@ const getCutRectSegments = (
     return segments;
 };
 
-// Builds one cut path from many strokes, ordered for a roll plotter: the stroke that starts
-// lowest on the sheet is cut first and the work only ever moves up the sheet. For a row of logos
-// that means every bottom edge first, then the side pieces from the bottom up, then the top edges.
-// Strokes at the same height are cut left to right. Upright strokes are drawn from the bottom up.
+// Builds one cut path from many strokes, ordered for a roll plotter. Strokes are listed from the
+// top of the file (QR code end) to the bottom, so the work only ever moves one way along the
+// sheet and the film feeds a little at a time. On the shop's plotter the sheet is loaded bottom
+// end first and a file listed this way is cut from that loaded end toward the QR end; listing
+// the strokes bottom first made it feed the whole sheet out before the first cut. For a row of logos that means every top edge first, then the side pieces from the top
+// down, then the bottom edges. Strokes at the same height are cut left to right. Upright strokes
+// are drawn from the top down.
 const buildOrderedCutPathSvg = (
     segments: Array<[number, number, number, number]>,
     strokeWidth: number = 6
 ): string => {
     const oriented = segments.map(([x1, y1, x2, y2]): [number, number, number, number] => {
         const upright = Math.abs(y2 - y1) > Math.abs(x2 - x1);
-        if (upright) return y1 >= y2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
+        if (upright) return y1 <= y2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
         return x1 <= x2 ? [x1, y1, x2, y2] : [x2, y2, x1, y1];
     });
     // Rounded so strokes meant to be level with each other are not reordered by tiny decimals
-    const startHeight = (seg: [number, number, number, number]) => Math.round(Math.max(seg[1], seg[3]) * 100);
-    oriented.sort((a, b) => (startHeight(b) - startHeight(a)) || (a[0] - b[0]));
+    const startHeight = (seg: [number, number, number, number]) => Math.round(Math.min(seg[1], seg[3]) * 100);
+    oriented.sort((a, b) => (startHeight(a) - startHeight(b)) || (a[0] - b[0]));
     const d = oriented
         .map(([x1, y1, x2, y2]) => `M ${x1.toFixed(2)} ${y1.toFixed(2)} L ${x2.toFixed(2)} ${y2.toFixed(2)}`)
         .join(' ');
     return `<path d="${d}" fill="none" stroke="black" stroke-width="${strokeWidth}" />`;
 };
 
-// Orders cut outlines for the plotter: bottom of the sheet first, working upward. Outlines whose
-// bottom edges are within `tolerance` of each other count as one row and are cut left to right.
-const orderBottomToTop = <T,>(
+// Orders cut outlines for the plotter: top of the file first, working down the sheet. Outlines
+// whose top edges are within `tolerance` of each other count as one row and are cut left to right.
+const orderTopToBottom = <T,>(
     items: T[],
-    bottom: (item: T) => number,
+    top: (item: T) => number,
     left: (item: T) => number,
     tolerance: number
 ): T[] => {
-    const sorted = [...items].sort((a, b) => bottom(b) - bottom(a));
+    const sorted = [...items].sort((a, b) => top(a) - top(b));
     const ordered: T[] = [];
     let row: T[] = [];
-    let rowBottom = 0;
+    let rowTop = 0;
     const flush = () => {
         ordered.push(...row.sort((a, b) => left(a) - left(b)));
         row = [];
     };
     for (const item of sorted) {
-        if (row.length > 0 && rowBottom - bottom(item) > tolerance) flush();
-        if (row.length === 0) rowBottom = bottom(item);
+        if (row.length > 0 && top(item) - rowTop > tolerance) flush();
+        if (row.length === 0) rowTop = top(item);
         row.push(item);
     }
     flush();
@@ -1192,7 +1195,7 @@ const generateFinalSheetsForPrintAndCut = async (
         if (!isVinyl) {
             if (isSingleTransferLayout) {
                 // All cut strokes on the sheet go into one path, ordered so the plotter only ever
-                // works its way up the sheet (see buildOrderedCutPathSvg)
+                // works its way down the sheet (see buildOrderedCutPathSvg)
                 const allSegments: Array<[number, number, number, number]> = [];
                 placements.forEach(p => {
                     const printX = p.x + SIDE_MARGIN_PX;
@@ -1207,7 +1210,7 @@ const generateFinalSheetsForPrintAndCut = async (
                 );
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
-                    orderBottomToTop(sheetArtworks, (art: any) => art.y + art.height, (art: any) => art.x, 0.25).forEach((art: any) => {
+                    orderTopToBottom(sheetArtworks, (art: any) => art.y, (art: any) => art.x, 0.25).forEach((art: any) => {
                         const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
                         const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
 
@@ -4279,7 +4282,7 @@ export function OrderDetail() {
 
       cutCtx.strokeStyle = 'black';
       cutCtx.lineWidth = 4;
-      orderBottomToTop(placements, p => p.y + tagDim, p => p.x, 0.25 * BASE_DPI).forEach(p => {
+      orderTopToBottom(placements, p => p.y, p => p.x, 0.25 * BASE_DPI).forEach(p => {
         const cx = p.x + tagDim / 2;
         const cy = p.y + tagDim / 2;
         cutCtx.save();
