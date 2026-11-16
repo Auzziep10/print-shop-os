@@ -320,6 +320,38 @@ const isPrebuiltSheetArt = (item: any, artUrl: string | undefined): boolean => {
     return artUrl === item.originalSheetUrl || artUrl === item.image;
 };
 
+// True when the outer edge of an image is one plain opaque colour all the way round, which means
+// the artwork sits on a background panel (white or solid) and is not itself touching the edges.
+const imageHasPlainBorder = async (src: string): Promise<boolean> => {
+    const img = await loadImageForCanvas(src);
+    if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+    const w = Math.min(600, img.naturalWidth);
+    const h = Math.min(600, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const at = (x: number, y: number) => {
+        const i = (y * w + x) * 4;
+        return [data[i], data[i + 1], data[i + 2], data[i + 3]];
+    };
+    const ref = at(0, 0);
+    if (ref[3] < 200) return false;
+    let total = 0;
+    let matching = 0;
+    const check = (x: number, y: number) => {
+        const p = at(x, y);
+        total++;
+        if (p[3] >= 200 && Math.abs(p[0] - ref[0]) <= 32 && Math.abs(p[1] - ref[1]) <= 32 && Math.abs(p[2] - ref[2]) <= 32) matching++;
+    };
+    for (let x = 0; x < w; x++) { check(x, 0); check(x, h - 1); }
+    for (let y = 1; y < h - 1; y++) { check(0, y); check(w - 1, y); }
+    return total > 0 && matching / total >= 0.97;
+};
+
 // True when an image has at least some pixels that are not transparent
 const imageHasVisiblePixels = async (src: string): Promise<boolean> => {
     const img = await loadImageForCanvas(src);
@@ -2532,6 +2564,8 @@ export function OrderDetail() {
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [specsError, setSpecsError] = useState('');
+  // Neutral message in the size editor (for example: nothing to trim)
+  const [specsNotice, setSpecsNotice] = useState('');
   // Set after sizes are saved, until the production files are regenerated
   const [needsRegenerate, setNeedsRegenerate] = useState(false);
   // Production Assets starts collapsed on every order; remembers which order it was opened for
@@ -4016,22 +4050,35 @@ export function OrderDetail() {
     if (!id || !sourceUrl || trimmingLogoIdx !== null) return;
     setTrimmingLogoIdx(idx);
     setSpecsError('');
+    setSpecsNotice('');
     try {
       // Loaded through the CORS-safe loader first so the pixels can be read
       const loaded = await loadImageForCanvas(sourceUrl);
-      let cropped = await autoCropLogoToPng(loaded?.src || sourceUrl, { trimWhiteBackground: true, padding: 0 });
-      if (cropped && !(await imageHasVisiblePixels(cropped.dataUrl))) cropped = null;
-      if (cropped) {
-        // Second pass: a logo sitting on a plain panel inside a transparent canvas is first cut
-        // down to the panel; trimming again then removes the panel itself. Kept only when it
-        // leaves artwork behind (a logo that is one solid block would otherwise vanish).
-        const second = await autoCropLogoToPng(cropped.dataUrl, { trimWhiteBackground: true, padding: 0 });
-        if (second && second.trimmed && second.width > 0 && second.height > 0 && await imageHasVisiblePixels(second.dataUrl)) {
-          cropped = second;
-        }
-      }
+      const src = loaded?.src || sourceUrl;
+      const originalW = loaded?.naturalWidth || 0;
+      const originalH = loaded?.naturalHeight || 0;
+
+      // Step 1: cut away transparent edges only. This never touches the artwork.
+      let cropped = await autoCropLogoToPng(src, { trimWhiteBackground: false, padding: 0 });
       if (!cropped || !(cropped.width > 0) || !(cropped.height > 0)) {
         setSpecsError(`Could not trim "${art.name || 'logo'}". Try replacing the file with a trimmed PNG.`);
+        return;
+      }
+      let removedBackground = false;
+
+      // Step 2: only when what is left is framed by one plain colour (a white or solid panel
+      // behind the logo), remove that background too. A logo whose own artwork reaches the edges,
+      // like lettering, has no such frame and is left alone.
+      if (await imageHasPlainBorder(cropped.dataUrl)) {
+        const noBackground = await autoCropLogoToPng(cropped.dataUrl, { trimWhiteBackground: true, padding: 0 });
+        if (noBackground && noBackground.width > 0 && noBackground.height > 0 && await imageHasVisiblePixels(noBackground.dataUrl)) {
+          cropped = noBackground;
+          removedBackground = true;
+        }
+      }
+
+      if (!removedBackground && originalW > 0 && cropped.width >= originalW && cropped.height >= originalH) {
+        setSpecsNotice(`"${art.name || 'Logo'}" is already trimmed to its artwork. Nothing to remove.`);
         return;
       }
 
@@ -7499,7 +7546,7 @@ export function OrderDetail() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSpecsError('');
+                                  setSpecsError(''); setSpecsNotice('');
                                   if (editingSpecsCardId === card.id) {
                                     setEditingSpecsCardId(null);
                                   } else {
@@ -7783,6 +7830,9 @@ export function OrderDetail() {
                               </div>
                             )}
 
+                            {specsNotice && !specsError && (
+                              <p className="text-[11px] font-bold text-neutral-200 bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5">{specsNotice}</p>
+                            )}
                             {specsError && (
                               <p className="text-[11px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
                             )}
@@ -7791,7 +7841,7 @@ export function OrderDetail() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSpecsError('');
+                                  setSpecsError(''); setSpecsNotice('');
                                   setEditingSpecsCardId(null);
                                 }}
                                 className="border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-850 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
