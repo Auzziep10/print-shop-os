@@ -6,7 +6,7 @@ import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { TransferOrderModal } from '../../components/Orders/TransferOrderModal';
 import { TransferSizesModal } from '../../components/Orders/TransferSizesModal';
-import { ArrowLeft, ArrowRight, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin, Archive } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowLeftRight, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, ChevronRight, Phone, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, RefreshCw, Eye, Shirt, Tag, MapPin, Archive, Scissors } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
@@ -24,6 +24,7 @@ import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickO
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { downloadImageAsPng } from '../../lib/imageDownloadUtils';
+import { autoCropLogoToPng } from '../../lib/cropUtils';
 import { loadImageForCanvas, measureVisibleBounds, measureVisibleBoundsFromUrl, type VisibleBounds } from '../../lib/artworkBounds';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
@@ -149,6 +150,16 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 // Utility to draw Graphtec Type 1 registration marks (L-marks) in the 4 corners of the sheet's printable area.
 // With drawBackground (the print file) the marks are white on black horizontal strips;
 // without it (the cut file) they are plain black marks.
+// Registration mark placement, in inches. The marks sit this far in from the left and right
+// edges of the sheet, and this far from its top and bottom edges. The print file, the cut file
+// and the neck tag sheet all use these, so the marks always match between files.
+const REG_MARK_SIDE_INSET_INCHES = 0.75;
+const REG_MARK_END_INSET_INCHES = 0.5;
+// Black printed around each (white) mark on the print file: left, right and toward the logos
+// by the first value, and out to the top or bottom edge of the sheet
+const REG_MARK_BLACK_SIDE_PADDING_INCHES = 0.5;
+const REG_MARK_BLACK_INNER_PADDING_INCHES = 0.25;
+
 const drawGraphtecRegistrationMarks = (
     ctx: CanvasRenderingContext2D,
     width: number,
@@ -157,30 +168,33 @@ const drawGraphtecRegistrationMarks = (
     drawBackground: boolean = false
 ) => {
     const BASE_DPI = 300;
-    const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
+    const sideInset = REG_MARK_SIDE_INSET_INCHES * BASE_DPI;
+    const endInset = REG_MARK_END_INSET_INCHES * BASE_DPI;
     const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
     const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
-    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch of black around each registration mark)
 
-    const xLeft = margin;
-    const xRight = width - margin;
+    const xLeft = sideInset;
+    const xRight = width - sideInset;
     const yTop = topOffset;
-    const yBottom = height - margin;
+    const yBottom = height - endInset;
 
     if (drawBackground) {
-        // A black square behind each mark (the mark itself is white), reaching `padding` past the
-        // mark on every side. Separate squares, not a bar across the sheet: the plotter's sensor
-        // needs the black to end close to the mark on all four sides to place it correctly.
+        // A black block behind each mark (the mark itself is white). Separate blocks, not a bar
+        // across the sheet. Each one reaches REG_MARK_BLACK_SIDE_PADDING_INCHES past the mark on
+        // the left and right, REG_MARK_BLACK_INNER_PADDING_INCHES toward the logo area, and out
+        // to the top or bottom edge of the sheet.
         ctx.fillStyle = 'black';
-        const box = markLength + (2 * padding);
-        const boxLeft = xLeft - padding;
-        const boxRight = xRight - markLength - padding;
-        const boxTop = yTop - padding;
-        const boxBottom = yBottom - markLength - padding;
-        ctx.fillRect(boxLeft, boxTop, box, box);
-        ctx.fillRect(boxRight, boxTop, box, box);
-        ctx.fillRect(boxLeft, boxBottom, box, box);
-        ctx.fillRect(boxRight, boxBottom, box, box);
+        const sidePad = REG_MARK_BLACK_SIDE_PADDING_INCHES * BASE_DPI;
+        const innerPad = REG_MARK_BLACK_INNER_PADDING_INCHES * BASE_DPI;
+        const boxW = markLength + (2 * sidePad);
+        const boxLeft = xLeft - sidePad;
+        const boxRight = xRight - markLength - sidePad;
+        const topBoxH = yTop + markLength + innerPad;
+        const bottomBoxY = yBottom - markLength - innerPad;
+        ctx.fillRect(boxLeft, 0, boxW, topBoxH);
+        ctx.fillRect(boxRight, 0, boxW, topBoxH);
+        ctx.fillRect(boxLeft, bottomBoxY, boxW, height - bottomBoxY);
+        ctx.fillRect(boxRight, bottomBoxY, boxW, height - bottomBoxY);
     }
 
     ctx.fillStyle = drawBackground ? 'white' : 'black';
@@ -293,6 +307,38 @@ const CutOffsetInputs = () => {
             </span>
         </div>
     );
+};
+
+// True when an artwork is a customer's pre-built gang sheet image, which keeps its whole canvas
+// so the designs on it stay at their built size. Only the sheet image of a gang sheet line item
+// counts. Separate logo files on a gang sheet line item (for example "Single Design Transfer"
+// items that repeat logos) are logos: they are trimmed and sized by their visible artwork.
+const isPrebuiltSheetArt = (item: any, artUrl: string | undefined): boolean => {
+    if (!item || item.itemType !== 'gang_sheet') return false;
+    if (item.sheetSizeName === 'Single Design Transfer') return false;
+    if (!artUrl) return true;
+    return artUrl === item.originalSheetUrl || artUrl === item.image;
+};
+
+// True when an image has at least some pixels that are not transparent
+const imageHasVisiblePixels = async (src: string): Promise<boolean> => {
+    const img = await loadImageForCanvas(src);
+    if (!img || !img.naturalWidth || !img.naturalHeight) return false;
+    const b = measureVisibleBounds(img);
+    if (b.trimmed) return true;
+    // Untrimmed means either artwork edge to edge or a fully transparent image: sample to tell
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return true;
+    ctx.drawImage(img, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size).data;
+    for (let i = 3; i < data.length; i += 4) {
+        if (data[i] > 0) return true;
+    }
+    return false;
 };
 
 // Space between the edge of a logo and its cut line: 0.12 in (36px at 300 DPI, about 3 mm)
@@ -818,9 +864,14 @@ const generateFinalSheetsForPrintAndCut = async (
                 const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
                 
                 // Pre-built full sheets keep their whole canvas; individual logos are sized by visible artwork
-                const trim = !art.keepFullCanvas;
+                // (the flag saved on older orders was set for every artwork of a gang sheet line item,
+                // so on a real line item it is checked against the item's sheet image)
+                const isCombinedSheet = String(orderItem.id || '').startsWith('master-combined-');
+                const keepFullCanvas = !!art.keepFullCanvas &&
+                    (isCombinedSheet || isPrebuiltSheetArt(orderItem, art.url || art.imageUrl || art.originalUrl));
+                const trim = !keepFullCanvas;
                 // A pre-built sheet wider than the usable width is scaled down to fit it
-                if (art.keepFullCanvas && w > designWidthInches) {
+                if (keepFullCanvas && w > designWidthInches) {
                     console.warn(`"${art.name}" is ${w}" wide; fitted to the ${designWidthInches}" usable width.`);
                     w = designWidthInches;
                 }
@@ -1229,8 +1280,8 @@ const generateFinalSheetsForPrintAndCut = async (
         }
 
         // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
-        drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
-        drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+        drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, REG_MARK_END_INSET_INCHES * BASE_DPI, true);
+        drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, REG_MARK_END_INSET_INCHES * BASE_DPI, false);
 
         const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
             const headerY = 1.25 * BASE_DPI;
@@ -1282,13 +1333,12 @@ const generateFinalSheetsForPrintAndCut = async (
         svgContent += `  <!-- Background -->\n`;
         svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
 
-        const margin = 0.5 * BASE_DPI;
         const markLength = 0.5 * BASE_DPI;
         const thickness = 0.04 * BASE_DPI;
-        const xLeft = margin;
-        const xRight = finalCanvasWidth - margin;
-        const yTop = 0.5 * BASE_DPI;
-        const yBottom = finalCanvasHeight - margin;
+        const xLeft = REG_MARK_SIDE_INSET_INCHES * BASE_DPI;
+        const xRight = finalCanvasWidth - xLeft;
+        const yTop = REG_MARK_END_INSET_INCHES * BASE_DPI;
+        const yBottom = finalCanvasHeight - yTop;
 
         svgContent += `  <!-- Graphtec Registration Marks -->\n`;
         svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
@@ -3953,6 +4003,68 @@ export function OrderDetail() {
     }
   };
 
+  // Index of the logo being trimmed in the "Logo sizes & copies" editor, or null
+  const [trimmingLogoIdx, setTrimmingLogoIdx] = useState<number | null>(null);
+
+  // Trims a logo in the size editor down to its artwork: the same trim as the asset vault
+  // (transparent edges and a plain white/solid background around the logo are removed), saved
+  // as a new file for this order. The typed width then applies to the artwork itself.
+  // Like the other edits in this editor, it only sticks once Save is clicked.
+  const handleTrimInlineLogo = async (itemId: string, idx: number) => {
+    const art = editingArtworks[idx];
+    const sourceUrl = art?.url || art?.imageUrl || art?.originalUrl;
+    if (!id || !sourceUrl || trimmingLogoIdx !== null) return;
+    setTrimmingLogoIdx(idx);
+    setSpecsError('');
+    try {
+      // Loaded through the CORS-safe loader first so the pixels can be read
+      const loaded = await loadImageForCanvas(sourceUrl);
+      let cropped = await autoCropLogoToPng(loaded?.src || sourceUrl, { trimWhiteBackground: true, padding: 0 });
+      if (cropped && !(await imageHasVisiblePixels(cropped.dataUrl))) cropped = null;
+      if (cropped) {
+        // Second pass: a logo sitting on a plain panel inside a transparent canvas is first cut
+        // down to the panel; trimming again then removes the panel itself. Kept only when it
+        // leaves artwork behind (a logo that is one solid block would otherwise vanish).
+        const second = await autoCropLogoToPng(cropped.dataUrl, { trimWhiteBackground: true, padding: 0 });
+        if (second && second.trimmed && second.width > 0 && second.height > 0 && await imageHasVisiblePixels(second.dataUrl)) {
+          cropped = second;
+        }
+      }
+      if (!cropped || !(cropped.width > 0) || !(cropped.height > 0)) {
+        setSpecsError(`Could not trim "${art.name || 'logo'}". Try replacing the file with a trimmed PNG.`);
+        return;
+      }
+
+      const storageRef = ref(storage, `orders/${id}/items/${itemId}/logo-${idx}-trimmed-${Date.now()}.png`);
+      await uploadBytes(storageRef, cropped.file);
+      const url = await getDownloadURL(storageRef);
+      const aspect = cropped.height / cropped.width;
+
+      setEditingArtworks(prev => {
+        const next = [...prev];
+        // The list may have changed while the file was uploading
+        const target = next.findIndex(a => a === art);
+        if (target < 0) return prev;
+        const w = parseFloat(next[target].width) || 0;
+        next[target] = {
+          ...next[target],
+          url,
+          imageUrl: url,
+          originalUrl: url,
+          aspectRatio: aspect,
+          height: parseFloat((w * aspect).toFixed(2)),
+          lastTrimmedAt: new Date().toISOString()
+        };
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to trim logo:', err);
+      setSpecsError(`Could not trim "${art?.name || 'logo'}". Try replacing the file with a trimmed PNG.`);
+    } finally {
+      setTrimmingLogoIdx(null);
+    }
+  };
+
   const handleSaveInlineSpecs = async (item: any) => {
     if (!id || !order) return;
     const missingWidth = editingArtworks.filter(art => !(parseFloat(art.width) > 0));
@@ -4050,7 +4162,7 @@ export function OrderDetail() {
               width: parseFloat(art.width) || 3.5,
               quantity: qty,
               // Customer-built gang sheets keep their full canvas so designs stay at their built size
-              keepFullCanvas: item.itemType === 'gang_sheet',
+              keepFullCanvas: isPrebuiltSheetArt(item, art.url || art.imageUrl || art.originalUrl),
             });
           }
         });
@@ -4325,8 +4437,8 @@ export function OrderDetail() {
       const FONT_SIZE_SMALL = BASE_DPI / 8;
 
       // 1. Draw Registration Marks FIRST so background backing doesn't cover QR code/text
-      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
-      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, REG_MARK_END_INSET_INCHES * BASE_DPI, true);
+      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, REG_MARK_END_INSET_INCHES * BASE_DPI, false);
 
       const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
         const headerY = 1.25 * BASE_DPI;
@@ -4372,10 +4484,10 @@ export function OrderDetail() {
       let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth / 300}in" height="${finalCanvasHeight / 300}in" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
       svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
 
-      const xLeft = MARGIN_PX / 2;
-      const xRight = finalCanvasWidth - MARGIN_PX / 2;
-      const yTop = MARGIN_PX / 2;
-      const yBottom = finalCanvasHeight - MARGIN_PX / 2;
+      const xLeft = REG_MARK_SIDE_INSET_INCHES * BASE_DPI;
+      const xRight = finalCanvasWidth - xLeft;
+      const yTop = REG_MARK_END_INSET_INCHES * BASE_DPI;
+      const yBottom = finalCanvasHeight - yTop;
       const markLength = MARGIN_PX / 2;
       const thickness = 0.04 * BASE_DPI;
 
@@ -7409,7 +7521,7 @@ export function OrderDetail() {
                                                 url,
                                                 width: parseFloat(art.width) || 3.5,
                                                 quantity: parseInt(art.quantity) || garmentQty,
-                                                keepFullCanvas: item.itemType === 'gang_sheet',
+                                                keepFullCanvas: isPrebuiltSheetArt(item, art.url || art.imageUrl || art.originalUrl),
                                               });
                                             }
                                           });
@@ -7438,7 +7550,7 @@ export function OrderDetail() {
                                       });
                                       setEditingArtworks(allCombined);
                                     } else {
-                                      setEditingArtworks(card.item.artworks || []);
+                                      setEditingArtworks((card.item.artworks || []).map((a: any) => ({ ...a, keepFullCanvas: isPrebuiltSheetArt(card.item, a.url || a.imageUrl || a.originalUrl) })));
                                     }
                                   }
                                 }}
@@ -7562,6 +7674,18 @@ export function OrderDetail() {
                                         )}
                                       </div>
 
+                                      {art.url && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleTrimInlineLogo(art.itemId || card.item.id, idx)}
+                                          disabled={trimmingLogoIdx !== null}
+                                          title="Cut away empty space and any plain background around this logo, so the width you type is the size of the artwork itself"
+                                          className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                        >
+                                          {trimmingLogoIdx === idx ? <Loader2 size={12} className="animate-spin" /> : <Scissors size={12} />}
+                                          {trimmingLogoIdx === idx ? 'Trimming…' : 'Trim'}
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => {
