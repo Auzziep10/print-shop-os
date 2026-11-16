@@ -160,7 +160,7 @@ const drawGraphtecRegistrationMarks = (
     const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
     const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
     const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
-    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch padding around registration marks for the black horizontal strips)
+    const padding = 0.25 * BASE_DPI; // 75px (0.25 inch of black around each registration mark)
 
     const xLeft = margin;
     const xRight = width - margin;
@@ -168,21 +168,19 @@ const drawGraphtecRegistrationMarks = (
     const yBottom = height - margin;
 
     if (drawBackground) {
+        // A black square behind each mark (the mark itself is white), reaching `padding` past the
+        // mark on every side. Separate squares, not a bar across the sheet: the plotter's sensor
+        // needs the black to end close to the mark on all four sides to place it correctly.
         ctx.fillStyle = 'black';
-
-        // The bars run the full width of the sheet; logos line up with their ends
-        const stripX = 0;
-        const stripW = width;
-
-        // 1. Top Horizontal Black Strip (connects top-left and top-right registration marks all the way across)
-        const topStripY = Math.max(0, yTop - padding);
-        const topStripH = Math.min(height, yTop + markLength + padding) - topStripY;
-        ctx.fillRect(stripX, topStripY, stripW, topStripH);
-
-        // 2. Bottom Horizontal Black Strip (connects bottom-left and bottom-right registration marks all the way across)
-        const bottomStripY = Math.max(0, yBottom - markLength - padding);
-        const bottomStripH = Math.min(height, yBottom + padding) - bottomStripY;
-        ctx.fillRect(stripX, bottomStripY, stripW, bottomStripH);
+        const box = markLength + (2 * padding);
+        const boxLeft = xLeft - padding;
+        const boxRight = xRight - markLength - padding;
+        const boxTop = yTop - padding;
+        const boxBottom = yBottom - markLength - padding;
+        ctx.fillRect(boxLeft, boxTop, box, box);
+        ctx.fillRect(boxRight, boxTop, box, box);
+        ctx.fillRect(boxLeft, boxBottom, box, box);
+        ctx.fillRect(boxRight, boxBottom, box, box);
     }
 
     ctx.fillStyle = drawBackground ? 'white' : 'black';
@@ -207,6 +205,96 @@ const drawGraphtecRegistrationMarks = (
 // Cut outlines are solid lines with the corners left open: each side stops 0.5 mm short of both
 // of its corners, so the four sides never meet. Every side also has 2 evenly spaced 0.5 mm
 // uncut spaces (at 1/3 and 2/3 of its length), which splits it into 3 strokes.
+// Cut offset: moves every cut line (not the registration marks) by a fixed amount, to cancel
+// out a constant shift between where the plotter cuts and where the logos are. Positive X moves the cut
+// lines to the right, positive Y moves them down the file (away from the QR code end).
+// Saved in this browser, so it is set once on the computer that generates the cut files.
+const CUT_OFFSET_STORAGE_KEY = 'gangSheetCutOffsetMm';
+const CUT_OFFSET_CHANGED_EVENT = 'gang-sheet-cut-offset-changed';
+const DEFAULT_CUT_OFFSET_MM = { x: 0, y: 0 };
+const MAX_CUT_OFFSET_MM = 50;
+
+const readCutOffsetMm = (): { x: number; y: number } => {
+    try {
+        const saved = JSON.parse(window.localStorage.getItem(CUT_OFFSET_STORAGE_KEY) || 'null');
+        const x = Number(saved?.x);
+        const y = Number(saved?.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+            const clamp = (v: number) => Math.max(-MAX_CUT_OFFSET_MM, Math.min(MAX_CUT_OFFSET_MM, v));
+            return { x: clamp(x), y: clamp(y) };
+        }
+    } catch {
+        // Unreadable or missing setting: fall back to the default
+    }
+    return { ...DEFAULT_CUT_OFFSET_MM };
+};
+
+// The cut offset in pixels of the 300 DPI production files
+const getCutOffsetPx = (): { x: number; y: number } => {
+    const mm = readCutOffsetMm();
+    return { x: (mm.x / 25.4) * 300, y: (mm.y / 25.4) * 300 };
+};
+
+const CutOffsetInputs = () => {
+    const [offset, setOffset] = useState(readCutOffsetMm);
+    // Text being typed, so "-" or "1." can be entered without being rewritten mid-way
+    const [text, setText] = useState({ x: String(offset.x), y: String(offset.y) });
+
+    useEffect(() => {
+        const sync = () => {
+            const next = readCutOffsetMm();
+            setOffset(next);
+            setText({ x: String(next.x), y: String(next.y) });
+        };
+        window.addEventListener(CUT_OFFSET_CHANGED_EVENT, sync);
+        return () => window.removeEventListener(CUT_OFFSET_CHANGED_EVENT, sync);
+    }, []);
+
+    const commit = (axis: 'x' | 'y') => {
+        const value = Number(text[axis]);
+        if (!Number.isFinite(value) || text[axis].trim() === '') {
+            setText(t => ({ ...t, [axis]: String(offset[axis]) }));
+            return;
+        }
+        const next = { ...offset, [axis]: Math.max(-MAX_CUT_OFFSET_MM, Math.min(MAX_CUT_OFFSET_MM, value)) };
+        try {
+            window.localStorage.setItem(CUT_OFFSET_STORAGE_KEY, JSON.stringify(next));
+        } catch {
+            // Storage unavailable: the value still applies until the page is reloaded
+        }
+        window.dispatchEvent(new Event(CUT_OFFSET_CHANGED_EVENT));
+    };
+
+    const field = (axis: 'x' | 'y', label: string) => (
+        <label className="flex items-center gap-1 text-[10px] text-neutral-400">
+            {label}
+            <input
+                type="number"
+                step="0.5"
+                value={text[axis]}
+                onChange={e => setText(t => ({ ...t, [axis]: e.target.value }))}
+                onBlur={() => commit(axis)}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-14 rounded border border-neutral-700 bg-neutral-900 px-1 py-0.5 text-[11px] text-neutral-100"
+            />
+            mm
+        </label>
+    );
+
+    return (
+        <div className="flex flex-col gap-1 pt-1">
+            <div className="flex items-center gap-3">
+                <span className="text-neutral-200 font-bold text-[11px]">Cut offset</span>
+                {field('x', 'Right')}
+                {field('y', 'Down')}
+            </div>
+            <span className="text-[10px] text-neutral-500 leading-tight">
+                Moves every cut line on newly generated cut files. If cuts land left of the logos, raise Right; if they land toward the QR code end, raise Down. Use negative numbers for the other way. Regenerate after changing.
+            </span>
+        </div>
+    );
+};
+
 // Space between the edge of a logo and its cut line: 0.12 in (36px at 300 DPI, about 3 mm)
 const CUT_PADDING_INCHES = 0.12;
 const CUT_CORNER_GAP_MM = 0.5;
@@ -618,8 +706,8 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
 export // Full printable width of the film. Finished print and cut files are exactly this wide.
 const PRINTABLE_FILM_WIDTH_INCHES = 22;
-// Margin on the left and right edge of the sheet. None: the registration marks sit in the bars
-// above and below the logo area, and logos may run the full width of those bars.
+// Margin on the left and right edge of the sheet. None: the registration marks sit in the strips
+// above and below the logo area, and logos may run the full width of the sheet.
 const SHEET_SIDE_MARGIN_INCHES = 0;
 // Width available for logos
 const GANG_SHEET_WIDTH_INCHES = PRINTABLE_FILM_WIDTH_INCHES - (2 * SHEET_SIDE_MARGIN_INCHES);
@@ -1023,6 +1111,8 @@ const generateFinalSheetsForPrintAndCut = async (
         const designCtx = designCanvas.getContext('2d');
         if (!designCtx) throw new Error('No design context');
 
+        const cutOffset = getCutOffsetPx();
+
         // Cut outline for a logo: CUT_PADDING_INCHES outside the artwork. On the left and right
         // it stops at the sheet edge (half a line width in), so logos that touch the edge of the
         // printable width are cut along that edge instead of outside the file.
@@ -1031,7 +1121,7 @@ const generateFinalSheetsForPrintAndCut = async (
             const edgeInset = 3;
             const left = Math.max(edgeInset, artX - paddingPx);
             const right = Math.min(finalCanvasWidth - edgeInset, artX + artW + paddingPx);
-            return { x: left, y: artY - paddingPx, w: right - left, h: artH + (2 * paddingPx) };
+            return { x: left + cutOffset.x, y: artY - paddingPx + cutOffset.y, w: right - left, h: artH + (2 * paddingPx) };
         };
 
         // --- Draw Main Content ---
@@ -1102,8 +1192,8 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
                     sheetArtworks.forEach((art: any) => {
-                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
-                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX + cutOffset.x;
+                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset + cutOffset.y;
 
                         const targetPadding = CUT_PADDING_INCHES * BASE_DPI;
                         const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
@@ -1122,8 +1212,8 @@ const generateFinalSheetsForPrintAndCut = async (
                     const contentMargin = 0.25 * BASE_DPI;
                     strokeCutRectCanvas(
                         cutCtx,
-                        SIDE_MARGIN_PX + contentMargin,
-                        yOffset + contentMargin,
+                        SIDE_MARGIN_PX + contentMargin + cutOffset.x,
+                        yOffset + contentMargin + cutOffset.y,
                         (designWidthInches * BASE_DPI) - (contentMargin * 2),
                         ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
                     );
@@ -1230,8 +1320,8 @@ const generateFinalSheetsForPrintAndCut = async (
 
                 if (sheetArtworks.length > 0 && isAutoLayout) {
                     toCutFileOrder(orderBottomToTop(sheetArtworks, (art: any) => art.y + art.height, (art: any) => art.x, 0.25)).forEach((art: any) => {
-                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX;
-                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+                        const centerX = (art.x + art.width / 2) * BASE_DPI + SIDE_MARGIN_PX + cutOffset.x;
+                        const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset + cutOffset.y;
 
                         const targetPadding = CUT_PADDING_INCHES * BASE_DPI;
                         const safePadding = calculateSafePadding(art, sheetArtworks, targetPadding);
@@ -1244,8 +1334,8 @@ const generateFinalSheetsForPrintAndCut = async (
                     });
                 } else {
                     const contentMargin = 0.25 * BASE_DPI;
-                    const rectX = SIDE_MARGIN_PX + contentMargin;
-                    const rectY = yOffset + contentMargin;
+                    const rectX = SIDE_MARGIN_PX + contentMargin + cutOffset.x;
+                    const rectY = yOffset + contentMargin + cutOffset.y;
                     const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
                     const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
                     svgContent += `  ${buildCutRectSvgPath(rectX, rectY, rectW, rectH, 6)}\n`;
@@ -4300,15 +4390,18 @@ export function OrderDetail() {
 
       cutCtx.strokeStyle = 'black';
       cutCtx.lineWidth = 4;
+      const tagCutOffset = getCutOffsetPx();
       toCutFileOrder(orderBottomToTop(placements, p => p.y + tagDim, p => p.x, 0.25 * BASE_DPI)).forEach(p => {
-        const cx = p.x + tagDim / 2;
-        const cy = p.y + tagDim / 2;
+        const tagX = p.x + tagCutOffset.x;
+        const tagY = p.y + tagCutOffset.y;
+        const cx = tagX + tagDim / 2;
+        const cy = tagY + tagDim / 2;
         cutCtx.save();
         cutCtx.translate(cx, cy);
         cutCtx.rotate((45 * Math.PI) / 180);
         strokeCutRectCanvas(cutCtx, -tagDim / 2, -tagDim / 2, tagDim, tagDim);
         cutCtx.restore();
-        svgContent += `  ${buildCutRectSvgPath(p.x, p.y, tagDim, tagDim, 4, `rotate(45, ${cx}, ${cy})`)}\n`;
+        svgContent += `  ${buildCutRectSvgPath(tagX, tagY, tagDim, tagDim, 4, `rotate(45, ${cx}, ${cy})`)}\n`;
       });
       svgContent += `</svg>`;
 
@@ -7688,6 +7781,7 @@ export function OrderDetail() {
                           <span className="text-[10px] text-neutral-500 leading-tight">
                             Solid lines with {CUT_SIDE_GAP_COUNT} uncut {CUT_SIDE_GAP_MM} mm spaces on every side, and {CUT_CORNER_GAP_MM} mm left uncut at every corner.
                           </span>
+                          <CutOffsetInputs />
                         </div>
 
                         {/* Actions Footer */}
