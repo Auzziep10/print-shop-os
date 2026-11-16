@@ -30,12 +30,11 @@ import { isPlacedOrder, calculateOrderFinalTotal, applyBulletNotesChange, handle
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { Shirt } from 'lucide-react';
 import { CustomerPortalQrModal } from '../../components/Customers/CustomerPortalQrModal';
-import { CustomerSourcingPanel } from '../../components/Customers/CustomerSourcingPanel';
+import { CustomerSourcingPanel, computeCustomerSourcingSummary } from '../../components/Customers/CustomerSourcingPanel';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 import { NewCustomerModal } from './NewCustomerModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFulfillmentPipelines, getPipelineStatusOptions } from '../../lib/timelineUtils';
-import { hasSizeInList } from '../../lib/garmentUtils';
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -90,81 +89,6 @@ export function CustomerDetail() {
       }
     });
     return Object.values(uniqueGarmentsMap);
-  }, [orders]);
-
-  const sourcingSummary = useMemo(() => {
-    if (!orders) return { totalUnits: 0, toOrderUnits: 0, receivedUnits: 0 };
-    let totalUnits = 0;
-    let toOrderUnits = 0;
-    let receivedUnits = 0;
-    const sizeLadder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
-    const shiftSize = (rawSz: string, adj?: string) => {
-      const clean = (rawSz || '').trim().toUpperCase();
-      if (!clean || !adj || adj === 'True to Size') return clean;
-      const norm = clean === 'XXL' ? '2XL' : clean === 'XXXL' ? '3XL' : clean === 'XXXXL' ? '4XL' : clean;
-      const i = sizeLadder.indexOf(norm);
-      if (i === -1) return clean;
-      const lower = adj.trim().toLowerCase();
-      const delta = lower.includes('size up 1') ? 1 : lower.includes('size up 2') ? 2 : lower.includes('size down 1') ? -1 : lower.includes('size down 2') ? -2 : 0;
-      return delta === 0 ? clean : sizeLadder[Math.max(0, Math.min(sizeLadder.length - 1, i + delta))];
-    };
-    orders.forEach((o: any) => {
-      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup || o.isArchived) return;
-      const idx = Number(o.statusIndex ?? 0);
-      if (idx >= 7) return;
-      const items = Array.isArray(o.items) ? o.items : [];
-      items.forEach((item: any) => {
-        const styleLower = (item.style || '').toLowerCase();
-        const isShipping =
-          styleLower.includes('shipping') ||
-          styleLower.includes('delivery') ||
-          (item.id && item.id.toString().startsWith('ship-')) ||
-          item.itemType === 'shipping';
-        const isTax = styleLower.includes('tax');
-        if (isShipping || isTax) return;
-
-        const adjSz = (sz: string) => shiftSize(sz, item.sizingAdjustment);
-        const rawSizes = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
-        const sizeEntries = Object.entries(rawSizes).filter(([, q]) => (Number(q) || 0) > 0);
-        if (sizeEntries.length > 0) {
-          sizeEntries.forEach(([sz, q]) => {
-            const qty = Number(q) || 0;
-            const shifted = adjSz(sz);
-            totalUnits += qty;
-            const isReceived =
-              hasSizeInList(item.receivedSizes, sz) ||
-              hasSizeInList(item.receivedSizes, shifted) ||
-              hasSizeInList(item.completedSizes, sz) ||
-              hasSizeInList(item.completedSizes, shifted);
-            const isOrdered =
-              isReceived ||
-              hasSizeInList(item.orderedSizes, sz) ||
-              hasSizeInList(item.orderedSizes, shifted) ||
-              (sizeEntries.length === 1 && Array.isArray(item.orderedSizes) && item.orderedSizes.length > 0);
-            if (isReceived) receivedUnits += qty;
-            if (!isOrdered && !isReceived) toOrderUnits += qty;
-          });
-        } else if (o.personalInfo?.size) {
-          const sz = String(o.personalInfo.size).trim().toUpperCase();
-          const shifted = adjSz(sz);
-          const qty = Number(item.qty) > 0 ? Number(item.qty) : 1;
-          totalUnits += qty;
-          const isReceived =
-            hasSizeInList(item.receivedSizes, sz) ||
-            hasSizeInList(item.receivedSizes, shifted) ||
-            hasSizeInList(item.completedSizes, sz) ||
-            hasSizeInList(item.completedSizes, shifted);
-          const isOrdered =
-            isReceived ||
-            hasSizeInList(item.orderedSizes, sz) ||
-            hasSizeInList(item.orderedSizes, shifted) ||
-            (Array.isArray(item.orderedSizes) && item.orderedSizes.length > 0);
-          if (isReceived) receivedUnits += qty;
-          if (!isOrdered && !isReceived) toOrderUnits += qty;
-        }
-      });
-    });
-    return { totalUnits, toOrderUnits, receivedUnits };
   }, [orders]);
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
@@ -1277,6 +1201,11 @@ export function CustomerDetail() {
     });
     return [...ownItems, ...brandItems];
   }, [designerRack, subBrands, id, editCompanyForm.name, liveCustomerData?.company, liveCustomerData?.contactName]);
+
+  const sourcingSummary = useMemo(
+    () => computeCustomerSourcingSummary(orders || [], combinedDesignerRack),
+    [orders, combinedDesignerRack]
+  );
 
   const filteredDesignerRack = useMemo(() => {
     if (selectedDesignerRackBrandFilter === 'all') return combinedDesignerRack;
@@ -4877,7 +4806,7 @@ export function CustomerDetail() {
                   </div>
                 </div>
                 <p className="text-xs text-brand-secondary">
-                  Consolidated supplier buy sheet across all individual &amp; active orders. View exact size totals per garment, open supplier links, copy size runs, and mark sizes as Ordered or Received across every order at once.
+                  Consolidated supplier buy sheet across active orders that need to be sourced. View exact size totals per garment, open supplier links, copy size runs, and mark sizes as Ordered or Received across every active order at once.
                 </p>
               </div>
 

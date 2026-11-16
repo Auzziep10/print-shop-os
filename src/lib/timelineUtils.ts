@@ -602,7 +602,8 @@ export function hasOrderShippedTracking(order: any): boolean {
 }
 
 export function getEffectiveOrderStatusIndex(order: any): number {
-  const rawIdx = typeof order?.statusIndex === 'number' ? order.statusIndex : 0;
+  const parsedIdx = Number(order?.statusIndex ?? 0);
+  const rawIdx = Number.isFinite(parsedIdx) ? parsedIdx : 0;
   if (!order || order.fulfillmentType === 'Kitting') return rawIdx;
   if (rawIdx < 3) return rawIdx;
 

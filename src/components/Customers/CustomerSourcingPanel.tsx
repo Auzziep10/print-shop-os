@@ -27,7 +27,8 @@ import {
   getPipelineForFulfillmentType,
   isCustomStatusPipeline,
   getUpdatedTimelineMilestonesForStatusChange,
-  statusIndexToTimelineStep
+  statusIndexToTimelineStep,
+  getEffectiveOrderStatusIndex
 } from '../../lib/timelineUtils';
 
 interface CustomerSourcingPanelProps {
@@ -141,6 +142,153 @@ const normalizeGender = (g?: string): 'Male' | 'Female' | 'Unisex' => {
   return 'Unisex';
 };
 
+function buildDesignerRackLookups(combinedDesignerRack: any[]) {
+  const byId: Record<string, any> = {};
+  const byTitle: Record<string, any> = {};
+  const byLink: Record<string, any> = {};
+  (combinedDesignerRack || []).forEach((d: any) => {
+    if (d?.id) byId[d.id] = d;
+    const t = (d?.title || d?.name || '').trim().toLowerCase();
+    if (t) byTitle[t] = d;
+    if (Array.isArray(d?.previousTitles)) {
+      d.previousTitles.forEach((pt: any) => {
+        const prev = String(pt || '').trim().toLowerCase();
+        if (prev && !byTitle[prev]) byTitle[prev] = d;
+      });
+    }
+    const sLink = (d?.garmentSourcingLink || '').trim().toLowerCase();
+    if (sLink) byLink[sLink] = d;
+    const pLink = (d?.psdDriveLink || '').trim().toLowerCase();
+    if (pLink) byLink[pLink] = d;
+  });
+  return { byId, byTitle, byLink };
+}
+
+function inspectOrderSourcingCounts(
+  order: any,
+  lookups: { byId: Record<string, any>; byTitle: Record<string, any>; byLink: Record<string, any> }
+) {
+  let totalUnits = 0;
+  let orderedUnits = 0;
+  let receivedUnits = 0;
+  const indSizeRaw = (order?.personalInfo?.size || '').trim().toUpperCase();
+  const items = Array.isArray(order?.items) ? order.items : [];
+
+  items.forEach((item: any) => {
+    if (!item || isDiscountItem(item) || isNonGarmentItem(item)) return;
+    if (item.itemType === 'gang_sheet' || item.itemType === 'service') return;
+
+    const rawStyleName = (item.title || item.style || 'Custom Garment').trim();
+    const itemLinkKey = (item.sourcingLink || item.garmentSourcingLink || item.supplierUrl || '').trim().toLowerCase();
+    const itemPsdKey = (item.psdDriveLink || '').trim().toLowerCase();
+    const rackMatch =
+      (item.designerRackItemId && lookups.byId[item.designerRackItemId]) ||
+      lookups.byTitle[rawStyleName.toLowerCase()] ||
+      (itemPsdKey && lookups.byLink[itemPsdKey]) ||
+      (itemLinkKey && lookups.byLink[itemLinkKey]);
+    const rackSizing = (rackMatch?.sizingAdjustment || '').trim();
+    const itemSizing = (item.sizingAdjustment || '').trim();
+    const sizingAdjustment =
+      rackSizing && rackSizing !== 'True to Size'
+        ? rackSizing
+        : itemSizing && itemSizing !== 'True to Size'
+          ? itemSizing
+          : rackSizing || itemSizing;
+
+    const rawSizesObj = item.sizes && typeof item.sizes === 'object' ? item.sizes : {};
+    const explicitSizeEntries = Object.entries(rawSizesObj)
+      .map(([sz, q]) => [sz.trim().toUpperCase(), parseInt(String(q), 10) || 0] as const)
+      .filter(([, q]) => q > 0);
+
+    let effectiveEntries: { size: string; qty: number }[] = [];
+    if (explicitSizeEntries.length > 0) {
+      effectiveEntries = explicitSizeEntries.map(([size, qty]) => ({ size, qty }));
+    } else if (indSizeRaw) {
+      const fallbackQty = Math.max(1, parseInt(String(item.qty || 1), 10) || 1);
+      effectiveEntries = [{ size: indSizeRaw, qty: fallbackQty }];
+    } else if ((parseInt(String(item.qty || 0), 10) || 0) > 0) {
+      effectiveEntries = [{ size: 'TBD', qty: parseInt(String(item.qty), 10) || 1 }];
+    }
+
+    effectiveEntries.forEach(({ size: rawOrderSize, qty }) => {
+      const size = getAdjustedOrderSize(rawOrderSize, sizingAdjustment);
+      const isCompleted =
+        hasSizeInList(item.completedSizes, size) || hasSizeInList(item.completedSizes, rawOrderSize);
+      const isReceived =
+        isCompleted ||
+        hasSizeInList(item.receivedSizes, size) ||
+        hasSizeInList(item.receivedSizes, rawOrderSize);
+      const isOrdered =
+        isReceived ||
+        hasSizeInList(item.orderedSizes, size) ||
+        hasSizeInList(item.orderedSizes, rawOrderSize);
+
+      totalUnits += qty;
+      if (isOrdered) orderedUnits += qty;
+      if (isReceived) receivedUnits += qty;
+    });
+  });
+
+  return {
+    totalUnits,
+    orderedUnits,
+    receivedUnits,
+    toOrderUnits: Math.max(0, totalUnits - orderedUnits)
+  };
+}
+
+function isActiveOrderNeedingSourcing(
+  order: any,
+  lookups: { byId: Record<string, any>; byTitle: Record<string, any>; byLink: Record<string, any> },
+  mode: 'active_orders' | 'all_orders' = 'active_orders'
+): boolean {
+  if (!order || order.customerId === 'Shopify Temporary' || order.isProjectGroup || order.isArchived) {
+    return false;
+  }
+  const rawIdx = Number(order.statusIndex ?? 0);
+  const effIdx = getEffectiveOrderStatusIndex(order);
+  // Never pull from Active Quotes (statusIndex 0, 1, 2)
+  if (!Number.isFinite(rawIdx) || rawIdx < 3 || effIdx < 3) {
+    return false;
+  }
+  if (mode === 'all_orders') {
+    return true;
+  }
+  // Exclude orders already Shipped / Inventory (7) or Received / Live (8)
+  if (effIdx >= 7) {
+    return false;
+  }
+  const counts = inspectOrderSourcingCounts(order, lookups);
+  if (counts.totalUnits === 0) {
+    return false;
+  }
+  // Once an order is In Production (6) and all garment units are received/completed, sourcing is finished
+  if (effIdx >= 6 && counts.receivedUnits >= counts.totalUnits) {
+    return false;
+  }
+  return true;
+}
+
+export function computeCustomerSourcingSummary(orders: any[], combinedDesignerRack: any[] = []) {
+  if (!Array.isArray(orders) || orders.length === 0) {
+    return { totalUnits: 0, toOrderUnits: 0, receivedUnits: 0 };
+  }
+  const lookups = buildDesignerRackLookups(combinedDesignerRack);
+  let totalUnits = 0;
+  let toOrderUnits = 0;
+  let receivedUnits = 0;
+
+  orders.forEach((o: any) => {
+    if (!isActiveOrderNeedingSourcing(o, lookups, 'active_orders')) return;
+    const counts = inspectOrderSourcingCounts(o, lookups);
+    totalUnits += counts.totalUnits;
+    toOrderUnits += counts.toOrderUnits;
+    receivedUnits += counts.receivedUnits;
+  });
+
+  return { totalUnits, toOrderUnits, receivedUnits };
+}
+
 export function CustomerSourcingPanel({
   customerId,
   customerName,
@@ -155,7 +303,7 @@ export function CustomerSourcingPanel({
   const { pipelines } = useFulfillmentPipelines();
   const autoSyncedOrdersRef = useRef<Set<string>>(new Set());
   const [brandFilter, setBrandFilter] = useState<string>('all');
-  const [pipelineFilter, setPipelineFilter] = useState<'active_orders' | 'include_quotes' | 'all'>('include_quotes');
+  const [pipelineFilter, setPipelineFilter] = useState<'active_orders' | 'all_orders'>('active_orders');
   const [statusFilter, setStatusFilter] = useState<'all' | 'needs_ordering' | 'ordered' | 'received'>('all');
   const [viewMode, setViewMode] = useState<'by_garment' | 'by_individual'>('by_garment');
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -190,56 +338,21 @@ export function CustomerSourcingPanel({
     return map;
   }, [customerId, customerName, subBrands]);
 
-  const designerRackById = useMemo(() => {
-    const map: Record<string, any> = {};
-    combinedDesignerRack.forEach((d: any) => {
-      if (d?.id) map[d.id] = d;
-    });
-    return map;
-  }, [combinedDesignerRack]);
+  const designerRackLookups = useMemo(
+    () => buildDesignerRackLookups(combinedDesignerRack),
+    [combinedDesignerRack]
+  );
+  const designerRackById = designerRackLookups.byId;
+  const designerRackByTitle = designerRackLookups.byTitle;
+  const designerRackByLink = designerRackLookups.byLink;
 
-  const designerRackByTitle = useMemo(() => {
-    const map: Record<string, any> = {};
-    combinedDesignerRack.forEach((d: any) => {
-      const t = (d?.title || d?.name || '').trim().toLowerCase();
-      if (t) map[t] = d;
-      if (Array.isArray(d?.previousTitles)) {
-        d.previousTitles.forEach((pt: any) => {
-          const prev = String(pt || '').trim().toLowerCase();
-          if (prev && !map[prev]) map[prev] = d;
-        });
-      }
-    });
-    return map;
-  }, [combinedDesignerRack]);
-
-  const designerRackByLink = useMemo(() => {
-    const map: Record<string, any> = {};
-    combinedDesignerRack.forEach((d: any) => {
-      const sLink = (d?.garmentSourcingLink || '').trim().toLowerCase();
-      if (sLink) map[sLink] = d;
-      const pLink = (d?.psdDriveLink || '').trim().toLowerCase();
-      if (pLink) map[pLink] = d;
-    });
-    return map;
-  }, [combinedDesignerRack]);
-
-  // Filter eligible orders
+  // Filter eligible active orders (never pull from Active Quotes)
   const filteredOrders = useMemo(() => {
     return (orders || []).filter((o: any) => {
-      if (o.customerId === 'Shopify Temporary' || o.isProjectGroup || o.isArchived) return false;
       if (brandFilter !== 'all' && o.customerId !== brandFilter) return false;
-
-      const sIdx = Number(o.statusIndex ?? 0);
-      if (pipelineFilter === 'active_orders') {
-        return sIdx >= 3 && sIdx < 7;
-      }
-      if (pipelineFilter === 'include_quotes') {
-        return sIdx < 7;
-      }
-      return true;
+      return isActiveOrderNeedingSourcing(o, designerRackLookups, pipelineFilter);
     });
-  }, [orders, brandFilter, pipelineFilter]);
+  }, [orders, brandFilter, pipelineFilter, designerRackLookups]);
 
   // Build aggregated garment groups
   const { garmentGroups, summaryStats, allSizeColumns, bestTrackingByCode, allRefsByCode } = useMemo(() => {
@@ -249,7 +362,7 @@ export function CustomerSourcingPanel({
     let totalReceived = 0;
     const discoveredSizes = new Set<string>(STANDARD_SIZES);
 
-    // Pre-scan all orders to find the most recent tracking status for every tracking number
+    // Pre-scan active/placed orders (excluding quotes) to find the most recent tracking status for every tracking number
     // and collect all item references sharing each tracking number.
     const bestTrackingByCode: Record<string, any> = {};
     const allRefsByCode: Record<string, { orderId: string; itemId: string; size?: string }[]> = {};
@@ -269,6 +382,8 @@ export function CustomerSourcingPanel({
     };
 
     orders.forEach((ord: any) => {
+      if (!ord || ord.customerId === 'Shopify Temporary' || ord.isProjectGroup || ord.isArchived) return;
+      if (Number(ord.statusIndex ?? 0) < 3) return;
       const ordItems = Array.isArray(ord?.items) ? ord.items : [];
       ordItems.forEach((it: any) => {
         if (!it) return;
@@ -588,7 +703,7 @@ export function CustomerSourcingPanel({
         stylesCount: Object.keys(groupsMap).length
       }
     };
-  }, [orders, filteredOrders, brandNameMap, customerName, designerRackById, designerRackByTitle, statusFilter]);
+  }, [orders, filteredOrders, brandNameMap, customerName, designerRackById, designerRackByTitle, designerRackByLink, statusFilter]);
 
   const evaluateOrderSourcingStatus = (orderDoc: any, itemsToInspect: any[]) => {
     let orderTotalUnits = 0;
@@ -680,9 +795,10 @@ export function CustomerSourcingPanel({
     if (isSales || !Array.isArray(orders) || orders.length === 0) return;
     orders.forEach((orderDoc: any) => {
       try {
-        if (!orderDoc?.id || orderDoc.customerId === 'Shopify Temporary' || orderDoc.isProjectGroup) return;
+        if (!orderDoc?.id || orderDoc.customerId === 'Shopify Temporary' || orderDoc.isProjectGroup || orderDoc.isArchived) return;
         const currentStatusIdx = Number(orderDoc.statusIndex ?? 0);
-        if (currentStatusIdx >= 7) return;
+        const effectiveIdx = getEffectiveOrderStatusIndex(orderDoc);
+        if (currentStatusIdx < 3 || effectiveIdx < 3 || effectiveIdx >= 7) return;
         const evalResult = evaluateOrderSourcingStatus(orderDoc, orderDoc.items || []);
         if (evalResult.allOrdered && currentStatusIdx < evalResult.orderedStatusIndex) {
           const syncSig = `${orderDoc.id}__${evalResult.orderedUnits}__${evalResult.totalUnits}__${evalResult.orderedStatusIndex}`;
@@ -1280,12 +1396,11 @@ export function CustomerSourcingPanel({
 
           <select
             value={pipelineFilter}
-            onChange={(e) => setPipelineFilter(e.target.value as any)}
+            onChange={(e) => setPipelineFilter(e.target.value as 'active_orders' | 'all_orders')}
             className="bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer"
           >
-            <option value="include_quotes">Active Orders + Quotes</option>
-            <option value="active_orders">Approved / In Production Only</option>
-            <option value="all">All Orders (Incl. Shipped)</option>
+            <option value="active_orders">Active Orders (Needs Sourcing)</option>
+            <option value="all_orders">All Active &amp; Past Orders</option>
           </select>
         </div>
 
