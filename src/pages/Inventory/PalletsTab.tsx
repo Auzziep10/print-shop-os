@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search, Map, ShoppingBag } from 'lucide-react';
+import { Plus, Package, Box, ChevronRight, ChevronLeft, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search, Map, ShoppingBag, Shirt } from 'lucide-react';
 import QRCode from 'react-qr-code';
+import { sortGarmentSizes } from '../../lib/garmentUtils';
 
 interface Item {
     id: string;
@@ -43,6 +44,13 @@ const isTermMatched = (text: string, term: string) => {
     return text.includes(term);
 };
 
+const getPalletTotalItems = (pallet?: Pallet | null): number =>
+    (pallet?.boxes || []).reduce(
+        (boxSum, box) =>
+            boxSum + (box.items || []).reduce((itemSum, item) => itemSum + (Number(item?.quantity) || 0), 0),
+        0
+    );
+
 export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenShopifyPickRoute }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void, initialActivePalletId?: string | null, onOpenShopifyPickRoute?: () => void }) {
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [activePalletId, setActivePalletId] = useState<string | null>(initialActivePalletId || null);
@@ -54,7 +62,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [newPalletName, setNewPalletName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes'>('newest');
+  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes' | 'items'>('newest');
   const [mobileQrPallet, setMobileQrPallet] = useState<Pallet | null>(null);
   const [directoryTab, setDirectoryTab] = useState<'pallets' | 'boxes'>('pallets');
   
@@ -90,6 +98,49 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
   }, [activePalletId]);
 
   const activePallet = pallets.find(p => p.id === activePalletId);
+  const activePalletTotalItems = getPalletTotalItems(activePallet);
+  const activePalletSummaryGroups = (() => {
+      if (!activePallet) return [];
+      const groups: Record<string, {
+          key: string;
+          name: string;
+          sku: string;
+          photoUrl: string;
+          totalQty: number;
+          boxCount: number;
+          boxIds: Set<string>;
+          sizes: Record<string, number>;
+      }> = {};
+      (activePallet.boxes || []).forEach(box => {
+          (box.items || []).forEach(item => {
+              const qty = Number(item?.quantity) || 0;
+              if (qty <= 0) return;
+              const name = (item.name || 'Unknown Item').trim();
+              const sku = (item.sku || '').trim();
+              const key = `${name.toLowerCase()}__${sku.toLowerCase()}`;
+              if (!groups[key]) {
+                  groups[key] = {
+                      key,
+                      name,
+                      sku,
+                      photoUrl: item.photoUrl || '',
+                      totalQty: 0,
+                      boxCount: 0,
+                      boxIds: new Set<string>(),
+                      sizes: {}
+                  };
+              }
+              const grp = groups[key];
+              if (!grp.photoUrl && item.photoUrl) grp.photoUrl = item.photoUrl;
+              grp.totalQty += qty;
+              grp.boxIds.add(box.id);
+              grp.boxCount = grp.boxIds.size;
+              const sz = (item.size || 'N/A').trim().toUpperCase();
+              grp.sizes[sz] = (grp.sizes[sz] || 0) + qty;
+          });
+      });
+      return Object.values(groups).sort((a, b) => b.totalQty - a.totalQty || a.name.localeCompare(b.name));
+  })();
 
   const handleCreatePallet = async () => {
       if (!newPalletName.trim()) return;
@@ -395,6 +446,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                      <option value="oldest">Oldest</option>
                      <option value="alpha">A-Z Name</option>
                      <option value="boxes">Most Boxes</option>
+                     <option value="items">Most Items</option>
                  </select>
              </div>
 
@@ -495,8 +547,11 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                  if (sortOption === 'oldest') return a.createdAt - b.createdAt;
                  if (sortOption === 'alpha') return a.name.localeCompare(b.name);
                  if (sortOption === 'boxes') return b.boxes.length - a.boxes.length;
+                 if (sortOption === 'items') return getPalletTotalItems(b) - getPalletTotalItems(a);
                  return 0;
-             }).map(p => (
+             }).map(p => {
+                 const palletItemsCount = getPalletTotalItems(p);
+                 return (
                  <div 
                      key={p.id}
                      onClick={() => { 
@@ -516,11 +571,15 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                              </button>
                          )}
                      </div>
-                     <div className={`text-[10px] font-bold uppercase tracking-widest mt-2 flex items-center gap-1.5 opacity-80 ${activePalletId === p.id ? 'text-neutral-300' : 'text-brand-secondary'}`}>
-                         <Layers size={12} /> {p.boxes.length} Boxes
+                     <div className={`text-[10px] font-bold uppercase tracking-widest mt-2 flex flex-wrap items-center gap-1.5 opacity-85 ${activePalletId === p.id ? 'text-neutral-300' : 'text-brand-secondary'}`}>
+                         <Layers size={12} />
+                         <span>{p.boxes.length} {p.boxes.length === 1 ? 'Box' : 'Boxes'}</span>
+                         <span className="opacity-50">•</span>
+                         <span className={activePalletId === p.id ? 'text-white' : 'text-brand-primary'}>{palletItemsCount.toLocaleString()} {palletItemsCount === 1 ? 'Item' : 'Items'}</span>
                      </div>
                  </div>
-             ))}
+                 );
+             })}
              {filteredPallets.length === 0 && !isAddingPallet && (
                  <div className="text-center p-6 text-brand-secondary">
                     <Package size={32} className="mx-auto mb-2 opacity-20" />
@@ -556,7 +615,26 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                  {activePallet.name}
                              </h3>
                          )}
-                         <p className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary mb-3 drop-shadow-sm">{activePallet.id}</p>
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary mb-2.5 drop-shadow-sm">{activePallet.id}</p>
+
+                         <div className="mb-3 grid grid-cols-2 gap-2">
+                             <div className="bg-white border border-brand-border rounded-lg px-2.5 py-2 shadow-2xs">
+                                 <div className="font-serif text-lg font-bold leading-none text-brand-primary tabular-nums">
+                                     {activePalletTotalItems.toLocaleString()}
+                                 </div>
+                                 <div className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                                     {activePalletTotalItems === 1 ? 'Garment / Item' : 'Garments / Items'}
+                                 </div>
+                             </div>
+                             <div className="bg-white border border-brand-border rounded-lg px-2.5 py-2 shadow-2xs">
+                                 <div className="font-serif text-lg font-bold leading-none text-brand-primary tabular-nums">
+                                     {activePallet.boxes.length}
+                                 </div>
+                                 <div className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                                     {activePallet.boxes.length === 1 ? 'Box' : 'Boxes'}
+                                 </div>
+                             </div>
+                         </div>
                           
                           {activePallet.zone ? (
                               <div className="mb-4 bg-brand-bg border border-brand-border p-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary flex items-center gap-2 shadow-inner">
@@ -704,6 +782,14 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                              <div className="p-6 border-b border-brand-border/60 bg-white flex justify-between items-start shrink-0">
                                 <div>
                                    <div className="flex items-center gap-2 mb-1">
+                                      <button
+                                          type="button"
+                                          onClick={() => setActiveBoxId(null)}
+                                          className="inline-flex items-center gap-1 bg-brand-bg hover:bg-black hover:text-white text-brand-primary border border-brand-border px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                                          title="Back to pallet overview"
+                                      >
+                                          <ChevronLeft size={11} /> Pallet Summary
+                                      </button>
                                       <span className="bg-brand-bg text-brand-secondary border border-brand-border px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">
                                           BOX
                                       </span>
@@ -887,10 +973,114 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                              </div>
                          </>
                      ) : (
-                         <div className="h-full flex flex-col items-center justify-center text-brand-secondary opacity-60">
-                             <Package size={48} className="mb-4 opacity-50 stroke-1" />
-                             <p className="font-serif text-xl tracking-tight text-brand-primary">Select a Box</p>
-                             <p className="text-xs uppercase tracking-widest font-bold mt-2">To view or edit its contents</p>
+                         <div className="flex flex-col h-full overflow-hidden">
+                             <div className="p-6 border-b border-brand-border/60 bg-white flex flex-wrap justify-between items-start gap-4 shrink-0">
+                                 <div>
+                                     <div className="flex items-center gap-2 mb-1">
+                                         <span className="bg-brand-bg text-brand-secondary border border-brand-border px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">
+                                             PALLET OVERVIEW
+                                         </span>
+                                         <span className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary">{activePallet.id}</span>
+                                     </div>
+                                     <h2 className="font-serif text-3xl tracking-tight text-brand-primary">{activePallet.name}</h2>
+                                     <p className="text-[11px] font-semibold text-brand-secondary mt-1">
+                                         Select a box on the left to view or edit individual box contents.
+                                     </p>
+                                 </div>
+
+                                 <div className="flex items-center gap-3 flex-wrap">
+                                     <div className="bg-black text-white px-4 py-2.5 rounded-xl shadow-xs flex flex-col items-end min-w-[130px]">
+                                         <span className="font-serif text-2xl font-bold leading-none tabular-nums">
+                                             {activePalletTotalItems.toLocaleString()}
+                                         </span>
+                                         <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-300 mt-1">
+                                             {activePalletTotalItems === 1 ? 'Total Garment / Item' : 'Total Garments / Items'}
+                                         </span>
+                                     </div>
+                                     <div className="bg-brand-bg border border-brand-border px-4 py-2.5 rounded-xl flex flex-col items-end min-w-[96px]">
+                                         <span className="font-serif text-2xl font-bold leading-none text-brand-primary tabular-nums">
+                                             {activePallet.boxes.length}
+                                         </span>
+                                         <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                                             {activePallet.boxes.length === 1 ? 'Box' : 'Boxes'}
+                                         </span>
+                                     </div>
+                                     <div className="bg-brand-bg border border-brand-border px-4 py-2.5 rounded-xl flex flex-col items-end min-w-[96px]">
+                                         <span className="font-serif text-2xl font-bold leading-none text-brand-primary tabular-nums">
+                                             {activePalletSummaryGroups.length}
+                                         </span>
+                                         <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                                             {activePalletSummaryGroups.length === 1 ? 'Style / SKU' : 'Styles / SKUs'}
+                                         </span>
+                                     </div>
+                                 </div>
+                             </div>
+
+                             <div className="flex-1 overflow-y-auto p-6 bg-brand-bg/20 custom-scrollbar">
+                                 {activePalletSummaryGroups.length > 0 ? (
+                                     <>
+                                         <div className="flex items-center justify-between mb-4">
+                                             <h3 className="text-xs font-bold uppercase tracking-widest text-brand-primary flex items-center gap-2">
+                                                 <Shirt size={14} /> Consolidated Pallet Contents ({activePalletTotalItems.toLocaleString()} {activePalletTotalItems === 1 ? 'Unit' : 'Units'})
+                                             </h3>
+                                         </div>
+                                         <div className="space-y-3">
+                                             {activePalletSummaryGroups.map(grp => {
+                                                 const sortedSizeEntries = Object.entries(grp.sizes).sort(([a], [b]) => sortGarmentSizes(a, b));
+                                                 return (
+                                                     <div key={grp.key} className="bg-white border border-brand-border rounded-xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+                                                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                                             <div className="w-12 h-12 rounded-lg bg-brand-bg border border-brand-border flex items-center justify-center overflow-hidden shrink-0">
+                                                                 {grp.photoUrl ? (
+                                                                     <img src={grp.photoUrl} alt={grp.name} className="w-full h-full object-cover" />
+                                                                 ) : (
+                                                                     <ImageIcon size={18} className="text-brand-secondary/40" />
+                                                                 )}
+                                                             </div>
+                                                             <div className="min-w-0 flex-1">
+                                                                 <div className="flex flex-wrap items-center gap-2">
+                                                                     <h4 className="font-bold text-sm text-brand-primary truncate">{grp.name}</h4>
+                                                                     {grp.sku && (
+                                                                         <span className="inline-flex items-center gap-1 bg-brand-bg border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">
+                                                                             <Tag size={9} /> {grp.sku}
+                                                                         </span>
+                                                                     )}
+                                                                     <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary">
+                                                                         • {grp.boxCount} {grp.boxCount === 1 ? 'Box' : 'Boxes'}
+                                                                     </span>
+                                                                 </div>
+                                                                 <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                     {sortedSizeEntries.map(([sz, qty]) => (
+                                                                         <span key={sz} className="bg-brand-bg border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                                                                             {sz}: <span className="text-brand-primary font-black tabular-nums">{qty.toLocaleString()}</span>
+                                                                         </span>
+                                                                     ))}
+                                                                 </div>
+                                                             </div>
+                                                         </div>
+                                                         <div className="text-right pl-4 border-l border-brand-border/60 shrink-0">
+                                                             <div className="font-serif text-2xl font-bold text-brand-primary leading-none tabular-nums">
+                                                                 {grp.totalQty.toLocaleString()}
+                                                             </div>
+                                                             <div className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary mt-1">
+                                                                 {grp.totalQty === 1 ? 'Unit' : 'Units'}
+                                                             </div>
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             })}
+                                         </div>
+                                     </>
+                                 ) : (
+                                     <div className="h-full flex flex-col items-center justify-center text-brand-secondary opacity-60">
+                                         <Package size={48} className="mb-4 opacity-50 stroke-1" />
+                                         <p className="font-serif text-xl tracking-tight text-brand-primary">0 Garments / Items on This Pallet</p>
+                                         <p className="text-xs uppercase tracking-widest font-bold mt-2">
+                                             {activePallet.boxes.length > 0 ? 'Select a box on the left to add contents' : 'Add a box on the left to get started'}
+                                         </p>
+                                     </div>
+                                 )}
+                             </div>
                          </div>
                      )}
                   </div>

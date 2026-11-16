@@ -1974,11 +1974,35 @@ export function Inventory() {
                          <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
                             <div className="flex justify-between items-start mb-2">
                                <span className="text-[10px] font-bold uppercase tracking-widest border border-white/30 px-2 py-0.5 rounded text-white/90">
-                                  {activePallet.type}
+                                  {activePallet.type || 'Pallet'}
                                </span>
                             </div>
                             <h3 className="font-serif text-3xl font-bold tracking-tight mb-1 truncate">{activePallet.name || activePallet.client || 'Unnamed Pallet'}</h3>
-                            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-1">{activePallet.id}</p>
+                            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-3">{activePallet.id}</p>
+                            {(() => {
+                               const boxList = Array.isArray(activePallet.boxes) ? activePallet.boxes : [];
+                               const itemTotal = boxList.reduce(
+                                  (bSum: number, b: any) =>
+                                     bSum + (Array.isArray(b?.items) ? b.items.reduce((iSum: number, it: any) => iSum + (Number(it?.quantity) || 0), 0) : 0),
+                                  0
+                               );
+                               return (
+                                  <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/15">
+                                     <div className="bg-white/10 rounded-lg px-3 py-2">
+                                        <div className="font-serif text-xl font-bold leading-none tabular-nums">{itemTotal.toLocaleString()}</div>
+                                        <div className="text-[9px] font-bold uppercase tracking-widest text-white/70 mt-1">
+                                           {itemTotal === 1 ? 'Garment / Item' : 'Garments / Items'}
+                                        </div>
+                                     </div>
+                                     <div className="bg-white/10 rounded-lg px-3 py-2">
+                                        <div className="font-serif text-xl font-bold leading-none tabular-nums">{boxList.length}</div>
+                                        <div className="text-[9px] font-bold uppercase tracking-widest text-white/70 mt-1">
+                                           {boxList.length === 1 ? 'Box' : 'Boxes'}
+                                        </div>
+                                     </div>
+                                  </div>
+                               );
+                            })()}
                          </div>
                          
                          <div className="space-y-4">
