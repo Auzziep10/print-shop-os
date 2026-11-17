@@ -22,7 +22,7 @@ export interface ActivityChangeDetail {
 
 export interface ActivityPopupEvent {
   id: string;
-  category: 'designer_rack' | 'sales_order' | 'designer_platform';
+  category: 'designer_rack' | 'sales_order' | 'designer_platform' | 'order_delivery';
   actorId: string;
   actorName: string;
   actorEmail: string;
@@ -1709,6 +1709,133 @@ export function buildMissingQuotePopupEvent(order: any): ActivityPopupEvent | nu
     actorRole,
     actionTitle: 'New Quote Created',
     actionSummary: `Created new quote "${rawOrderTitle}" (Order #${portalId})`,
+    changeDetails,
+    targetType: 'order',
+    targetId: order.id,
+    targetLabel,
+    targetRoute: `/orders/${order.id}`,
+    ...(firstItemImg ? { mockupUrl: firstItemImg } : {}),
+    createdAt,
+    createdAtMs
+  };
+}
+
+export function emitActivityPopupEvent(event?: ActivityPopupEvent | null) {
+  if (!event || !event.id) return;
+  notifyLocalListeners(event);
+  if (mainFirestoreInstance) {
+    void persistPopupEventToSettings(mainFirestoreInstance, event);
+  }
+}
+
+export function buildOrderDeliveredPopupEvent(
+  order: any,
+  meta?: {
+    trackingCode?: string;
+    carrier?: string;
+    location?: string;
+    deliveredBoxCount?: number;
+    totalBoxCount?: number;
+    createdAtMs?: number;
+  }
+): ActivityPopupEvent | null {
+  if (!order || !order.id) return null;
+  const portalId = String(order.portalId || order.orderNumber || order.id.substring(0, 8));
+  const rawOrderTitle = order.title || `Order #${portalId}`;
+  const customerName =
+    order.customer ||
+    order.customerName ||
+    order.contactDetails?.company ||
+    order.contactDetails?.name ||
+    order.shippingAddress?.company ||
+    (order.customerId && customerCache.get(order.customerId)?.name) ||
+    orderCache.get(order.id)?.customerName ||
+    '';
+  const targetLabel = customerName
+    ? `${rawOrderTitle} · ${customerName}`
+    : `Order #${portalId} · ${rawOrderTitle}`;
+
+  const boxes: any[] = Array.isArray(order.boxes) ? order.boxes : [];
+  const nonPickupBoxes = boxes.filter(
+    (b: any) => b && b.trackingCarrier !== 'Pickup' && Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+  );
+  const firstDeliveredBox =
+    nonPickupBoxes.find((b: any) => b?.trackingStatus === 'delivered') || nonPickupBoxes[0] || null;
+
+  const resolvedTrackingCode =
+    meta?.trackingCode ||
+    firstDeliveredBox?.trackingNumber ||
+    order.trackingNumber ||
+    '';
+  const resolvedCarrier =
+    meta?.carrier ||
+    firstDeliveredBox?.trackingCarrierDetected ||
+    firstDeliveredBox?.trackingCarrier ||
+    order.trackingCarrier ||
+    '';
+  const resolvedLocation =
+    meta?.location ||
+    firstDeliveredBox?.trackingLastEvent?.location ||
+    (order.shippingAddress?.city && order.shippingAddress?.state
+      ? `${order.shippingAddress.city}, ${order.shippingAddress.state}`
+      : '');
+  const totalBoxes = meta?.totalBoxCount ?? nonPickupBoxes.length;
+  const deliveredBoxes = meta?.deliveredBoxCount ?? nonPickupBoxes.filter((b: any) => b?.trackingStatus === 'delivered').length;
+
+  const actorName = resolvedCarrier
+    ? `${resolvedCarrier} Tracking`
+    : 'Automatic Tracking';
+  const whereSuffix = resolvedLocation ? ` in ${resolvedLocation}` : '';
+
+  const createdAtMs = meta?.createdAtMs && Number.isFinite(meta.createdAtMs) ? meta.createdAtMs : Date.now();
+  const createdAt = new Date(createdAtMs).toISOString();
+
+  const itemCount = Array.isArray(order.items) ? order.items.length : 0;
+  const firstItemImg =
+    itemCount > 0
+      ? order.items[0]?.image || order.items[0]?.customizedFrontImage || ''
+      : '';
+
+  const changeDetails: ActivityChangeDetail[] = [
+    {
+      field: 'Delivery Status',
+      before: 'Shipped',
+      after: 'Delivered',
+      summary: 'All packages confirmed delivered via automatic tracking'
+    }
+  ];
+  if (resolvedTrackingCode) {
+    const trkLabel = resolvedCarrier ? `${resolvedCarrier} · ${resolvedTrackingCode}` : String(resolvedTrackingCode);
+    changeDetails.push({
+      field: 'Tracking #',
+      after: trkLabel,
+      summary: `Tracking: ${trkLabel}`
+    });
+  }
+  if (totalBoxes > 1) {
+    changeDetails.push({
+      field: 'Packages',
+      after: `${deliveredBoxes || totalBoxes} of ${totalBoxes} Boxes Delivered`,
+      summary: `${deliveredBoxes || totalBoxes} of ${totalBoxes} boxes delivered`
+    });
+  }
+  if (resolvedLocation) {
+    changeDetails.push({
+      field: 'Delivered To',
+      after: resolvedLocation,
+      summary: `Location: ${resolvedLocation}`
+    });
+  }
+
+  return {
+    id: `act_order_delivered_${order.id}`,
+    category: 'order_delivery',
+    actorId: 'easypost_auto_tracking',
+    actorName,
+    actorEmail: '',
+    actorRole: 'Auto Tracking',
+    actionTitle: 'Order Delivered',
+    actionSummary: `Order #${portalId} ("${rawOrderTitle}") has been delivered${whereSuffix}!`,
     changeDetails,
     targetType: 'order',
     targetId: order.id,

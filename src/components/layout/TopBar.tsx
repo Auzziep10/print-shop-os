@@ -1,4 +1,4 @@
-import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe, Shirt, Eye, RotateCcw, Shield, X, ExternalLink, UserCheck, Sparkles, ShoppingBag } from 'lucide-react';
+import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe, Shirt, Eye, RotateCcw, Shield, X, ExternalLink, UserCheck, Sparkles, ShoppingBag, Truck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useAuth, type UserRole } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -10,6 +10,7 @@ import { CommandPalette } from './CommandPalette';
 import {
   ACTIVITY_POPUPS_DOC_ID,
   buildMissingQuotePopupEvent,
+  buildOrderDeliveredPopupEvent,
   runWithSuppressedActivityTracking,
   shouldShowActivityPopupsForRole,
   subscribeLocalActivityPopup,
@@ -17,6 +18,7 @@ import {
   updateOrderCacheForTracking,
   type ActivityPopupEvent
 } from '../../lib/roleActivityTracker';
+import { getOrderTrackingReceivedMilestone } from '../../lib/timelineUtils';
 
 interface TopBarProps {
   onOpenSidebar?: () => void;
@@ -78,17 +80,22 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const enqueueActivityPopup = (event: ActivityPopupEvent | undefined | null, isInitialSnapshot: boolean) => {
     if (!event || !event.id) return;
     const isNewQuoteEvent = event.actionTitle === 'New Quote Created';
+    const isOrderDeliveredEvent =
+      event.category === 'order_delivery' || event.actionTitle === 'Order Delivered';
     const syntheticQuoteId =
       isNewQuoteEvent && event.targetId ? `act_quote_init_${event.targetId}` : null;
+    const syntheticDeliveredId =
+      isOrderDeliveredEvent && event.targetId ? `act_order_delivered_${event.targetId}` : null;
     if (
       dismissedIdsRef.current.has(event.id) ||
       (syntheticQuoteId && dismissedIdsRef.current.has(syntheticQuoteId)) ||
+      (syntheticDeliveredId && dismissedIdsRef.current.has(syntheticDeliveredId)) ||
       seenPopupIdsRef.current.has(event.id)
     ) {
       return;
     }
-    // On initial page load, show undismissed new quotes from the last 7 days and other undismissed activity from the last 24 hours
-    const maxInitialAgeMs = isNewQuoteEvent
+    // On initial page load, show undismissed new quotes & auto-tracked deliveries from the last 7 days and other undismissed activity from the last 24 hours
+    const maxInitialAgeMs = isNewQuoteEvent || isOrderDeliveredEvent
       ? 7 * 24 * 60 * 60 * 1000
       : 24 * 60 * 60 * 1000;
     if (isInitialSnapshot && event.createdAtMs < SESSION_BOOT_MS - maxInitialAgeMs) {
@@ -106,6 +113,11 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
             p.targetId === event.targetId
           ) &&
           !(
+            isOrderDeliveredEvent &&
+            (p.category === 'order_delivery' || p.actionTitle === 'Order Delivered') &&
+            p.targetId === event.targetId
+          ) &&
+          !(
             p.actorId === event.actorId &&
             p.targetId === event.targetId &&
             p.category === event.category &&
@@ -120,7 +132,11 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
     dismissedIdsRef.current.add(popupId);
     const matching = activePopups.find((p) => p.id === popupId);
     if (matching?.targetType === 'order' && matching.targetId) {
-      dismissedIdsRef.current.add(`act_quote_init_${matching.targetId}`);
+      if (matching.category === 'order_delivery' || matching.actionTitle === 'Order Delivered') {
+        dismissedIdsRef.current.add(`act_order_delivered_${matching.targetId}`);
+      } else if (matching.actionTitle === 'New Quote Created') {
+        dismissedIdsRef.current.add(`act_quote_init_${matching.targetId}`);
+      }
     }
     saveDismissedPopupIds(dismissedIdsRef.current);
     setActivePopups((prev) => prev.filter((p) => p.id !== popupId));
@@ -130,7 +146,11 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
     activePopups.forEach((p) => {
       dismissedIdsRef.current.add(p.id);
       if (p.targetType === 'order' && p.targetId) {
-        dismissedIdsRef.current.add(`act_quote_init_${p.targetId}`);
+        if (p.category === 'order_delivery' || p.actionTitle === 'Order Delivered') {
+          dismissedIdsRef.current.add(`act_order_delivered_${p.targetId}`);
+        } else if (p.actionTitle === 'New Quote Created') {
+          dismissedIdsRef.current.add(`act_quote_init_${p.targetId}`);
+        }
       }
     });
     saveDismissedPopupIds(dismissedIdsRef.current);
@@ -151,15 +171,20 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
 
   // Keep order cache & order-carried activity popups in sync
   const initialOrdersSyncedRef = useRef(false);
+  const prevDeliveredOrdersRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!orders || orders.length === 0) return;
     updateOrderCacheForTracking(orders);
     const isInitial = !initialOrdersSyncedRef.current;
     initialOrdersSyncedRef.current = true;
     orders.forEach((o: any) => {
-      if (o?.lastActivityPopup?.id) {
+      if (o?.autoTrackingDeliveredPopup?.id) {
+        enqueueActivityPopup(o.autoTrackingDeliveredPopup, isInitial);
+      }
+      if (o?.lastActivityPopup?.id && o.lastActivityPopup.id !== o?.autoTrackingDeliveredPopup?.id) {
         enqueueActivityPopup(o.lastActivityPopup, isInitial);
       } else if (
+        !o?.lastActivityPopup?.id &&
         o?.id &&
         (o.statusIndex === 0 || o.statusIndex === undefined) &&
         !o.isArchived &&
@@ -169,6 +194,28 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
         const fallbackQuotePopup = buildMissingQuotePopupEvent(o);
         if (fallbackQuotePopup) {
           enqueueActivityPopup(fallbackQuotePopup, isInitial);
+        }
+      }
+
+      if (o?.id) {
+        const isAutoDelivered = Boolean(getOrderTrackingReceivedMilestone(o)?.allDelivered);
+        if (isAutoDelivered) {
+          if (
+            !isInitial &&
+            !prevDeliveredOrdersRef.current.has(o.id) &&
+            o.fulfillmentType !== 'Kitting' &&
+            Number(o.statusIndex ?? 0) >= 3 &&
+            !o.isArchived &&
+            !o.isProjectGroup &&
+            o.customerId !== 'Shopify Temporary'
+          ) {
+            const liveDeliveredPopup =
+              o.autoTrackingDeliveredPopup || buildOrderDeliveredPopupEvent(o);
+            if (liveDeliveredPopup) {
+              enqueueActivityPopup(liveDeliveredPopup, false);
+            }
+          }
+          prevDeliveredOrdersRef.current.add(o.id);
         }
       }
     });
@@ -473,17 +520,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <span
                             className={`text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                              popup.category === 'designer_rack'
-                                ? 'bg-purple-50 text-purple-800 border-purple-200'
-                                : popup.category === 'sales_order'
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-blue-50 text-blue-800 border-blue-200'
+                              popup.category === 'order_delivery'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : popup.category === 'designer_rack'
+                                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                                  : popup.category === 'sales_order'
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-blue-50 text-blue-800 border-blue-200'
                             }`}
                           >
                             {popup.actionTitle}
                           </span>
                           <span className="text-[9px] font-bold text-neutral-500">
-                            by {popup.actorName} ({popup.actorRole})
+                            {popup.category === 'order_delivery'
+                              ? `via ${popup.actorName}`
+                              : `by ${popup.actorName} (${popup.actorRole})`}
                           </span>
                         </div>
                         <p className="text-[11px] font-semibold text-neutral-900 leading-snug">
@@ -707,18 +758,23 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
             )}
 
             {activePopups.map((popup) => {
+              const isDelivery = popup.category === 'order_delivery';
               const isRack = popup.category === 'designer_rack';
               const isSalesOrder = popup.category === 'sales_order';
-              const accentClass = isRack
-                ? 'border-l-4 border-l-purple-600'
-                : isSalesOrder
-                  ? 'border-l-4 border-l-amber-500'
-                  : 'border-l-4 border-l-blue-600';
-              const badgeClass = isRack
-                ? 'bg-purple-50 text-purple-800 border-purple-200'
-                : isSalesOrder
-                  ? 'bg-amber-50 text-amber-900 border-amber-200'
-                  : 'bg-blue-50 text-blue-800 border-blue-200';
+              const accentClass = isDelivery
+                ? 'border-l-4 border-l-emerald-600'
+                : isRack
+                  ? 'border-l-4 border-l-purple-600'
+                  : isSalesOrder
+                    ? 'border-l-4 border-l-amber-500'
+                    : 'border-l-4 border-l-blue-600';
+              const badgeClass = isDelivery
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : isRack
+                  ? 'bg-purple-50 text-purple-800 border-purple-200'
+                  : isSalesOrder
+                    ? 'bg-amber-50 text-amber-900 border-amber-200'
+                    : 'bg-blue-50 text-blue-800 border-blue-200';
               const timeStr = (() => {
                 try {
                   return new Date(popup.createdAtMs).toLocaleTimeString([], {
@@ -741,7 +797,9 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${badgeClass}`}
                       >
-                        {isRack ? (
+                        {isDelivery ? (
+                          <Truck size={11} className="shrink-0" />
+                        ) : isRack ? (
                           <Sparkles size={11} className="shrink-0" />
                         ) : isSalesOrder ? (
                           <ShoppingBag size={11} className="shrink-0" />
@@ -764,15 +822,19 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                     </button>
                   </div>
 
-                  {/* Who Made the Change Row */}
+                  {/* Who Made the Change / Tracking Source Row */}
                   <div className="flex items-center justify-between gap-2 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-1.5">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-6 h-6 rounded-full bg-neutral-900 text-white text-[10px] font-black flex items-center justify-center shrink-0 uppercase">
-                        {(popup.actorName || 'U').substring(0, 2)}
+                      <span
+                        className={`w-6 h-6 rounded-full text-white text-[10px] font-black flex items-center justify-center shrink-0 uppercase ${
+                          isDelivery ? 'bg-emerald-600' : 'bg-neutral-900'
+                        }`}
+                      >
+                        {isDelivery ? <Truck size={12} /> : (popup.actorName || 'U').substring(0, 2)}
                       </span>
                       <div className="min-w-0">
                         <span className="text-[10px] uppercase tracking-wider font-bold text-neutral-400 block leading-none">
-                          Changed By
+                          {isDelivery ? 'Tracked By' : 'Changed By'}
                         </span>
                         <span className="text-xs font-extrabold text-neutral-900 truncate block mt-0.5">
                           {popup.actorName}

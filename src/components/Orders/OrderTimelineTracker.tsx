@@ -3,6 +3,11 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Calendar, Check, Sparkles, X, Clock } from 'lucide-react';
 import {
+  buildOrderDeliveredPopupEvent,
+  emitActivityPopupEvent,
+  runWithSuppressedActivityTracking
+} from '../../lib/roleActivityTracker';
+import {
   type TimelineStepName,
   type TimelineMilestonesMap,
   useFulfillmentPipelines,
@@ -172,6 +177,14 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
     }
 
     const shortDate = effectiveExpectedDate ? formatYmdToShortOrderDate(effectiveExpectedDate) : '';
+    const deliveredPopup =
+      shouldAdvanceToReceived &&
+      !order?.autoTrackingDeliveredPopup?.id &&
+      !order?.isArchived &&
+      !order?.isProjectGroup &&
+      order?.customerId !== 'Shopify Temporary'
+        ? buildOrderDeliveredPopupEvent(order)
+        : null;
     const updatePayload: Record<string, any> = {
       timelineMilestones: existingMilestones,
       ...(shortDate ? { date: shortDate } : {}),
@@ -179,11 +192,22 @@ export const OrderTimelineTracker: React.FC<OrderTimelineTrackerProps> = ({
         ? { statusIndex: 8, status: 'Received' }
         : shouldAdvanceToShipped
           ? { statusIndex: 7, status: 'Shipped' }
-          : {})
+          : {}),
+      ...(deliveredPopup
+        ? { autoTrackingDeliveredPopup: deliveredPopup, lastActivityPopup: deliveredPopup }
+        : {})
     };
-    void setDoc(doc(db, 'orders', order.id), updatePayload, { merge: true }).catch(() => {
-      syncedReceivedDates.delete(syncKey);
-    });
+    void runWithSuppressedActivityTracking(() =>
+      setDoc(doc(db, 'orders', order.id), updatePayload, { merge: true })
+    )
+      .then(() => {
+        if (deliveredPopup) {
+          emitActivityPopupEvent(deliveredPopup);
+        }
+      })
+      .catch(() => {
+        syncedReceivedDates.delete(syncKey);
+      });
   }, [
     canEdit,
     order?.id,

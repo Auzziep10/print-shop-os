@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Sparkles,
   Trash2,
+  Truck,
   UserCheck,
   X
 } from 'lucide-react';
@@ -23,7 +24,7 @@ import {
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 
-type CategoryFilter = 'all' | 'sales_order' | 'designer_rack' | 'designer_platform';
+type CategoryFilter = 'all' | 'sales_order' | 'designer_rack' | 'designer_platform' | 'order_delivery';
 
 function formatExactDateTime(ms: number): string {
   try {
@@ -115,6 +116,10 @@ export function ActivityArchiveTab() {
     });
 
     orders.forEach((o: any) => {
+      const delivEv = o?.autoTrackingDeliveredPopup as ActivityPopupEvent | undefined;
+      if (delivEv && delivEv.id && !byId.has(delivEv.id)) {
+        byId.set(delivEv.id, delivEv);
+      }
       const ev = o?.lastActivityPopup as ActivityPopupEvent | undefined;
       if (ev && ev.id && !byId.has(ev.id)) {
         byId.set(ev.id, ev);
@@ -155,16 +160,19 @@ export function ActivityArchiveTab() {
     let salesOrder = 0;
     let designerRack = 0;
     let designerPlatform = 0;
+    let orderDelivery = 0;
     allEvents.forEach((e) => {
       if (e.category === 'sales_order') salesOrder++;
       else if (e.category === 'designer_rack') designerRack++;
       else if (e.category === 'designer_platform') designerPlatform++;
+      else if (e.category === 'order_delivery') orderDelivery++;
     });
     return {
       total: allEvents.length,
       salesOrder,
       designerRack,
-      designerPlatform
+      designerPlatform,
+      orderDelivery
     };
   }, [allEvents]);
 
@@ -278,7 +286,7 @@ export function ActivityArchiveTab() {
         </div>
 
         {/* Summary Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
           <button
             type="button"
             onClick={() => setCategoryFilter('all')}
@@ -292,6 +300,22 @@ export function ActivityArchiveTab() {
               All Logged Updates
             </div>
             <div className="text-2xl font-black mt-1">{counts.total}</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('order_delivery')}
+            className={`text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
+              categoryFilter === 'order_delivery'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                : 'bg-emerald-50/60 hover:bg-emerald-50 text-emerald-950 border-emerald-200'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider opacity-80">
+              <Truck size={12} />
+              <span>Order Deliveries</span>
+            </div>
+            <div className="text-2xl font-black mt-1">{counts.orderDelivery}</div>
           </button>
 
           <button
@@ -437,18 +461,23 @@ export function ActivityArchiveTab() {
       ) : (
         <div className="space-y-3">
           {filteredEvents.map((event) => {
+            const isDelivery = event.category === 'order_delivery';
             const isRack = event.category === 'designer_rack';
             const isSalesOrder = event.category === 'sales_order';
-            const accentClass = isRack
-              ? 'border-l-4 border-l-purple-600'
-              : isSalesOrder
-                ? 'border-l-4 border-l-amber-500'
-                : 'border-l-4 border-l-blue-600';
-            const badgeClass = isRack
-              ? 'bg-purple-50 text-purple-800 border-purple-200'
-              : isSalesOrder
-                ? 'bg-amber-50 text-amber-900 border-amber-200'
-                : 'bg-blue-50 text-blue-800 border-blue-200';
+            const accentClass = isDelivery
+              ? 'border-l-4 border-l-emerald-600'
+              : isRack
+                ? 'border-l-4 border-l-purple-600'
+                : isSalesOrder
+                  ? 'border-l-4 border-l-amber-500'
+                  : 'border-l-4 border-l-blue-600';
+            const badgeClass = isDelivery
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : isRack
+                ? 'bg-purple-50 text-purple-800 border-purple-200'
+                : isSalesOrder
+                  ? 'bg-amber-50 text-amber-900 border-amber-200'
+                  : 'bg-blue-50 text-blue-800 border-blue-200';
             const details = Array.isArray(event.changeDetails) ? event.changeDetails : [];
 
             return (
@@ -462,7 +491,9 @@ export function ActivityArchiveTab() {
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${badgeClass}`}
                     >
-                      {isRack ? (
+                      {isDelivery ? (
+                        <Truck size={11} className="shrink-0" />
+                      ) : isRack ? (
                         <Sparkles size={11} className="shrink-0" />
                       ) : isSalesOrder ? (
                         <ShoppingBag size={11} className="shrink-0" />

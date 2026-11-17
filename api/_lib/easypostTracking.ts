@@ -243,6 +243,96 @@ function formatYmdToShortDate(ymd?: string): string {
 
 type Summary = ReturnType<typeof summarizeTracker>;
 
+const ACTIVITY_POPUPS_DOC_ID = 'activityPopups';
+const MAX_STORED_POPUP_EVENTS = 500;
+
+function buildServerOrderDeliveredPopup(
+  orderId: string,
+  order: Record<string, any>,
+  code: string,
+  summary: Summary,
+  carrier?: string,
+  deliveredCount = 1,
+  totalBoxes = 1
+) {
+  const portalId = String(order.portalId || order.orderNumber || orderId.substring(0, 8));
+  const rawOrderTitle = order.title || `Order #${portalId}`;
+  const customerName =
+    order.customer ||
+    order.customerName ||
+    order.contactDetails?.company ||
+    order.contactDetails?.name ||
+    order.shippingAddress?.company ||
+    '';
+  const targetLabel = customerName
+    ? `${rawOrderTitle} · ${customerName}`
+    : `Order #${portalId} · ${rawOrderTitle}`;
+
+  const location =
+    summary.trackingLastEvent?.location ||
+    (order.shippingAddress?.city && order.shippingAddress?.state
+      ? `${order.shippingAddress.city}, ${order.shippingAddress.state}`
+      : '');
+  const whereSuffix = location ? ` in ${location}` : '';
+  const actorName = carrier ? `${carrier} Tracking` : 'Automatic Tracking';
+  const createdAtMs = Date.now();
+  const createdAt = new Date(createdAtMs).toISOString();
+
+  const items: any[] = Array.isArray(order.items) ? order.items : [];
+  const firstItemImg =
+    items.length > 0 ? items[0]?.image || items[0]?.customizedFrontImage || '' : '';
+
+  const changeDetails: Record<string, string>[] = [
+    {
+      field: 'Delivery Status',
+      before: 'Shipped',
+      after: 'Delivered',
+      summary: 'All packages confirmed delivered via automatic tracking',
+    },
+  ];
+  if (code) {
+    const trkLabel = carrier ? `${carrier} · ${code}` : code;
+    changeDetails.push({
+      field: 'Tracking #',
+      after: trkLabel,
+      summary: `Tracking: ${trkLabel}`,
+    });
+  }
+  if (totalBoxes > 1) {
+    changeDetails.push({
+      field: 'Packages',
+      after: `${deliveredCount} of ${totalBoxes} Boxes Delivered`,
+      summary: `${deliveredCount} of ${totalBoxes} boxes delivered`,
+    });
+  }
+  if (location) {
+    changeDetails.push({
+      field: 'Delivered To',
+      after: location,
+      summary: `Location: ${location}`,
+    });
+  }
+
+  return {
+    id: `act_order_delivered_${orderId}`,
+    category: 'order_delivery',
+    actorId: 'easypost_auto_tracking',
+    actorName,
+    actorEmail: '',
+    actorRole: 'Auto Tracking',
+    actionTitle: 'Order Delivered',
+    actionSummary: `Order #${portalId} ("${rawOrderTitle}") has been delivered${whereSuffix}!`,
+    changeDetails,
+    targetType: 'order',
+    targetId: orderId,
+    targetLabel,
+    targetRoute: `/orders/${orderId}`,
+    ...(firstItemImg ? { mockupUrl: firstItemImg } : {}),
+    createdAt,
+    createdAtMs,
+  };
+}
+
 /** Updates every linked box/item on one order in a single transaction. Returns entries updated. */
 async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTarget[], code: string, summary: Summary, carrier?: string) {
   const orderRef = db.collection('orders').doc(orderId);
@@ -250,9 +340,11 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
   const itemIds = new Set(targets.filter((t) => t.kind === 'item').map((t) => t.id));
   const sameCode = (n?: string) => Boolean(n) && trackingDocId(String(n)) === trackingDocId(code);
   let updatedCount = 0;
+  let pendingDeliveredPopup: Record<string, any> | null = null;
 
   await db.runTransaction(async (tx) => {
     updatedCount = 0;
+    pendingDeliveredPopup = null;
     const snap = await tx.get(orderRef);
     if (!snap.exists) return;
     const order = snap.data() || {};
@@ -262,6 +354,17 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
     const isAnnounce = (prev?: string) => summary.trackingStatus !== prev && ANNOUNCE_STATUSES.has(summary.trackingStatus);
 
     if (boxIds.size && Array.isArray(order.boxes)) {
+      const prevNonPickup = order.boxes.filter(
+        (b: any) =>
+          b &&
+          b.trackingCarrier !== 'Pickup' &&
+          Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+      );
+      const wasPreviouslyDelivered =
+        Boolean(order.autoTrackingDeliveredPopup?.id) ||
+        Number(order.statusIndex ?? 0) >= 8 ||
+        (prevNonPickup.length > 0 &&
+          prevNonPickup.every((b: any) => b.trackingStatus === 'delivered'));
       let changed = false;
       update.boxes = order.boxes.map((b: any) => {
         // Skip if the box's tracking number was changed since this was linked
@@ -359,6 +462,27 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
             if (order.fulfillmentType !== 'Kitting' && currentStatusIdx >= 3 && currentStatusIdx < 8) {
               update.statusIndex = 8;
               update.status = 'Received';
+            }
+            if (
+              !wasPreviouslyDelivered &&
+              order.fulfillmentType !== 'Kitting' &&
+              currentStatusIdx >= 3 &&
+              !order.isArchived &&
+              !order.isProjectGroup &&
+              order.customerId !== 'Shopify Temporary'
+            ) {
+              const deliveredPopup = buildServerOrderDeliveredPopup(
+                orderId,
+                order,
+                code,
+                summary,
+                carrier,
+                deliveredCount,
+                allNonPickup.length
+              );
+              update.autoTrackingDeliveredPopup = deliveredPopup;
+              update.lastActivityPopup = deliveredPopup;
+              pendingDeliveredPopup = deliveredPopup;
             }
           } else if (
             trackedBoxes.length > 0 &&
@@ -491,6 +615,31 @@ async function applyToOrder(db: Firestore, orderId: string, targets: TrackingTar
 
     tx.update(orderRef, update);
   });
+
+  if (pendingDeliveredPopup) {
+    const popupToSave = pendingDeliveredPopup as Record<string, any>;
+    try {
+      const popupsRef = db.collection('settings').doc(ACTIVITY_POPUPS_DOC_ID);
+      await db.runTransaction(async (tx) => {
+        const popSnap = await tx.get(popupsRef);
+        const existing: any[] =
+          popSnap.exists && Array.isArray(popSnap.data()?.events) ? popSnap.data()!.events : [];
+        const deduped = existing.filter((e: any) => e?.id !== popupToSave.id);
+        const nextEvents = [popupToSave, ...deduped].slice(0, MAX_STORED_POPUP_EVENTS);
+        tx.set(
+          popupsRef,
+          {
+            events: nextEvents,
+            updatedAt: popupToSave.createdAt,
+            updatedAtMs: popupToSave.createdAtMs,
+          },
+          { merge: true }
+        );
+      });
+    } catch (err) {
+      console.warn('Could not persist auto-delivered popup to settings/activityPopups:', err);
+    }
+  }
 
   return updatedCount;
 }

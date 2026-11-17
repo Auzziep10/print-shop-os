@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import {
+  buildOrderDeliveredPopupEvent,
+  emitActivityPopupEvent,
+  runWithSuppressedActivityTracking,
+  type ActivityPopupEvent
+} from './roleActivityTracker';
 
 /**
  * Live package tracking (EasyPost trackers + webhook).
@@ -313,8 +319,20 @@ async function syncTrackingToClientFirestore(
       if (!snap.exists()) continue;
       const order: Record<string, any> = snap.data() || {};
       const update: Record<string, any> = {};
+      let deliveredPopupEvent: ActivityPopupEvent | null = null;
 
       if (Array.isArray(order.boxes)) {
+        const prevNonPickup = order.boxes.filter(
+          (b: any) =>
+            b &&
+            b.trackingCarrier !== 'Pickup' &&
+            Boolean(b.trackingNumber || b.trackingStatus === 'delivered')
+        );
+        const wasPreviouslyDelivered =
+          Boolean(order.autoTrackingDeliveredPopup?.id) ||
+          Number(order.statusIndex ?? 0) >= 8 ||
+          (prevNonPickup.length > 0 &&
+            prevNonPickup.every((b: any) => b.trackingStatus === 'delivered'));
         let boxesChanged = false;
         let matchedBox = false;
         const nextBoxes = order.boxes.map((b: any) => {
@@ -436,6 +454,30 @@ async function syncTrackingToClientFirestore(
                 update.statusIndex = 8;
                 update.status = 'Received';
               }
+              if (
+                !wasPreviouslyDelivered &&
+                !isKittingOrder &&
+                currentStatusIdx >= 3 &&
+                !order.isArchived &&
+                !order.isProjectGroup &&
+                order.customerId !== 'Shopify Temporary'
+              ) {
+                const builtPopup = buildOrderDeliveredPopupEvent(
+                  { ...order, id: orderId, boxes: nextBoxes },
+                  {
+                    trackingCode,
+                    carrier: summary.trackingCarrierDetected || undefined,
+                    location: summary.trackingLastEvent?.location || undefined,
+                    deliveredBoxCount: deliveredCount,
+                    totalBoxCount: allNonPickup.length
+                  }
+                );
+                if (builtPopup) {
+                  update.autoTrackingDeliveredPopup = builtPopup;
+                  update.lastActivityPopup = builtPopup;
+                  deliveredPopupEvent = builtPopup;
+                }
+              }
             } else if (needsStatusAdvanceToShipped) {
               update.statusIndex = 7;
               update.status = 'Shipped';
@@ -541,7 +583,10 @@ async function syncTrackingToClientFirestore(
       }
 
       if (Object.keys(update).length > 0) {
-        await updateDoc(orderRef, update);
+        await runWithSuppressedActivityTracking(() => updateDoc(orderRef, update));
+        if (deliveredPopupEvent) {
+          emitActivityPopupEvent(deliveredPopupEvent);
+        }
       }
     } catch (err) {
       console.warn('Could not sync tracking update to order in client Firestore:', err);
