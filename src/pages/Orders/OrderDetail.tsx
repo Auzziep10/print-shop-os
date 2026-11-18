@@ -7024,13 +7024,13 @@ export function OrderDetail() {
                                 )}
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
+                                {designNumberByItemId.get(String(item.id)) && (
+                                  <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-neutral-900 text-white shrink-0">
+                                    Design {designNumberByItemId.get(String(item.id))}
+                                  </span>
+                                )}
                                 <div className="flex items-center justify-center sm:justify-start gap-2 w-full flex-wrap">
-                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-center flex-wrap justify-center sm:justify-start gap-2">
-                                    {designNumberByItemId.get(String(item.id)) && (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-neutral-900 text-white shrink-0">
-                                        Design {designNumberByItemId.get(String(item.id))}
-                                      </span>
-                                    )}
+                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-center flex-wrap justify-center sm:justify-start gap-1.5">
                                     <span>
                                       {item.title || (item.style && item.style !== item.sheetSizeName 
                                         ? item.style 
@@ -8116,13 +8116,13 @@ export function OrderDetail() {
                           onClick={toggleCardExpanded}
                         >
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-sm text-neutral-100 flex items-center gap-2 min-w-0" title={card.title}>
-                              {card.designNumber ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-amber-500 text-black shrink-0">
-                                  Design {card.designNumber}
-                                </span>
-                              ) : null}
-                              <span className="truncate">{card.displayTitle}</span>
+                            {card.designNumber ? (
+                              <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500 text-black shrink-0">
+                                Design {card.designNumber}
+                              </span>
+                            ) : null}
+                            <h3 className="font-bold text-sm text-neutral-100 truncate" title={card.title}>
+                              {card.displayTitle}
                             </h3>
                             <p className="text-[11px] font-semibold text-neutral-400 mt-0.5 leading-snug">
                               {card.description}
