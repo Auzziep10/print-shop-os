@@ -121,8 +121,10 @@ export function Dashboard() {
     orders.forEach((order: any) => {
       const items = order.items || [];
 
-      // 1. Master Combined Order Gang Sheet
-      if (order.masterReadyToPrint || order.masterPrintReadyUrl || order.masterSheetUrl || order.masterPrinted || order.masterCutReadyUrl) {
+      const hasPerGarmentArtSheets = items.some((i: any) => !!(i.printReadyUrl || (Array.isArray(i.sheets) && i.sheets.length > 0)));
+
+      // 1. Legacy Master Combined Order Gang Sheet (only when per-garment sheets have not replaced it)
+      if (!hasPerGarmentArtSheets && (order.masterReadyToPrint || order.masterPrintReadyUrl || order.masterSheetUrl || order.masterPrinted || order.masterCutReadyUrl)) {
         list.push({
           id: `master-combined-${order.id}`,
           realItemId: 'master-combined-item',
@@ -173,42 +175,75 @@ export function Dashboard() {
         });
       }
 
-      // 3. Individual line items (only include items with actual print files or gang_sheet type)
+      // 3. Individual garment & gang-sheet line items
       items.forEach((item: any) => {
         const isGangSheet = item.itemType === 'gang_sheet';
         const hasPrintUrl = !!(item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl);
         const hasArtworks = Array.isArray(item.artworks) && item.artworks.length > 0;
         const isItemMarkedReady = !!item.readyToPrint;
         const isItemPrinted = !!item.printed;
+        const baseStyleLabel = isGangSheet
+          ? (item.sheetSizeName || 'DTF Gang Sheet')
+          : ([item.style, item.color ? `(${item.color})` : ''].filter(Boolean).join(' ') || 'Garment Gang Sheet');
 
         if (isGangSheet || hasPrintUrl || (hasArtworks && (isItemMarkedReady || isItemPrinted))) {
-          list.push({
-            ...item,
-            id: `${item.id}-art`,
-            realItemId: item.id,
-            type: 'art',
-            readyToPrint: isItemMarkedReady || hasPrintUrl,
-            printed: isItemPrinted,
-            printedAt: item.printedAt || null,
-            printedBy: item.printedBy || null,
-            style: item.itemType === 'gang_sheet' ? (item.sheetSizeName || 'DTF Gang Sheet') : (item.style ? `${item.style} - Main Art` : 'DTF Gang Sheet'),
-            sheetWidth: item.sheetWidth || 22,
-            sheetHeight: item.sheetHeight || 24,
-            printReadyUrl: item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl || null,
-            cutReadyUrl: item.cutReadyUrl || null,
-            orderId: order.id,
-            orderTitle: order.title || 'Custom Order',
-            orderPortalId: order.portalId,
-            orderCustomerId: order.customerId,
-            orderPriority: order.priority,
-            orderShipDate: order.shipDate,
-            orderStatusIndex: order.statusIndex
-          });
+          if (Array.isArray(item.sheets) && item.sheets.length > 1) {
+            item.sheets.forEach((s: any) => {
+              const totalParts = s.totalSheets || item.sheets.length;
+              list.push({
+                ...item,
+                id: `${item.id}-art-sheet-${s.sheetNumber}`,
+                realItemId: item.id,
+                type: 'art',
+                readyToPrint: isItemMarkedReady || !!(s.printUrl),
+                printed: isItemPrinted,
+                printedAt: item.printedAt || null,
+                printedBy: item.printedBy || null,
+                style: `${baseStyleLabel} (Sheet ${s.sheetNumber} of ${totalParts})`,
+                sheetWidth: item.sheetWidth || 22,
+                sheetHeight: Math.round(s.height || 24),
+                quantity: 1,
+                printReadyUrl: s.printUrl || null,
+                cutReadyUrl: s.cutUrl || null,
+                orderId: order.id,
+                orderTitle: order.title || 'Custom Order',
+                orderPortalId: order.portalId,
+                orderCustomerId: order.customerId,
+                orderPriority: order.priority,
+                orderShipDate: order.shipDate,
+                orderStatusIndex: order.statusIndex
+              });
+            });
+          } else {
+            list.push({
+              ...item,
+              id: `${item.id}-art`,
+              realItemId: item.id,
+              type: 'art',
+              readyToPrint: isItemMarkedReady || hasPrintUrl,
+              printed: isItemPrinted,
+              printedAt: item.printedAt || null,
+              printedBy: item.printedBy || null,
+              style: baseStyleLabel,
+              sheetWidth: item.sheetWidth || 22,
+              sheetHeight: Math.round(item.sheetHeight || 24),
+              quantity: isGangSheet ? (item.quantity || 1) : 1,
+              printReadyUrl: item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl || null,
+              cutReadyUrl: item.cutReadyUrl || null,
+              orderId: order.id,
+              orderTitle: order.title || 'Custom Order',
+              orderPortalId: order.portalId,
+              orderCustomerId: order.customerId,
+              orderPriority: order.priority,
+              orderShipDate: order.shipDate,
+              orderStatusIndex: order.statusIndex
+            });
+          }
         }
 
         const hasTagReady = !!item.tagReadyToPrint;
         const hasTagPrinted = !!item.tagPrinted;
-        if (item.logoUrlTag && (item.tagPrintReadyUrl || hasTagReady || hasTagPrinted)) {
+        if (!order.masterTagPrintReadyUrl && item.logoUrlTag && (item.tagPrintReadyUrl || hasTagReady || hasTagPrinted)) {
           list.push({
             ...item,
             id: `${item.id}-tag`,
@@ -324,7 +359,7 @@ export function Dashboard() {
     }
 
     const isTag = queueItemId.endsWith('-tag');
-    const realItemId = queueItemId.replace('-art', '').replace('-tag', '');
+    const realItemId = queueItemId.replace(/-art-sheet-\d+$/, '').replace(/-art$/, '').replace(/-tag$/, '');
 
     const updatedItems = (orderObj.items || []).map((item: any) => {
       if (item.id === realItemId) {
@@ -406,7 +441,7 @@ export function Dashboard() {
     }
 
     const isTag = queueItemId.endsWith('-tag');
-    const realItemId = queueItemId.replace('-art', '').replace('-tag', '');
+    const realItemId = queueItemId.replace(/-art-sheet-\d+$/, '').replace(/-art$/, '').replace(/-tag$/, '');
 
     const updatedItems = (orderObj.items || []).map((item: any) => {
       if (item.id === realItemId) {

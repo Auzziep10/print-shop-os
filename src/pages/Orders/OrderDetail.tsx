@@ -798,6 +798,118 @@ interface FinalSheetOutput {
     totalSheets: number;
 }
 
+const isTagArtwork = (art: any): boolean => {
+    if (!art) return false;
+    return art.name === 'Size Tag Print' || Boolean(art.name?.toLowerCase().includes('tag'));
+};
+
+const getItemGarmentCount = (item: any): number => {
+    const sizeTotal = Object.values(item?.sizes || {}).reduce(
+        (sum: number, val: any) => sum + (parseInt(String(val), 10) || 0),
+        0
+    );
+    return sizeTotal || parseInt(String(item?.qty), 10) || parseInt(String(item?.quantity), 10) || 1;
+};
+
+// Returns normalized non-tag printable artworks for a single garment or gang-sheet line item
+const getPrintableArtworksForItem = (item: any): any[] => {
+    if (!item) return [];
+    const garmentQty = getItemGarmentCount(item);
+    const itemStyleLabel = [item.style, item.color].filter(Boolean).join(' — ') || 'Garment';
+    const result: any[] = [];
+
+    const nonTagArtworks = Array.isArray(item.artworks)
+        ? item.artworks.filter((art: any) => !isTagArtwork(art))
+        : [];
+
+    if (nonTagArtworks.length > 0) {
+        nonTagArtworks.forEach((art: any, idx: number) => {
+            const rawArtUrl = art.url || art.imageUrl || art.originalUrl;
+            const url = rawArtUrl || (item.itemType === 'gang_sheet' ? (item.originalSheetUrl || item.image) : '');
+            if (!url) return;
+            const prebuilt = isPrebuiltSheetArt(item, rawArtUrl);
+            const parsedWidth = parseFloat(String(art.width));
+            const fallbackWidth = prebuilt ? (parseFloat(String(item.sheetWidth)) || 22) : 3.5;
+            const parsedQty = parseInt(String(art.quantity), 10);
+            result.push({
+                ...art,
+                id: art.id || `art-${item.id || 'item'}-${idx}`,
+                itemId: item.id,
+                itemStyle: itemStyleLabel,
+                name: art.name || 'Placement',
+                url,
+                width: parsedWidth > 0 ? parsedWidth : fallbackWidth,
+                quantity: parsedQty > 0 ? parsedQty : garmentQty,
+                keepFullCanvas: prebuilt,
+            });
+        });
+    }
+
+    if (result.length === 0) {
+        const logoFields = [
+            { key: 'front', name: item.logoName || 'Front Logo', url: item.logoUrl, width: item.logoWidth || 3.5 },
+            { key: 'back', name: item.logoNameBack || 'Back Logo', url: item.logoUrlBack, width: item.logoWidthBack || 10 },
+            { key: 'left-sleeve', name: 'Left Sleeve Logo', url: item.logoUrlLeftSleeve, width: item.logoWidthLeftSleeve || 3.5 },
+            { key: 'right-sleeve', name: 'Right Sleeve Logo', url: item.logoUrlRightSleeve, width: item.logoWidthRightSleeve || 3.5 },
+            { key: 'chest', name: 'Chest Logo', url: item.logoUrlChest, width: item.logoWidthChest || 4.0 },
+        ];
+        logoFields.forEach((lf) => {
+            if (lf.url) {
+                const parsedWidth = parseFloat(String(lf.width));
+                result.push({
+                    id: `art-${item.id || 'item'}-${lf.key}`,
+                    itemId: item.id,
+                    itemStyle: itemStyleLabel,
+                    name: lf.name,
+                    url: lf.url,
+                    width: parsedWidth > 0 ? parsedWidth : 3.5,
+                    quantity: garmentQty,
+                    keepFullCanvas: false,
+                });
+            }
+        });
+
+        if (result.length === 0 && item.itemType === 'gang_sheet' && (item.originalSheetUrl || item.image)) {
+            const sheetUrl = item.originalSheetUrl || item.image;
+            const prebuilt = isPrebuiltSheetArt(item, sheetUrl);
+            const parsedWidth = parseFloat(String(item.sheetWidth));
+            result.push({
+                id: `art-${item.id || 'sheet'}-main`,
+                itemId: item.id,
+                itemStyle: item.sheetSizeName || 'DTF Gang Sheet',
+                name: item.sheetSizeName || 'DTF Gang Sheet',
+                url: sheetUrl,
+                width: parsedWidth > 0 ? parsedWidth : (prebuilt ? 22 : 3.5),
+                quantity: parseInt(String(item.quantity), 10) || 1,
+                keepFullCanvas: prebuilt,
+            });
+        }
+    }
+
+    return result;
+};
+
+const isPrintableArtItem = (item: any): boolean => {
+    if (!item) return false;
+    return item.itemType === 'gang_sheet' || getPrintableArtworksForItem(item).length > 0;
+};
+
+const sanitizeForFirestore = <T,>(value: T): T => {
+    if (Array.isArray(value)) {
+        return value.map((item) => sanitizeForFirestore(item)) as unknown as T;
+    }
+    if (value && typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]') {
+        const cleaned: Record<string, any> = {};
+        Object.entries(value as Record<string, any>).forEach(([k, v]) => {
+            if (v !== undefined) {
+                cleaned[k] = sanitizeForFirestore(v);
+            }
+        });
+        return cleaned as T;
+    }
+    return value;
+};
+
 const generateFinalSheetsForPrintAndCut = async (
     orderItem: any,
     orderId: string,
@@ -810,13 +922,12 @@ const generateFinalSheetsForPrintAndCut = async (
 
     const isVinyl = isVinylItem(orderItem);
 
-    const artworks = (orderItem.artworks || []).filter(
-        (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
-    );
+    const artworks = getPrintableArtworksForItem(orderItem);
+    const isGarment = !orderItem.itemType || orderItem.itemType === 'garment';
 
-    let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer' ||
-        orderItem.itemType === 'garment' ||
-        (artworks.length > 0 && artworks.some((art: any) => art.url && art.url !== orderItem.image));
+    let isSingleTransferLayout = isGarment ||
+        orderItem.sheetSizeName === 'Single Design Transfer' ||
+        (artworks.length > 0 && artworks.some((art: any) => !isPrebuiltSheetArt(orderItem, art.url || art.imageUrl || art.originalUrl)));
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
     // The finished print and cut files are exactly PRINTABLE_FILM_WIDTH_INCHES wide (margins and
@@ -1349,11 +1460,11 @@ const generateFinalSheetsForPrintAndCut = async (
             ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
             textY += FONT_SIZE_SMALL + 15;
             
-            const sheetDescription = totalSheets > 1
-                ? `22" x ${Math.round(sheetContentHeightInches)}" • 300 DPI • Part ${sheetNumber} of ${totalSheets}`
-                : (isSingleTransferLayout
-                    ? `Multi-logo Auto-repeat Sheet (22" x ${Math.round(sheetContentHeightInches)}")`
-                    : `${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}" Sheet`);
+            const itemLabel = [orderItem.style, orderItem.color].filter(Boolean).join(' — ');
+            const partSuffix = totalSheets > 1 ? ` • Part ${sheetNumber} of ${totalSheets}` : '';
+            const sheetDescription = isSingleTransferLayout
+                ? `${itemLabel || 'Garment Gang Sheet'} • 22" x ${Math.round(sheetContentHeightInches)}" • 300 DPI${partSuffix}`
+                : `${itemLabel || 'Gang Sheet'} • ${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}"${partSuffix}`;
             ctx.fillText(`Sheet: ${sheetDescription}`, textX, textY);
         };
 
@@ -1448,18 +1559,7 @@ const generateFinalSheetsForPrintAndCut = async (
 
 const isPrintableItem = (item: any) => {
   if (!item) return false;
-  const isGarment = !item.itemType || item.itemType === 'garment';
-  return (
-    item.itemType === 'gang_sheet' ||
-    (isGarment && (
-      (Array.isArray(item.artworks) && item.artworks.length > 0) ||
-      !!item.logoUrl ||
-      !!item.logoUrlBack ||
-      !!item.logoUrlLeftSleeve ||
-      !!item.logoUrlRightSleeve ||
-      !!item.logoUrlTag
-    ))
-  );
+  return isPrintableArtItem(item) || !!item.logoUrlTag;
 };
 
 const DEFAULT_LADDER_FALLBACK = {
@@ -2557,17 +2657,19 @@ export function OrderDetail() {
   const [isUploadingGang, setIsUploadingGang] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
   const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
+  const [generatingItemIds, setGeneratingItemIds] = useState<Record<string, boolean>>({});
   const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
-  // Progress text shown while the master sheet is being built and uploaded
+  // Progress text shown while gang sheets are being built and uploaded
   const [generationStatus, setGenerationStatus] = useState('');
+  const [generationStatusByItem, setGenerationStatusByItem] = useState<Record<string, string>>({});
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [specsError, setSpecsError] = useState('');
   // Neutral message in the size editor (for example: nothing to trim)
   const [specsNotice, setSpecsNotice] = useState('');
-  // Set after sizes are saved, until the production files are regenerated
-  const [needsRegenerate, setNeedsRegenerate] = useState(false);
+  // Tracks which line items have saved logo size/copy changes awaiting sheet regeneration
+  const [needsRegenerateByItem, setNeedsRegenerateByItem] = useState<Record<string, boolean>>({});
   // Production Assets starts collapsed on every order; remembers which order it was opened for
   const [productionExpandedFor, setProductionExpandedFor] = useState<string | null>(null);
   const isProductionCollapsed = productionExpandedFor !== (id || '');
@@ -2960,17 +3062,29 @@ export function OrderDetail() {
       ...(frontUrl && backUrl ? [backUrl] : []),
       ...otherMockups.map((m: any) => m.url).filter(Boolean)
     ];
-    const designLogos: { id: string; name: string; url: string }[] = Array.isArray(design.logos) ? design.logos : [];
-    const mappedArtworks = designLogos.map((l: any, idx: number) => ({
-      id: l.id || `art-${Date.now()}-${idx}`,
-      name: l.name || `Logo ${idx + 1}`,
-      url: l.url,
-      imageUrl: l.url,
-      originalUrl: l.url,
-      width: 3.5,
-      height: 3.5,
-      quantity: 10
-    }));
+    const designLogos: { id: string; name: string; url: string; width?: number }[] = Array.isArray(design.logos) ? design.logos : [];
+    const prevArtworks: any[] = Array.isArray(prev?.artworks) ? prev.artworks : [];
+    const mappedArtworks = designLogos.map((l: any, idx: number) => {
+      const existingArt = prevArtworks.find((a: any) => (a?.url || a?.imageUrl || a?.originalUrl) === l.url) || prevArtworks[idx];
+      const preservedWidth = parseFloat(String(existingArt?.width ?? l.width)) > 0
+        ? parseFloat(String(existingArt?.width ?? l.width))
+        : 3.5;
+      const preservedHeight = parseFloat(String(existingArt?.height)) > 0
+        ? parseFloat(String(existingArt?.height))
+        : preservedWidth;
+      const preservedQty = parseInt(String(existingArt?.quantity), 10);
+      return {
+        id: existingArt?.id || l.id || `art-${Date.now()}-${idx}`,
+        name: l.name || existingArt?.name || `Logo ${idx + 1}`,
+        url: l.url,
+        imageUrl: l.url,
+        originalUrl: l.url,
+        width: preservedWidth,
+        height: preservedHeight,
+        ...(existingArt?.aspectRatio ? { aspectRatio: existingArt.aspectRatio } : {}),
+        ...(preservedQty > 0 ? { quantity: preservedQty } : {}),
+      };
+    });
     const mappedLogoLabels = designLogos.map((l: any, idx: number) =>
       l.name ? l.name.replace(/\.[^/.]+$/, '') : `Logo ${idx + 1}`
     );
@@ -4004,27 +4118,43 @@ export function OrderDetail() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       
+      const targetOrderItem = (order?.items || []).find((i: any) => i.id === itemId);
+      const defaultCopies = targetOrderItem ? getItemGarmentCount(targetOrderItem) : 10;
+
       setEditingArtworks(prev => {
         const next = [...prev];
         const defaultWidth = 3.5;
         const calculatedHeight = parseFloat((defaultWidth * aspect).toFixed(2));
         if (next.length === 0 || !next[idx]) {
-          const newItem = { id: `art-${Date.now()}`, name: file.name, url, width: defaultWidth, height: calculatedHeight, aspectRatio: aspect, quantity: 10 };
+          const newItem = {
+            id: `art-${Date.now()}`,
+            itemId,
+            name: file.name,
+            url,
+            imageUrl: url,
+            originalUrl: url,
+            width: defaultWidth,
+            height: calculatedHeight,
+            aspectRatio: aspect,
+            quantity: defaultCopies
+          };
           if (next[idx] === undefined) {
             next[idx] = newItem;
           } else {
             next.push(newItem);
           }
         } else {
+          const existingWidth = parseFloat(String(next[idx].width)) > 0 ? parseFloat(String(next[idx].width)) : defaultWidth;
           next[idx] = {
             ...next[idx],
             id: next[idx].id || `art-${Date.now()}`,
+            itemId: next[idx].itemId || itemId,
             name: file.name,
             url,
             imageUrl: url,
             originalUrl: url,
-            width: next[idx].width || defaultWidth,
-            height: parseFloat(((next[idx].width || defaultWidth) * aspect).toFixed(2)),
+            width: existingWidth,
+            height: parseFloat((existingWidth * aspect).toFixed(2)),
             aspectRatio: aspect
           };
         }
@@ -4112,162 +4242,174 @@ export function OrderDetail() {
     }
   };
 
-  const handleSaveInlineSpecs = async (item: any) => {
-    if (!id || !order) return;
-    const missingWidth = editingArtworks.filter(art => !(parseFloat(art.width) > 0));
+  const applyMappedArtworksToOrderItem = (orderItem: any, rawArtworks: any[]) => {
+    const mappedArtworks = rawArtworks.map((art: any) => {
+      const parsedW = parseFloat(String(art.width));
+      const w = parsedW > 0 ? parsedW : 3.5;
+      const aspect = getArtAspect(art);
+      const h = parseFloat((w * aspect).toFixed(2));
+      const url = art.url || art.imageUrl || art.originalUrl || '';
+      return sanitizeForFirestore({
+        ...art,
+        url,
+        imageUrl: art.imageUrl || url,
+        originalUrl: art.originalUrl || url,
+        width: w,
+        height: h,
+        aspectRatio: aspect,
+        quantity: Math.max(1, parseInt(String(art.quantity), 10) || 1),
+      });
+    });
+
+    const preservedTagArtworks = Array.isArray(orderItem.artworks)
+      ? orderItem.artworks.filter((a: any) => isTagArtwork(a))
+      : [];
+
+    const syncedLegacyWidths: Record<string, number> = {};
+    mappedArtworks.forEach((art: any) => {
+      const u = art.url || art.imageUrl || art.originalUrl;
+      if (!u) return;
+      if (orderItem.logoUrl && u === orderItem.logoUrl) syncedLegacyWidths.logoWidth = art.width;
+      if (orderItem.logoUrlBack && u === orderItem.logoUrlBack) syncedLegacyWidths.logoWidthBack = art.width;
+      if (orderItem.logoUrlLeftSleeve && u === orderItem.logoUrlLeftSleeve) syncedLegacyWidths.logoWidthLeftSleeve = art.width;
+      if (orderItem.logoUrlRightSleeve && u === orderItem.logoUrlRightSleeve) syncedLegacyWidths.logoWidthRightSleeve = art.width;
+      if (orderItem.logoUrlChest && u === orderItem.logoUrlChest) syncedLegacyWidths.logoWidthChest = art.width;
+    });
+
+    return sanitizeForFirestore({
+      ...orderItem,
+      ...syncedLegacyWidths,
+      artworks: [...mappedArtworks, ...preservedTagArtworks],
+    });
+  };
+
+  const persistInlineSpecs = async (item: any, artworksToSave: any[]): Promise<any[] | null> => {
+    if (!id || !order) return null;
+    const missingWidth = artworksToSave.filter(art => !(parseFloat(String(art.width)) > 0));
     if (missingWidth.length > 0) {
       setSpecsError(`Enter a print width in inches for: ${missingWidth.map(a => a.name || 'Unnamed Logo').join(', ')}`);
-      return;
+      return null;
     }
     setSpecsError('');
-    try {
-      if (item.id === 'master-combined-item') {
-        const itemsMap: Record<string, any[]> = {};
-        editingArtworks.forEach(art => {
-          const w = parseFloat(art.width) || 3.5;
-          const aspect = getArtAspect(art);
-          const h = parseFloat((w * aspect).toFixed(2));
-          const updatedArt = { ...art, width: w, height: h, aspectRatio: aspect, quantity: Math.max(1, parseInt(art.quantity) || 1) };
+    setSpecsNotice('');
 
-          const targetItemId = art.itemId;
-          if (targetItemId) {
-            if (!itemsMap[targetItemId]) itemsMap[targetItemId] = [];
-            itemsMap[targetItemId].push(updatedArt);
-          }
-        });
+    const orderRef = doc(db, 'orders', id);
+    const latestSnap = await getDoc(orderRef);
+    const baseItems: any[] = Array.isArray(latestSnap.data()?.items) ? latestSnap.data()!.items : (order.items || []);
 
-        const updatedItems = (order.items || []).map((orderItem: any) => {
-          if (itemsMap[orderItem.id]) {
-            return {
-              ...orderItem,
-              artworks: itemsMap[orderItem.id]
-            };
-          }
-          return orderItem;
-        });
+    const isMasterCard = String(item?.id || '').startsWith('master-combined');
+    let updatedItems: any[];
+    const touchedItemIds: string[] = [];
 
-        await updateDoc(doc(db, 'orders', id), { items: updatedItems });
-        setEditingSpecsCardId(null);
-        setNeedsRegenerate(true);
-        return;
-      }
-
-      const updatedItems = (order.items || []).map((orderItem: any) => {
-        if (orderItem.id === item.id) {
-          const mappedArtworks = editingArtworks.map(art => {
-            const w = parseFloat(art.width) || 3.5;
-            const aspect = getArtAspect(art);
-            const h = parseFloat((w * aspect).toFixed(2));
-            return {
-              ...art,
-              width: w,
-              height: h,
-              aspectRatio: aspect,
-              quantity: Math.max(1, parseInt(art.quantity) || 1)
-            };
-          });
-          return {
-            ...orderItem,
-            artworks: mappedArtworks
-          };
+    if (isMasterCard) {
+      const itemsMap: Record<string, any[]> = {};
+      artworksToSave.forEach(art => {
+        const targetItemId = art.itemId;
+        if (targetItemId) {
+          if (!itemsMap[targetItemId]) itemsMap[targetItemId] = [];
+          itemsMap[targetItemId].push(art);
         }
-        return orderItem;
       });
 
-      await updateDoc(doc(db, 'orders', id), {
-        items: updatedItems
+      updatedItems = baseItems.map((orderItem: any) => {
+        if (isPrintableArtItem(orderItem)) {
+          touchedItemIds.push(orderItem.id);
+          return applyMappedArtworksToOrderItem(orderItem, itemsMap[orderItem.id] || []);
+        }
+        return sanitizeForFirestore(orderItem);
       });
+    } else {
+      updatedItems = baseItems.map((orderItem: any) => {
+        if (String(orderItem.id) === String(item.id)) {
+          touchedItemIds.push(orderItem.id);
+          return applyMappedArtworksToOrderItem(orderItem, artworksToSave);
+        }
+        return sanitizeForFirestore(orderItem);
+      });
+    }
 
-      setEditingSpecsCardId(null);
-      setNeedsRegenerate(true);
+    await updateDoc(orderRef, { items: updatedItems });
+    setEditingSpecsCardId(null);
+    setNeedsRegenerateByItem(prev => {
+      const next = { ...prev };
+      touchedItemIds.forEach(tId => { next[tId] = true; });
+      return next;
+    });
+    return updatedItems;
+  };
+
+  const handleSaveInlineSpecs = async (item: any) => {
+    try {
+      await persistInlineSpecs(item, editingArtworks);
     } catch (err) {
       console.error("Failed to save inline specs:", err);
-      alert("Failed to save specifications.");
+      alert("Failed to save specifications: " + (err as Error).message);
     }
   };
 
-  const handleGenerateCombinedOrderGangSheet = async () => {
-    if (!id || !order || !order.items || order.items.length === 0) return;
+  const isCardEditingItem = (cardId: string | null, itemId: string) => {
+    if (!cardId || !itemId) return false;
+    return cardId === `${itemId}-art` || cardId.startsWith(`${itemId}-art-sheet-`);
+  };
 
-    const combinedArtworks: any[] = [];
-    let totalGarmentsCount = 0;
+  const handleGenerateItemGangSheet = async (
+    targetItem: any,
+    options?: { silent?: boolean; preSavedItems?: any[] }
+  ): Promise<boolean> => {
+    if (!id || !order || !targetItem?.id) return false;
+    const targetId = String(targetItem.id);
 
-    (order.items || []).forEach((item: any) => {
-      const garmentQty = Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1;
-      totalGarmentsCount += garmentQty;
+    let workingItems: any[] | undefined = options?.preSavedItems;
 
-      if (Array.isArray(item.artworks) && item.artworks.length > 0) {
-        item.artworks.forEach((art: any) => {
-          if (art.name === 'Size Tag Print' || art.name?.toLowerCase().includes('tag')) return;
-          const qty = parseInt(art.quantity) || garmentQty;
-          const url = art.url || art.imageUrl || art.originalUrl || item.originalSheetUrl || item.image;
-          if (url) {
-            combinedArtworks.push({
-              ...art,
-              name: `${item.style || 'Item'} - ${art.name || 'Placement'}`,
-              url,
-              width: parseFloat(art.width) || 3.5,
-              quantity: qty,
-              // Customer-built gang sheets keep their full canvas so designs stay at their built size
-              keepFullCanvas: isPrebuiltSheetArt(item, art.url || art.imageUrl || art.originalUrl),
-            });
-          }
-        });
-      } else {
-        const logoFields = [
-          { name: 'Front Logo', url: item.logoUrl, width: item.logoWidth || 3.5 },
-          { name: 'Back Logo', url: item.logoUrlBack, width: item.logoWidthBack || 10 },
-          { name: 'Left Sleeve Logo', url: item.logoUrlLeftSleeve, width: item.logoWidthLeftSleeve || 3.5 },
-          { name: 'Right Sleeve Logo', url: item.logoUrlRightSleeve, width: item.logoWidthRightSleeve || 3.5 },
-          { name: 'Chest Logo', url: item.logoUrlChest, width: item.logoWidthChest || 4.0 },
-        ];
-        logoFields.forEach(lf => {
-          if (lf.url) {
-            combinedArtworks.push({
-              name: `${item.style || 'Item'} - ${lf.name}`,
-              url: lf.url,
-              width: parseFloat(lf.width as any) || 3.5,
-              quantity: garmentQty,
-            });
-          }
-        });
-        if (item.itemType === 'gang_sheet' && (item.originalSheetUrl || item.image)) {
-          combinedArtworks.push({
-            name: item.sheetSizeName || 'DTF Gang Sheet',
-            url: item.originalSheetUrl || item.image,
-            width: parseFloat(item.sheetWidth) || 22,
-            quantity: item.quantity || 1,
-            keepFullCanvas: true,
-          });
-        }
+    // If the user typed new sizes into this garment's open editor and clicked Regenerate directly, save them first
+    if (!workingItems && isCardEditingItem(editingSpecsCardId, targetId)) {
+      try {
+        const saved = await persistInlineSpecs(targetItem, editingArtworks);
+        if (!saved) return false;
+        workingItems = saved;
+      } catch (err) {
+        console.error('Failed to save open specs before generating:', err);
+        if (!options?.silent) alert('Failed to save logo sizes: ' + (err as Error).message);
+        return false;
       }
-    });
-
-    if (combinedArtworks.length === 0) {
-      alert("No printable artworks found across order line items.");
-      return;
     }
 
-    const missingDims = combinedArtworks.filter(art => !art.width || parseFloat(art.width) <= 0);
+    if (!workingItems) {
+      const latestSnap = await getDoc(doc(db, 'orders', id));
+      workingItems = Array.isArray(latestSnap.data()?.items) ? latestSnap.data()!.items : (order.items || []);
+    }
+
+    const latestItem = (workingItems || []).find((i: any) => String(i.id) === targetId) || targetItem;
+    const itemArtworks = getPrintableArtworksForItem(latestItem);
+
+    if (itemArtworks.length === 0) {
+      if (!options?.silent) {
+        alert(`No printable logos found for "${latestItem.style || 'Garment'}".`);
+      }
+      return false;
+    }
+
+    const missingDims = itemArtworks.filter((art: any) => !(parseFloat(String(art.width)) > 0));
     if (missingDims.length > 0) {
-      alert(`Missing Print Dimensions: Please set print width for "${missingDims.map(d => d.name).join(', ')}" under Adjust Layout/Logos first.`);
-      return;
+      if (!options?.silent) {
+        alert(`Missing Print Dimensions: Please enter the print width for "${missingDims.map((d: any) => d.name).join(', ')}" on ${latestItem.style || 'this garment'}.`);
+      }
+      setEditingSpecsCardId(`${targetId}-art`);
+      setEditingArtworks(itemArtworks);
+      return false;
     }
 
-    setIsGeneratingCombined(true);
+    setGeneratingItemIds(prev => ({ ...prev, [targetId]: true }));
+    setGenerationStatusByItem(prev => ({ ...prev, [targetId]: 'Loading artwork and building sheet at 300 DPI…' }));
+
     try {
-      const syntheticItem = {
-        id: `master-combined-${id}`,
-        sheetSizeName: 'Combined Order Master Sheet',
-        sheetWidth: 22,
-        artworks: combinedArtworks,
-        style: `Order #${order.orderNumber || id} (Master Sheet)`,
-        quantity: 1,
+      const itemForGeneration = {
+        ...latestItem,
+        artworks: itemArtworks,
       };
 
-      setGenerationStatus('Loading artwork and building sheets at 300 DPI…');
       const sheets = await generateFinalSheetsForPrintAndCut(
-        syntheticItem,
+        itemForGeneration,
         order.id,
         order.customerName || 'Customer',
         order.shippingAddress || null
@@ -4281,14 +4423,19 @@ export function OrderDetail() {
         cutUrl: string;
       }> = [];
 
+      const timestamp = Date.now();
       for (const sheet of sheets) {
         const fileSuffix = sheets.length > 1 ? `-sheet-${sheet.sheetNumber}` : '';
-        const printStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-print.png`);
-        const cutStorageRef = ref(storage, `production-sheets/${id}/master-combined${fileSuffix}-cut.svg`);
+        const printStorageRef = ref(storage, `production-sheets/${id}/${targetId}${fileSuffix}-${timestamp}-print.png`);
+        const cutStorageRef = ref(storage, `production-sheets/${id}/${targetId}${fileSuffix}-${timestamp}-cut.svg`);
 
-        setGenerationStatus(sheets.length > 1
-          ? `Uploading sheet ${sheet.sheetNumber} of ${sheets.length}…`
-          : 'Uploading print and cut files…');
+        setGenerationStatusByItem(prev => ({
+          ...prev,
+          [targetId]: sheets.length > 1
+            ? `Uploading sheet ${sheet.sheetNumber} of ${sheets.length}…`
+            : 'Uploading print and cut files…'
+        }));
+
         await uploadString(printStorageRef, sheet.printDataUrl, 'data_url');
         await uploadString(cutStorageRef, sheet.cutDataUrl, 'data_url');
 
@@ -4300,29 +4447,121 @@ export function OrderDetail() {
           totalSheets: sheet.totalSheets,
           height: sheet.sheetHeight,
           printUrl,
-          cutUrl
+          cutUrl,
         });
       }
 
       const totalHeight = uploadedSheets.reduce((sum, s) => sum + s.height, 0);
 
-      await updateDoc(doc(db, 'orders', id), {
-        masterPrintReadyUrl: uploadedSheets[0].printUrl,
-        masterCutReadyUrl: uploadedSheets[0].cutUrl,
-        masterSheetHeight: totalHeight,
-        masterSheets: uploadedSheets,
-        masterReadyToPrint: true,
-      });
-      setNeedsRegenerate(false);
+      // Read fresh items before persisting URLs so concurrent edits on other items are never clobbered
+      const freshSnap = await getDoc(doc(db, 'orders', id));
+      const freshItems: any[] = Array.isArray(freshSnap.data()?.items) ? freshSnap.data()!.items : (workingItems || []);
 
-      if (uploadedSheets.length > 1) {
-        alert(`Successfully generated ${uploadedSheets.length} master gang sheets (all strictly 300 DPI) for this order!`);
-      } else {
-        alert("Master combined gang sheet successfully generated for the entire order!");
+      const finalItems = freshItems.map((i: any) => {
+        if (String(i.id) === targetId) {
+          return sanitizeForFirestore({
+            ...i,
+            printReadyUrl: uploadedSheets[0].printUrl,
+            cutReadyUrl: uploadedSheets[0].cutUrl,
+            sheetHeight: totalHeight,
+            sheets: uploadedSheets,
+            readyToPrint: true,
+            readyToPrintAt: new Date().toISOString(),
+            readyToPrintBy: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff',
+            printed: false,
+            printedAt: null,
+            printedBy: null,
+          });
+        }
+        return sanitizeForFirestore(i);
+      });
+
+      await updateDoc(doc(db, 'orders', id), {
+        items: finalItems,
+        // Clear any legacy order-wide combined master sheet so sheets stay strictly garment-specific
+        masterPrintReadyUrl: null,
+        masterCutReadyUrl: null,
+        masterSheetHeight: null,
+        masterSheets: [],
+        masterReadyToPrint: false,
+        masterPrinted: false,
+      });
+
+      setNeedsRegenerateByItem(prev => ({ ...prev, [targetId]: false }));
+
+      if (!options?.silent) {
+        const itemTitle = [latestItem.style, latestItem.color].filter(Boolean).join(' — ') || 'Garment';
+        if (uploadedSheets.length > 1) {
+          alert(`Generated ${uploadedSheets.length} 300 DPI gang sheets for "${itemTitle}"!`);
+        } else {
+          alert(`Gang sheet and cut file generated for "${itemTitle}"!`);
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error(`Error generating print/cut files for item ${targetId}:`, err);
+      if (!options?.silent) {
+        alert(`Failed to generate gang sheet for "${latestItem.style || 'Garment'}": ` + (err as Error).message);
+      }
+      return false;
+    } finally {
+      setGeneratingItemIds(prev => ({ ...prev, [targetId]: false }));
+      setGenerationStatusByItem(prev => ({ ...prev, [targetId]: '' }));
+    }
+  };
+
+  const handleSaveAndRegenerateInlineSpecs = async (item: any) => {
+    try {
+      const savedItems = await persistInlineSpecs(item, editingArtworks);
+      if (!savedItems) return;
+      await handleGenerateItemGangSheet(item, { preSavedItems: savedItems });
+    } catch (err) {
+      console.error("Failed to save and regenerate specs:", err);
+      alert("Failed to save specifications: " + (err as Error).message);
+    }
+  };
+
+  const handleGenerateAllGarmentGangSheets = async () => {
+    if (!id || !order || !order.items || order.items.length === 0) return;
+
+    setIsGeneratingCombined(true);
+    try {
+      let workingItems: any[] | undefined;
+      if (editingSpecsCardId) {
+        const openItem = (order.items || []).find((i: any) => isCardEditingItem(editingSpecsCardId, String(i.id)));
+        if (openItem) {
+          const saved = await persistInlineSpecs(openItem, editingArtworks);
+          if (!saved) return;
+          workingItems = saved;
+        }
+      }
+
+      if (!workingItems) {
+        const latestSnap = await getDoc(doc(db, 'orders', id));
+        workingItems = Array.isArray(latestSnap.data()?.items) ? latestSnap.data()!.items : (order.items || []);
+      }
+
+      const printableArtItems = (workingItems || []).filter(isPrintableArtItem);
+      if (printableArtItems.length === 0) {
+        alert("No printable garment or gang sheet items found in this order.");
+        return;
+      }
+
+      let generatedCount = 0;
+      for (let idx = 0; idx < printableArtItems.length; idx++) {
+        const item = printableArtItems[idx];
+        const label = [item.style, item.color].filter(Boolean).join(' — ') || `Item ${idx + 1}`;
+        setGenerationStatus(`Generating ${idx + 1} of ${printableArtItems.length}: ${label}…`);
+        const ok = await handleGenerateItemGangSheet(item, { silent: true });
+        if (ok) generatedCount++;
+      }
+
+      if (generatedCount > 0) {
+        alert(`Successfully generated garment-specific gang sheets for ${generatedCount} ${generatedCount === 1 ? 'item' : 'items'}!`);
       }
     } catch (err) {
-      console.error('Error generating combined print/cut files:', err);
-      alert('Failed to generate master combined sheet: ' + (err as Error).message);
+      console.error('Error generating garment gang sheets:', err);
+      alert('Failed to generate garment gang sheets: ' + (err as Error).message);
     } finally {
       setIsGeneratingCombined(false);
       setGenerationStatus('');
@@ -4819,94 +5058,143 @@ export function OrderDetail() {
 
       // Find all printable items in this order
       const printableItems = (order.items || []).filter(isPrintableItem);
+      const hasAnyItemArtSheets = printableItems.some((item: any) => !!(item.printReadyUrl || (Array.isArray(item.sheets) && item.sheets.length > 0)));
 
-      if (Array.isArray(order.masterSheets) && order.masterSheets.length > 0) {
-        for (const s of order.masterSheets) {
-          const suffix = order.masterSheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
-          if (s.printUrl) {
+      if (!hasAnyItemArtSheets) {
+        if (Array.isArray(order.masterSheets) && order.masterSheets.length > 0) {
+          for (const s of order.masterSheets) {
+            const suffix = order.masterSheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
+            if (s.printUrl) {
+              try {
+                const masterPrintRes = await fetch(s.printUrl);
+                const masterPrintBlob = await masterPrintRes.blob();
+                zip.file(`${order.id}-MASTER-COMBINED${suffix}-print.png`, masterPrintBlob);
+                hasFiles = true;
+              } catch (err) {
+                console.error("Failed to fetch master print file", err);
+              }
+            }
+            if (s.cutUrl) {
+              try {
+                const masterCutRes = await fetch(s.cutUrl);
+                const masterCutBlob = await masterCutRes.blob();
+                zip.file(`${order.id}-MASTER-COMBINED${suffix}-cut.svg`, masterCutBlob);
+                hasFiles = true;
+              } catch (err) {
+                console.error("Failed to fetch master cut file", err);
+              }
+            }
+          }
+        } else {
+          if (order.masterPrintReadyUrl) {
             try {
-              const masterPrintRes = await fetch(s.printUrl);
+              const masterPrintRes = await fetch(order.masterPrintReadyUrl);
               const masterPrintBlob = await masterPrintRes.blob();
-              zip.file(`${order.id}-MASTER-COMBINED${suffix}-print.png`, masterPrintBlob);
+              zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
               hasFiles = true;
             } catch (err) {
               console.error("Failed to fetch master print file", err);
             }
           }
-          if (s.cutUrl) {
+          if (order.masterCutReadyUrl) {
             try {
-              const masterCutRes = await fetch(s.cutUrl);
+              const masterCutRes = await fetch(order.masterCutReadyUrl);
               const masterCutBlob = await masterCutRes.blob();
-              zip.file(`${order.id}-MASTER-COMBINED${suffix}-cut.svg`, masterCutBlob);
+              zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
               hasFiles = true;
             } catch (err) {
               console.error("Failed to fetch master cut file", err);
             }
           }
         }
-      } else {
-        if (order.masterPrintReadyUrl) {
-          try {
-            const masterPrintRes = await fetch(order.masterPrintReadyUrl);
-            const masterPrintBlob = await masterPrintRes.blob();
-            zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error("Failed to fetch master print file", err);
-          }
+      }
+
+      if (order.masterTagPrintReadyUrl) {
+        try {
+          const masterTagPrintRes = await fetch(order.masterTagPrintReadyUrl);
+          zip.file(`${order.id}-SIZE-TAGS-print.png`, await masterTagPrintRes.blob());
+          hasFiles = true;
+        } catch (err) {
+          console.error("Failed to fetch master tag print file", err);
         }
-        if (order.masterCutReadyUrl) {
-          try {
-            const masterCutRes = await fetch(order.masterCutReadyUrl);
-            const masterCutBlob = await masterCutRes.blob();
-            zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error("Failed to fetch master cut file", err);
-          }
+      }
+      if (order.masterTagCutReadyUrl) {
+        try {
+          const masterTagCutRes = await fetch(order.masterTagCutReadyUrl);
+          zip.file(`${order.id}-SIZE-TAGS-cut.svg`, await masterTagCutRes.blob());
+          hasFiles = true;
+        } catch (err) {
+          console.error("Failed to fetch master tag cut file", err);
         }
       }
 
       for (const item of printableItems) {
-        if (item.printReadyUrl) {
-          try {
-            const printRes = await fetch(item.printReadyUrl);
-            const printBlob = await printRes.blob();
-            const filenamePrint = `${order.id}-${item.id}-print.png`;
-            zip.file(filenamePrint, printBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error(`Failed to fetch print file for item ${item.id}`, err);
+        const safeName = [item.style, item.color]
+          .filter(Boolean)
+          .join('-')
+          .replace(/[^a-zA-Z0-9_-]+/g, '_')
+          .replace(/^_+|_+$/g, '') || item.id;
+
+        if (Array.isArray(item.sheets) && item.sheets.length > 0) {
+          for (const s of item.sheets) {
+            const suffix = item.sheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
+            if (s.printUrl) {
+              try {
+                const printRes = await fetch(s.printUrl);
+                zip.file(`${order.id}-${safeName}${suffix}-print.png`, await printRes.blob());
+                hasFiles = true;
+              } catch (err) {
+                console.error(`Failed to fetch print sheet ${s.sheetNumber} for item ${item.id}`, err);
+              }
+            }
+            if (s.cutUrl) {
+              try {
+                const cutRes = await fetch(s.cutUrl);
+                zip.file(`${order.id}-${safeName}${suffix}-cut.svg`, await cutRes.blob());
+                hasFiles = true;
+              } catch (err) {
+                console.error(`Failed to fetch cut sheet ${s.sheetNumber} for item ${item.id}`, err);
+              }
+            }
+          }
+        } else {
+          if (item.printReadyUrl) {
+            try {
+              const printRes = await fetch(item.printReadyUrl);
+              const printBlob = await printRes.blob();
+              zip.file(`${order.id}-${safeName}-print.png`, printBlob);
+              hasFiles = true;
+            } catch (err) {
+              console.error(`Failed to fetch print file for item ${item.id}`, err);
+            }
+          }
+          if (item.cutReadyUrl) {
+            try {
+              const cutRes = await fetch(item.cutReadyUrl);
+              const cutBlob = await cutRes.blob();
+              zip.file(`${order.id}-${safeName}-cut.svg`, cutBlob);
+              hasFiles = true;
+            } catch (err) {
+              console.error(`Failed to fetch cut file for item ${item.id}`, err);
+            }
           }
         }
-        if (item.cutReadyUrl) {
-          try {
-            const cutRes = await fetch(item.cutReadyUrl);
-            const cutBlob = await cutRes.blob();
-            const filenameCut = `${order.id}-${item.id}-cut.svg`;
-            zip.file(filenameCut, cutBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error(`Failed to fetch cut file for item ${item.id}`, err);
-          }
-        }
-        if (item.tagPrintReadyUrl) {
+
+        if (!order.masterTagPrintReadyUrl && item.tagPrintReadyUrl) {
           try {
             const tagRes = await fetch(item.tagPrintReadyUrl);
             const tagBlob = await tagRes.blob();
-            const filenameTag = `${order.id}-${item.id}-tag-print.png`;
-            zip.file(filenameTag, tagBlob);
+            zip.file(`${order.id}-${safeName}-tag-print.png`, tagBlob);
             hasFiles = true;
           } catch (err) {
             console.error(`Failed to fetch tag file for item ${item.id}`, err);
           }
         }
-        if (item.tagCutReadyUrl) {
+        if (!order.masterTagCutReadyUrl && item.tagCutReadyUrl) {
           try {
             const tagCutRes = await fetch(item.tagCutReadyUrl);
             const tagCutBlob = await tagCutRes.blob();
-            const filenameTagCut = `${order.id}-${item.id}-tag-cut.svg`;
-            zip.file(filenameTagCut, tagCutBlob);
+            zip.file(`${order.id}-${safeName}-tag-cut.svg`, tagCutBlob);
             hasFiles = true;
           } catch (err) {
             console.error(`Failed to fetch tag cut file for item ${item.id}`, err);
@@ -4951,8 +5239,26 @@ export function OrderDetail() {
       const calcLineTotal = finalQty * numericPrice;
       const lineTotal = calcLineTotal < 0 ? `-$${Math.abs(calcLineTotal).toFixed(2)}` : `$${calcLineTotal.toFixed(2)}`;
 
-      const finalItem = {
+      const normalizedEditArtworks = Array.isArray(editItemObj.artworks)
+        ? editItemObj.artworks.map((art: any) => {
+            if (isTagArtwork(art)) return art;
+            const parsedW = parseFloat(String(art.width));
+            const w = parsedW > 0 ? parsedW : 3.5;
+            const aspect = getArtAspect(art);
+            const parsedQty = parseInt(String(art.quantity), 10);
+            return {
+              ...art,
+              width: w,
+              height: parseFloat((w * aspect).toFixed(2)),
+              aspectRatio: aspect,
+              ...(parsedQty > 0 ? { quantity: parsedQty } : {}),
+            };
+          })
+        : editItemObj.artworks;
+
+      const finalItem = sanitizeForFirestore({
         ...editItemObj,
+        ...(Array.isArray(normalizedEditArtworks) ? { artworks: normalizedEditArtworks } : {}),
         qty: finalQty,
         total: lineTotal,
         ...(editItemObj.itemType === 'service' ? { sizes: {} } : {}),
@@ -4964,7 +5270,7 @@ export function OrderDetail() {
            originalSheetUrl: editItemObj.sheetSizeName === 'Standard Gang Sheet' ? (editItemObj.originalSheetUrl || editItemObj.image || '') : '',
            quantity: finalQty
         } : {})
-      };
+      });
 
       const existingItems = orderData.items || [];
       const itemExists = existingItems.some((i: any) => i.id === finalItem.id);
@@ -7375,19 +7681,40 @@ export function OrderDetail() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Printer className="text-brand-primary" size={22} />
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                    order.masterPrinted
+                  {(() => {
+                    const artItems = (order.items || []).filter(isPrintableArtItem);
+                    const tagItems = (order.items || []).filter((i: any) => !!i.logoUrlTag);
+                    const generatedArtCount = artItems.filter((i: any) => !!(i.printReadyUrl && i.cutReadyUrl)).length;
+                    const allArtGenerated = artItems.length === 0 || generatedArtCount === artItems.length;
+                    const anyArtGenerated = generatedArtCount > 0;
+                    const allTagsGenerated = tagItems.length === 0 || !!(order.masterTagPrintReadyUrl && order.masterTagCutReadyUrl) || tagItems.every((i: any) => !!(i.tagPrintReadyUrl && i.tagCutReadyUrl));
+                    const allPrinted = (artItems.length > 0 || tagItems.length > 0) &&
+                      artItems.every((i: any) => !!i.printed) &&
+                      (tagItems.length === 0 || !!(order.masterTagPrinted || tagItems.every((i: any) => !!i.tagPrinted)));
+                    const allReady = allArtGenerated && allTagsGenerated && (
+                      artItems.some((i: any) => !!i.readyToPrint) || !!order.masterTagReadyToPrint
+                    );
+
+                    const badgeClass = allPrinted
                       ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                      : (order.masterPrintReadyUrl && order.masterCutReadyUrl)
+                      : (allArtGenerated && allTagsGenerated && (anyArtGenerated || tagItems.length > 0))
                         ? 'text-purple-700 bg-purple-50 border-purple-200'
-                        : 'text-amber-700 bg-amber-50 border-amber-200'
-                  }`}>
-                    {order.masterPrinted
+                        : 'text-amber-700 bg-amber-50 border-amber-200';
+
+                    const badgeLabel = allPrinted
                       ? 'Printed'
-                      : (order.masterPrintReadyUrl && order.masterCutReadyUrl)
-                        ? (order.masterReadyToPrint ? 'Ready to print' : 'Files generated')
-                        : 'Files not generated'}
-                  </span>
+                      : (allArtGenerated && allTagsGenerated && (anyArtGenerated || tagItems.length > 0))
+                        ? (allReady ? 'Ready to print' : 'Files generated')
+                        : (anyArtGenerated && artItems.length > 1)
+                          ? `${generatedArtCount} of ${artItems.length} garment sheets generated`
+                          : 'Files not generated';
+
+                    return (
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                        {badgeLabel}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-2 text-brand-secondary group-hover:text-brand-primary transition-colors text-xs font-bold uppercase tracking-wider shrink-0">
                   <span>{isProductionCollapsed ? 'Show' : 'Hide'}</span>
@@ -7402,16 +7729,22 @@ export function OrderDetail() {
               <>
               <div className="flex justify-end mt-4 mb-6 pb-4 border-b border-brand-border">
                 <div className="flex items-center gap-2.5 flex-wrap justify-end">
-                  <button
-                    type="button"
-                    onClick={handleGenerateCombinedOrderGangSheet}
-                    disabled={isGeneratingCombined}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                    title="Combine all logos from every line item in this order into one master gang sheet"
-                  >
-                    {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                    <span>Generate 1 Master Sheet (All Items)</span>
-                  </button>
+                  {(order.items || []).some(isPrintableArtItem) && (
+                    <button
+                      type="button"
+                      onClick={handleGenerateAllGarmentGangSheets}
+                      disabled={isGeneratingCombined || Object.values(generatingItemIds).some(Boolean)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                      title="Generate an individual 300 DPI gang sheet for each garment in this order"
+                    >
+                      {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                      <span>
+                        {isGeneratingCombined
+                          ? (generationStatus || 'Generating Sheets…')
+                          : `Generate All Garment Sheets (${(order.items || []).filter(isPrintableArtItem).length})`}
+                      </span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -7433,14 +7766,14 @@ export function OrderDetail() {
                     variant="outline" 
                     onClick={handleDownloadAllZip}
                     className="gap-2" 
-                    disabled={isZipping || (!order.masterPrintReadyUrl && !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl))}
+                    disabled={isZipping || (!order.masterPrintReadyUrl && !order.masterTagPrintReadyUrl && !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl))}
                   >
                     {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     Download All Sheets (ZIP)
                   </PillButton>
                 </div>
               </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(() => {
                   const productionCards: Array<{
                     id: string;
@@ -7454,57 +7787,77 @@ export function OrderDetail() {
                     printUrl: string | null;
                     cutUrl: string | null;
                     isGenerating: boolean;
+                    statusText?: string;
+                    needsRegen?: boolean;
                     generateFunc: () => void;
                     isMaster?: boolean;
                   }> = [];
 
-                  const printableItems = (order.items || []).filter(isPrintableItem);
-                  if (printableItems.length >= 1) {
-                    const totalGarmentsCount = (order.items || []).reduce((sum: number, item: any) => {
-                      return sum + (Object.values(item.sizes || {}).reduce((s: number, v: any) => s + (parseInt(v) || 0), 0) || item.quantity || 1);
-                    }, 0);
+                  const printableArtItems = (order.items || []).filter(isPrintableArtItem);
+                  printableArtItems.forEach((item: any) => {
+                    const itemArtworks = getPrintableArtworksForItem(item);
+                    const garmentCount = getItemGarmentCount(item);
+                    const garmentTitle = item.itemType === 'gang_sheet'
+                      ? (item.sheetSizeName || item.style || 'DTF Gang Sheet')
+                      : [item.style || 'Garment', item.color ? `(${item.color})` : ''].filter(Boolean).join(' ');
+                    const isItemGenerating = !!generatingItemIds[item.id];
+                    const itemStatusText = generationStatusByItem[item.id] || generationStatus;
+                    const itemNeedsRegen = !!needsRegenerateByItem[item.id];
 
-                    if (Array.isArray(order.masterSheets) && order.masterSheets.length > 1) {
-                      order.masterSheets.forEach((sheet: any) => {
+                    if (Array.isArray(item.sheets) && item.sheets.length > 1) {
+                      item.sheets.forEach((sheet: any) => {
+                        const totalParts = sheet.totalSheets || item.sheets.length;
                         productionCards.push({
-                          id: `master-combined-sheet-${sheet.sheetNumber}`,
-                          item: { id: `master-combined-sheet-${sheet.sheetNumber}`, style: `Master Sheet ${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length}` },
+                          id: `${item.id}-art-sheet-${sheet.sheetNumber}`,
+                          item,
                           type: 'art',
-                          isMaster: true,
-                          title: `✨ Combined Master Sheet (${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length})`,
-                          description: `22" x ${Math.round(sheet.height || 0)}" Sheet • 300 DPI • Part ${sheet.sheetNumber} of ${sheet.totalSheets || order.masterSheets.length}`,
+                          title: `👕 ${garmentTitle} (${sheet.sheetNumber} of ${totalParts})`,
+                          description: `22" x ${Math.round(sheet.height || 0)}" Sheet • 300 DPI • Part ${sheet.sheetNumber} of ${totalParts} • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'}`,
                           isPrintReady: !!(sheet.printUrl && sheet.cutUrl),
-                          isReady: !!order.masterReadyToPrint,
-                          isPrinted: !!order.masterPrinted,
+                          isReady: !!item.readyToPrint,
+                          isPrinted: !!item.printed,
                           printUrl: sheet.printUrl || null,
                           cutUrl: sheet.cutUrl || null,
-                          isGenerating: isGeneratingCombined,
-                          generateFunc: () => handleGenerateCombinedOrderGangSheet()
+                          isGenerating: isItemGenerating,
+                          statusText: itemStatusText,
+                          needsRegen: itemNeedsRegen,
+                          generateFunc: () => handleGenerateItemGangSheet(item),
                         });
                       });
                     } else {
+                      const singleSheetHeight = Array.isArray(item.sheets) && item.sheets[0]?.height
+                        ? Math.round(item.sheets[0].height)
+                        : (item.sheetHeight ? Math.round(item.sheetHeight) : null);
+                      const hasFiles = !!(item.printReadyUrl && item.cutReadyUrl);
+                      const description = item.itemType === 'gang_sheet'
+                        ? `${item.sheetSizeName || 'DTF Gang Sheet'} • 22" x ${singleSheetHeight || item.sheetHeight || 24}" • ${item.quantity || 1} ${(item.quantity || 1) === 1 ? 'Sheet' : 'Sheets'}`
+                        : hasFiles && singleSheetHeight
+                          ? `22" x ${singleSheetHeight}" Sheet • 300 DPI • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'} • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`
+                          : `Garment Gang Sheet • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'} • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`;
+
                       productionCards.push({
-                        id: 'master-combined-card',
-                        item: { id: 'master-combined-item', style: 'Combined Order Master Sheet' },
+                        id: `${item.id}-art`,
+                        item,
                         type: 'art',
-                        isMaster: true,
-                        title: `✨ Combined Order Master Sheet (All Items)`,
-                        description: `Single Combined 22" Sheet • ${printableItems.length} Line Items • ${totalGarmentsCount} Total Garments`,
-                        isPrintReady: !!(order.masterPrintReadyUrl && order.masterCutReadyUrl),
-                        isReady: !!order.masterReadyToPrint,
-                        isPrinted: !!order.masterPrinted,
-                        printUrl: order.masterPrintReadyUrl || null,
-                        cutUrl: order.masterCutReadyUrl || null,
-                        isGenerating: isGeneratingCombined,
-                        generateFunc: () => handleGenerateCombinedOrderGangSheet()
+                        title: item.itemType === 'gang_sheet' ? `📄 ${garmentTitle}` : `👕 ${garmentTitle}`,
+                        description,
+                        isPrintReady: hasFiles,
+                        isReady: !!item.readyToPrint,
+                        isPrinted: !!item.printed,
+                        printUrl: item.printReadyUrl || null,
+                        cutUrl: item.cutReadyUrl || null,
+                        isGenerating: isItemGenerating,
+                        statusText: itemStatusText,
+                        needsRegen: itemNeedsRegen,
+                        generateFunc: () => handleGenerateItemGangSheet(item),
                       });
                     }
-                  }
+                  });
 
                   const tagItems = (order.items || []).filter((item: any) => !!item.logoUrlTag);
                   if (tagItems.length > 0) {
                     const totalTagsCount = tagItems.reduce((sum: number, item: any) => {
-                      return sum + (Object.values(item.sizes || {}).reduce((s: number, v: any) => s + (parseInt(v) || 0), 0) || item.quantity || 1);
+                      return sum + getItemGarmentCount(item);
                     }, 0);
 
                     const isTagPrintReady = !!(order.masterTagPrintReadyUrl && order.masterTagCutReadyUrl) || 
@@ -7534,7 +7887,7 @@ export function OrderDetail() {
                       : (card.cutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
 
                     return (
-                      <div key={card.id} className={`text-white rounded-2xl border p-5 flex flex-col gap-4 shadow-xl ${card.isMaster ? 'bg-neutral-900 border-amber-500/50 ring-1 ring-amber-500/30' : 'bg-neutral-900 border-neutral-800'}`}>
+                      <div key={card.id} className={`text-white rounded-2xl border p-5 flex flex-col gap-4 shadow-xl ${card.isMaster ? 'bg-neutral-900 border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-neutral-900 border-amber-500/40 ring-1 ring-amber-500/20'}`}>
                         {/* Card Header */}
                         <div className="flex justify-between items-start gap-4">
                           <div>
@@ -7551,54 +7904,8 @@ export function OrderDetail() {
                                     setEditingSpecsCardId(null);
                                   } else {
                                     setEditingSpecsCardId(card.id);
-                                    if (card.isMaster) {
-                                      const allCombined: any[] = [];
-                                      (order.items || []).forEach((item: any) => {
-                                        const garmentQty = Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1;
-                                        if (Array.isArray(item.artworks) && item.artworks.length > 0) {
-                                          item.artworks.forEach((art: any) => {
-                                            if (art.name === 'Size Tag Print' || art.name?.toLowerCase().includes('tag')) return;
-                                            const url = art.url || art.imageUrl || art.originalUrl || item.originalSheetUrl || item.image;
-                                            if (url) {
-                                              allCombined.push({
-                                                ...art,
-                                                itemId: item.id,
-                                                itemStyle: item.style || 'Garment',
-                                                name: art.name || 'Placement',
-                                                url,
-                                                width: parseFloat(art.width) || 3.5,
-                                                quantity: parseInt(art.quantity) || garmentQty,
-                                                keepFullCanvas: isPrebuiltSheetArt(item, art.url || art.imageUrl || art.originalUrl),
-                                              });
-                                            }
-                                          });
-                                        } else {
-                                          const logoFields = [
-                                            { name: 'Front Logo', url: item.logoUrl, width: item.logoWidth || 3.5 },
-                                            { name: 'Back Logo', url: item.logoUrlBack, width: item.logoWidthBack || 10 },
-                                            { name: 'Left Sleeve Logo', url: item.logoUrlLeftSleeve, width: item.logoWidthLeftSleeve || 3.5 },
-                                            { name: 'Right Sleeve Logo', url: item.logoUrlRightSleeve, width: item.logoWidthRightSleeve || 3.5 },
-                                            { name: 'Chest Logo', url: item.logoUrlChest, width: item.logoWidthChest || 4.0 },
-                                          ];
-                                          logoFields.forEach(lf => {
-                                            if (lf.url) {
-                                              allCombined.push({
-                                                id: `art-${Date.now()}-${Math.random()}`,
-                                                itemId: item.id,
-                                                itemStyle: item.style || 'Garment',
-                                                name: lf.name,
-                                                url: lf.url,
-                                                width: parseFloat(lf.width as any) || 3.5,
-                                                quantity: garmentQty,
-                                              });
-                                            }
-                                          });
-                                        }
-                                      });
-                                      setEditingArtworks(allCombined);
-                                    } else {
-                                      setEditingArtworks((card.item.artworks || []).map((a: any) => ({ ...a, keepFullCanvas: isPrebuiltSheetArt(card.item, a.url || a.imageUrl || a.originalUrl) })));
-                                    }
+                                    const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
+                                    setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
                                   }
                                 }}
                                 className={`mt-2.5 items-center gap-1.5 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${editingSpecsCardId === card.id ? 'hidden' : 'inline-flex'}`}
@@ -7646,7 +7953,7 @@ export function OrderDetail() {
                               <div>
                                 <p className="text-xs font-bold text-neutral-100">Logo sizes &amp; copies</p>
                                 <p className="text-[11px] text-neutral-400 leading-snug mt-0.5">
-                                  Type the width you want printed. Height adjusts automatically, and empty space around the logo is not counted.
+                                  Type the width you want printed for this garment. Height adjusts automatically, and empty space around the logo is not counted.
                                 </p>
                               </div>
                               {!card.isMaster && (
@@ -7667,7 +7974,7 @@ export function OrderDetail() {
                             ) : (
                               <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
                                 {editingArtworks.map((art, idx) => {
-                                  const widthNum = parseFloat(art.width);
+                                  const widthNum = parseFloat(String(art.width));
                                   const widthMissing = !(widthNum > 0);
                                   const tooBig = !widthMissing && Math.min(widthNum, widthNum * getArtAspect(art)) > GANG_SHEET_WIDTH_INCHES;
                                   return (
@@ -7761,8 +8068,9 @@ export function OrderDetail() {
                                                 ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
                                                 : 'border-neutral-700'
                                             }`}
-                                            value={art.width || ''}
+                                            value={art.width ?? ''}
                                             onFocus={(e) => e.currentTarget.select()}
+                                            onWheel={(e) => e.currentTarget.blur()}
                                             onChange={(e) => {
                                               // Keep the raw text while typing; it is parsed on save and on generate
                                               const raw = e.target.value;
@@ -7798,6 +8106,7 @@ export function OrderDetail() {
                                           className="w-20 bg-neutral-950 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-neutral-500"
                                           value={art.quantity ?? 1}
                                           onFocus={(e) => e.currentTarget.select()}
+                                          onWheel={(e) => e.currentTarget.blur()}
                                           onChange={(e) => {
                                             const raw = e.target.value;
                                             setEditingArtworks(prev => {
@@ -7810,7 +8119,7 @@ export function OrderDetail() {
                                             setEditingArtworks(prev => {
                                               const next = [...prev];
                                               if (!next[idx]) return prev;
-                                              next[idx] = { ...next[idx], quantity: Math.max(1, parseInt(next[idx].quantity) || 1) };
+                                              next[idx] = { ...next[idx], quantity: Math.max(1, parseInt(String(next[idx].quantity), 10) || 1) };
                                               return next;
                                             });
                                           }}
@@ -7837,22 +8146,22 @@ export function OrderDetail() {
                               <p className="text-[11px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
                             )}
 
-                            <div className="grid grid-cols-2 gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSpecsError(''); setSpecsNotice('');
                                   setEditingSpecsCardId(null);
                                 }}
-                                className="border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-850 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                className="px-3.5 border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-850 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
                               >
                                 Cancel
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleSaveInlineSpecs(card.item)}
-                                disabled={isUploadingInlineLogo}
-                                className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                disabled={isUploadingInlineLogo || card.isGenerating}
+                                className="flex-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                               >
                                 {isUploadingInlineLogo ? (
                                   <>
@@ -7861,6 +8170,24 @@ export function OrderDetail() {
                                   </>
                                 ) : (
                                   <span>Save</span>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveAndRegenerateInlineSpecs(card.item)}
+                                disabled={isUploadingInlineLogo || card.isGenerating}
+                                className="flex-[1.3] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                {card.isGenerating ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>Generating…</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={12} />
+                                    <span>Save &amp; Regenerate</span>
+                                  </>
                                 )}
                               </button>
                             </div>
@@ -7889,7 +8216,7 @@ export function OrderDetail() {
                                 <div className="flex flex-col gap-1">
                                   <span className="text-xs font-bold text-neutral-100">Production Files Required</span>
                                   <span className="text-[10px] text-neutral-400 max-w-[200px] leading-relaxed">
-                                    The print-ready transparent gang sheet and cut files have not been generated yet.
+                                    The print-ready transparent gang sheet and cut files for this garment have not been generated yet.
                                   </span>
                                 </div>
                                 <button
@@ -7960,7 +8287,7 @@ export function OrderDetail() {
 
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">
-                          {needsRegenerate && card.type === 'art' && !card.isGenerating && (
+                          {card.needsRegen && card.type === 'art' && !card.isGenerating && (
                             <p className="text-[11px] font-bold text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-lg px-2.5 py-1.5 text-center" role="status">
                               Sizes saved. Regenerate to update the print and cut files.
                             </p>
@@ -7969,7 +8296,7 @@ export function OrderDetail() {
                             onClick={card.generateFunc}
                             disabled={card.isGenerating}
                             className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
-                              needsRegenerate && card.type === 'art'
+                              card.needsRegen && card.type === 'art'
                                 ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
                                 : 'bg-white hover:bg-neutral-100 text-black'
                             }`}
@@ -7988,7 +8315,7 @@ export function OrderDetail() {
                           </button>
                           {card.isGenerating && (
                             <p className="text-[10px] text-amber-300 text-center font-semibold leading-snug" role="status">
-                              {(card.type === 'art' && generationStatus) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
+                              {(card.type === 'art' && card.statusText) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
                             </p>
                           )}
                           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Download</p>
@@ -11292,13 +11619,16 @@ export function OrderDetail() {
                                           <input
                                              type="number"
                                              step="0.1"
-                                             value={art.width || ''}
+                                             min="0"
+                                             value={art.width ?? ''}
+                                             onWheel={(e) => e.currentTarget.blur()}
                                              onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
+                                                const raw = e.target.value;
+                                                const val = parseFloat(raw) || 0;
                                                 const newArtworks = [...(editItemObj.artworks || [])];
                                                 const aspect = getArtAspect(art);
                                                 const newHeight = parseFloat((val * aspect).toFixed(2));
-                                                newArtworks[idx] = { ...newArtworks[idx], width: val, height: newHeight, aspectRatio: aspect };
+                                                newArtworks[idx] = { ...newArtworks[idx], width: raw, height: newHeight, aspectRatio: aspect };
                                                 setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
                                              }}
                                              className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all"
