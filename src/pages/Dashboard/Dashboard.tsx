@@ -14,7 +14,7 @@ import { normalizeUser } from '../../lib/utils';
 import { Printer, CheckCircle2, AlertTriangle, Download, X, Building2, GripVertical, Package, ChevronRight, ChevronDown, CornerDownRight, Box } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
-import { normalizeSizeList } from '../../lib/garmentUtils';
+import { normalizeSizeList, getOrderDesignNumbers } from '../../lib/garmentUtils';
 import {
   getEffectiveOrderStatusIndex,
   getOrderDeliveryEtaShort,
@@ -176,15 +176,18 @@ export function Dashboard() {
       }
 
       // 3. Individual garment & gang-sheet line items
+      const designNumbers = getOrderDesignNumbers(items);
       items.forEach((item: any) => {
         const isGangSheet = item.itemType === 'gang_sheet';
         const hasPrintUrl = !!(item.printReadyUrl || item.originalSheetUrl || item.gangSheetUrl);
         const hasArtworks = Array.isArray(item.artworks) && item.artworks.length > 0;
         const isItemMarkedReady = !!item.readyToPrint;
         const isItemPrinted = !!item.printed;
-        const baseStyleLabel = isGangSheet
+        const designNum = designNumbers.get(String(item.id));
+        const rawStyleLabel = isGangSheet
           ? (item.sheetSizeName || 'DTF Gang Sheet')
           : ([item.style, item.color ? `(${item.color})` : ''].filter(Boolean).join(' ') || 'Garment Gang Sheet');
+        const baseStyleLabel = designNum ? `Design ${designNum} — ${rawStyleLabel}` : rawStyleLabel;
 
         if (isGangSheet || hasPrintUrl || (hasArtworks && (isItemMarkedReady || isItemPrinted))) {
           if (Array.isArray(item.sheets) && item.sheets.length > 1) {

@@ -1005,3 +1005,44 @@ export const hasSizeInList = (val: any, size: string): boolean => {
   }
   return false;
 };
+
+/**
+ * Assigns sequential 1-based "Design 1", "Design 2", ... numbers to each
+ * garment / gang-sheet line item in an order so line items and gang sheet
+ * cards share identical numerical labels.
+ */
+export const getOrderDesignNumbers = (items: any[] | undefined | null): Map<string, number> => {
+  const map = new Map<string, number>();
+  if (!Array.isArray(items)) return map;
+
+  let counter = 0;
+  items.forEach((item: any) => {
+    if (!item || item.id === undefined || item.id === null) return;
+    const styleLower = String(item.style || '').toLowerCase();
+    const isShipping =
+      styleLower.includes('shipping') ||
+      styleLower.includes('delivery') ||
+      String(item.id).startsWith('ship-') ||
+      item.itemType === 'shipping';
+    const isTax = styleLower.includes('tax');
+    if (isShipping || isTax || isDiscountItem(item)) return;
+
+    const hasExplicitArt =
+      item.itemType === 'gang_sheet' ||
+      (Array.isArray(item.artworks) && item.artworks.length > 0) ||
+      Boolean(
+        item.logoUrl ||
+        item.logoUrlBack ||
+        item.logoUrlLeftSleeve ||
+        item.logoUrlRightSleeve ||
+        item.originalSheetUrl
+      );
+
+    if (isNonGarmentItem(item) && !hasExplicitArt) return;
+
+    counter += 1;
+    map.set(String(item.id), counter);
+  });
+
+  return map;
+};

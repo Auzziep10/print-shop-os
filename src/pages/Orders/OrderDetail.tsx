@@ -29,7 +29,7 @@ import { loadImageForCanvas, measureVisibleBounds, measureVisibleBoundsFromUrl, 
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
-import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric, isDiscountItem, isNonGarmentItem, normalizeSizeList, hasSizeInList } from '../../lib/garmentUtils';
+import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, sortGarmentsByTypeOrder, getGarmentWeightAndFabric, isDiscountItem, isNonGarmentItem, normalizeSizeList, hasSizeInList, getOrderDesignNumbers } from '../../lib/garmentUtils';
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
@@ -1469,7 +1469,8 @@ const generateFinalSheetsForPrintAndCut = async (
             ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
             textY += FONT_SIZE_SMALL + 15;
             
-            const itemLabel = [orderItem.style, orderItem.color].filter(Boolean).join(' — ');
+            const designTag = orderItem.designNumber ? `Design ${orderItem.designNumber}` : null;
+            const itemLabel = [designTag, orderItem.style, orderItem.color].filter(Boolean).join(' — ');
             const partSuffix = totalSheets > 1 ? ` • Part ${sheetNumber} of ${totalSheets}` : '';
             const sheetDescription = isSingleTransferLayout
                 ? `${itemLabel || 'Garment Gang Sheet'} • 22" x ${Math.round(sheetContentHeightInches)}" • 300 DPI${partSuffix}`
@@ -2677,6 +2678,8 @@ export function OrderDetail() {
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [activeSheetPartByCard, setActiveSheetPartByCard] = useState<Record<string, number>>({});
+  // Individual gang sheet cards start collapsed in compact Bird's-Eye View so all sheets are easy to scan at once
+  const [expandedProductionCards, setExpandedProductionCards] = useState<Record<string, boolean>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [specsError, setSpecsError] = useState('');
   // Neutral message in the size editor (for example: nothing to trim)
@@ -4416,8 +4419,10 @@ export function OrderDetail() {
     setGenerationStatusByItem(prev => ({ ...prev, [targetId]: 'Loading artwork and building sheet at 300 DPI…' }));
 
     try {
+      const designNum = getOrderDesignNumbers(workingItems || order.items).get(targetId);
       const itemForGeneration = {
         ...latestItem,
+        designNumber: designNum,
         artworks: itemArtworks,
       };
 
@@ -5180,10 +5185,12 @@ export function OrderDetail() {
         return;
       }
 
-      const safeGarment = getSafeFileSlug(
+      const designNum = getOrderDesignNumbers(order.items).get(String(freshItem.id));
+      const designPrefix = designNum ? `Design_${designNum}_` : '';
+      const safeGarment = `${designPrefix}${getSafeFileSlug(
         [freshItem.style, freshItem.color].filter(Boolean).join('_'),
         freshItem.id || 'Garment'
-      );
+      )}`;
       const total = orderedSheets.length;
       const padLen = Math.max(2, String(total).length);
 
@@ -5294,9 +5301,12 @@ export function OrderDetail() {
         hasFiles = true;
       }
 
+      const designNumbersForZip = getOrderDesignNumbers(order.items);
       const usedFolders = new Set<string>();
       for (const item of printableItems) {
-        let safeName = getSafeFileSlug([item.style, item.color].filter(Boolean).join('_'), item.id);
+        const dNum = designNumbersForZip.get(String(item.id));
+        const dPrefix = dNum ? `Design_${dNum}_` : '';
+        let safeName = `${dPrefix}${getSafeFileSlug([item.style, item.color].filter(Boolean).join('_'), item.id)}`;
         if (usedFolders.has(safeName)) {
           safeName = `${safeName}_${getSafeFileSlug(String(item.id).slice(-4), 'item')}`;
         }
@@ -6102,6 +6112,7 @@ export function OrderDetail() {
     const isTax = styleLower.includes('tax');
     return !isShipping && !isTax && !isDiscountItem(item);
   });
+  const designNumberByItemId = getOrderDesignNumbers(order.items);
 
   const totalItems = garmentItems.reduce((acc: number, i: any) => {
     if (isDiscountItem(i)) return acc;
@@ -6837,7 +6848,7 @@ export function OrderDetail() {
                   </PillButton>
                </div>
             </div>
-            <div className="bg-white rounded-card border border-brand-border overflow-hidden">
+            <div className="bg-white rounded-card border border-brand-border overflow-visible">
                {garmentItems.length > 0 ? garmentItems.map((item: any) => (
                  <div 
                    key={item.id} 
@@ -6846,7 +6857,7 @@ export function OrderDetail() {
                    onDragOver={(e) => handleDragOver(e, item.id)}
                    onDragEnd={handleDragEnd}
                    onDrop={(e) => handleDrop(e, item.id)}
-                   className={`p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0 ${draggableItemId === item.id ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedItemId === item.id ? 'opacity-50 relative z-50 shadow-xl' : ''} ${dragOverItemId === item.id ? 'border-t-2 border-t-brand-primary bg-brand-bg/50' : ''}`}
+                   className={`p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors first:rounded-t-card last:rounded-b-card last:border-0 ${draggableItemId === item.id ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedItemId === item.id ? 'opacity-50 relative z-50 shadow-xl' : ''} ${dragOverItemId === item.id ? 'border-t-2 border-t-brand-primary bg-brand-bg/50' : ''}`}
                  >
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
@@ -7014,8 +7025,13 @@ export function OrderDetail() {
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
                                 <div className="flex items-center justify-center sm:justify-start gap-2 w-full flex-wrap">
-                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-baseline flex-nowrap gap-1.5">
-                                    <span className="shrink-0">
+                                  <h4 className="font-bold text-gray-900 text-[15px] flex items-center flex-wrap justify-center sm:justify-start gap-2">
+                                    {designNumberByItemId.get(String(item.id)) && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-neutral-900 text-white shrink-0">
+                                        Design {designNumberByItemId.get(String(item.id))}
+                                      </span>
+                                    )}
+                                    <span>
                                       {item.title || (item.style && item.style !== item.sheetSizeName 
                                         ? item.style 
                                         : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || (item.itemType === 'service' ? 'Service Item' : 'Garment'))))}
@@ -7060,266 +7076,21 @@ export function OrderDetail() {
                                          })()}
                                 </p>
                                 
-                                {/* Dropdown Chevron for Item Boxes under Garment Name */}
-                                {!isSales && (() => {
-                                  const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
-                                  const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
-                                  const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
-                                  const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
-                                  
-                                  return (
-                                    <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
-                                      {itemBoxes.length > 0 && (
-                                        <button 
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
-                                          }}
-                                          className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border border-brand-border shrink-0 whitespace-nowrap ${expandedItems[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
-                                        >
-                                          <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
-                                          <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
-                                        </button>
-                                      )}
-                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && (
-                                      <button 
-                                        onClick={(e) => {
-                                           e.stopPropagation();
-                                           handleStartQuickShip(item);
-                                        }}
-                                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-white transition-all bg-brand-primary/5 hover:bg-brand-primary px-3 py-1.5 rounded-full border border-brand-primary/30 hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                        title="Quick pack remaining quantities into a shipment"
-                                      >
-                                        <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
-                                      </button>
-                                      )}
-                                      {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
-                                      <button 
-                                        onClick={(e) => {
-                                           e.stopPropagation();
-                                           setTransferSizesTarget({ itemId: item.id, size: null });
-                                        }}
-                                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                        title="Move one or more sizes into another order for this customer"
-                                      >
-                                        <ArrowLeftRight size={12} strokeWidth={3} /> <span>Transfer Sizes</span>
-                                      </button>
-                                      )}
-                                      {itemExpenses.length > 0 && (
-                                        <div 
-                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-700 px-3 py-1.5 rounded-full border border-red-200 shrink-0 whitespace-nowrap shadow-sm cursor-help"
-                                          title={itemExpenses.map((c: any) => {
-                                              const connections = c.itemConnections || (c.itemId ? { [c.itemId]: c.linkedSizes || [] } : {});
-                                              const linkedSizesForThisItem = connections[item.id] || [];
-                                              const sizeText = linkedSizesForThisItem.length > 0 ? ` (Sizes: ${linkedSizesForThisItem.join(', ')})` : ' (All Sizes)';
-                                              const allocatedAmount = getExpenseAllocation(c, item.id);
-                                              const pct = c.amount > 0 ? (allocatedAmount / c.amount) * 100 : 0;
-                                              const pctText = pct < 100 ? ` [Allocated ${pct.toFixed(0)}%]` : '';
-                                              return `${c.description}${sizeText}${pctText}: $${allocatedAmount.toFixed(2)}`;
-                                           }).join('\n')}
-                                        >
-                                          <DollarSign size={12} strokeWidth={3} className="text-red-600 animate-pulse" />
-                                          <span>Expenses: ${totalItemExpenses.toFixed(2)}</span>
-                                        </div>
-                                      )}
-                                      {itemBoxes.length > 0 && (
-                                        <>
-                                          <div className="group/print relative shrink-0 z-20">
-                                            <button 
-                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border group-hover/print:border-brand-primary group-focus-within/print:border-brand-primary group-hover/print:text-brand-primary group-focus-within/print:text-brand-primary hover:bg-neutral-50 shadow-sm hover:shadow-md shrink-0 whitespace-nowrap"
-                                            >
-                                              <Printer size={12} strokeWidth={3} /> <span>Print</span> <ChevronDown size={10} strokeWidth={3} className="opacity-50 transition-transform duration-300 group-focus-within/print:rotate-180 group-focus-within/print:opacity-100 group-hover/print:opacity-100" />
-                                            </button>
-                                            
-                                            {/* Dropdown Menu */}
-                                            <div className="absolute left-0 top-full mt-1.5 w-40 bg-white border border-brand-border rounded-xl shadow-xl flex flex-col overflow-hidden opacity-0 pointer-events-none group-focus-within/print:opacity-100 group-focus-within/print:pointer-events-auto transition-all -translate-y-1 group-focus-within/print:translate-y-0 origin-top">
-                                              <button 
-                                                onClick={(e) => {
-                                                   e.stopPropagation();
-                                                   window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
-                                                }}
-                                                className="flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left border-b border-brand-border"
-                                              >
-                                                <Printer size={12} strokeWidth={3} className="opacity-60" /> <span>Packing Slips</span>
-                                              </button>
-                                              <button 
-                                                onClick={(e) => {
-                                                   e.stopPropagation();
-                                                   window.open(`/print/labels-sheet/${order.id}/item/${item.id}`, '_blank');
-                                                }}
-                                                className={`flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left ${hasCourierLabels ? 'border-b border-brand-border' : ''}`}
-                                              >
-                                                <QrCode size={12} strokeWidth={3} className="opacity-60" /> <span>Box Tags</span>
-                                              </button>
-                                              {hasCourierLabels && (
-                                                <button 
-                                                  onClick={(e) => {
-                                                     e.stopPropagation();
-                                                     window.open(`/print/courier/${order.id}/item/${item.id}`, '_blank');
-                                                  }}
-                                                  className="flex items-center justify-between gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#d52b1e] hover:bg-[#d52b1e]/10 text-left bg-[#d52b1e]/5"
-                                                >
-                                                  <div className="flex items-center gap-2.5">
-                                                    <Truck size={12} strokeWidth={3} className="opacity-80" /> <span>UPS Labels</span>
-                                                  </div>
-                                                  <div className="bg-[#d52b1e] text-white rounded-full w-2 h-2 shrink-0 animate-pulse"></div>
-                                                </button>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </>
-                                      )}
-                                       {item.artworks?.map((art: any, idx: number) => {
-                                         if (!art?.url && !art?.originalUrl) return null;
-                                         const downloadUrl = art.originalUrl || art.url;
-                                         return (
-                                            <a 
-                                              key={`art-dl-${idx}`} 
-                                              href={downloadUrl} 
-                                              target="_blank" 
-                                              rel="noreferrer" 
-                                              onClick={(e) => e.stopPropagation()}
-                                              className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                              title={`Download full resolution artwork: ${art.name || 'Artwork'}`}
-                                            >
-                                               <Download size={12} strokeWidth={3} />
-                                               <span>{art.name || `Artwork ${idx + 1}`}</span>
-                                            </a>
-                                         );
-                                       })}
-                                       {item.image && (
-                                         <button
-                                           type="button"
-                                           onClick={(e) => {
-                                             e.stopPropagation();
-                                             downloadImageAsPng(
-                                               item.image,
-                                               `Order_${order?.orderNumber || order?.id || 'Order'}_${item.style || 'Garment'}_Mockup_FullSize.png`,
-                                               { minDimension: 2400 }
-                                             );
-                                           }}
-                                           className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-800 bg-neutral-100 border border-neutral-300 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
-                                           title="Download full resolution garment mockup PNG"
-                                         >
-                                            <Shirt size={12} strokeWidth={2.5} />
-                                            <Download size={12} strokeWidth={2.5} />
-                                            <span>Mockup PNG</span>
-                                         </button>
-                                       )}
-                                       {(!item.artworks || item.artworks.length === 0) && typeof item.image === 'string' && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
-                                         <a 
-                                           href={item.image} 
-                                           target="_blank" 
-                                           rel="noreferrer" 
-                                           onClick={(e) => e.stopPropagation()} 
-                                           className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                           title="Download full resolution design file"
-                                         >
-                                            <Download size={12} strokeWidth={3} />
-                                            <span>Download Artwork</span>
-                                         </a>
-                                       )}
-
-                                       {(() => {
-                                          const customUrl = item.supplierUrl || item.sourceUrl || item.productUrl;
-                                          if (customUrl) {
-                                            let label = 'Supplier';
-                                            try {
-                                              const host = new URL(customUrl).hostname.replace(/^www\./, '');
-                                              if (host.includes('sanmar.com')) label = 'SanMar';
-                                              else if (host.includes('ssactivewear.com')) label = 'S&S';
-                                              else label = host;
-                                            } catch (_) {}
-                                            return (
-                                              <a 
-                                                href={customUrl} 
-                                                target="_blank" 
-                                                rel="noreferrer" 
-                                                onClick={(e) => e.stopPropagation()}
-                                                className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                                title={`Open ${customUrl}`}
-                                              >
-                                                <ExternalLink size={12} strokeWidth={3} />
-                                                <span>{label}</span>
-                                              </a>
-                                            );
-                                          }
-                                          if (!item.itemNum) return null;
-                                          const isInCatalog = sanmarCatalog.some((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase());
-                                          const isSanMarPattern = /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(item.itemNum);
-                                          if (!isInCatalog && !isSanMarPattern) return null;
-                                          const sanmarUrl = `https://www.sanmar.com/search/?text=${encodeURIComponent(item.itemNum)}`;
-                                          return (
-                                            <a 
-                                              href={sanmarUrl} 
-                                              target="_blank" 
-                                              rel="noreferrer" 
-                                              onClick={(e) => e.stopPropagation()}
-                                              className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                              title={`Search ${item.itemNum} on SanMar`}
-                                            >
-                                              <ExternalLink size={12} strokeWidth={3} />
-                                              <span>SanMar</span>
-                                            </a>
-                                          );
-                                        })()}
-                                      {(() => {
-                                        const itemTrackings: { trackingNumber: string; tracking: any }[] = [];
-                                        const seenItemTrk = new Set<string>();
-                                        const addItTrk = (num?: string, trk?: any) => {
-                                          const clean = (num || '').trim();
-                                          if (!clean) return;
-                                          const norm = normalizeTrackingCode(clean);
-                                          if (seenItemTrk.has(norm)) return;
-                                          seenItemTrk.add(norm);
-                                          itemTrackings.push({
-                                            trackingNumber: clean,
-                                            tracking: pickBestTracking(getCachedTracking(clean), trk) || null,
-                                          });
-                                        };
-                                        if (item.sourcingTrackingBySize && typeof item.sourcingTrackingBySize === 'object') {
-                                          Object.values(item.sourcingTrackingBySize).forEach((szVal: any) => {
-                                            if (!szVal || typeof szVal !== 'object') return;
-                                            addItTrk(szVal.trackingNumber, szVal.tracking);
-                                            if (Array.isArray(szVal.extraTrackings)) {
-                                              szVal.extraTrackings.forEach((et: any) => addItTrk(et?.trackingNumber, et?.tracking));
-                                            }
-                                          });
-                                        }
-                                        if (Array.isArray(item.sourcingTrackings)) {
-                                          item.sourcingTrackings.forEach((t: any) => addItTrk(t?.trackingNumber, t?.tracking));
-                                        }
-                                        if (item.sourcingTrackingNumber) {
-                                          addItTrk(item.sourcingTrackingNumber, item.sourcingTracking);
-                                        }
-                                        return itemTrackings.map((t) => (
-                                          <SourcingTrackingChip
-                                            key={t.trackingNumber}
-                                            trackingNumber={t.trackingNumber}
-                                            tracking={t.tracking}
-                                            disabled={isSales}
-                                            onStartTracking={() =>
-                                              startSourcingTracking(
-                                                [{ orderId: String(order.id), itemId: String(item.id) }],
-                                                t.trackingNumber
-                                              )
-                                            }
-                                          />
-                                        ));
-                                      })()}
-                                      <button 
-                                        onClick={(e) => {
-                                           e.stopPropagation();
-                                           setExpandedSpecs(prev => ({ ...prev, [item.id]: !prev[item.id] }));
-                                        }}
-                                        className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border shrink-0 whitespace-nowrap ${expandedSpecs[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
-                                      >
-                                        <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedSpecs[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
-                                        <span>Specs</span>
-                                      </button>
-                                    </div>
-                                  );
-                                })()}
+                                {/* Specs Dropdown Toggle under Garment Name */}
+                                {!isSales && (
+                                  <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2 mt-2.5 min-w-0 w-full">
+                                    <button 
+                                      onClick={(e) => {
+                                         e.stopPropagation();
+                                         setExpandedSpecs(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                      }}
+                                      className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border shrink-0 whitespace-nowrap cursor-pointer ${expandedSpecs[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
+                                    >
+                                      <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedSpecs[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
+                                      <span>Specs</span>
+                                    </button>
+                                  </div>
+                                )}
                              </div>
                            </div>
 
@@ -7563,57 +7334,305 @@ export function OrderDetail() {
                      </div>
                      
                    {/* Expanded Specs Dropdown Container */}
-                   <div className={`grid transition-all duration-300 ease-in-out ${expandedSpecs[item.id] ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
-                      <div className="overflow-hidden">
-                         <div className="flex flex-wrap gap-2 items-center bg-gray-50/80 p-3 pt-4 rounded-xl border border-brand-border shadow-inner">
-                            {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
-                            {item.color && <DataPill label={item.itemType === 'service' ? "Description" : "Garment Color"} value={item.color} />}
-                            {Array.isArray(item.logos) ? (
-                              item.logos.map((logo: string, i: number) => (
-                                <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
-                              ))
-                            ) : typeof item.logos === 'string' && (item.logos as string).trim() ? (
-                              <DataPill label="Logos & Decoration" value={item.logos} />
-                            ) : null}
-                            {item.artworks?.map((art: any, i: number) => {
-                               if (!art?.url) return null;
-                               return (
-                                  <a key={`art-${i}`} href={art.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-white px-3 py-1.5 rounded-2xl border border-brand-border h-max my-auto shadow-sm">
-                                     <Download size={10} /> {art.name || `${item.logos?.[i]?.replace(/\s+/g, '_') || 'VECTOR'}_Art`}
-                                  </a>
-                               );
-                            })}
-                             {(() => {
-                                 const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
-                                 if (itemExpenses.length === 0) return null;
-                                 
-                                 const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
-                                
-                                const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
-                                const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
-                                
-                                let safePriceNum = 0;
-                                if (item.price !== undefined && item.price !== null) {
+                   <div className={`w-full grid transition-all duration-300 ease-in-out ${expandedSpecs[item.id] ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+                      <div className={expandedSpecs[item.id] ? 'overflow-visible' : 'overflow-hidden'}>
+                         <div className="flex flex-col gap-3 bg-gray-50/80 p-3.5 rounded-xl border border-brand-border shadow-inner">
+                            {(item.itemNum || item.color || (Array.isArray(item.logos) && item.logos.length > 0) || (typeof item.logos === 'string' && (item.logos as string).trim()) || (order.costs?.some((c: any) => getExpenseAllocation(c, item.id) > 0))) && (
+                              <div className="flex flex-wrap gap-2 items-center">
+                                {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+                                {item.color && <DataPill label={item.itemType === 'service' ? "Description" : "Garment Color"} value={item.color} />}
+                                {Array.isArray(item.logos) ? (
+                                  item.logos.map((logo: string, i: number) => (
+                                    <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                                  ))
+                                ) : typeof item.logos === 'string' && (item.logos as string).trim() ? (
+                                  <DataPill label="Logos & Decoration" value={item.logos} />
+                                ) : null}
+                                {(() => {
+                                  const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
+                                  if (itemExpenses.length === 0) return null;
+
+                                  const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
+                                  const expenseBreakdownTooltip = itemExpenses.map((c: any) => {
+                                    const connections = c.itemConnections || (c.itemId ? { [c.itemId]: c.linkedSizes || [] } : {});
+                                    const linkedSizesForThisItem = connections[item.id] || [];
+                                    const sizeText = linkedSizesForThisItem.length > 0 ? ` (Sizes: ${linkedSizesForThisItem.join(', ')})` : ' (All Sizes)';
+                                    const allocatedAmount = getExpenseAllocation(c, item.id);
+                                    const pct = c.amount > 0 ? (allocatedAmount / c.amount) * 100 : 0;
+                                    const pctText = pct < 100 ? ` [Allocated ${pct.toFixed(0)}%]` : '';
+                                    return `${c.description}${sizeText}${pctText}: $${allocatedAmount.toFixed(2)}`;
+                                  }).join('\n');
+
+                                  const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+                                  const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
+
+                                  let safePriceNum = 0;
+                                  if (item.price !== undefined && item.price !== null) {
                                     const pString = item.price.toString().replace(/[^0-9.]/g, '');
                                     if (pString !== '') safePriceNum = parseFloat(pString);
-                                }
-                                
-                                const revenue = safeQty * safePriceNum;
-                                const netProfit = revenue - totalItemExpenses;
-                                const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
-                                
-                                return (
-                                   <>
-                                      <DataPill label="Garment Expenses" value={`$${totalItemExpenses.toFixed(2)}`} />
+                                  }
+
+                                  const revenue = safeQty * safePriceNum;
+                                  const netProfit = revenue - totalItemExpenses;
+                                  const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+                                  return (
+                                    <>
+                                      <div title={expenseBreakdownTooltip} className="cursor-help">
+                                        <DataPill label="Garment Expenses" value={`$${totalItemExpenses.toFixed(2)}`} />
+                                      </div>
                                       {revenue > 0 && (
-                                         <>
-                                            <DataPill label="Garment Profit" value={`$${netProfit.toFixed(2)}`} />
-                                            <DataPill label="Garment Margin" value={`${profitMargin.toFixed(1)}%`} />
-                                         </>
+                                        <>
+                                          <DataPill label="Garment Profit" value={`$${netProfit.toFixed(2)}`} />
+                                          <DataPill label="Garment Margin" value={`${profitMargin.toFixed(1)}%`} />
+                                        </>
                                       )}
-                                   </>
-                                );
-                             })()}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+
+                            {!isSales && (() => {
+                              const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
+                              const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
+                              const hasTopDataPills = Boolean(
+                                item.itemNum ||
+                                item.color ||
+                                (Array.isArray(item.logos) && item.logos.length > 0) ||
+                                (typeof item.logos === 'string' && (item.logos as string).trim()) ||
+                                (order.costs?.some((c: any) => getExpenseAllocation(c, item.id) > 0))
+                              );
+
+                              return (
+                                <div className={`flex items-center flex-wrap gap-2 w-full overflow-visible ${hasTopDataPills ? 'pt-2.5 border-t border-brand-border/60' : ''}`}>
+                                  {itemBoxes.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                      }}
+                                      className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border border-brand-border shrink-0 whitespace-nowrap cursor-pointer ${expandedItems[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
+                                    >
+                                      <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
+                                      <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
+                                    </button>
+                                  )}
+                                  {!isDiscountItem(item) && !isNonGarmentItem(item) && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartQuickShip(item);
+                                      }}
+                                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-white transition-all bg-white hover:bg-brand-primary px-3 py-1.5 rounded-full border border-brand-primary/30 hover:border-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
+                                      title="Quick pack remaining quantities into a shipment"
+                                    >
+                                      <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
+                                    </button>
+                                  )}
+                                  {!isDiscountItem(item) && !isNonGarmentItem(item) && item.sizes && Object.values(item.sizes).some((v: any) => (parseInt(v) || 0) > 0) && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTransferSizesTarget({ itemId: item.id, size: null });
+                                      }}
+                                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
+                                      title="Move one or more sizes into another order for this customer"
+                                    >
+                                      <ArrowLeftRight size={12} strokeWidth={3} /> <span>Transfer Sizes</span>
+                                    </button>
+                                  )}
+                                  {itemBoxes.length > 0 && (
+                                    <div className="group/print relative shrink-0 z-20">
+                                      <button
+                                        type="button"
+                                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border group-hover/print:border-brand-primary group-focus-within/print:border-brand-primary group-hover/print:text-brand-primary group-focus-within/print:text-brand-primary hover:bg-neutral-50 shadow-sm hover:shadow-md shrink-0 whitespace-nowrap cursor-pointer"
+                                      >
+                                        <Printer size={12} strokeWidth={3} /> <span>Print</span> <ChevronDown size={10} strokeWidth={3} className="opacity-50 transition-transform duration-300 group-focus-within/print:rotate-180 group-focus-within/print:opacity-100 group-hover/print:opacity-100" />
+                                      </button>
+
+                                      <div className="absolute left-0 top-full mt-1.5 w-40 bg-white border border-brand-border rounded-xl shadow-xl flex flex-col overflow-hidden opacity-0 pointer-events-none group-focus-within/print:opacity-100 group-focus-within/print:pointer-events-auto transition-all -translate-y-1 group-focus-within/print:translate-y-0 origin-top z-30">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
+                                          }}
+                                          className="flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left border-b border-brand-border"
+                                        >
+                                          <Printer size={12} strokeWidth={3} className="opacity-60" /> <span>Packing Slips</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(`/print/labels-sheet/${order.id}/item/${item.id}`, '_blank');
+                                          }}
+                                          className={`flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left ${hasCourierLabels ? 'border-b border-brand-border' : ''}`}
+                                        >
+                                          <QrCode size={12} strokeWidth={3} className="opacity-60" /> <span>Box Tags</span>
+                                        </button>
+                                        {hasCourierLabels && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              window.open(`/print/courier/${order.id}/item/${item.id}`, '_blank');
+                                            }}
+                                            className="flex items-center justify-between gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#d52b1e] hover:bg-[#d52b1e]/10 text-left bg-[#d52b1e]/5"
+                                          >
+                                            <div className="flex items-center gap-2.5">
+                                              <Truck size={12} strokeWidth={3} className="opacity-80" /> <span>UPS Labels</span>
+                                            </div>
+                                            <div className="bg-[#d52b1e] text-white rounded-full w-2 h-2 shrink-0 animate-pulse"></div>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {item.artworks?.map((art: any, idx: number) => {
+                                    if (!art?.url && !art?.originalUrl) return null;
+                                    const downloadUrl = art.originalUrl || art.url;
+                                    return (
+                                      <a
+                                        key={`art-dl-${idx}`}
+                                        href={downloadUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                        title={`Download full resolution artwork: ${art.name || 'Artwork'}`}
+                                      >
+                                        <Download size={12} strokeWidth={3} />
+                                        <span>{art.name || `Artwork ${idx + 1}`}</span>
+                                      </a>
+                                    );
+                                  })}
+                                  {item.image && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        downloadImageAsPng(
+                                          item.image,
+                                          `Order_${order?.orderNumber || order?.id || 'Order'}_${item.style || 'Garment'}_Mockup_FullSize.png`,
+                                          { minDimension: 2400 }
+                                        );
+                                      }}
+                                      className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-800 bg-white border border-neutral-300 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
+                                      title="Download full resolution garment mockup PNG"
+                                    >
+                                      <Shirt size={12} strokeWidth={2.5} />
+                                      <Download size={12} strokeWidth={2.5} />
+                                      <span>Mockup PNG</span>
+                                    </button>
+                                  )}
+                                  {(!item.artworks || item.artworks.length === 0) && typeof item.image === 'string' && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
+                                    <a
+                                      href={item.image}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                      title="Download full resolution design file"
+                                    >
+                                      <Download size={12} strokeWidth={3} />
+                                      <span>Download Artwork</span>
+                                    </a>
+                                  )}
+                                  {(() => {
+                                    const customUrl = item.supplierUrl || item.sourceUrl || item.productUrl;
+                                    if (customUrl) {
+                                      let label = 'Supplier';
+                                      try {
+                                        const host = new URL(customUrl).hostname.replace(/^www\./, '');
+                                        if (host.includes('sanmar.com')) label = 'SanMar';
+                                        else if (host.includes('ssactivewear.com')) label = 'S&S';
+                                        else label = host;
+                                      } catch (_) {}
+                                      return (
+                                        <a
+                                          href={customUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                          title={`Open ${customUrl}`}
+                                        >
+                                          <ExternalLink size={12} strokeWidth={3} />
+                                          <span>{label}</span>
+                                        </a>
+                                      );
+                                    }
+                                    if (!item.itemNum) return null;
+                                    const isInCatalog = sanmarCatalog.some((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase());
+                                    const isSanMarPattern = /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(item.itemNum);
+                                    if (!isInCatalog && !isSanMarPattern) return null;
+                                    const sanmarUrl = `https://www.sanmar.com/search/?text=${encodeURIComponent(item.itemNum)}`;
+                                    return (
+                                      <a
+                                        href={sanmarUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                        title={`Search ${item.itemNum} on SanMar`}
+                                      >
+                                        <ExternalLink size={12} strokeWidth={3} />
+                                        <span>SanMar</span>
+                                      </a>
+                                    );
+                                  })()}
+                                  {(() => {
+                                    const itemTrackings: { trackingNumber: string; tracking: any }[] = [];
+                                    const seenItemTrk = new Set<string>();
+                                    const addItTrk = (num?: string, trk?: any) => {
+                                      const clean = (num || '').trim();
+                                      if (!clean) return;
+                                      const norm = normalizeTrackingCode(clean);
+                                      if (seenItemTrk.has(norm)) return;
+                                      seenItemTrk.add(norm);
+                                      itemTrackings.push({
+                                        trackingNumber: clean,
+                                        tracking: pickBestTracking(getCachedTracking(clean), trk) || null,
+                                      });
+                                    };
+                                    if (item.sourcingTrackingBySize && typeof item.sourcingTrackingBySize === 'object') {
+                                      Object.values(item.sourcingTrackingBySize).forEach((szVal: any) => {
+                                        if (!szVal || typeof szVal !== 'object') return;
+                                        addItTrk(szVal.trackingNumber, szVal.tracking);
+                                        if (Array.isArray(szVal.extraTrackings)) {
+                                          szVal.extraTrackings.forEach((et: any) => addItTrk(et?.trackingNumber, et?.tracking));
+                                        }
+                                      });
+                                    }
+                                    if (Array.isArray(item.sourcingTrackings)) {
+                                      item.sourcingTrackings.forEach((t: any) => addItTrk(t?.trackingNumber, t?.tracking));
+                                    }
+                                    if (item.sourcingTrackingNumber) {
+                                      addItTrk(item.sourcingTrackingNumber, item.sourcingTracking);
+                                    }
+                                    return itemTrackings.map((t) => (
+                                      <SourcingTrackingChip
+                                        key={t.trackingNumber}
+                                        trackingNumber={t.trackingNumber}
+                                        tracking={t.tracking}
+                                        disabled={isSales}
+                                        onStartTracking={() =>
+                                          startSourcingTracking(
+                                            [{ orderId: String(order.id), itemId: String(item.id) }],
+                                            t.trackingNumber
+                                          )
+                                        }
+                                      />
+                                    ));
+                                  })()}
+                                </div>
+                              );
+                            })()}
                          </div>
                       </div>
                    </div>
@@ -7866,58 +7885,108 @@ export function OrderDetail() {
 
               {!isProductionCollapsed && (
               <>
-              <div className="flex justify-end mt-4 mb-6 pb-4 border-b border-brand-border">
-                <div className="flex items-center gap-2.5 flex-wrap justify-end">
-                  {(order.items || []).some(isPrintableArtItem) && (
-                    <button
-                      type="button"
-                      onClick={handleGenerateAllGarmentGangSheets}
-                      disabled={isGeneratingCombined || Object.values(generatingItemIds).some(Boolean)}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                      title="Generate an individual 300 DPI gang sheet for each garment in this order"
-                    >
-                      {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                      <span>
-                        {isGeneratingCombined
-                          ? (generationStatus || 'Generating Sheets…')
-                          : `Generate All Garment Sheets (${(order.items || []).filter(isPrintableArtItem).length})`}
+              {(() => {
+                const allCardIds = [
+                  ...(order.items || []).filter(isPrintableArtItem).map((i: any) => `${i.id}-art`),
+                  ...((order.items || []).some((i: any) => !!i.logoUrlTag) ? ['master-tag-item'] : []),
+                ];
+                const anyCardExpanded = allCardIds.some((cId) => !!expandedProductionCards[cId] || editingSpecsCardId === cId);
+                const allCardsExpanded = allCardIds.length > 0 && allCardIds.every((cId) => !!expandedProductionCards[cId]);
+
+                return (
+                  <div className="flex justify-between items-center gap-3 flex-wrap mt-4 mb-6 pb-4 border-b border-brand-border">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {allCardIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (allCardsExpanded) {
+                              setExpandedProductionCards({});
+                              setEditingSpecsCardId(null);
+                            } else {
+                              const next: Record<string, boolean> = {};
+                              allCardIds.forEach((cId) => { next[cId] = true; });
+                              setExpandedProductionCards(next);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs rounded-full border border-neutral-300 transition-colors cursor-pointer"
+                          title={allCardsExpanded ? 'Collapse all gang sheet cards into compact Bird\'s-Eye View' : 'Expand all gang sheet cards to full size'}
+                        >
+                          <Layers size={14} />
+                          <span>{allCardsExpanded ? 'Collapse All (Bird\'s-Eye View)' : 'Expand All Cards'}</span>
+                        </button>
+                      )}
+                      {anyCardExpanded && !allCardsExpanded && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExpandedProductionCards({});
+                            setEditingSpecsCardId(null);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 text-neutral-600 hover:text-neutral-900 font-bold text-xs rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
+                        >
+                          <span>Collapse All</span>
+                        </button>
+                      )}
+                      <span className="text-[11px] font-medium text-brand-secondary hidden sm:inline">
+                        {anyCardExpanded ? 'Click any card header to collapse' : 'Bird\'s-eye view • Click any card to expand'}
                       </span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const hasTags = (order.items || []).some((item: any) => !!item.logoUrlTag);
-                      if (hasTags) {
-                        handleGenerateCombinedTagGangSheet();
-                      } else {
-                        setIsCreateTagModalOpen(true);
-                      }
-                    }}
-                    disabled={isGeneratingCombinedTags}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-                    title="Generate or attach a custom size tag gang sheet for this order"
-                  >
-                    {isGeneratingCombinedTags ? <Loader2 size={15} className="animate-spin" /> : <Tag size={15} />}
-                    <span>{(order.items || []).some((item: any) => !!item.logoUrlTag) ? 'Generate Size Tag Sheet' : 'Create / Add Size Tag'}</span>
-                  </button>
-                  <PillButton 
-                    variant="outline" 
-                    onClick={handleDownloadAllZip}
-                    className="gap-2" 
-                    disabled={isZipping || (!order.masterPrintReadyUrl && !order.masterTagPrintReadyUrl && !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl))}
-                  >
-                    {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                    Download All Sheets (ZIP)
-                  </PillButton>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    </div>
+                    <div className="flex items-center gap-2.5 flex-wrap justify-end ml-auto">
+                      {(order.items || []).some(isPrintableArtItem) && (
+                        <button
+                          type="button"
+                          onClick={handleGenerateAllGarmentGangSheets}
+                          disabled={isGeneratingCombined || Object.values(generatingItemIds).some(Boolean)}
+                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                          title="Generate an individual 300 DPI gang sheet for each garment in this order"
+                        >
+                          {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                          <span>
+                            {isGeneratingCombined
+                              ? (generationStatus || 'Generating Sheets…')
+                              : `Generate All Garment Sheets (${(order.items || []).filter(isPrintableArtItem).length})`}
+                          </span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const hasTags = (order.items || []).some((item: any) => !!item.logoUrlTag);
+                          if (hasTags) {
+                            handleGenerateCombinedTagGangSheet();
+                          } else {
+                            setIsCreateTagModalOpen(true);
+                          }
+                        }}
+                        disabled={isGeneratingCombinedTags}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                        title="Generate or attach a custom size tag gang sheet for this order"
+                      >
+                        {isGeneratingCombinedTags ? <Loader2 size={15} className="animate-spin" /> : <Tag size={15} />}
+                        <span>{(order.items || []).some((item: any) => !!item.logoUrlTag) ? 'Generate Size Tag Sheet' : 'Create / Add Size Tag'}</span>
+                      </button>
+                      <PillButton 
+                        variant="outline" 
+                        onClick={handleDownloadAllZip}
+                        className="gap-2" 
+                        disabled={isZipping || (!order.masterPrintReadyUrl && !order.masterTagPrintReadyUrl && !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl))}
+                      >
+                        {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                        Download All Sheets (ZIP)
+                      </PillButton>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                 {(() => {
                   const productionCards: Array<{
                     id: string;
                     item: any;
                     type: 'art' | 'tag';
+                    designNumber?: number;
+                    displayTitle: string;
                     title: string;
                     description: string;
                     isPrintReady: boolean;
@@ -7939,9 +8008,12 @@ export function OrderDetail() {
                     const itemArtworks = getPrintableArtworksForItem(item);
                     const garmentCount = getItemGarmentCount(item);
                     const totalPrintCopies = itemArtworks.reduce((sum: number, a: any) => sum + (parseInt(String(a.quantity), 10) || 0), 0);
+                    const designNum = designNumberByItemId.get(String(item.id));
                     const garmentTitle = item.itemType === 'gang_sheet'
                       ? (item.sheetSizeName || item.style || 'DTF Gang Sheet')
                       : [item.style || 'Garment', item.color ? `(${item.color})` : ''].filter(Boolean).join(' ');
+                    const displayTitle = item.itemType === 'gang_sheet' ? `📄 ${garmentTitle}` : `👕 ${garmentTitle}`;
+                    const fullCardTitle = designNum ? `Design ${designNum} — ${garmentTitle}` : displayTitle;
                     const isItemGenerating = !!generatingItemIds[item.id];
                     const itemStatusText = generationStatusByItem[item.id] || generationStatus;
                     const itemNeedsRegen = !!needsRegenerateByItem[item.id];
@@ -7964,7 +8036,9 @@ export function OrderDetail() {
                       id: `${item.id}-art`,
                       item,
                       type: 'art',
-                      title: item.itemType === 'gang_sheet' ? `📄 ${garmentTitle}` : `👕 ${garmentTitle}`,
+                      designNumber: designNum,
+                      displayTitle,
+                      title: fullCardTitle,
                       description,
                       isPrintReady: hasFiles,
                       isReady: !!item.readyToPrint,
@@ -7994,6 +8068,7 @@ export function OrderDetail() {
                       item: tagItems[0],
                       type: 'tag',
                       isMaster: true,
+                      displayTitle: `🏷️ Combined Size Tag Gang Sheet (All Tags)`,
                       title: `🏷️ Combined Size Tag Gang Sheet (All Tags)`,
                       description: `Custom Size Tags • ${tagItems.length} Line ${tagItems.length === 1 ? 'Item' : 'Items'} • ${totalTagsCount} Total Tags`,
                       isPrintReady: isTagPrintReady,
@@ -8021,23 +8096,47 @@ export function OrderDetail() {
                       ? (effectivePrintUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag))
                       : (effectiveCutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
 
+                    const isCardExpanded = !!expandedProductionCards[card.id] || editingSpecsCardId === card.id;
+                    const toggleCardExpanded = () => {
+                      if (isCardExpanded) {
+                        setExpandedProductionCards(prev => ({ ...prev, [card.id]: false }));
+                        if (editingSpecsCardId === card.id) {
+                          setEditingSpecsCardId(null);
+                        }
+                      } else {
+                        setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
+                      }
+                    };
+
                     return (
-                      <div key={card.id} className={`text-white rounded-2xl border p-5 flex flex-col gap-4 shadow-xl ${card.isMaster ? 'bg-neutral-900 border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-neutral-900 border-amber-500/40 ring-1 ring-amber-500/20'}`}>
-                        {/* Card Header */}
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <h3 className="font-bold text-sm text-neutral-100">{card.title}</h3>
-                            <p className="text-[11px] font-semibold text-neutral-400 mt-0.5">
+                      <div key={card.id} className={`text-white rounded-2xl border p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl transition-all ${card.isMaster ? 'bg-neutral-900 border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-neutral-900 border-amber-500/40 ring-1 ring-amber-500/20'}`}>
+                        {/* Collapsible Card Header */}
+                        <div
+                          className="flex justify-between items-start gap-3 cursor-pointer select-none group/cardhdr"
+                          onClick={toggleCardExpanded}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-sm text-neutral-100 flex items-center gap-2 min-w-0" title={card.title}>
+                              {card.designNumber ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider bg-amber-500 text-black shrink-0">
+                                  Design {card.designNumber}
+                                </span>
+                              ) : null}
+                              <span className="truncate">{card.displayTitle}</span>
+                            </h3>
+                            <p className="text-[11px] font-semibold text-neutral-400 mt-0.5 leading-snug">
                               {card.description}
                             </p>
-                            {card.type === 'art' && (
+                            {isCardExpanded && card.type === 'art' && (
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setSpecsError(''); setSpecsNotice('');
                                   if (editingSpecsCardId === card.id) {
                                     setEditingSpecsCardId(null);
                                   } else {
+                                    setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
                                     setEditingSpecsCardId(card.id);
                                     const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
                                     setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
@@ -8049,10 +8148,13 @@ export function OrderDetail() {
                                 <span>Edit sizes &amp; copies</span>
                               </button>
                             )}
-                            {card.type === 'tag' && (
+                            {isCardExpanded && card.type === 'tag' && (
                               <button
                                 type="button"
-                                onClick={() => setIsCreateTagModalOpen(true)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsCreateTagModalOpen(true);
+                                }}
                                 className="text-[10px] font-bold text-purple-400 hover:text-purple-300 uppercase tracking-wider underline cursor-pointer mt-1.5 block"
                               >
                                 Change / Edit Tag Logo
@@ -8060,7 +8162,7 @@ export function OrderDetail() {
                             )}
                           </div>
                           
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
                             {card.isPrinted ? (
                               <span title="This sheet has been marked as printed" className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
                                 <Check size={10} strokeWidth={3} /> Printed
@@ -8078,8 +8180,148 @@ export function OrderDetail() {
                                 Files generated
                               </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleCardExpanded();
+                              }}
+                              aria-expanded={isCardExpanded}
+                              title={isCardExpanded ? 'Collapse card to Bird\'s-Eye View' : 'Expand card for full preview and controls'}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300 group-hover/cardhdr:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <span>{isCardExpanded ? 'Collapse' : 'Expand'}</span>
+                              <ChevronDown size={13} className={`transition-transform duration-200 ${isCardExpanded ? 'rotate-180' : ''}`} />
+                            </button>
                           </div>
                         </div>
+
+                        {!isCardExpanded ? (
+                          /* Compact Bird's-Eye View */
+                          <div className="flex flex-col gap-2.5">
+                            {card.isPrintReady ? (
+                              hasMultipleSheets ? (
+                                <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                                  {card.sheets!.map((sh) => (
+                                    <div
+                                      key={sh.sheetNumber}
+                                      onClick={() => setExpandedImage({
+                                        src: sh.printUrl,
+                                        alt: `${card.title} — Sheet ${sh.sheetNumber} of ${card.sheets!.length}`,
+                                        item: card.item,
+                                        itemStyle: `${card.title} (Sheet ${sh.sheetNumber} of ${card.sheets!.length})`
+                                      })}
+                                      title={`Click to zoom Sheet ${sh.sheetNumber} of ${card.sheets!.length}`}
+                                      className="relative h-32 min-w-[92px] flex-1 bg-neutral-950 border border-neutral-800 hover:border-amber-500/60 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in group/mini transition-colors"
+                                    >
+                                      <img
+                                        src={sh.printUrl}
+                                        alt={`Sheet ${sh.sheetNumber}`}
+                                        className="w-full h-full object-contain p-1.5 group-hover/mini:scale-105 transition-transform"
+                                      />
+                                      <span className="absolute bottom-1 left-1 right-1 bg-black/80 text-[9px] font-bold text-neutral-200 px-1.5 py-0.5 rounded text-center truncate">
+                                        #{sh.sheetNumber} • {Math.round(sh.height || 0)}&quot;{sh.printCount ? ` (${sh.printCount})` : ''}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => activePreviewUrl && setExpandedImage({ src: activePreviewUrl, alt: card.title, item: card.item, itemStyle: card.title })}
+                                  title="Click to zoom sheet preview"
+                                  className="relative h-32 w-full bg-neutral-950 border border-neutral-800 hover:border-amber-500/60 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in transition-colors"
+                                >
+                                  {activePreviewUrl && (
+                                    <img
+                                      src={activePreviewUrl}
+                                      alt={card.title}
+                                      className="w-full h-full object-contain p-2 hover:scale-105 transition-transform"
+                                    />
+                                  )}
+                                </div>
+                              )
+                            ) : (
+                              <div className="h-24 w-full bg-neutral-950/70 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center gap-2.5 px-4 text-neutral-400">
+                                <Printer size={16} className="text-amber-400 shrink-0" />
+                                <span className="text-[11px] font-semibold">Production files not generated yet</span>
+                              </div>
+                            )}
+
+                            {card.needsRegen && card.type === 'art' && !card.isGenerating && (
+                              <p className="text-[10px] font-bold text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-lg px-2 py-1 text-center" role="status">
+                                Sizes saved — click Regenerate to update sheets.
+                              </p>
+                            )}
+                            {card.isGenerating && (
+                              <p className="text-[10px] text-amber-300 text-center font-semibold leading-snug" role="status">
+                                {(card.type === 'art' && card.statusText) || 'Building print and cut files…'}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                              {card.type === 'art' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSpecsError(''); setSpecsNotice('');
+                                    setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
+                                    setEditingSpecsCardId(card.id);
+                                    const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
+                                    setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
+                                  }}
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors"
+                                >
+                                  <Edit3 size={11} />
+                                  <span>Sizes</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={card.generateFunc}
+                                disabled={card.isGenerating}
+                                className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                                  !card.isPrintReady || (card.needsRegen && card.type === 'art')
+                                    ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
+                                    : 'bg-neutral-850 hover:bg-neutral-800 text-neutral-200 border border-neutral-700'
+                                }`}
+                              >
+                                {card.isGenerating ? (
+                                  <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>Generating…</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={12} />
+                                    <span>{card.isPrintReady ? 'Regenerate' : 'Generate'}</span>
+                                  </>
+                                )}
+                              </button>
+                              {card.isPrintReady && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadCardZip(card)}
+                                  disabled={zippingCardId !== null}
+                                  title={hasMultipleSheets ? `Download all ${card.sheets!.length} sheets (PNG + SVG) as one ZIP` : 'Download Print PNG + Cut SVG as one ZIP'}
+                                  className="flex-1 min-w-[125px] py-1.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                                >
+                                  {zippingCardId === card.id ? (
+                                    <>
+                                      <Loader2 size={12} className="animate-spin shrink-0" />
+                                      <span className="truncate">Zipping…</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download size={12} className="shrink-0" />
+                                      <span>{hasMultipleSheets ? `All ${card.sheets!.length} Sheets (ZIP)` : 'Download ZIP'}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
 
                         {/* Multi-sheet part switcher when a single garment's prints span > 100" */}
                         {hasMultipleSheets && editingSpecsCardId !== card.id && (
@@ -8583,11 +8825,13 @@ export function OrderDetail() {
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
-                              <Check size={12} />
-                              <span>{card.isPrinted ? 'Printed (undo)' : 'Mark printed'}</span>
-                            </button>
+                                <Check size={12} />
+                                <span>{card.isPrinted ? 'Printed (undo)' : 'Mark printed'}</span>
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                          </>
+                        )}
                       </div>
                     );
                   });
