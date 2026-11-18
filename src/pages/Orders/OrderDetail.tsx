@@ -280,7 +280,7 @@ const CutOffsetInputs = () => {
     };
 
     const field = (axis: 'x' | 'y', label: string) => (
-        <label className="flex items-center gap-1 text-[10px] text-neutral-400">
+        <label className="flex items-center gap-1 text-[10px] font-medium text-neutral-600">
             {label}
             <input
                 type="number"
@@ -289,7 +289,7 @@ const CutOffsetInputs = () => {
                 onChange={e => setText(t => ({ ...t, [axis]: e.target.value }))}
                 onBlur={() => commit(axis)}
                 onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                className="w-14 rounded border border-neutral-700 bg-neutral-900 px-1 py-0.5 text-[11px] text-neutral-100"
+                className="w-14 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-neutral-900 focus:outline-none focus:border-neutral-900"
             />
             mm
         </label>
@@ -298,7 +298,7 @@ const CutOffsetInputs = () => {
     return (
         <div className="flex flex-col gap-1 pt-1">
             <div className="flex items-center gap-3">
-                <span className="text-neutral-200 font-bold text-[11px]">Cut offset</span>
+                <span className="text-neutral-800 font-bold text-[11px]">Cut offset</span>
                 {field('x', 'Right')}
                 {field('y', 'Down')}
             </div>
@@ -7076,7 +7076,7 @@ export function OrderDetail() {
                                          })()}
                                 </p>
                                 
-                                {/* Specs Dropdown Toggle under Garment Name */}
+                                {/* Details Dropdown Toggle under Garment Name */}
                                 {!isSales && (
                                   <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2 mt-2.5 min-w-0 w-full">
                                     <button 
@@ -7087,7 +7087,7 @@ export function OrderDetail() {
                                       className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border shrink-0 whitespace-nowrap cursor-pointer ${expandedSpecs[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
                                     >
                                       <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedSpecs[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
-                                      <span>Specs</span>
+                                      <span>Details</span>
                                     </button>
                                   </div>
                                 )}
@@ -7854,10 +7854,10 @@ export function OrderDetail() {
                     );
 
                     const badgeClass = allPrinted
-                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      ? 'text-white bg-neutral-900 border-neutral-900'
                       : (allArtGenerated && allTagsGenerated && (anyArtGenerated || tagItems.length > 0))
-                        ? 'text-purple-700 bg-purple-50 border-purple-200'
-                        : 'text-amber-700 bg-amber-50 border-amber-200';
+                        ? 'text-neutral-800 bg-neutral-100 border-neutral-300'
+                        : 'text-neutral-600 bg-neutral-50 border-neutral-200';
 
                     const badgeLabel = allPrinted
                       ? 'Printed'
@@ -7868,7 +7868,7 @@ export function OrderDetail() {
                           : 'Files not generated';
 
                     return (
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeClass}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${badgeClass}`}>
                         {badgeLabel}
                       </span>
                     );
@@ -7909,7 +7909,7 @@ export function OrderDetail() {
                               setExpandedProductionCards(next);
                             }
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs rounded-full border border-neutral-300 transition-colors cursor-pointer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-800 font-bold text-xs rounded-full border border-brand-border shadow-2xs transition-colors cursor-pointer"
                           title={allCardsExpanded ? 'Collapse all gang sheet cards into compact Bird\'s-Eye View' : 'Expand all gang sheet cards to full size'}
                         >
                           <Layers size={14} />
@@ -7938,7 +7938,7 @@ export function OrderDetail() {
                           type="button"
                           onClick={handleGenerateAllGarmentGangSheets}
                           disabled={isGeneratingCombined || Object.values(generatingItemIds).some(Boolean)}
-                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-full border border-neutral-900 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                           title="Generate an individual 300 DPI gang sheet for each garment in this order"
                         >
                           {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
@@ -7960,7 +7960,7 @@ export function OrderDetail() {
                           }
                         }}
                         disabled={isGeneratingCombinedTags}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                        className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-neutral-100 text-neutral-900 font-bold text-xs rounded-full border border-brand-border shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                         title="Generate or attach a custom size tag gang sheet for this order"
                       >
                         {isGeneratingCombinedTags ? <Loader2 size={15} className="animate-spin" /> : <Tag size={15} />}
@@ -8109,7 +8109,7 @@ export function OrderDetail() {
                     };
 
                     return (
-                      <div key={card.id} className={`text-white rounded-2xl border p-4 sm:p-5 flex flex-col gap-3.5 shadow-xl transition-all ${card.isMaster ? 'bg-neutral-900 border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-neutral-900 border-amber-500/40 ring-1 ring-amber-500/20'}`}>
+                      <div key={card.id} className="bg-white text-neutral-900 rounded-2xl border border-brand-border hover:border-neutral-300 p-4 sm:p-5 flex flex-col gap-3.5 shadow-sm transition-all">
                         {/* Collapsible Card Header */}
                         <div
                           className="flex justify-between items-start gap-3 cursor-pointer select-none group/cardhdr"
@@ -8117,14 +8117,14 @@ export function OrderDetail() {
                         >
                           <div className="min-w-0 flex-1">
                             {card.designNumber ? (
-                              <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500 text-black shrink-0">
+                              <span className="inline-flex items-center px-2 py-0.5 mb-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-neutral-900 text-white shrink-0">
                                 Design {card.designNumber}
                               </span>
                             ) : null}
-                            <h3 className="font-bold text-sm text-neutral-100 truncate" title={card.title}>
+                            <h3 className="font-bold text-sm text-gray-900 truncate" title={card.title}>
                               {card.displayTitle}
                             </h3>
-                            <p className="text-[11px] font-semibold text-neutral-400 mt-0.5 leading-snug">
+                            <p className="text-[11px] font-semibold text-gray-500 mt-0.5 leading-snug">
                               {card.description}
                             </p>
                             {isCardExpanded && card.type === 'art' && (
@@ -8142,7 +8142,7 @@ export function OrderDetail() {
                                     setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
                                   }
                                 }}
-                                className={`mt-2.5 items-center gap-1.5 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${editingSpecsCardId === card.id ? 'hidden' : 'inline-flex'}`}
+                                className={`mt-2.5 items-center gap-1.5 text-[11px] font-bold text-neutral-700 hover:text-neutral-900 bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 shadow-2xs cursor-pointer transition-colors ${editingSpecsCardId === card.id ? 'hidden' : 'inline-flex'}`}
                               >
                                 <Edit3 size={12} />
                                 <span>Edit sizes &amp; copies</span>
@@ -8155,7 +8155,7 @@ export function OrderDetail() {
                                   e.stopPropagation();
                                   setIsCreateTagModalOpen(true);
                                 }}
-                                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 uppercase tracking-wider underline cursor-pointer mt-1.5 block"
+                                className="text-[10px] font-bold text-neutral-700 hover:text-black uppercase tracking-wider underline cursor-pointer mt-1.5 block"
                               >
                                 Change / Edit Tag Logo
                               </button>
@@ -8164,19 +8164,19 @@ export function OrderDetail() {
                           
                           <div className="flex items-center gap-2 shrink-0">
                             {card.isPrinted ? (
-                              <span title="This sheet has been marked as printed" className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                              <span title="This sheet has been marked as printed" className="text-[10px] font-bold uppercase tracking-wider text-white bg-neutral-900 border border-neutral-900 px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-1">
                                 <Check size={10} strokeWidth={3} /> Printed
                               </span>
                             ) : !card.isPrintReady ? (
-                              <span title="Print and cut files have not been generated yet" className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-955/80 border border-amber-850 px-2 py-0.5 rounded shadow-sm">
+                              <span title="Print and cut files have not been generated yet" className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 bg-neutral-100 border border-neutral-200 px-2.5 py-0.5 rounded-full">
                                 No files yet
                               </span>
                             ) : card.isReady ? (
-                              <span title="Files are generated and the sheet is marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-purple-450 bg-purple-955/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                              <span title="Files are generated and the sheet is marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-neutral-800 bg-neutral-100 border border-neutral-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                                 <Printer size={10} /> Ready to print
                               </span>
                             ) : (
-                              <span title="Files are generated but the sheet is not marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-neutral-300 bg-neutral-850 border border-neutral-700 px-2 py-0.5 rounded shadow-sm">
+                              <span title="Files are generated but the sheet is not marked ready to print" className="text-[10px] font-bold uppercase tracking-wider text-neutral-600 bg-neutral-50 border border-neutral-200 px-2.5 py-0.5 rounded-full">
                                 Files generated
                               </span>
                             )}
@@ -8188,7 +8188,7 @@ export function OrderDetail() {
                               }}
                               aria-expanded={isCardExpanded}
                               title={isCardExpanded ? 'Collapse card to Bird\'s-Eye View' : 'Expand card for full preview and controls'}
-                              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300 group-hover/cardhdr:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600 group-hover/cardhdr:text-neutral-900 bg-white hover:bg-neutral-100 border border-brand-border px-2.5 py-1 rounded-full transition-colors cursor-pointer"
                             >
                               <span>{isCardExpanded ? 'Collapse' : 'Expand'}</span>
                               <ChevronDown size={13} className={`transition-transform duration-200 ${isCardExpanded ? 'rotate-180' : ''}`} />
@@ -8212,14 +8212,14 @@ export function OrderDetail() {
                                         itemStyle: `${card.title} (Sheet ${sh.sheetNumber} of ${card.sheets!.length})`
                                       })}
                                       title={`Click to zoom Sheet ${sh.sheetNumber} of ${card.sheets!.length}`}
-                                      className="relative h-32 min-w-[92px] flex-1 bg-neutral-950 border border-neutral-800 hover:border-amber-500/60 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in group/mini transition-colors"
+                                      className="relative h-32 min-w-[92px] flex-1 bg-white border border-brand-border hover:border-neutral-400 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in group/mini transition-colors"
                                     >
                                       <img
                                         src={sh.printUrl}
                                         alt={`Sheet ${sh.sheetNumber}`}
                                         className="w-full h-full object-contain p-1.5 group-hover/mini:scale-105 transition-transform"
                                       />
-                                      <span className="absolute bottom-1 left-1 right-1 bg-black/80 text-[9px] font-bold text-neutral-200 px-1.5 py-0.5 rounded text-center truncate">
+                                      <span className="absolute bottom-1 left-1 right-1 bg-neutral-900/85 text-[9px] font-bold text-white px-1.5 py-0.5 rounded text-center truncate">
                                         #{sh.sheetNumber} • {Math.round(sh.height || 0)}&quot;{sh.printCount ? ` (${sh.printCount})` : ''}
                                       </span>
                                     </div>
@@ -8229,7 +8229,7 @@ export function OrderDetail() {
                                 <div
                                   onClick={() => activePreviewUrl && setExpandedImage({ src: activePreviewUrl, alt: card.title, item: card.item, itemStyle: card.title })}
                                   title="Click to zoom sheet preview"
-                                  className="relative h-32 w-full bg-neutral-950 border border-neutral-800 hover:border-amber-500/60 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in transition-colors"
+                                  className="relative h-32 w-full bg-white border border-brand-border hover:border-neutral-400 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard cursor-zoom-in transition-colors"
                                 >
                                   {activePreviewUrl && (
                                     <img
@@ -8241,19 +8241,19 @@ export function OrderDetail() {
                                 </div>
                               )
                             ) : (
-                              <div className="h-24 w-full bg-neutral-950/70 border border-dashed border-neutral-800 rounded-xl flex items-center justify-center gap-2.5 px-4 text-neutral-400">
-                                <Printer size={16} className="text-amber-400 shrink-0" />
+                              <div className="h-24 w-full bg-neutral-50 border border-dashed border-neutral-300 rounded-xl flex items-center justify-center gap-2.5 px-4 text-neutral-500">
+                                <Printer size={16} className="text-neutral-400 shrink-0" />
                                 <span className="text-[11px] font-semibold">Production files not generated yet</span>
                               </div>
                             )}
 
                             {card.needsRegen && card.type === 'art' && !card.isGenerating && (
-                              <p className="text-[10px] font-bold text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-lg px-2 py-1 text-center" role="status">
+                              <p className="text-[10px] font-bold text-neutral-800 bg-neutral-100 border border-neutral-300 rounded-lg px-2 py-1 text-center" role="status">
                                 Sizes saved — click Regenerate to update sheets.
                               </p>
                             )}
                             {card.isGenerating && (
-                              <p className="text-[10px] text-amber-300 text-center font-semibold leading-snug" role="status">
+                              <p className="text-[10px] text-neutral-600 text-center font-semibold leading-snug" role="status">
                                 {(card.type === 'art' && card.statusText) || 'Building print and cut files…'}
                               </p>
                             )}
@@ -8269,7 +8269,7 @@ export function OrderDetail() {
                                     const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
                                     setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
                                   }}
-                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors"
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer transition-colors"
                                 >
                                   <Edit3 size={11} />
                                   <span>Sizes</span>
@@ -8279,10 +8279,10 @@ export function OrderDetail() {
                                 type="button"
                                 onClick={card.generateFunc}
                                 disabled={card.isGenerating}
-                                className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer ${
+                                className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-full text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer border ${
                                   !card.isPrintReady || (card.needsRegen && card.type === 'art')
-                                    ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
-                                    : 'bg-neutral-850 hover:bg-neutral-800 text-neutral-200 border border-neutral-700'
+                                    ? 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-900 shadow-2xs'
+                                    : 'bg-white hover:bg-neutral-100 text-neutral-800 border-brand-border'
                                 }`}
                               >
                                 {card.isGenerating ? (
@@ -8303,7 +8303,7 @@ export function OrderDetail() {
                                   onClick={() => handleDownloadCardZip(card)}
                                   disabled={zippingCardId !== null}
                                   title={hasMultipleSheets ? `Download all ${card.sheets!.length} sheets (PNG + SVG) as one ZIP` : 'Download Print PNG + Cut SVG as one ZIP'}
-                                  className="flex-1 min-w-[125px] py-1.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                                  className="flex-1 min-w-[125px] py-1.5 px-3 rounded-full text-[11px] font-bold bg-neutral-900 hover:bg-neutral-800 border border-neutral-900 text-white shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                                 >
                                   {zippingCardId === card.id ? (
                                     <>
@@ -8325,12 +8325,12 @@ export function OrderDetail() {
 
                         {/* Multi-sheet part switcher when a single garment's prints span > 100" */}
                         {hasMultipleSheets && editingSpecsCardId !== card.id && (
-                          <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-2.5 flex flex-col gap-2">
+                          <div className="bg-neutral-50 border border-brand-border rounded-xl p-2.5 flex flex-col gap-2">
                             <div className="flex items-center justify-between gap-2 text-[11px]">
-                              <span className="font-bold text-amber-300">
+                              <span className="font-bold text-neutral-800">
                                 {card.sheets!.length} Sheets for this garment (max 100&quot; each at 300 DPI)
                               </span>
-                              <span className="text-[10px] font-semibold text-neutral-300">
+                              <span className="text-[10px] font-semibold text-neutral-500">
                                 Viewing Sheet {selectedSheetNum} of {card.sheets!.length}
                               </span>
                             </div>
@@ -8342,10 +8342,10 @@ export function OrderDetail() {
                                     key={sh.sheetNumber}
                                     type="button"
                                     onClick={() => setActiveSheetPartByCard(prev => ({ ...prev, [card.id]: sh.sheetNumber }))}
-                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
                                       isActive
-                                        ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-sm'
-                                        : 'bg-neutral-900 text-neutral-300 border-neutral-700 hover:bg-neutral-800 hover:text-white'
+                                        ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                                        : 'bg-white text-neutral-700 border-brand-border hover:bg-neutral-100 hover:text-neutral-900'
                                     }`}
                                   >
                                     Sheet {sh.sheetNumber} ({Math.round(sh.height || 0)}&quot;{sh.printCount ? ` • ${sh.printCount} prints` : ''})
@@ -8358,16 +8358,16 @@ export function OrderDetail() {
 
                         {/* Preview Box */}
                         {editingSpecsCardId === card.id ? (
-                          <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-800 p-4 rounded-xl">
+                          <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-50 border border-brand-border p-4 rounded-xl">
                             <div className="flex justify-between items-start gap-3">
                               <div>
-                                <p className="text-xs font-bold text-neutral-100">Logo sizes &amp; copies</p>
-                                <p className="text-[11px] text-neutral-400 leading-snug mt-0.5">
+                                <p className="text-xs font-bold text-gray-900">Logo sizes &amp; copies</p>
+                                <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
                                   Type the width you want printed for this garment. Height adjusts automatically, and empty space around the logo is not counted.
                                 </p>
                               </div>
                               {!card.isMaster && (
-                                <label className="shrink-0 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 cursor-pointer flex items-center gap-1 transition-colors">
+                                <label className="shrink-0 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer flex items-center gap-1 transition-colors shadow-2xs">
                                   <Plus size={12} /> Add logo
                                   <input
                                     type="file"
@@ -8388,9 +8388,9 @@ export function OrderDetail() {
                                   const widthMissing = !(widthNum > 0);
                                   const tooBig = !widthMissing && Math.min(widthNum, widthNum * getArtAspect(art)) > GANG_SHEET_WIDTH_INCHES;
                                   return (
-                                  <div key={art.id || idx} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 flex flex-col gap-2.5">
+                                  <div key={art.id || idx} className="bg-white border border-brand-border rounded-lg p-3 flex flex-col gap-2.5 shadow-2xs">
                                     <div className="flex gap-3 items-center">
-                                      <div className="w-11 h-11 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard">
+                                      <div className="w-11 h-11 bg-white border border-brand-border rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard">
                                         {art.url ? (
                                           <>
                                             <img
@@ -8415,7 +8415,7 @@ export function OrderDetail() {
                                             </label>
                                           </>
                                         ) : (
-                                          <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center hover:bg-neutral-800 transition-colors" title="Upload a logo file">
+                                          <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center hover:bg-neutral-100 transition-colors" title="Upload a logo file">
                                             <Upload size={12} className="text-neutral-500" />
                                             <input
                                               type="file"
@@ -8428,11 +8428,11 @@ export function OrderDetail() {
                                       </div>
 
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-neutral-100 truncate" title={art.name || 'Unnamed logo'}>
+                                        <p className="text-xs font-bold text-gray-900 truncate" title={art.name || 'Unnamed logo'}>
                                           {art.name || 'Unnamed logo'}
                                         </p>
                                         {art.itemStyle && (
-                                          <p className="text-[10px] text-neutral-500 truncate" title={`Line item: ${art.itemStyle}`}>
+                                          <p className="text-[10px] text-gray-500 truncate" title={`Line item: ${art.itemStyle}`}>
                                             On: {art.itemStyle}
                                           </p>
                                         )}
@@ -8444,7 +8444,7 @@ export function OrderDetail() {
                                           onClick={() => handleTrimInlineLogo(art.itemId || card.item.id, idx)}
                                           disabled={trimmingLogoIdx !== null}
                                           title="Cut away empty space and any plain background around this logo, so the width you type is the size of the artwork itself"
-                                          className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-neutral-200 hover:text-white bg-neutral-850 hover:bg-neutral-800 border border-neutral-700 rounded-md px-2 py-1 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-wait"
+                                          className="shrink-0 flex items-center gap-1 text-[11px] font-bold text-neutral-700 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-2.5 py-1 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-wait"
                                         >
                                           {trimmingLogoIdx === idx ? <Loader2 size={12} className="animate-spin" /> : <Scissors size={12} />}
                                           {trimmingLogoIdx === idx ? 'Trimming…' : 'Trim'}
@@ -8457,7 +8457,7 @@ export function OrderDetail() {
                                         }}
                                         title="Remove this logo from the sheet"
                                         aria-label="Remove this logo from the sheet"
-                                        className="shrink-0 p-1.5 rounded-md text-neutral-500 hover:text-red-400 hover:bg-neutral-850 cursor-pointer transition-colors"
+                                        className="shrink-0 p-1.5 rounded-md text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 cursor-pointer transition-colors"
                                       >
                                         <Trash2 size={14} />
                                       </button>
@@ -8465,7 +8465,7 @@ export function OrderDetail() {
 
                                     <div className="flex items-end gap-x-4 gap-y-2 flex-wrap">
                                       <label className="flex flex-col gap-1">
-                                        <span className="text-[10px] font-bold text-neutral-400">Width</span>
+                                        <span className="text-[10px] font-bold text-neutral-500">Width</span>
                                         <span className="flex items-center gap-1.5">
                                           <input
                                             type="number"
@@ -8473,10 +8473,10 @@ export function OrderDetail() {
                                             min="0"
                                             placeholder="3.5"
                                             aria-label={`Print width in inches for ${art.name || 'logo'}`}
-                                            className={`w-20 bg-neutral-950 border rounded-md px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-neutral-500 ${
+                                            className={`w-20 bg-white border rounded-md px-2 py-1.5 text-xs text-gray-900 font-bold focus:outline-none focus:border-neutral-900 ${
                                               widthMissing
-                                                ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
-                                                : 'border-neutral-700'
+                                                ? 'border-neutral-900 ring-1 ring-neutral-900/20 bg-neutral-50'
+                                                : 'border-neutral-300'
                                             }`}
                                             value={art.width ?? ''}
                                             onFocus={(e) => e.currentTarget.select()}
@@ -8494,26 +8494,26 @@ export function OrderDetail() {
                                               });
                                             }}
                                           />
-                                          <span className="text-[11px] text-neutral-400">in</span>
+                                          <span className="text-[11px] text-neutral-500">in</span>
                                         </span>
                                       </label>
 
                                       <div className="flex flex-col gap-1" title="Calculated from the width to keep the logo's proportions">
-                                        <span className="text-[10px] font-bold text-neutral-400">Height (auto)</span>
-                                        <span className="py-1.5 text-xs font-bold text-neutral-300 whitespace-nowrap">
+                                        <span className="text-[10px] font-bold text-neutral-500">Height (auto)</span>
+                                        <span className="py-1.5 text-xs font-bold text-neutral-700 whitespace-nowrap">
                                           × {getArtHeightText(art)} in
                                         </span>
                                       </div>
 
                                       <label className="flex flex-col gap-1 ml-auto">
-                                        <span className="text-[10px] font-bold text-neutral-400">Copies</span>
+                                        <span className="text-[10px] font-bold text-neutral-500">Copies</span>
                                         <input
                                           type="number"
                                           min="1"
                                           step="1"
                                           aria-label={`Number of copies of ${art.name || 'logo'}`}
                                           title="How many times this logo is printed on the sheet"
-                                          className="w-20 bg-neutral-950 border border-neutral-700 rounded-md px-2 py-1.5 text-xs text-white font-bold focus:outline-none focus:border-neutral-500"
+                                          className="w-20 bg-white border border-neutral-300 rounded-md px-2 py-1.5 text-xs text-gray-900 font-bold focus:outline-none focus:border-neutral-900"
                                           value={art.quantity ?? 1}
                                           onFocus={(e) => e.currentTarget.select()}
                                           onWheel={(e) => e.currentTarget.blur()}
@@ -8538,10 +8538,10 @@ export function OrderDetail() {
                                     </div>
 
                                     {widthMissing && (
-                                      <p className="text-[10px] font-bold text-red-400">Enter a width in inches.</p>
+                                      <p className="text-[10px] font-bold text-neutral-700">Enter a width in inches.</p>
                                     )}
                                     {tooBig && (
-                                      <p className="text-[10px] font-bold text-amber-400">Too big for the {GANG_SHEET_WIDTH_INCHES}" usable width of the sheet. It will run off the edge.</p>
+                                      <p className="text-[10px] font-bold text-neutral-700">Too big for the {GANG_SHEET_WIDTH_INCHES}" usable width of the sheet. It will run off the edge.</p>
                                     )}
                                   </div>
                                   );
@@ -8550,10 +8550,10 @@ export function OrderDetail() {
                             )}
 
                             {specsNotice && !specsError && (
-                              <p className="text-[11px] font-bold text-neutral-200 bg-neutral-850 border border-neutral-700 rounded-lg px-2.5 py-1.5">{specsNotice}</p>
+                              <p className="text-[11px] font-bold text-neutral-800 bg-white border border-brand-border rounded-lg px-2.5 py-1.5">{specsNotice}</p>
                             )}
                             {specsError && (
-                              <p className="text-[11px] font-bold text-red-400 bg-red-950/30 border border-red-900/60 rounded-lg px-2.5 py-1.5">{specsError}</p>
+                              <p className="text-[11px] font-bold text-neutral-900 bg-neutral-100 border border-neutral-300 rounded-lg px-2.5 py-1.5">{specsError}</p>
                             )}
 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -8563,7 +8563,7 @@ export function OrderDetail() {
                                   setSpecsError(''); setSpecsNotice('');
                                   setEditingSpecsCardId(null);
                                 }}
-                                className="px-3.5 border border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-850 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                className="px-3.5 bg-white border border-brand-border text-neutral-700 hover:text-black hover:bg-neutral-100 py-2 rounded-full text-xs font-bold transition-all cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -8571,7 +8571,7 @@ export function OrderDetail() {
                                 type="button"
                                 onClick={() => handleSaveInlineSpecs(card.item)}
                                 disabled={isUploadingInlineLogo || card.isGenerating}
-                                className="flex-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                className="flex-1 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 disabled:opacity-50 text-neutral-900 py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                               >
                                 {isUploadingInlineLogo ? (
                                   <>
@@ -8586,7 +8586,7 @@ export function OrderDetail() {
                                 type="button"
                                 onClick={() => handleSaveAndRegenerateInlineSpecs(card.item)}
                                 disabled={isUploadingInlineLogo || card.isGenerating}
-                                className="flex-[1.3] bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-neutral-950 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                className="flex-[1.3] bg-neutral-900 hover:bg-neutral-800 border border-neutral-900 disabled:opacity-50 text-white py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                               >
                                 {card.isGenerating ? (
                                   <>
@@ -8603,7 +8603,7 @@ export function OrderDetail() {
                             </div>
                           </div>
                         ) : (
-                          <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
+                          <div className="relative aspect-[3/4] w-full bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
                             {activePreviewUrl ? (
                               <img 
                                 src={activePreviewUrl} 
@@ -8612,27 +8612,27 @@ export function OrderDetail() {
                                 onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}`, item: card.item, itemStyle: card.title })}
                               />
                             ) : (
-                              <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
+                              <div className="flex flex-col items-center gap-2 text-neutral-400 text-center p-6">
                                 <ImageIcon size={32} />
                                 <span className="text-xs font-semibold">No Artwork Preview Available</span>
                               </div>
                             )}
 
                             {!card.isPrintReady && (
-                              <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center gap-3 transition-all z-10">
-                                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-full">
-                                  <Printer size={24} className="text-amber-400 animate-bounce" />
+                              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center gap-3 transition-all z-10">
+                                <div className="p-3 bg-neutral-100 border border-neutral-200 rounded-full">
+                                  <Printer size={24} className="text-neutral-700" />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                  <span className="text-xs font-bold text-neutral-100">Production Files Required</span>
-                                  <span className="text-[10px] text-neutral-400 max-w-[200px] leading-relaxed">
+                                  <span className="text-xs font-bold text-gray-900">Production Files Required</span>
+                                  <span className="text-[10px] text-gray-500 max-w-[210px] leading-relaxed">
                                     The print-ready transparent gang sheet and cut files for this garment have not been generated yet.
                                   </span>
                                 </div>
                                 <button
                                   onClick={card.generateFunc}
                                   disabled={card.isGenerating}
-                                  className="mt-2 bg-amber-500 hover:bg-amber-450 text-neutral-950 font-black text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg disabled:opacity-50"
+                                  className="mt-2 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm hover:shadow-md disabled:opacity-50"
                                 >
                                   {card.isGenerating ? (
                                     <>
@@ -8650,16 +8650,16 @@ export function OrderDetail() {
                             )}
 
                             {card.isPrintReady && (
-                              <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
+                              <div className="absolute top-3 left-3 bg-white/95 border border-brand-border rounded-full p-0.5 flex shadow-sm">
                                 <button
                                   onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'print' }))}
-                                  className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'print' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                  className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full transition-all cursor-pointer ${currentPreviewMode === 'print' ? 'bg-neutral-900 text-white shadow-2xs' : 'text-neutral-600 hover:text-neutral-900'}`}
                                 >
                                   Print
                                 </button>
                                 <button
                                   onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'cut' }))}
-                                  className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'cut' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                  className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full transition-all cursor-pointer ${currentPreviewMode === 'cut' ? 'bg-neutral-900 text-white shadow-2xs' : 'text-neutral-600 hover:text-neutral-900'}`}
                                 >
                                   Cut Line
                                 </button>
@@ -8670,12 +8670,12 @@ export function OrderDetail() {
 
                         {/* Recolor options for tags */}
                         {card.type === 'tag' && (
-                          <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
-                            <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Print Color Override:</span>
+                          <div className="flex items-center justify-between gap-3 border-t border-brand-border pt-3 text-xs">
+                            <span className="text-neutral-600 font-bold uppercase tracking-wider text-[10px]">Print Color Override:</span>
                             <select
                               value={tagColorOverrides[card.item.id] || ''}
                               onChange={(e) => setTagColorOverrides(prev => ({ ...prev, [card.item.id]: e.target.value }))}
-                              className="bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none font-bold cursor-pointer"
+                              className="bg-white border border-neutral-300 hover:border-neutral-500 text-gray-900 rounded-lg px-2.5 py-1 text-xs focus:outline-none font-bold cursor-pointer"
                             >
                               <option value="">Keep Original (Designed)</option>
                               <option value="#ffffff">Solid White</option>
@@ -8687,9 +8687,9 @@ export function OrderDetail() {
                         )}
 
                         {/* Cut line style */}
-                        <div className="flex flex-col gap-0.5 border-t border-neutral-805 pt-3 text-xs">
-                          <span className="text-neutral-200 font-bold text-[11px]">Cut lines</span>
-                          <span className="text-[10px] text-neutral-500 leading-tight">
+                        <div className="flex flex-col gap-0.5 border-t border-brand-border pt-3 text-xs">
+                          <span className="text-gray-900 font-bold text-[11px]">Cut lines</span>
+                          <span className="text-[10px] text-gray-500 leading-tight">
                             Solid lines with {CUT_SIDE_GAP_COUNT} uncut {CUT_SIDE_GAP_MM} mm spaces on every side, and {CUT_CORNER_GAP_MM} mm left uncut at every corner.
                           </span>
                           <CutOffsetInputs />
@@ -8698,17 +8698,17 @@ export function OrderDetail() {
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">
                           {card.needsRegen && card.type === 'art' && !card.isGenerating && (
-                            <p className="text-[11px] font-bold text-amber-300 bg-amber-950/40 border border-amber-800/60 rounded-lg px-2.5 py-1.5 text-center" role="status">
+                            <p className="text-[11px] font-bold text-neutral-800 bg-neutral-100 border border-neutral-300 rounded-lg px-2.5 py-1.5 text-center" role="status">
                               Sizes saved. Regenerate to update the print and cut files.
                             </p>
                           )}
                           <button
                             onClick={card.generateFunc}
                             disabled={card.isGenerating}
-                            className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
-                              card.needsRegen && card.type === 'art'
-                                ? 'bg-amber-500 hover:bg-amber-400 text-neutral-950'
-                                : 'bg-white hover:bg-neutral-100 text-black'
+                            className={`w-full py-2.5 rounded-full text-xs font-bold transition-all border flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer ${
+                              !card.isPrintReady || (card.needsRegen && card.type === 'art')
+                                ? 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-900 shadow-sm'
+                                : 'bg-white hover:bg-neutral-100 text-neutral-900 border-brand-border shadow-2xs'
                             }`}
                           >
                             {card.isGenerating ? (
@@ -8724,7 +8724,7 @@ export function OrderDetail() {
                             )}
                           </button>
                           {card.isGenerating && (
-                            <p className="text-[10px] text-amber-300 text-center font-semibold leading-snug" role="status">
+                            <p className="text-[10px] text-neutral-600 text-center font-semibold leading-snug" role="status">
                               {(card.type === 'art' && card.statusText) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
                             </p>
                           )}
@@ -8742,10 +8742,10 @@ export function OrderDetail() {
                                   ? `Download all ${card.sheets!.length} print PNGs and cut SVGs for this garment in one organized ZIP (Print-PNG/ and Cut-SVG/ folders)`
                                   : 'Download both the Print PNG and Cut SVG for this sheet in one ZIP'
                             }
-                            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                            className={`w-full py-2.5 px-3 rounded-full text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
                               card.isPrintReady
-                                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white shadow-sm cursor-pointer disabled:opacity-60'
-                                : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'
+                                ? 'bg-neutral-900 hover:bg-neutral-800 border-neutral-900 text-white shadow-sm cursor-pointer disabled:opacity-60'
+                                : 'border-neutral-200 text-neutral-400 bg-neutral-100 pointer-events-none'
                             }`}
                           >
                             {zippingCardId === card.id ? (
@@ -8782,7 +8782,7 @@ export function OrderDetail() {
                                     onClick={() => handleDownloadSingleAsset(effectivePrintUrl, singlePngName)}
                                     disabled={!effectivePrintUrl}
                                     title={effectivePrintUrl ? `Download ${singlePngName}` : 'Generate the production files first'}
-                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-xl transition-all ${effectivePrintUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm cursor-pointer' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-full transition-all ${effectivePrintUrl ? 'border-brand-border text-neutral-800 bg-white hover:bg-neutral-100 hover:text-black shadow-2xs cursor-pointer' : 'border-neutral-200 text-neutral-400 bg-neutral-50 pointer-events-none'}`}
                                   >
                                     <Download size={11} />
                                     <span>{hasMultipleSheets ? `Only Sheet ${selectedSheetNum} PNG` : 'Print file (PNG)'}</span>
@@ -8792,7 +8792,7 @@ export function OrderDetail() {
                                     onClick={() => handleDownloadSingleAsset(effectiveCutUrl, singleSvgName)}
                                     disabled={!effectiveCutUrl}
                                     title={effectiveCutUrl ? `Download ${singleSvgName}` : 'Generate the production files first'}
-                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-xl transition-all ${effectiveCutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm cursor-pointer' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-full transition-all ${effectiveCutUrl ? 'border-brand-border text-neutral-800 bg-white hover:bg-neutral-100 hover:text-black shadow-2xs cursor-pointer' : 'border-neutral-200 text-neutral-400 bg-neutral-50 pointer-events-none'}`}
                                   >
                                     <Download size={11} />
                                     <span>{hasMultipleSheets ? `Only Sheet ${selectedSheetNum} SVG` : 'Cut file (SVG)'}</span>
@@ -8807,10 +8807,10 @@ export function OrderDetail() {
                             <button
                               onClick={() => handleToggleItemReadyToPrint(card.item.id, card.type)}
                               title={card.isReady ? 'Marked ready to print. Click to undo.' : 'Mark this sheet as ready so the print team knows to run it'}
-                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-full transition-all cursor-pointer ${
                                 card.isReady
-                                  ? 'border-purple-800 text-purple-300 bg-purple-955/40 hover:bg-purple-955 hover:text-white'
-                                  : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
+                                  ? 'border-neutral-900 text-white bg-neutral-900 hover:bg-neutral-800'
+                                  : 'border-brand-border text-neutral-700 bg-white hover:bg-neutral-100 hover:text-black'
                               }`}
                             >
                               {card.isReady ? <Check size={12} /> : <Printer size={12} />}
@@ -8819,10 +8819,10 @@ export function OrderDetail() {
                             <button
                               onClick={() => handleToggleItemPrinted(card.item.id, card.type)}
                               title={card.isPrinted ? 'Marked printed. Click to undo.' : 'Mark this sheet as printed'}
-                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-full transition-all cursor-pointer ${
                                 card.isPrinted
-                                  ? 'border-emerald-800 text-emerald-300 bg-emerald-955/40 hover:bg-emerald-955 hover:text-white'
-                                  : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
+                                  ? 'border-neutral-900 text-white bg-neutral-900 hover:bg-neutral-800'
+                                  : 'border-brand-border text-neutral-700 bg-white hover:bg-neutral-100 hover:text-black'
                               }`}
                             >
                                 <Check size={12} />
