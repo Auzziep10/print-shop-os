@@ -796,6 +796,7 @@ interface FinalSheetOutput {
     sheetHeight: number;
     sheetNumber: number;
     totalSheets: number;
+    placementCount: number;
 }
 
 const isTagArtwork = (art: any): boolean => {
@@ -1171,9 +1172,17 @@ const generateFinalSheetsForPrintAndCut = async (
                     return pick!;
                 };
 
-                let sheet = sheets[sheets.length - 1];
-                let pick = choose(sheet);
-                if (pick.top > MAX_CHUNK_HEIGHT_INCHES && sheet.placements.length > 0) {
+                let sheet: SkySheet | null = null;
+                let pick: { x: number; y: number; top: number; w: number; h: number; rotated: boolean } | null = null;
+                for (const candidate of sheets) {
+                    const candidatePick = choose(candidate);
+                    if (candidatePick.top <= MAX_CHUNK_HEIGHT_INCHES || candidate.placements.length === 0) {
+                        sheet = candidate;
+                        pick = candidatePick;
+                        break;
+                    }
+                }
+                if (!sheet || !pick) {
                     sheet = newSheet();
                     sheets.push(sheet);
                     pick = choose(sheet);
@@ -1549,7 +1558,8 @@ const generateFinalSheetsForPrintAndCut = async (
             cutDataUrl,
             sheetHeight: sheetContentHeightInches,
             sheetNumber,
-            totalSheets
+            totalSheets,
+            placementCount: placements.length || 1
         });
     }
 
@@ -2656,6 +2666,8 @@ export function OrderDetail() {
   const [isUploadingRef, setIsUploadingRef] = useState(false);
   const [isUploadingGang, setIsUploadingGang] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
+  const [zippingCardId, setZippingCardId] = useState<string | null>(null);
+  const [zippingCardStatus, setZippingCardStatus] = useState('');
   const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
   const [generatingItemIds, setGeneratingItemIds] = useState<Record<string, boolean>>({});
   const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
@@ -2664,6 +2676,7 @@ export function OrderDetail() {
   const [generationStatusByItem, setGenerationStatusByItem] = useState<Record<string, string>>({});
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
+  const [activeSheetPartByCard, setActiveSheetPartByCard] = useState<Record<string, number>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [specsError, setSpecsError] = useState('');
   // Neutral message in the size editor (for example: nothing to trim)
@@ -4419,6 +4432,7 @@ export function OrderDetail() {
         sheetNumber: number;
         totalSheets: number;
         height: number;
+        printCount: number;
         printUrl: string;
         cutUrl: string;
       }> = [];
@@ -4446,10 +4460,13 @@ export function OrderDetail() {
           sheetNumber: sheet.sheetNumber,
           totalSheets: sheet.totalSheets,
           height: sheet.sheetHeight,
+          printCount: sheet.placementCount,
           printUrl,
           cutUrl,
         });
       }
+
+      setActiveSheetPartByCard(prev => ({ ...prev, [`${targetId}-art`]: 1 }));
 
       const totalHeight = uploadedSheets.reduce((sum, s) => sum + s.height, 0);
 
@@ -5049,156 +5066,278 @@ export function OrderDetail() {
     }
   };
 
+  const fetchProductionFileBlob = async (url: string, label: string): Promise<Blob> => {
+    const tryFetch = async (targetUrl: string): Promise<Blob> => {
+      const res = await fetch(targetUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) throw new Error('Empty file response');
+      return blob;
+    };
+
+    try {
+      return await tryFetch(url);
+    } catch {
+      try {
+        // Retry once directly in case of a brief network hiccup
+        return await tryFetch(url);
+      } catch {
+        try {
+          return await tryFetch(`/api/sanmar/proxy-image?url=${encodeURIComponent(url)}`);
+        } catch (finalErr) {
+          throw new Error(`Could not fetch "${label}" (${(finalErr as Error).message}). Download aborted so no sheet is missed — please try again.`);
+        }
+      }
+    }
+  };
+
+  const getSafeFileSlug = (text: string, fallback: string) =>
+    (text || '')
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || fallback;
+
+  const getDeduplicatedOrderedSheets = (item: any): Array<{ sheetNumber: number; totalSheets: number; printUrl: string; cutUrl: string }> => {
+    if (Array.isArray(item?.sheets) && item.sheets.length > 0) {
+      const byNum = new Map<number, any>();
+      item.sheets.forEach((s: any, idx: number) => {
+        const num = Number(s?.sheetNumber) || (idx + 1);
+        if (!byNum.has(num) && (s?.printUrl || s?.cutUrl)) {
+          byNum.set(num, {
+            sheetNumber: num,
+            totalSheets: item.sheets.length,
+            printUrl: s.printUrl || '',
+            cutUrl: s.cutUrl || '',
+          });
+        }
+      });
+      const sorted = Array.from(byNum.values()).sort((a, b) => a.sheetNumber - b.sheetNumber);
+      return sorted.map((s, idx) => ({ ...s, sheetNumber: idx + 1, totalSheets: sorted.length }));
+    }
+    if (item?.printReadyUrl || item?.cutReadyUrl) {
+      return [{
+        sheetNumber: 1,
+        totalSheets: 1,
+        printUrl: item.printReadyUrl || '',
+        cutUrl: item.cutReadyUrl || '',
+      }];
+    }
+    return [];
+  };
+
+  const handleDownloadSingleAsset = async (url: string | null, filename: string) => {
+    if (!url) return;
+    try {
+      const blob = await fetchProductionFileBlob(url, filename);
+      FileSaver.saveAs(blob, filename);
+    } catch (err) {
+      console.error('Direct download failed, opening in new tab:', err);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleDownloadCardZip = async (card: {
+    id: string;
+    item: any;
+    type: 'art' | 'tag';
+    printUrl: string | null;
+    cutUrl: string | null;
+  }) => {
+    if (!id || !order || zippingCardId) return;
+    setZippingCardId(card.id);
+    setZippingCardStatus('Preparing files…');
+    try {
+      const zip = new JSZip();
+      const orderLabel = getSafeFileSlug(String(order.orderNumber || order.portalId || order.id), 'Order');
+
+      if (card.type === 'tag') {
+        if (!card.printUrl && !card.cutUrl) {
+          alert('Generate the size tag sheet first.');
+          return;
+        }
+        setZippingCardStatus('Downloading size tag print & cut files…');
+        if (card.printUrl) {
+          zip.file(
+            `Print-PNG/Order_${orderLabel}_Size_Tags_PRINT.png`,
+            await fetchProductionFileBlob(card.printUrl, 'Size Tag Print PNG')
+          );
+        }
+        if (card.cutUrl) {
+          zip.file(
+            `Cut-SVG/Order_${orderLabel}_Size_Tags_CUT.svg`,
+            await fetchProductionFileBlob(card.cutUrl, 'Size Tag Cut SVG')
+          );
+        }
+        setZippingCardStatus('Building ZIP…');
+        const content = await zip.generateAsync({ type: 'blob' });
+        FileSaver.saveAs(content, `Order-${orderLabel}-Size-Tags.zip`);
+        return;
+      }
+
+      const freshItem = (order.items || []).find((i: any) => String(i.id) === String(card.item?.id)) || card.item;
+      const orderedSheets = getDeduplicatedOrderedSheets(freshItem);
+      if (orderedSheets.length === 0) {
+        alert('Generate the gang sheet for this garment first.');
+        return;
+      }
+
+      const safeGarment = getSafeFileSlug(
+        [freshItem.style, freshItem.color].filter(Boolean).join('_'),
+        freshItem.id || 'Garment'
+      );
+      const total = orderedSheets.length;
+      const padLen = Math.max(2, String(total).length);
+
+      for (const s of orderedSheets) {
+        setZippingCardStatus(
+          total > 1
+            ? `Downloading sheet ${s.sheetNumber} of ${total} (Print + Cut)…`
+            : 'Downloading Print PNG + Cut SVG…'
+        );
+        const prefix = total > 1 ? `${String(s.sheetNumber).padStart(padLen, '0')}-` : '';
+        const partLabel = total > 1 ? `_Sheet_${s.sheetNumber}_of_${total}` : '';
+
+        if (s.printUrl) {
+          const printBlob = await fetchProductionFileBlob(
+            s.printUrl,
+            `${freshItem.style || 'Garment'} Sheet ${s.sheetNumber} of ${total} (PNG)`
+          );
+          zip.file(`Print-PNG/${prefix}Order_${orderLabel}_${safeGarment}${partLabel}_PRINT.png`, printBlob);
+        }
+        if (s.cutUrl) {
+          const cutBlob = await fetchProductionFileBlob(
+            s.cutUrl,
+            `${freshItem.style || 'Garment'} Sheet ${s.sheetNumber} of ${total} (SVG)`
+          );
+          zip.file(`Cut-SVG/${prefix}Order_${orderLabel}_${safeGarment}${partLabel}_CUT.svg`, cutBlob);
+        }
+      }
+
+      setZippingCardStatus('Building ZIP archive…');
+      const content = await zip.generateAsync({ type: 'blob' });
+      const zipName = total > 1
+        ? `Order-${orderLabel}-${safeGarment}-All-${total}-Sheets.zip`
+        : `Order-${orderLabel}-${safeGarment}-Print-And-Cut.zip`;
+      FileSaver.saveAs(content, zipName);
+    } catch (err) {
+      console.error('Failed to build garment ZIP:', err);
+      alert((err as Error).message || 'Failed to download garment sheets.');
+    } finally {
+      setZippingCardId(null);
+      setZippingCardStatus('');
+    }
+  };
+
   const handleDownloadAllZip = async () => {
     if (!id || !order) return;
     setIsZipping(true);
     try {
       const zip = new JSZip();
       let hasFiles = false;
+      const orderLabel = getSafeFileSlug(String(order.orderNumber || order.portalId || order.id), 'Order');
 
       // Find all printable items in this order
       const printableItems = (order.items || []).filter(isPrintableItem);
-      const hasAnyItemArtSheets = printableItems.some((item: any) => !!(item.printReadyUrl || (Array.isArray(item.sheets) && item.sheets.length > 0)));
+      const hasAnyItemArtSheets = printableItems.some((item: any) => getDeduplicatedOrderedSheets(item).length > 0);
 
       if (!hasAnyItemArtSheets) {
         if (Array.isArray(order.masterSheets) && order.masterSheets.length > 0) {
+          const total = order.masterSheets.length;
+          const padLen = Math.max(2, String(total).length);
           for (const s of order.masterSheets) {
-            const suffix = order.masterSheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
+            const prefix = total > 1 ? `${String(s.sheetNumber).padStart(padLen, '0')}-` : '';
+            const suffix = total > 1 ? `_Sheet_${s.sheetNumber}_of_${total}` : '';
             if (s.printUrl) {
-              try {
-                const masterPrintRes = await fetch(s.printUrl);
-                const masterPrintBlob = await masterPrintRes.blob();
-                zip.file(`${order.id}-MASTER-COMBINED${suffix}-print.png`, masterPrintBlob);
-                hasFiles = true;
-              } catch (err) {
-                console.error("Failed to fetch master print file", err);
-              }
+              zip.file(
+                `Master-Combined/Print-PNG/${prefix}Order_${orderLabel}_MASTER${suffix}_PRINT.png`,
+                await fetchProductionFileBlob(s.printUrl, `Master Sheet ${s.sheetNumber} PNG`)
+              );
+              hasFiles = true;
             }
             if (s.cutUrl) {
-              try {
-                const masterCutRes = await fetch(s.cutUrl);
-                const masterCutBlob = await masterCutRes.blob();
-                zip.file(`${order.id}-MASTER-COMBINED${suffix}-cut.svg`, masterCutBlob);
-                hasFiles = true;
-              } catch (err) {
-                console.error("Failed to fetch master cut file", err);
-              }
+              zip.file(
+                `Master-Combined/Cut-SVG/${prefix}Order_${orderLabel}_MASTER${suffix}_CUT.svg`,
+                await fetchProductionFileBlob(s.cutUrl, `Master Sheet ${s.sheetNumber} SVG`)
+              );
+              hasFiles = true;
             }
           }
         } else {
           if (order.masterPrintReadyUrl) {
-            try {
-              const masterPrintRes = await fetch(order.masterPrintReadyUrl);
-              const masterPrintBlob = await masterPrintRes.blob();
-              zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
-              hasFiles = true;
-            } catch (err) {
-              console.error("Failed to fetch master print file", err);
-            }
+            zip.file(
+              `Master-Combined/Print-PNG/Order_${orderLabel}_MASTER_PRINT.png`,
+              await fetchProductionFileBlob(order.masterPrintReadyUrl, 'Master Print PNG')
+            );
+            hasFiles = true;
           }
           if (order.masterCutReadyUrl) {
-            try {
-              const masterCutRes = await fetch(order.masterCutReadyUrl);
-              const masterCutBlob = await masterCutRes.blob();
-              zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
-              hasFiles = true;
-            } catch (err) {
-              console.error("Failed to fetch master cut file", err);
-            }
+            zip.file(
+              `Master-Combined/Cut-SVG/Order_${orderLabel}_MASTER_CUT.svg`,
+              await fetchProductionFileBlob(order.masterCutReadyUrl, 'Master Cut SVG')
+            );
+            hasFiles = true;
           }
         }
       }
 
       if (order.masterTagPrintReadyUrl) {
-        try {
-          const masterTagPrintRes = await fetch(order.masterTagPrintReadyUrl);
-          zip.file(`${order.id}-SIZE-TAGS-print.png`, await masterTagPrintRes.blob());
-          hasFiles = true;
-        } catch (err) {
-          console.error("Failed to fetch master tag print file", err);
-        }
+        zip.file(
+          `Size-Tags/Print-PNG/Order_${orderLabel}_SIZE_TAGS_PRINT.png`,
+          await fetchProductionFileBlob(order.masterTagPrintReadyUrl, 'Size Tags Print PNG')
+        );
+        hasFiles = true;
       }
       if (order.masterTagCutReadyUrl) {
-        try {
-          const masterTagCutRes = await fetch(order.masterTagCutReadyUrl);
-          zip.file(`${order.id}-SIZE-TAGS-cut.svg`, await masterTagCutRes.blob());
-          hasFiles = true;
-        } catch (err) {
-          console.error("Failed to fetch master tag cut file", err);
-        }
+        zip.file(
+          `Size-Tags/Cut-SVG/Order_${orderLabel}_SIZE_TAGS_CUT.svg`,
+          await fetchProductionFileBlob(order.masterTagCutReadyUrl, 'Size Tags Cut SVG')
+        );
+        hasFiles = true;
       }
 
+      const usedFolders = new Set<string>();
       for (const item of printableItems) {
-        const safeName = [item.style, item.color]
-          .filter(Boolean)
-          .join('-')
-          .replace(/[^a-zA-Z0-9_-]+/g, '_')
-          .replace(/^_+|_+$/g, '') || item.id;
+        let safeName = getSafeFileSlug([item.style, item.color].filter(Boolean).join('_'), item.id);
+        if (usedFolders.has(safeName)) {
+          safeName = `${safeName}_${getSafeFileSlug(String(item.id).slice(-4), 'item')}`;
+        }
+        usedFolders.add(safeName);
 
-        if (Array.isArray(item.sheets) && item.sheets.length > 0) {
-          for (const s of item.sheets) {
-            const suffix = item.sheets.length > 1 ? `-sheet-${s.sheetNumber}` : '';
-            if (s.printUrl) {
-              try {
-                const printRes = await fetch(s.printUrl);
-                zip.file(`${order.id}-${safeName}${suffix}-print.png`, await printRes.blob());
-                hasFiles = true;
-              } catch (err) {
-                console.error(`Failed to fetch print sheet ${s.sheetNumber} for item ${item.id}`, err);
-              }
-            }
-            if (s.cutUrl) {
-              try {
-                const cutRes = await fetch(s.cutUrl);
-                zip.file(`${order.id}-${safeName}${suffix}-cut.svg`, await cutRes.blob());
-                hasFiles = true;
-              } catch (err) {
-                console.error(`Failed to fetch cut sheet ${s.sheetNumber} for item ${item.id}`, err);
-              }
-            }
+        const orderedSheets = getDeduplicatedOrderedSheets(item);
+        const total = orderedSheets.length;
+        const padLen = Math.max(2, String(total).length);
+
+        for (const s of orderedSheets) {
+          const prefix = total > 1 ? `${String(s.sheetNumber).padStart(padLen, '0')}-` : '';
+          const partLabel = total > 1 ? `_Sheet_${s.sheetNumber}_of_${total}` : '';
+          if (s.printUrl) {
+            zip.file(
+              `${safeName}/Print-PNG/${prefix}Order_${orderLabel}_${safeName}${partLabel}_PRINT.png`,
+              await fetchProductionFileBlob(s.printUrl, `${item.style || 'Garment'} Sheet ${s.sheetNumber} PNG`)
+            );
+            hasFiles = true;
           }
-        } else {
-          if (item.printReadyUrl) {
-            try {
-              const printRes = await fetch(item.printReadyUrl);
-              const printBlob = await printRes.blob();
-              zip.file(`${order.id}-${safeName}-print.png`, printBlob);
-              hasFiles = true;
-            } catch (err) {
-              console.error(`Failed to fetch print file for item ${item.id}`, err);
-            }
-          }
-          if (item.cutReadyUrl) {
-            try {
-              const cutRes = await fetch(item.cutReadyUrl);
-              const cutBlob = await cutRes.blob();
-              zip.file(`${order.id}-${safeName}-cut.svg`, cutBlob);
-              hasFiles = true;
-            } catch (err) {
-              console.error(`Failed to fetch cut file for item ${item.id}`, err);
-            }
+          if (s.cutUrl) {
+            zip.file(
+              `${safeName}/Cut-SVG/${prefix}Order_${orderLabel}_${safeName}${partLabel}_CUT.svg`,
+              await fetchProductionFileBlob(s.cutUrl, `${item.style || 'Garment'} Sheet ${s.sheetNumber} SVG`)
+            );
+            hasFiles = true;
           }
         }
 
         if (!order.masterTagPrintReadyUrl && item.tagPrintReadyUrl) {
-          try {
-            const tagRes = await fetch(item.tagPrintReadyUrl);
-            const tagBlob = await tagRes.blob();
-            zip.file(`${order.id}-${safeName}-tag-print.png`, tagBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error(`Failed to fetch tag file for item ${item.id}`, err);
-          }
+          zip.file(
+            `${safeName}/Size-Tags/Order_${orderLabel}_${safeName}_TAG_PRINT.png`,
+            await fetchProductionFileBlob(item.tagPrintReadyUrl, `${item.style || 'Garment'} Tag PNG`)
+          );
+          hasFiles = true;
         }
         if (!order.masterTagCutReadyUrl && item.tagCutReadyUrl) {
-          try {
-            const tagCutRes = await fetch(item.tagCutReadyUrl);
-            const tagCutBlob = await tagCutRes.blob();
-            zip.file(`${order.id}-${safeName}-tag-cut.svg`, tagCutBlob);
-            hasFiles = true;
-          } catch (err) {
-            console.error(`Failed to fetch tag cut file for item ${item.id}`, err);
-          }
+          zip.file(
+            `${safeName}/Size-Tags/Order_${orderLabel}_${safeName}_TAG_CUT.svg`,
+            await fetchProductionFileBlob(item.tagCutReadyUrl, `${item.style || 'Garment'} Tag SVG`)
+          );
+          hasFiles = true;
         }
       }
 
@@ -5208,7 +5347,7 @@ export function OrderDetail() {
       }
 
       const content = await zip.generateAsync({ type: 'blob' });
-      FileSaver.saveAs(content, `order-${order.id}-production-assets.zip`);
+      FileSaver.saveAs(content, `Order-${orderLabel}-All-Production-Sheets.zip`);
     } catch (err) {
       console.error("Failed to generate ZIP:", err);
       alert("Failed to generate ZIP archive: " + (err as Error).message);
@@ -7786,6 +7925,8 @@ export function OrderDetail() {
                     isPrinted: boolean;
                     printUrl: string | null;
                     cutUrl: string | null;
+                    sheets?: Array<{ sheetNumber: number; totalSheets: number; height: number; printCount?: number; printUrl: string; cutUrl: string }>;
+                    totalPrintCopies?: number;
                     isGenerating: boolean;
                     statusText?: string;
                     needsRegen?: boolean;
@@ -7797,6 +7938,7 @@ export function OrderDetail() {
                   printableArtItems.forEach((item: any) => {
                     const itemArtworks = getPrintableArtworksForItem(item);
                     const garmentCount = getItemGarmentCount(item);
+                    const totalPrintCopies = itemArtworks.reduce((sum: number, a: any) => sum + (parseInt(String(a.quantity), 10) || 0), 0);
                     const garmentTitle = item.itemType === 'gang_sheet'
                       ? (item.sheetSizeName || item.style || 'DTF Gang Sheet')
                       : [item.style || 'Garment', item.color ? `(${item.color})` : ''].filter(Boolean).join(' ');
@@ -7804,54 +7946,38 @@ export function OrderDetail() {
                     const itemStatusText = generationStatusByItem[item.id] || generationStatus;
                     const itemNeedsRegen = !!needsRegenerateByItem[item.id];
 
-                    if (Array.isArray(item.sheets) && item.sheets.length > 1) {
-                      item.sheets.forEach((sheet: any) => {
-                        const totalParts = sheet.totalSheets || item.sheets.length;
-                        productionCards.push({
-                          id: `${item.id}-art-sheet-${sheet.sheetNumber}`,
-                          item,
-                          type: 'art',
-                          title: `👕 ${garmentTitle} (${sheet.sheetNumber} of ${totalParts})`,
-                          description: `22" x ${Math.round(sheet.height || 0)}" Sheet • 300 DPI • Part ${sheet.sheetNumber} of ${totalParts} • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'}`,
-                          isPrintReady: !!(sheet.printUrl && sheet.cutUrl),
-                          isReady: !!item.readyToPrint,
-                          isPrinted: !!item.printed,
-                          printUrl: sheet.printUrl || null,
-                          cutUrl: sheet.cutUrl || null,
-                          isGenerating: isItemGenerating,
-                          statusText: itemStatusText,
-                          needsRegen: itemNeedsRegen,
-                          generateFunc: () => handleGenerateItemGangSheet(item),
-                        });
-                      });
-                    } else {
-                      const singleSheetHeight = Array.isArray(item.sheets) && item.sheets[0]?.height
-                        ? Math.round(item.sheets[0].height)
-                        : (item.sheetHeight ? Math.round(item.sheetHeight) : null);
-                      const hasFiles = !!(item.printReadyUrl && item.cutReadyUrl);
-                      const description = item.itemType === 'gang_sheet'
-                        ? `${item.sheetSizeName || 'DTF Gang Sheet'} • 22" x ${singleSheetHeight || item.sheetHeight || 24}" • ${item.quantity || 1} ${(item.quantity || 1) === 1 ? 'Sheet' : 'Sheets'}`
-                        : hasFiles && singleSheetHeight
-                          ? `22" x ${singleSheetHeight}" Sheet • 300 DPI • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'} • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`
-                          : `Garment Gang Sheet • ${itemArtworks.length} ${itemArtworks.length === 1 ? 'Logo' : 'Logos'} • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`;
+                    const itemSheets = Array.isArray(item.sheets) && item.sheets.length > 0 ? item.sheets : undefined;
+                    const totalSheetHeight = itemSheets
+                      ? Math.round(itemSheets.reduce((s: number, sh: any) => s + (sh.height || 0), 0))
+                      : (item.sheetHeight ? Math.round(item.sheetHeight) : null);
+                    const hasFiles = !!(item.printReadyUrl && item.cutReadyUrl);
 
-                      productionCards.push({
-                        id: `${item.id}-art`,
-                        item,
-                        type: 'art',
-                        title: item.itemType === 'gang_sheet' ? `📄 ${garmentTitle}` : `👕 ${garmentTitle}`,
-                        description,
-                        isPrintReady: hasFiles,
-                        isReady: !!item.readyToPrint,
-                        isPrinted: !!item.printed,
-                        printUrl: item.printReadyUrl || null,
-                        cutUrl: item.cutReadyUrl || null,
-                        isGenerating: isItemGenerating,
-                        statusText: itemStatusText,
-                        needsRegen: itemNeedsRegen,
-                        generateFunc: () => handleGenerateItemGangSheet(item),
-                      });
-                    }
+                    const description = item.itemType === 'gang_sheet'
+                      ? `${item.sheetSizeName || 'DTF Gang Sheet'} • 22" x ${totalSheetHeight || item.sheetHeight || 24}" • ${item.quantity || 1} ${(item.quantity || 1) === 1 ? 'Sheet' : 'Sheets'}`
+                      : hasFiles && itemSheets && itemSheets.length > 1
+                        ? `${totalPrintCopies} Total Prints • ${itemSheets.length} Sheets (22" × ${totalSheetHeight}" total at 300 DPI) • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`
+                        : hasFiles && totalSheetHeight
+                          ? `22" x ${totalSheetHeight}" Sheet • 300 DPI • ${totalPrintCopies} Total ${totalPrintCopies === 1 ? 'Print' : 'Prints'} • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`
+                          : `Garment Gang Sheet • ${totalPrintCopies} Total ${totalPrintCopies === 1 ? 'Print' : 'Prints'} (${itemArtworks.length} ${itemArtworks.length === 1 ? 'Design' : 'Designs'}) • ${garmentCount} ${garmentCount === 1 ? 'Garment' : 'Garments'}`;
+
+                    productionCards.push({
+                      id: `${item.id}-art`,
+                      item,
+                      type: 'art',
+                      title: item.itemType === 'gang_sheet' ? `📄 ${garmentTitle}` : `👕 ${garmentTitle}`,
+                      description,
+                      isPrintReady: hasFiles,
+                      isReady: !!item.readyToPrint,
+                      isPrinted: !!item.printed,
+                      printUrl: item.printReadyUrl || null,
+                      cutUrl: item.cutReadyUrl || null,
+                      sheets: itemSheets,
+                      totalPrintCopies,
+                      isGenerating: isItemGenerating,
+                      statusText: itemStatusText,
+                      needsRegen: itemNeedsRegen,
+                      generateFunc: () => handleGenerateItemGangSheet(item),
+                    });
                   });
 
                   const tagItems = (order.items || []).filter((item: any) => !!item.logoUrlTag);
@@ -7882,9 +8008,18 @@ export function OrderDetail() {
 
                   return productionCards.map((card) => {
                     const currentPreviewMode = previewMode[card.id] || 'print';
+                    const hasMultipleSheets = Array.isArray(card.sheets) && card.sheets.length > 1;
+                    const selectedSheetNum = hasMultipleSheets
+                      ? Math.min(card.sheets!.length, Math.max(1, activeSheetPartByCard[card.id] || 1))
+                      : 1;
+                    const activeSheetObj = hasMultipleSheets
+                      ? (card.sheets!.find((s) => s.sheetNumber === selectedSheetNum) || card.sheets![0])
+                      : undefined;
+                    const effectivePrintUrl = activeSheetObj ? activeSheetObj.printUrl : card.printUrl;
+                    const effectiveCutUrl = activeSheetObj ? activeSheetObj.cutUrl : card.cutUrl;
                     const activePreviewUrl = currentPreviewMode === 'print' 
-                      ? (card.printUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag))
-                      : (card.cutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
+                      ? (effectivePrintUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag))
+                      : (effectiveCutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
 
                     return (
                       <div key={card.id} className={`text-white rounded-2xl border p-5 flex flex-col gap-4 shadow-xl ${card.isMaster ? 'bg-neutral-900 border-purple-500/40 ring-1 ring-purple-500/20' : 'bg-neutral-900 border-amber-500/40 ring-1 ring-amber-500/20'}`}>
@@ -7945,6 +8080,39 @@ export function OrderDetail() {
                             )}
                           </div>
                         </div>
+
+                        {/* Multi-sheet part switcher when a single garment's prints span > 100" */}
+                        {hasMultipleSheets && editingSpecsCardId !== card.id && (
+                          <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-2.5 flex flex-col gap-2">
+                            <div className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className="font-bold text-amber-300">
+                                {card.sheets!.length} Sheets for this garment (max 100&quot; each at 300 DPI)
+                              </span>
+                              <span className="text-[10px] font-semibold text-neutral-300">
+                                Viewing Sheet {selectedSheetNum} of {card.sheets!.length}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {card.sheets!.map((sh) => {
+                                const isActive = sh.sheetNumber === selectedSheetNum;
+                                return (
+                                  <button
+                                    key={sh.sheetNumber}
+                                    type="button"
+                                    onClick={() => setActiveSheetPartByCard(prev => ({ ...prev, [card.id]: sh.sheetNumber }))}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                                      isActive
+                                        ? 'bg-amber-500 text-neutral-950 border-amber-400 shadow-sm'
+                                        : 'bg-neutral-900 text-neutral-300 border-neutral-700 hover:bg-neutral-800 hover:text-white'
+                                    }`}
+                                  >
+                                    Sheet {sh.sheetNumber} ({Math.round(sh.height || 0)}&quot;{sh.printCount ? ` • ${sh.printCount} prints` : ''})
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Preview Box */}
                         {editingSpecsCardId === card.id ? (
@@ -8318,30 +8486,78 @@ export function OrderDetail() {
                               {(card.type === 'art' && card.statusText) || 'Building print and cut files…'} Keep this tab open — large sheets can take a minute.
                             </p>
                           )}
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Download</p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">
+                            {hasMultipleSheets ? `Download (${card.sheets!.length} Sheets)` : 'Download'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadCardZip(card)}
+                            disabled={!card.isPrintReady || zippingCardId !== null}
+                            title={
+                              !card.isPrintReady
+                                ? 'Generate the production files first'
+                                : hasMultipleSheets
+                                  ? `Download all ${card.sheets!.length} print PNGs and cut SVGs for this garment in one organized ZIP (Print-PNG/ and Cut-SVG/ folders)`
+                                  : 'Download both the Print PNG and Cut SVG for this sheet in one ZIP'
+                            }
+                            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                              card.isPrintReady
+                                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-600 text-white shadow-sm cursor-pointer disabled:opacity-60'
+                                : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'
+                            }`}
+                          >
+                            {zippingCardId === card.id ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin shrink-0" />
+                                <span className="truncate">{zippingCardStatus || 'Packaging ZIP…'}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download size={14} className="shrink-0" />
+                                <span>
+                                  {card.type === 'tag'
+                                    ? 'Download Size Tag Print + Cut (ZIP)'
+                                    : hasMultipleSheets
+                                      ? `Download All ${card.sheets!.length} Sheets for Garment (ZIP)`
+                                      : 'Download Garment Print + Cut (ZIP)'}
+                                </span>
+                              </>
+                            )}
+                          </button>
                           <div className="grid grid-cols-2 gap-2">
-                            <a
-                              href={card.printUrl || '#'}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={card.printUrl ? 'Open the 300 DPI print file (transparent PNG) in a new tab' : 'Generate the production files first'}
-                              aria-disabled={!card.printUrl}
-                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.printUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
-                            >
-                              <Download size={12} />
-                              <span>Print file (PNG)</span>
-                            </a>
-                            <a
-                              href={card.cutUrl || '#'}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={card.cutUrl ? 'Open the cut-line file (SVG) for the cutter in a new tab' : 'Generate the production files first'}
-                              aria-disabled={!card.cutUrl}
-                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.cutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
-                            >
-                              <Download size={12} />
-                              <span>Cut file (SVG)</span>
-                            </a>
+                            {(() => {
+                              const orderLabel = getSafeFileSlug(String(order.orderNumber || order.portalId || order.id), 'Order');
+                              const safeGarment = card.type === 'tag'
+                                ? 'Size_Tags'
+                                : getSafeFileSlug([card.item.style, card.item.color].filter(Boolean).join('_'), card.item.id || 'Garment');
+                              const partSuffix = hasMultipleSheets ? `_Sheet_${selectedSheetNum}_of_${card.sheets!.length}` : '';
+                              const singlePngName = `Order_${orderLabel}_${safeGarment}${partSuffix}_PRINT.png`;
+                              const singleSvgName = `Order_${orderLabel}_${safeGarment}${partSuffix}_CUT.svg`;
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadSingleAsset(effectivePrintUrl, singlePngName)}
+                                    disabled={!effectivePrintUrl}
+                                    title={effectivePrintUrl ? `Download ${singlePngName}` : 'Generate the production files first'}
+                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-xl transition-all ${effectivePrintUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm cursor-pointer' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                                  >
+                                    <Download size={11} />
+                                    <span>{hasMultipleSheets ? `Only Sheet ${selectedSheetNum} PNG` : 'Print file (PNG)'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadSingleAsset(effectiveCutUrl, singleSvgName)}
+                                    disabled={!effectiveCutUrl}
+                                    title={effectiveCutUrl ? `Download ${singleSvgName}` : 'Generate the production files first'}
+                                    className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-1.5 rounded-xl transition-all ${effectiveCutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm cursor-pointer' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                                  >
+                                    <Download size={11} />
+                                    <span>{hasMultipleSheets ? `Only Sheet ${selectedSheetNum} SVG` : 'Cut file (SVG)'}</span>
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
 
                           <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mt-2">Status</p>
