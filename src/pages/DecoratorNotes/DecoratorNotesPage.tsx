@@ -201,6 +201,7 @@ export function DecoratorNotesPage() {
   const [customerFilter, setCustomerFilter] = useState(() => searchParams.get('customer') || 'all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'has_notes' | 'needs_notes' | 'verified'>('all');
   const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'default' | 'customer_asc' | 'customer_desc' | 'title_asc' | 'newest'>('default');
 
   // Active item in detail editor modal
   const [activeKey, setActiveKey] = useState<string | null>(() => searchParams.get('item') || null);
@@ -595,6 +596,39 @@ export function DecoratorNotesPage() {
       return true;
     });
   }, [unifiedItems, customerFilter, statusFilter, methodFilter, searchQuery]);
+
+  const sortedFilteredItems = useMemo(() => {
+    if (sortBy === 'default') return filteredItems;
+    const getCustomerSortLabel = (item: UnifiedDecoratorItem) =>
+      item.isSubBrand && item.parentCustomerName && item.parentCustomerName !== item.customerName
+        ? `${item.parentCustomerName} — ${item.customerName}`
+        : (item.customerName || '');
+
+    return [...filteredItems].sort((a, b) => {
+      if (sortBy === 'customer_asc') {
+        const cmp = getCustomerSortLabel(a).localeCompare(getCustomerSortLabel(b), undefined, { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        return a.designTitle.localeCompare(b.designTitle, undefined, { sensitivity: 'base' });
+      }
+      if (sortBy === 'customer_desc') {
+        const cmp = getCustomerSortLabel(b).localeCompare(getCustomerSortLabel(a), undefined, { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        return a.designTitle.localeCompare(b.designTitle, undefined, { sensitivity: 'base' });
+      }
+      if (sortBy === 'title_asc') {
+        const cmp = a.designTitle.localeCompare(b.designTitle, undefined, { sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+        return getCustomerSortLabel(a).localeCompare(getCustomerSortLabel(b), undefined, { sensitivity: 'base' });
+      }
+      if (sortBy === 'newest') {
+        const aTime = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+        const bTime = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+        if (bTime !== aTime) return bTime - aTime;
+        return a.designTitle.localeCompare(b.designTitle, undefined, { sensitivity: 'base' });
+      }
+      return 0;
+    });
+  }, [filteredItems, sortBy]);
 
   const activeItem = useMemo(
     () => (activeKey ? unifiedItems.find((i) => i.archiveKey === activeKey) || null : null),
@@ -1274,9 +1308,23 @@ export function DecoratorNotesPage() {
             ))}
           </select>
 
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'default' | 'customer_asc' | 'customer_desc' | 'title_asc' | 'newest')}
+            aria-label="Sort decorator notes"
+            className="px-3 py-2 text-xs font-bold bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-800 focus:outline-none focus:border-neutral-900 cursor-pointer"
+          >
+            <option value="default">Sort: Documented &amp; Newest</option>
+            <option value="customer_asc">Sort: Customer (A → Z)</option>
+            <option value="customer_desc">Sort: Customer (Z → A)</option>
+            <option value="title_asc">Sort: Garment Title (A → Z)</option>
+            <option value="newest">Sort: Newest First</option>
+          </select>
+
           {(customerFilter !== 'all' ||
             statusFilter !== 'all' ||
             methodFilter !== 'all' ||
+            sortBy !== 'default' ||
             searchQuery.trim() !== '') && (
             <button
               type="button"
@@ -1284,6 +1332,7 @@ export function DecoratorNotesPage() {
                 setCustomerFilter('all');
                 setStatusFilter('all');
                 setMethodFilter('all');
+                setSortBy('default');
                 setSearchQuery('');
               }}
               className="px-3 py-2 text-xs font-bold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
@@ -1310,7 +1359,7 @@ export function DecoratorNotesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filteredItems.map((item) => {
+            {sortedFilteredItems.map((item) => {
               const hasNotes = itemHasDecoratorNotes(item);
               const rec = item.noteRecord;
               const isVerified = Boolean(rec?.verifiedForRepeat);
