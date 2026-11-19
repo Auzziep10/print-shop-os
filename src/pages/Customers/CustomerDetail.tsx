@@ -282,6 +282,20 @@ export function CustomerDetail() {
   const [draggingRackMockupSlot, setDraggingRackMockupSlot] = useState<'front' | 'back' | 'other' | null>(null);
   const [isDraggingRackLogos, setIsDraggingRackLogos] = useState(false);
   const [isSavingDesignerRack, setIsSavingDesignerRack] = useState(false);
+  const [isDuplicateRackModalOpen, setIsDuplicateRackModalOpen] = useState(false);
+  const [otherRackDesigns, setOtherRackDesigns] = useState<Array<{
+    key: string;
+    sourceCustomerId: string;
+    sourceCustomerName: string;
+    design: any;
+  }>>([]);
+  const [isLoadingOtherRacks, setIsLoadingOtherRacks] = useState(false);
+  const [duplicateRackSearch, setDuplicateRackSearch] = useState('');
+  const [duplicateRackCustomerFilter, setDuplicateRackCustomerFilter] = useState<string>('all');
+  const [duplicateRackTargetCustomerId, setDuplicateRackTargetCustomerId] = useState<string>('');
+  const [selectedDuplicateKeys, setSelectedDuplicateKeys] = useState<string[]>([]);
+  const [isDuplicatingFromRack, setIsDuplicatingFromRack] = useState(false);
+  const [recentlyDuplicatedKeys, setRecentlyDuplicatedKeys] = useState<Record<string, boolean>>({});
   const [subBrands, setSubBrands] = useState<any[]>([]);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
@@ -1843,6 +1857,221 @@ export function CustomerDetail() {
       alert("Failed to save design to Designer Rack.");
     } finally {
       setIsSavingDesignerRack(false);
+    }
+  };
+
+  const handleOpenDuplicateFromRacksModal = async () => {
+    if (!id) return;
+    const defaultTarget =
+      selectedDesignerRackBrandFilter && selectedDesignerRackBrandFilter !== 'all'
+        ? selectedDesignerRackBrandFilter
+        : id;
+    setDuplicateRackTargetCustomerId(defaultTarget);
+    setDuplicateRackSearch('');
+    setDuplicateRackCustomerFilter('all');
+    setSelectedDuplicateKeys([]);
+    setRecentlyDuplicatedKeys({});
+    setIsDuplicateRackModalOpen(true);
+    setIsLoadingOtherRacks(true);
+    try {
+      const snap = await getDocs(collection(db, 'customers'));
+      const collected: Array<{
+        key: string;
+        sourceCustomerId: string;
+        sourceCustomerName: string;
+        design: any;
+      }> = [];
+      snap.docs.forEach((docSnap) => {
+        if (docSnap.id === id) return;
+        const data = docSnap.data();
+        const rack = Array.isArray(data?.designerRack) ? data.designerRack : [];
+        if (rack.length === 0) return;
+        const customerLabel =
+          (data.company && data.company !== '-' ? data.company : '') ||
+          data.contactName ||
+          data.name ||
+          data.email ||
+          'Customer';
+        rack.forEach((design: any, idx: number) => {
+          if (!design) return;
+          const designId = design.id || `idx-${idx}`;
+          collected.push({
+            key: `${docSnap.id}__${designId}`,
+            sourceCustomerId: docSnap.id,
+            sourceCustomerName: customerLabel,
+            design,
+          });
+        });
+      });
+      collected.sort((a, b) => {
+        const cmpCust = a.sourceCustomerName.localeCompare(b.sourceCustomerName);
+        if (cmpCust !== 0) return cmpCust;
+        const tA = new Date(a.design.uploadedAt || a.design.updatedAt || 0).getTime();
+        const tB = new Date(b.design.uploadedAt || b.design.updatedAt || 0).getTime();
+        return tB - tA;
+      });
+      setOtherRackDesigns(collected);
+    } catch (err) {
+      console.error('Failed to load designs from other Designer Racks:', err);
+      alert('Could not load designs from other customers\' Designer Racks.');
+    } finally {
+      setIsLoadingOtherRacks(false);
+    }
+  };
+
+  const handleDuplicateDesignsToRack = async (
+    entries: Array<{ key: string; sourceCustomerId: string; sourceCustomerName: string; design: any }>
+  ) => {
+    const targetCustomerId = duplicateRackTargetCustomerId || id;
+    if (!targetCustomerId || entries.length === 0) return;
+
+    setIsDuplicatingFromRack(true);
+    try {
+      const custRef = doc(db, 'customers', targetCustomerId);
+      const latestSnap = await getDoc(custRef);
+      const fallbackRack = targetCustomerId === id
+        ? designerRack
+        : (subBrands.find(b => b.id === targetCustomerId)?.designerRack || []);
+      const latestRack: any[] = latestSnap.exists() && Array.isArray(latestSnap.data().designerRack)
+        ? latestSnap.data().designerRack
+        : fallbackRack;
+
+      const actorName = userData?.name || userData?.email?.split('@')[0] || 'Team Member';
+      const actorRole = userData?.role || 'Staff';
+      const nowIso = new Date().toISOString();
+
+      const clonedItems = entries.map((entry, idx) => {
+        const src = entry.design;
+        const legacyMockups: { id: string; name: string; url: string }[] = Array.isArray(src.mockups) ? src.mockups : [];
+        const frontMockupUrl = src.frontMockupUrl || legacyMockups[0]?.url || src.mockupUrl || src.url || '';
+        const frontMockupName = src.frontMockupName || legacyMockups[0]?.name || src.mockupName || 'Front Mock-up';
+        const backMockupUrl = src.backMockupUrl || legacyMockups[1]?.url || '';
+        const backMockupName = src.backMockupName || legacyMockups[1]?.name || 'Back Mock-up';
+        const rawOtherMockups: any[] = Array.isArray(src.otherMockups)
+          ? src.otherMockups
+          : legacyMockups.length > 2
+            ? legacyMockups.slice(2)
+            : [];
+        const clonedOtherMockups = rawOtherMockups.map((m: any, mIdx: number) => ({
+          id: `mockup-${Date.now()}-${idx}-${mIdx}-${Math.random().toString(36).substring(2, 6)}`,
+          name: m?.name || `Other Mock-up ${mIdx + 1}`,
+          url: m?.url || '',
+        })).filter((m: any) => Boolean(m.url));
+
+        const clonedLogos = (Array.isArray(src.logos) ? src.logos : []).map((l: any, lIdx: number) => ({
+          ...l,
+          id: `logo-${Date.now()}-${idx}-${lIdx}-${Math.random().toString(36).substring(2, 6)}`,
+        }));
+
+        const primaryMockupUrl = frontMockupUrl || backMockupUrl || clonedOtherMockups[0]?.url || '';
+        const primaryMockupName = frontMockupName || backMockupName || clonedOtherMockups[0]?.name || '';
+        const combinedMockups: { id: string; name: string; url: string }[] = [
+          ...(frontMockupUrl ? [{ id: 'front', name: frontMockupName || 'Front Mock-up', url: frontMockupUrl }] : []),
+          ...(backMockupUrl ? [{ id: 'back', name: backMockupName || 'Back Mock-up', url: backMockupUrl }] : []),
+          ...clonedOtherMockups,
+        ];
+        const displayTitle = (src.title || src.name || 'Untitled Design').trim();
+        const garmentColor = (src.garmentColor || src.color || '').trim();
+
+        return {
+          id: `design-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+          title: displayTitle,
+          name: displayTitle,
+          frontMockupUrl,
+          frontMockupName,
+          backMockupUrl,
+          backMockupName,
+          otherMockups: clonedOtherMockups,
+          mockupUrl: primaryMockupUrl,
+          mockupName: primaryMockupName,
+          mockups: combinedMockups,
+          url: primaryMockupUrl,
+          logos: clonedLogos,
+          psdDriveLink: (src.psdDriveLink || '').trim(),
+          garmentSourcingLink: (src.garmentSourcingLink || '').trim(),
+          garmentColor,
+          color: garmentColor,
+          sizingAdjustment: src.sizingAdjustment || 'True to Size',
+          finalDesignApproved: false,
+          finalDesignApprovedNotificationRead: false,
+          approvedForOrder: false,
+          approvedForOrderNotificationRead: false,
+          duplicatedFromCustomerId: entry.sourceCustomerId,
+          duplicatedFromCustomerName: entry.sourceCustomerName,
+          duplicatedFromDesignId: src.id || null,
+          createdByName: actorName,
+          createdByRole: actorRole,
+          updatedByName: actorName,
+          updatedByRole: actorRole,
+          uploadedAt: nowIso,
+        };
+      });
+
+      const updated = [...latestRack, ...clonedItems];
+      await updateDoc(custRef, { designerRack: updated });
+
+      if (targetCustomerId === id) {
+        setDesignerRack(updated);
+        setLiveCustomerData((prev: any) => (prev ? { ...prev, designerRack: updated } : prev));
+      } else {
+        setSubBrands((prev) =>
+          prev.map((b: any) => (b.id === targetCustomerId ? { ...b, designerRack: updated } : b))
+        );
+      }
+
+      const parentName =
+        editCompanyForm.name ||
+        liveCustomerData?.company ||
+        liveCustomerData?.contactName ||
+        liveCustomerData?.name ||
+        'Customer';
+      const targetSubBrand = subBrands.find((b: any) => b.id === targetCustomerId);
+      const custLabel =
+        targetCustomerId === id
+          ? parentName
+          : targetSubBrand?.company || targetSubBrand?.contactName || parentName;
+
+      clonedItems.forEach((savedDesignItem) => {
+        const archiveDocId = `${targetCustomerId}__${savedDesignItem.id}`;
+        void setDoc(
+          doc(db, 'decorator_notes', archiveDocId),
+          {
+            id: archiveDocId,
+            customerId: targetCustomerId,
+            customerName: custLabel,
+            parentCustomerId: id || targetCustomerId,
+            parentCustomerName: parentName,
+            designId: savedDesignItem.id,
+            designTitle: savedDesignItem.title || 'Untitled Garment',
+            garmentColor: savedDesignItem.garmentColor || '',
+            sizingAdjustment: savedDesignItem.sizingAdjustment || 'True to Size',
+            garmentSourcingLink: savedDesignItem.garmentSourcingLink || '',
+            psdDriveLink: savedDesignItem.psdDriveLink || '',
+            frontMockupUrl: savedDesignItem.frontMockupUrl || '',
+            frontMockupName: savedDesignItem.frontMockupName || 'Front Mock-up',
+            backMockupUrl: savedDesignItem.backMockupUrl || '',
+            backMockupName: savedDesignItem.backMockupName || 'Back Mock-up',
+            otherMockups: savedDesignItem.otherMockups || [],
+            logos: savedDesignItem.logos || [],
+            updatedAt: nowIso,
+          },
+          { merge: true }
+        ).catch((err) => console.debug('Could not sync duplicated design to decorator_notes:', err));
+      });
+
+      const doneKeys = new Set(entries.map((e) => e.key));
+      setRecentlyDuplicatedKeys((prev) => {
+        const next = { ...prev };
+        doneKeys.forEach((k) => { next[k] = true; });
+        return next;
+      });
+      setSelectedDuplicateKeys((prev) => prev.filter((k) => !doneKeys.has(k)));
+      setIsDesignerRackCollapsed(false);
+    } catch (err) {
+      console.error('Failed to duplicate design(s) into Designer Rack:', err);
+      alert('Failed to duplicate design(s) into this Designer Rack.');
+    } finally {
+      setIsDuplicatingFromRack(false);
     }
   };
 
@@ -3509,6 +3738,290 @@ export function CustomerDetail() {
           </div>
         </div>
       )}
+
+      {/* Duplicate From Other Designer Racks Modal */}
+      {isDuplicateRackModalOpen && (() => {
+        const customerOptionsMap = new Map<string, { id: string; name: string; count: number }>();
+        otherRackDesigns.forEach((entry) => {
+          const existing = customerOptionsMap.get(entry.sourceCustomerId);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            customerOptionsMap.set(entry.sourceCustomerId, {
+              id: entry.sourceCustomerId,
+              name: entry.sourceCustomerName,
+              count: 1,
+            });
+          }
+        });
+        const customerOptions = Array.from(customerOptionsMap.values()).sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+
+        const q = duplicateRackSearch.trim().toLowerCase();
+        const filteredOtherDesigns = otherRackDesigns.filter((entry) => {
+          if (duplicateRackCustomerFilter !== 'all' && entry.sourceCustomerId !== duplicateRackCustomerFilter) {
+            return false;
+          }
+          if (!q) return true;
+          const title = String(entry.design?.title || entry.design?.name || '').toLowerCase();
+          const color = String(entry.design?.garmentColor || entry.design?.color || '').toLowerCase();
+          const cust = entry.sourceCustomerName.toLowerCase();
+          const logoNames = Array.isArray(entry.design?.logos)
+            ? entry.design.logos.map((l: any) => String(l?.name || '').toLowerCase()).join(' ')
+            : '';
+          return title.includes(q) || color.includes(q) || cust.includes(q) || logoNames.includes(q);
+        });
+
+        const selectedEntries = otherRackDesigns.filter((e) => selectedDuplicateKeys.includes(e.key));
+
+        return (
+          <div
+            className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => !isDuplicatingFromRack && setIsDuplicateRackModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-2xl border border-brand-border shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-brand-border flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                    <Copy size={16} />
+                    <span>Duplicate from Other Designer Racks</span>
+                  </h3>
+                  <p className="text-xs text-brand-secondary mt-0.5">
+                    Browse designs across all other customers&apos; Designer Racks and pull an independent copy into this rack.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isDuplicatingFromRack && setIsDuplicateRackModalOpen(false)}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Filter & Search Toolbar */}
+              <div className="px-6 py-3.5 bg-neutral-50/80 border-b border-brand-border flex flex-wrap items-center gap-2.5">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={duplicateRackSearch}
+                    onChange={(e) => setDuplicateRackSearch(e.target.value)}
+                    placeholder="Search design title, color, logo, or customer…"
+                    className="w-full bg-white border border-brand-border focus:border-neutral-900 rounded-full pl-9 pr-3.5 py-1.5 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition-colors"
+                  />
+                </div>
+                <div className="relative">
+                  <select
+                    value={duplicateRackCustomerFilter}
+                    onChange={(e) => setDuplicateRackCustomerFilter(e.target.value)}
+                    className="appearance-none bg-white border border-brand-border hover:border-neutral-400 focus:border-neutral-900 rounded-full pl-3.5 pr-8 py-1.5 text-xs font-bold text-neutral-800 focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Other Racks ({otherRackDesigns.length})</option>
+                    {customerOptions.map((cOpt) => (
+                      <option key={cOpt.id} value={cOpt.id}>
+                        {cOpt.name} ({cOpt.count})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                </div>
+                {subBrands.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Copy to:</span>
+                    <div className="relative">
+                      <select
+                        value={duplicateRackTargetCustomerId || id || ''}
+                        onChange={(e) => setDuplicateRackTargetCustomerId(e.target.value)}
+                        className="appearance-none bg-white border border-brand-border hover:border-neutral-400 focus:border-neutral-900 rounded-full pl-3 pr-7 py-1.5 text-xs font-bold text-neutral-800 focus:outline-none cursor-pointer"
+                      >
+                        <option value={id || ''}>
+                          {editCompanyForm.name || liveCustomerData?.company || liveCustomerData?.contactName || 'Parent'}
+                        </option>
+                        {subBrands.map((b: any) => (
+                          <option key={b.id} value={b.id}>
+                            {b.company || b.contactName || 'Sub-Brand'}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Designs Grid */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {isLoadingOtherRacks ? (
+                  <div className="py-16 flex flex-col items-center justify-center gap-2 text-brand-secondary">
+                    <Loader2 size={22} className="animate-spin text-neutral-600" />
+                    <span className="text-xs font-semibold">Loading designs from all Designer Racks…</span>
+                  </div>
+                ) : filteredOtherDesigns.length === 0 ? (
+                  <div className="py-16 text-center text-sm text-brand-secondary">
+                    {otherRackDesigns.length === 0
+                      ? 'No designs found in any other customer Designer Racks yet.'
+                      : 'No designs match your current search or customer filter.'}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredOtherDesigns.map((entry) => {
+                      const d = entry.design;
+                      const legacyMockups: any[] = Array.isArray(d.mockups) ? d.mockups : [];
+                      const thumbUrl = d.frontMockupUrl || legacyMockups[0]?.url || d.mockupUrl || d.url || d.backMockupUrl || '';
+                      const title = d.title || d.name || 'Untitled Design';
+                      const color = d.garmentColor || d.color || '';
+                      const logoCount = Array.isArray(d.logos) ? d.logos.length : 0;
+                      const isSelected = selectedDuplicateKeys.includes(entry.key);
+                      const isAlreadyDuplicated = Boolean(recentlyDuplicatedKeys[entry.key]);
+
+                      return (
+                        <div
+                          key={entry.key}
+                          onClick={() => {
+                            if (isDuplicatingFromRack) return;
+                            setSelectedDuplicateKeys((prev) =>
+                              prev.includes(entry.key)
+                                ? prev.filter((k) => k !== entry.key)
+                                : [...prev, entry.key]
+                            );
+                          }}
+                          className={`group rounded-2xl border p-3 flex flex-col gap-2.5 transition-all cursor-pointer select-none ${
+                            isSelected
+                              ? 'border-neutral-900 ring-1 ring-neutral-900 bg-neutral-50/70 shadow-sm'
+                              : 'border-brand-border hover:border-neutral-400 bg-white'
+                          }`}
+                        >
+                          <div className="relative aspect-[4/3] w-full rounded-xl bg-neutral-100 border border-brand-border/60 overflow-hidden flex items-center justify-center">
+                            {thumbUrl ? (
+                              <img
+                                src={thumbUrl}
+                                alt={title}
+                                className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-200"
+                              />
+                            ) : (
+                              <Palette size={24} className="text-neutral-300" />
+                            )}
+                            <span
+                              className="absolute top-2 left-2 max-w-[70%] truncate bg-white/95 text-neutral-800 border border-brand-border text-[10px] font-bold px-2 py-0.5 rounded-full shadow-2xs"
+                              title={entry.sourceCustomerName}
+                            >
+                              {entry.sourceCustomerName}
+                            </span>
+                            <div
+                              className={`absolute top-2 right-2 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'bg-neutral-900 border-neutral-900 text-white'
+                                  : 'bg-white/90 border-neutral-300 text-transparent group-hover:border-neutral-500'
+                              }`}
+                            >
+                              <Check size={11} strokeWidth={3} />
+                            </div>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-neutral-900 truncate" title={title}>
+                              {title}
+                            </p>
+                            <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                              {[color || null, logoCount > 0 ? `${logoCount} ${logoCount === 1 ? 'Logo' : 'Logos'}` : null, d.psdDriveLink ? 'PSD' : null]
+                                .filter(Boolean)
+                                .join(' • ') || 'Design asset'}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isDuplicatingFromRack}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDuplicateDesignsToRack([entry]);
+                            }}
+                            className={`w-full py-1.5 px-3 rounded-full text-[11px] font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                              isAlreadyDuplicated
+                                ? 'bg-neutral-100 text-neutral-700 border-neutral-300 hover:bg-neutral-200'
+                                : 'bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border-brand-border hover:border-neutral-900'
+                            }`}
+                          >
+                            {isAlreadyDuplicated ? (
+                              <>
+                                <Check size={12} strokeWidth={3} />
+                                <span>Duplicated (Copy Again)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={12} />
+                                <span>Duplicate</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3.5 border-t border-brand-border bg-neutral-50/80 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-neutral-600 font-semibold">
+                  <span>
+                    {selectedEntries.length > 0
+                      ? `${selectedEntries.length} ${selectedEntries.length === 1 ? 'design' : 'designs'} selected`
+                      : `Showing ${filteredOtherDesigns.length} of ${otherRackDesigns.length} designs`}
+                  </span>
+                  {selectedEntries.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDuplicateKeys([])}
+                      className="text-neutral-500 hover:text-neutral-900 underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <PillButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsDuplicateRackModalOpen(false)}
+                    disabled={isDuplicatingFromRack}
+                  >
+                    Done
+                  </PillButton>
+                  {selectedEntries.length > 0 && (
+                    <PillButton
+                      type="button"
+                      variant="filled"
+                      className="gap-1.5"
+                      disabled={isDuplicatingFromRack}
+                      onClick={() => void handleDuplicateDesignsToRack(selectedEntries)}
+                    >
+                      {isDuplicatingFromRack ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Duplicating…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          <span>Duplicate Selected ({selectedEntries.length})</span>
+                        </>
+                      )}
+                    </PillButton>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-4 border-b border-brand-border">
         <div className="flex items-center gap-2.5 flex-wrap shrink-0">
@@ -4323,16 +4836,29 @@ export function CustomerDetail() {
                 </div>
                 <div className="flex items-center gap-2">
                   {!isSales && subBrands.length === 0 && (
-                    <PillButton
-                      variant="outline"
-                      className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenNewDesignerRackModal();
-                      }}
-                    >
-                      <Plus size={14} /> Design
-                    </PillButton>
+                    <>
+                      <PillButton
+                        variant="outline"
+                        className="px-3.5 py-1.5 text-xs font-bold gap-1.5 cursor-pointer"
+                        title="Pull a duplicate of a design from another customer's Designer Rack"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleOpenDuplicateFromRacksModal();
+                        }}
+                      >
+                        <Copy size={13} /> Duplicate from Racks
+                      </PillButton>
+                      <PillButton
+                        variant="outline"
+                        className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenNewDesignerRackModal();
+                        }}
+                      >
+                        <Plus size={14} /> Design
+                      </PillButton>
+                    </>
                   )}
                   <button
                     type="button"
@@ -4387,16 +4913,29 @@ export function CustomerDetail() {
                       />
                     </div>
                     {!isSales && (
-                      <PillButton
-                        variant="outline"
-                        className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenNewDesignerRackModal();
-                        }}
-                      >
-                        <Plus size={14} /> Design
-                      </PillButton>
+                      <>
+                        <PillButton
+                          variant="outline"
+                          className="px-3.5 py-1.5 text-xs font-bold gap-1.5 cursor-pointer"
+                          title="Pull a duplicate of a design from another customer's Designer Rack"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleOpenDuplicateFromRacksModal();
+                          }}
+                        >
+                          <Copy size={13} /> Duplicate from Racks
+                        </PillButton>
+                        <PillButton
+                          variant="outline"
+                          className="px-3.5 py-1.5 text-xs font-bold gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenNewDesignerRackModal();
+                          }}
+                        >
+                          <Plus size={14} /> Design
+                        </PillButton>
+                      </>
                     )}
                   </div>
                 )}
@@ -4408,16 +4947,28 @@ export function CustomerDetail() {
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-2 flex flex-col items-center justify-center gap-3">
                     <p>{isSales ? 'No designs uploaded to the Designer Rack yet.' : 'No designs uploaded to the Designer Rack yet. Click below to upload a design.'}</p>
                     {!isSales && (
-                      <PillButton
-                        variant="filled"
-                        className="gap-1.5 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenNewDesignerRackModal();
-                        }}
-                      >
-                        <Upload size={14} /> Upload Design
-                      </PillButton>
+                      <div className="flex flex-wrap items-center justify-center gap-2.5">
+                        <PillButton
+                          variant="filled"
+                          className="gap-1.5 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenNewDesignerRackModal();
+                          }}
+                        >
+                          <Upload size={14} /> Upload Design
+                        </PillButton>
+                        <PillButton
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleOpenDuplicateFromRacksModal();
+                          }}
+                        >
+                          <Copy size={14} /> Duplicate from Other Racks
+                        </PillButton>
+                      </div>
                     )}
                   </div>
                 ) : (
