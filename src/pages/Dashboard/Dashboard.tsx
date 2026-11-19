@@ -1206,11 +1206,12 @@ export function Dashboard() {
 
           <div className="bg-white border border-red-200 rounded-xl divide-y divide-red-100 overflow-x-auto shadow-xs">
             {/* Spreadsheet Column Header */}
-            <div className="hidden md:grid md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center bg-red-50/60 text-[10px] font-extrabold uppercase tracking-wider text-red-900/70 border-b border-red-200/80 select-none">
+            <div className="hidden md:grid md:grid-cols-[56px_minmax(190px,1.3fr)_116px_minmax(210px,1.5fr)_144px_minmax(130px,0.9fr)_96px] items-center border-l-4 border-l-transparent bg-red-50/60 text-[10px] font-extrabold uppercase tracking-wider text-red-900/70 border-b border-red-200/80 select-none">
               <div className="px-3 py-2 text-center">#</div>
               <div className="px-3 py-2 border-l border-red-100/80">Name</div>
               <div className="px-3 py-2 border-l border-red-100/80">Type</div>
               <div className="px-3 py-2 border-l border-red-100/80">Orders / Due</div>
+              <div className="px-3 py-2 border-l border-red-100/80">Status</div>
               <div className="px-3 py-2 border-l border-red-100/80">Contact / Account</div>
               <div className="px-3 py-2 border-l border-red-100/80 text-right">Action</div>
             </div>
@@ -1322,7 +1323,7 @@ export function Dashboard() {
                       setDragOverPriorityKey(null);
                     }}
                     onClick={() => navigate(`/customers/${c.id}`)}
-                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${rowSurfaceClass} transition-all cursor-pointer group select-none ${rowHoverClass}`}
+                    className={`grid grid-cols-1 md:grid-cols-[56px_minmax(190px,1.3fr)_116px_minmax(210px,1.5fr)_144px_minmax(130px,0.9fr)_96px] items-stretch border-l-4 ${rowSurfaceClass} transition-all cursor-pointer group select-none ${rowHoverClass}`}
                   >
                     {/* Col 1: Rank & Grip */}
                     <div
@@ -1403,7 +1404,7 @@ export function Dashboard() {
                     {/* Col 3: Type Badge */}
                     <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center`}>
                       <span
-                        className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[108px] text-center truncate ${
+                        className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[92px] text-center truncate ${
                           isReceivedRow
                             ? 'bg-neutral-700 text-white'
                             : isShippedRow || isNonPriorityParent
@@ -1415,8 +1416,8 @@ export function Dashboard() {
                       </span>
                     </div>
 
-                    {/* Col 4: Active Orders Dropdown, Quotes Dropdown & Row Status Selector */}
-                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center justify-between gap-1.5 flex-wrap min-w-0`}>
+                    {/* Col 4: Active Orders Dropdown & Quotes Dropdown */}
+                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center gap-1.5 flex-wrap min-w-0`}>
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         {activeCustOrders.length > 0 && (
                           <button
@@ -1575,8 +1576,10 @@ export function Dashboard() {
                             </span>
                           )}
                       </div>
+                    </div>
 
-                      {/* Line Item Status Selector (Active / Shipped / Received) */}
+                    {/* Col 5: Status Selector (Active / Shipped / Received) */}
+                    <div className={`px-3 py-2 md:py-2.5 md:border-l ${colBorderClass} flex items-center min-w-0`}>
                       <select
                         value={manualCustTone || rowTone}
                         onClick={(e) => e.stopPropagation()}
@@ -1589,12 +1592,12 @@ export function Dashboard() {
                           );
                         }}
                         title="Change line item status (Shipped = light grey, Received = dark grey)"
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 cursor-pointer outline-none transition-colors ${
+                        className={`w-full text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border cursor-pointer outline-none transition-colors truncate ${
                           isReceivedRow
                             ? 'bg-neutral-700 text-white border-neutral-800 hover:bg-neutral-800'
                             : isShippedRow
                               ? 'bg-neutral-200 text-neutral-700 border-neutral-300 hover:bg-neutral-300/80'
-                              : 'bg-white text-neutral-600 border-neutral-200 hover:border-red-300 hover:text-red-700'
+                              : 'bg-white text-neutral-700 border-neutral-200 hover:border-red-300 hover:text-red-700'
                         }`}
                       >
                         <option value="active">Active</option>
@@ -1742,7 +1745,7 @@ export function Dashboard() {
                     setDragOverPriorityKey(null);
                   }}
                   onClick={() => navigate(`/orders/${o.id}`)}
-                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(200px,1.3fr)_130px_minmax(260px,1.9fr)_minmax(140px,1fr)_96px] items-center border-l-4 ${orderSurfaceClass} transition-all cursor-pointer group select-none ${orderHoverClass}`}
+                  className={`grid grid-cols-1 md:grid-cols-[56px_minmax(190px,1.3fr)_116px_minmax(210px,1.5fr)_144px_minmax(130px,0.9fr)_96px] items-stretch border-l-4 ${orderSurfaceClass} transition-all cursor-pointer group select-none ${orderHoverClass}`}
                 >
                   {/* Col 1: Rank & Grip */}
                   <div
@@ -1805,24 +1808,49 @@ export function Dashboard() {
                     </span>
                   </div>
 
-                  {/* Col 3: Order Badge */}
+                  {/* Col 3: Type Badge */}
                   <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center`}>
                     <span
-                      className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[108px] text-center truncate tabular-nums ${
+                      className={`inline-flex items-center justify-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded w-[92px] text-center truncate ${
                         isOrderReceivedRow
-                          ? 'bg-neutral-700 text-white border border-neutral-800'
+                          ? 'bg-neutral-700 text-white'
                           : isOrderShippedRow
                             ? 'bg-neutral-200 text-neutral-700 border border-neutral-300'
-                            : 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-red-600 text-white'
                       }`}
                       title={`Order #${displayId}`}
                     >
-                      Order #{displayId}
+                      Order
                     </span>
                   </div>
 
-                  {/* Col 4: Status & Due Date */}
-                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center gap-2 flex-nowrap min-w-0 overflow-hidden`}>
+                  {/* Col 4: Order # & Due Date */}
+                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center gap-2 flex-wrap min-w-0`}>
+                    <span
+                      className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 tabular-nums ${
+                        isOrderReceivedRow
+                          ? 'text-neutral-800 bg-neutral-200 border-neutral-400'
+                          : isOrderShippedRow
+                            ? 'text-neutral-700 bg-white/80 border-neutral-300'
+                            : 'text-red-700 bg-red-50 border-red-200'
+                      }`}
+                      title={`Order #${displayId}`}
+                    >
+                      #{displayId}
+                    </span>
+                    {dueStr && (
+                      <span
+                        className={`text-[11px] font-semibold truncate tabular-nums ${
+                          isOrderReceivedRow ? 'text-neutral-700' : 'text-neutral-600'
+                        }`}
+                      >
+                        Due {dueStr}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Col 5: Status Selector */}
+                  <div className={`px-3 py-2 md:py-2.5 md:border-l ${orderColBorderClass} flex items-center min-w-0`}>
                     <select
                       value={effOrderIdx}
                       onClick={(e) => e.stopPropagation()}
@@ -1831,7 +1859,7 @@ export function Dashboard() {
                         handleQuickOrderStatusChange(o, parseInt(e.target.value, 10));
                       }}
                       title="Change order status (Shipped = light grey, Received = dark grey)"
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 cursor-pointer outline-none ${
+                      className={`w-full text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border cursor-pointer outline-none truncate ${
                         isOrderReceivedRow
                           ? 'bg-neutral-700 text-white border-neutral-800'
                           : getOrderStatusBadgeClasses(o)
@@ -1847,15 +1875,6 @@ export function Dashboard() {
                       <option value={7}>{o?.fulfillmentType === 'Kitting' ? 'Inventory / Shipped' : 'Shipped'}</option>
                       <option value={8}>{o?.fulfillmentType === 'Kitting' ? 'Live' : 'Received'}</option>
                     </select>
-                    {dueStr && (
-                      <span
-                        className={`text-[11px] font-semibold truncate tabular-nums ${
-                          isOrderReceivedRow ? 'text-neutral-700' : 'text-neutral-600'
-                        }`}
-                      >
-                        Due {dueStr}
-                      </span>
-                    )}
                   </div>
 
                   {/* Col 5: Company Name */}
