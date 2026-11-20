@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, setDoc, deleteDoc, writeBatch, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
@@ -26,7 +26,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'archived-quotes' | 'orders' | 'all' }) {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  const { hasPermission, userData } = useAuth();
+  const { hasPermission, userData, user } = useAuth();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
   const [dtfSettings, setDtfSettings] = useState<any>(null);
 
@@ -205,20 +205,25 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    const fetchCustomer = async () => {
-      try {
-        const d = await getDoc(doc(db, 'customers', currentCustomerId));
-        if (d.exists()) {
-          setCustomer(d.data());
-        }
-      } catch (err) {
+    if (!currentCustomerId) {
+      setCustomer(null);
+      setFetchingLogo(false);
+      return;
+    }
+    setFetchingLogo(true);
+    const unsub = onSnapshot(
+      doc(db, 'customers', currentCustomerId),
+      (snap) => {
+        setCustomer(snap.exists() ? snap.data() : null);
+        setFetchingLogo(false);
+      },
+      (err) => {
         console.error("Error fetching live customer:", err);
-      } finally {
         setFetchingLogo(false);
       }
-    };
-    fetchCustomer();
-  }, [currentCustomerId]);
+    );
+    return () => unsub();
+  }, [currentCustomerId, user?.uid]);
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
@@ -248,12 +253,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       return;
     }
     const rootParentId = customer?.parentCustomerId || currentCustomerId;
+    let unsubParent: (() => void) | undefined;
     if (customer?.parentCustomerId) {
-      getDoc(doc(db, 'customers', customer.parentCustomerId))
-        .then((snap) => {
-          if (snap.exists()) setParentCustomerDoc({ id: snap.id, ...snap.data() });
-        })
-        .catch(() => {});
+      unsubParent = onSnapshot(
+        doc(db, 'customers', customer.parentCustomerId),
+        (snap) => {
+          setParentCustomerDoc(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        },
+        () => {
+          setParentCustomerDoc(null);
+        }
+      );
     } else {
       setParentCustomerDoc(null);
     }
@@ -272,8 +282,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         setFamilyBrands([]);
       }
     );
-    return () => unsub();
-  }, [currentCustomerId, customer?.parentCustomerId]);
+    return () => {
+      unsub();
+      if (unsubParent) unsubParent();
+    };
+  }, [currentCustomerId, customer?.parentCustomerId, user?.uid]);
 
   useEffect(() => {
     if (!orderContextMenu) return;
@@ -945,9 +958,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
            order.customerId && order.customerId !== currentCustomerId
              ? familyBrands.find((b: any) => b.id === order.customerId)
              : null;
-         const orderOwnerLogo = orderSubBrand
-           ? (orderSubBrand.croppedLogo || orderSubBrand.logo || null)
+         const fallbackParentLogo = customer?.parentCustomerId
+           ? (parentCustomerDoc?.croppedLogo || parentCustomerDoc?.logo || null)
            : (customer?.croppedLogo || customer?.logo || null);
+         const orderOwnerLogo = orderSubBrand
+           ? (orderSubBrand.croppedLogo || orderSubBrand.logo || fallbackParentLogo)
+           : (customer?.croppedLogo || customer?.logo || fallbackParentLogo);
          const orderOwnerName = orderSubBrand
            ? (orderSubBrand.company && orderSubBrand.company !== '-' ? orderSubBrand.company : (orderSubBrand.contactName || 'Sub-Brand'))
            : (customer?.company || customer?.contactName || 'Customer');
