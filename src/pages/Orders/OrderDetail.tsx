@@ -4183,6 +4183,270 @@ export function OrderDetail() {
     }
   };
 
+  // Asset Vault Picker for adding vault images directly to a gang sheet
+  const [vaultPickerTarget, setVaultPickerTarget] = useState<
+    | { mode: 'inline'; itemId: string; replaceIdx?: number }
+    | { mode: 'edit_modal'; replaceIdx?: number }
+    | null
+  >(null);
+  const [vaultPickerScope, setVaultPickerScope] = useState<'customer' | 'all'>('customer');
+  const [vaultPickerSearch, setVaultPickerSearch] = useState('');
+  const [vaultPickerCustomerAssets, setVaultPickerCustomerAssets] = useState<
+    Array<{ key: string; id: string; name: string; url: string; sourceLabel: string }>
+  >([]);
+  const [vaultPickerAllAssets, setVaultPickerAllAssets] = useState<
+    Array<{ key: string; id: string; name: string; url: string; sourceLabel: string }>
+  >([]);
+  const [isLoadingVaultPicker, setIsLoadingVaultPicker] = useState(false);
+  const [vaultPickerSelectedKeys, setVaultPickerSelectedKeys] = useState<string[]>([]);
+  const [isApplyingVaultAssets, setIsApplyingVaultAssets] = useState(false);
+  const [vaultPickerRecentlyAdded, setVaultPickerRecentlyAdded] = useState<Record<string, boolean>>({});
+
+  const isPrintableVaultImage = (asset: any): boolean => {
+    if (!asset?.url || typeof asset.url !== 'string') return false;
+    const name = String(asset.name || '').toLowerCase();
+    const urlClean = asset.url.split('?')[0].toLowerCase();
+    if (/\.(pdf|psd|ai|eps|zip|rar|doc|docx|xls|xlsx|csv|txt)$/.test(name)) return false;
+    if (/\.(pdf|psd|ai|eps|zip|rar|doc|docx|xls|xlsx|csv|txt)$/.test(urlClean)) return false;
+    return true;
+  };
+
+  const handleOpenVaultPicker = async (
+    target: { mode: 'inline'; itemId: string; replaceIdx?: number } | { mode: 'edit_modal'; replaceIdx?: number }
+  ) => {
+    setVaultPickerTarget(target);
+    setVaultPickerScope('customer');
+    setVaultPickerSearch('');
+    setVaultPickerSelectedKeys([]);
+    setVaultPickerRecentlyAdded({});
+    setIsLoadingVaultPicker(true);
+
+    try {
+      const collected: Array<{ key: string; id: string; name: string; url: string; sourceLabel: string }> = [];
+      const seenUrls = new Set<string>();
+      const pushCustomerAssets = (custData: any, custId: string) => {
+        const label =
+          (custData?.company && custData.company !== '-' ? custData.company : '') ||
+          custData?.contactName ||
+          custData?.name ||
+          'Customer Vault';
+        const list = Array.isArray(custData?.assets) ? custData.assets : [];
+        list.forEach((asset: any, idx: number) => {
+          if (!isPrintableVaultImage(asset)) return;
+          if (seenUrls.has(asset.url)) return;
+          seenUrls.add(asset.url);
+          collected.push({
+            key: `${custId}__${asset.id || idx}`,
+            id: asset.id || `vault-${idx}`,
+            name: asset.name || `Vault Image ${idx + 1}`,
+            url: asset.url,
+            sourceLabel: label,
+          });
+        });
+      };
+
+      const activeCustId = liveCustomer?.id || order?.customerId;
+      let resolvedCust = liveCustomer;
+      if (activeCustId) {
+        try {
+          const freshSnap = await getDoc(doc(db, 'customers', String(activeCustId)));
+          if (freshSnap.exists()) {
+            resolvedCust = { id: freshSnap.id, ...freshSnap.data() };
+          }
+        } catch (_) {}
+      }
+
+      if (resolvedCust) {
+        pushCustomerAssets(resolvedCust, String(resolvedCust.id || activeCustId || 'cust'));
+        if (resolvedCust.parentCustomerId) {
+          try {
+            const parentSnap = await getDoc(doc(db, 'customers', String(resolvedCust.parentCustomerId)));
+            if (parentSnap.exists()) {
+              pushCustomerAssets({ id: parentSnap.id, ...parentSnap.data() }, parentSnap.id);
+            }
+          } catch (_) {}
+        }
+      }
+
+      setVaultPickerCustomerAssets(collected);
+    } catch (err) {
+      console.error('Failed to load Asset Vault:', err);
+    } finally {
+      setIsLoadingVaultPicker(false);
+    }
+  };
+
+  const handleSwitchVaultPickerScope = async (scope: 'customer' | 'all') => {
+    setVaultPickerScope(scope);
+    if (scope !== 'all' || vaultPickerAllAssets.length > 0) return;
+    setIsLoadingVaultPicker(true);
+    try {
+      const snap = await getDocs(collection(db, 'customers'));
+      const collected: Array<{ key: string; id: string; name: string; url: string; sourceLabel: string }> = [];
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        const list = Array.isArray(data?.assets) ? data.assets : [];
+        if (list.length === 0) return;
+        const label =
+          (data.company && data.company !== '-' ? data.company : '') ||
+          data.contactName ||
+          data.name ||
+          'Customer';
+        list.forEach((asset: any, idx: number) => {
+          if (!isPrintableVaultImage(asset)) return;
+          collected.push({
+            key: `${docSnap.id}__${asset.id || idx}`,
+            id: asset.id || `vault-${idx}`,
+            name: asset.name || `Vault Image ${idx + 1}`,
+            url: asset.url,
+            sourceLabel: label,
+          });
+        });
+      });
+      collected.sort((a, b) => {
+        const cmp = a.sourceLabel.localeCompare(b.sourceLabel);
+        if (cmp !== 0) return cmp;
+        return a.name.localeCompare(b.name);
+      });
+      setVaultPickerAllAssets(collected);
+    } catch (err) {
+      console.error('Failed to load all customer Asset Vaults:', err);
+    } finally {
+      setIsLoadingVaultPicker(false);
+    }
+  };
+
+  const handleAddVaultAssetsToGangSheet = async (
+    assetsToAdd: Array<{ key: string; id: string; name: string; url: string; sourceLabel: string }>
+  ) => {
+    if (!vaultPickerTarget || assetsToAdd.length === 0) return;
+    setIsApplyingVaultAssets(true);
+    try {
+      const measured = await Promise.all(
+        assetsToAdd.map(async (asset) => {
+          let aspect = 1.0;
+          try {
+            const bounds = await measureVisibleBoundsFromUrl(asset.url);
+            if (bounds && bounds.aspect > 0) aspect = bounds.aspect;
+          } catch (_) {}
+          return { ...asset, aspect };
+        })
+      );
+
+      if (vaultPickerTarget.mode === 'inline') {
+        const targetItemId = vaultPickerTarget.itemId;
+        const targetOrderItem = (order?.items || []).find((i: any) => String(i.id) === String(targetItemId));
+        const defaultCopies = targetOrderItem ? getItemGarmentCount(targetOrderItem) : 10;
+        const defaultWidth = 3.5;
+
+        setEditingArtworks((prev) => {
+          const next = [...prev];
+          if (vaultPickerTarget.replaceIdx !== undefined && measured.length === 1) {
+            const rIdx = vaultPickerTarget.replaceIdx;
+            const m = measured[0];
+            const existingW = parseFloat(String(next[rIdx]?.width)) > 0 ? parseFloat(String(next[rIdx].width)) : defaultWidth;
+            next[rIdx] = {
+              ...(next[rIdx] || {}),
+              id: next[rIdx]?.id || `art-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              itemId: next[rIdx]?.itemId || targetItemId,
+              name: m.name,
+              url: m.url,
+              imageUrl: m.url,
+              originalUrl: m.url,
+              width: existingW,
+              height: parseFloat((existingW * m.aspect).toFixed(2)),
+              aspectRatio: m.aspect,
+              quantity: next[rIdx]?.quantity || defaultCopies,
+            };
+            return next;
+          }
+
+          measured.forEach((m, idx) => {
+            next.push({
+              id: `art-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+              itemId: targetItemId,
+              name: m.name,
+              url: m.url,
+              imageUrl: m.url,
+              originalUrl: m.url,
+              width: defaultWidth,
+              height: parseFloat((defaultWidth * m.aspect).toFixed(2)),
+              aspectRatio: m.aspect,
+              quantity: defaultCopies,
+            });
+          });
+          return next;
+        });
+
+        setSpecsError('');
+        setSpecsNotice(
+          measured.length === 1
+            ? `Added "${measured[0].name}" from Asset Vault. Adjust size/copies and click Save or Save & Regenerate.`
+            : `Added ${measured.length} images from Asset Vault. Adjust size/copies and click Save or Save & Regenerate.`
+        );
+      } else if (vaultPickerTarget.mode === 'edit_modal') {
+        setEditItemObj((prev: any) => {
+          if (!prev) return prev;
+          const currentList = Array.isArray(prev.artworks) ? [...prev.artworks] : [];
+          const defaultWidth = 3.5;
+          const defaultQty = parseInt(String(prev.quantity), 10) || 10;
+
+          if (vaultPickerTarget.replaceIdx !== undefined && measured.length === 1) {
+            const rIdx = vaultPickerTarget.replaceIdx;
+            const m = measured[0];
+            const existingW = parseFloat(String(currentList[rIdx]?.width)) > 0 ? parseFloat(String(currentList[rIdx].width)) : defaultWidth;
+            currentList[rIdx] = {
+              ...(currentList[rIdx] || {}),
+              id: currentList[rIdx]?.id || `art-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: m.name,
+              url: m.url,
+              imageUrl: m.url,
+              originalUrl: m.url,
+              width: existingW,
+              height: parseFloat((existingW * m.aspect).toFixed(2)),
+              aspectRatio: m.aspect,
+              quantity: currentList[rIdx]?.quantity || defaultQty,
+            };
+            return { ...prev, artworks: currentList };
+          }
+
+          // Replace an empty placeholder slot first if present
+          const cleaned = currentList.filter((a: any) => Boolean(a?.url));
+          measured.forEach((m, idx) => {
+            cleaned.push({
+              id: `art-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+              name: m.name,
+              url: m.url,
+              imageUrl: m.url,
+              originalUrl: m.url,
+              width: defaultWidth,
+              height: parseFloat((defaultWidth * m.aspect).toFixed(2)),
+              aspectRatio: m.aspect,
+              quantity: defaultQty,
+            });
+          });
+          return { ...prev, artworks: cleaned };
+        });
+      }
+
+      if (vaultPickerTarget.replaceIdx !== undefined) {
+        setVaultPickerTarget(null);
+      } else {
+        const addedSet = new Set(assetsToAdd.map((a) => a.key));
+        setVaultPickerRecentlyAdded((prev) => {
+          const next = { ...prev };
+          addedSet.forEach((k) => { next[k] = true; });
+          return next;
+        });
+        setVaultPickerSelectedKeys((prev) => prev.filter((k) => !addedSet.has(k)));
+      }
+    } catch (err) {
+      console.error('Failed to add Asset Vault image to gang sheet:', err);
+    } finally {
+      setIsApplyingVaultAssets(false);
+    }
+  };
+
   // Index of the logo being trimmed in the "Logo sizes & copies" editor, or null
   const [trimmingLogoIdx, setTrimmingLogoIdx] = useState<number | null>(null);
 
@@ -8260,20 +8524,38 @@ export function OrderDetail() {
 
                             <div className="flex items-center gap-2 flex-wrap pt-0.5">
                               {card.type === 'art' && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSpecsError(''); setSpecsNotice('');
-                                    setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
-                                    setEditingSpecsCardId(card.id);
-                                    const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
-                                    setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
-                                  }}
-                                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer transition-colors"
-                                >
-                                  <Edit3 size={11} />
-                                  <span>Sizes</span>
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSpecsError(''); setSpecsNotice('');
+                                      setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
+                                      setEditingSpecsCardId(card.id);
+                                      const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
+                                      setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
+                                    }}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer transition-colors"
+                                  >
+                                    <Edit3 size={11} />
+                                    <span>Sizes</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSpecsError(''); setSpecsNotice('');
+                                      setExpandedProductionCards(prev => ({ ...prev, [card.id]: true }));
+                                      setEditingSpecsCardId(card.id);
+                                      const freshOrderItem = (order.items || []).find((i: any) => String(i.id) === String(card.item.id)) || card.item;
+                                      setEditingArtworks(getPrintableArtworksForItem(freshOrderItem));
+                                      void handleOpenVaultPicker({ mode: 'inline', itemId: String(card.item.id) });
+                                    }}
+                                    title="Add an image from the customer's Asset Vault to this gang sheet"
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer transition-colors"
+                                  >
+                                    <ImageIcon size={11} />
+                                    <span>+ Vault</span>
+                                  </button>
+                                </>
                               )}
                               <button
                                 type="button"
@@ -8367,20 +8649,30 @@ export function OrderDetail() {
                                 </p>
                               </div>
                               {!card.isMaster && (
-                                <label className="shrink-0 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer flex items-center gap-1 transition-colors shadow-2xs">
-                                  <Plus size={12} /> Add logo
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    accept="image/*"
-                                    onChange={(e) => handleInlineLogoUpload(e, card.item.id, editingArtworks.length)}
-                                  />
-                                </label>
+                                <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleOpenVaultPicker({ mode: 'inline', itemId: String(card.item.id) })}
+                                    className="shrink-0 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer flex items-center gap-1 transition-colors shadow-2xs"
+                                    title="Pick an image from the customer's Asset Vault"
+                                  >
+                                    <ImageIcon size={12} /> Asset Vault
+                                  </button>
+                                  <label className="shrink-0 text-[11px] font-bold text-neutral-800 hover:text-black bg-white hover:bg-neutral-100 border border-brand-border rounded-full px-3 py-1.5 cursor-pointer flex items-center gap-1 transition-colors shadow-2xs">
+                                    <Plus size={12} /> Upload logo
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept="image/*"
+                                      onChange={(e) => handleInlineLogoUpload(e, card.item.id, editingArtworks.length)}
+                                    />
+                                  </label>
+                                </div>
                               )}
                             </div>
 
                             {editingArtworks.length === 0 ? (
-                              <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos yet. Click Add logo.</p>
+                              <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos yet. Click Asset Vault or Upload logo above.</p>
                             ) : (
                               <div className="flex flex-col gap-2 max-h-[420px] overflow-y-auto pr-1">
                                 {editingArtworks.map((art, idx) => {
@@ -11979,28 +12271,38 @@ export function OrderDetail() {
                     <div className="bg-white rounded-xl border border-brand-border p-5 flex flex-col gap-5 shadow-sm">
                       {editItemObj.sheetSizeName === 'Single Design Transfer' ? (
                         <div className="flex flex-col gap-4">
-                           <div className="flex justify-between items-center border-b border-brand-border pb-3">
+                           <div className="flex justify-between items-center gap-2 flex-wrap border-b border-brand-border pb-3">
                               <span className="text-xs font-bold uppercase tracking-widest text-brand-secondary flex items-center gap-2">
                                 <ImageIcon size={14}/> Configure Logos / Designs
                               </span>
-                              <button
-                                 type="button"
-                                 onClick={() => {
-                                    const newArtworks = [...(editItemObj.artworks || [])];
-                                    newArtworks.push({
-                                       id: `art-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                                       name: '',
-                                       url: '',
-                                       width: 3.5,
-                                       height: 3.5,
-                                       quantity: 10
-                                    });
-                                    setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
-                                 }}
-                                 className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-                              >
-                                 <Plus size={14} /> Add Logo
-                              </button>
+                              <div className="flex items-center gap-2">
+                                 <button
+                                    type="button"
+                                    onClick={() => void handleOpenVaultPicker({ mode: 'edit_modal' })}
+                                    className="px-3.5 py-2 bg-white hover:bg-neutral-100 text-neutral-900 border border-brand-border rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                                    title="Pick an image from the customer's Asset Vault"
+                                 >
+                                    <ImageIcon size={14} /> From Asset Vault
+                                 </button>
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       const newArtworks = [...(editItemObj.artworks || [])];
+                                       newArtworks.push({
+                                          id: `art-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                          name: '',
+                                          url: '',
+                                          width: 3.5,
+                                          height: 3.5,
+                                          quantity: 10
+                                       });
+                                       setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                    }}
+                                    className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                                 >
+                                    <Plus size={14} /> Add Logo
+                                 </button>
+                              </div>
                            </div>
 
                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -13652,6 +13954,261 @@ export function OrderDetail() {
         onClose={() => setIsPalletOptimizerOpen(false)}
         preSelectedOrder={order}
       />
+
+      {/* Asset Vault Image Picker Modal for Gang Sheets */}
+      {vaultPickerTarget && (() => {
+        const activeList = vaultPickerScope === 'customer' ? vaultPickerCustomerAssets : vaultPickerAllAssets;
+        const q = vaultPickerSearch.trim().toLowerCase();
+        const filteredVaultImages = activeList.filter((a) => {
+          if (!q) return true;
+          return (
+            a.name.toLowerCase().includes(q) ||
+            a.sourceLabel.toLowerCase().includes(q)
+          );
+        });
+        const selectedVaultItems = activeList.filter((a) => vaultPickerSelectedKeys.includes(a.key));
+        const isReplaceMode = vaultPickerTarget.replaceIdx !== undefined;
+
+        return (
+          <div
+            className="fixed inset-0 z-[120] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+            onClick={() => !isApplyingVaultAssets && setVaultPickerTarget(null)}
+          >
+            <div
+              className="bg-white rounded-2xl border border-brand-border shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-brand-border flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                    <ImageIcon size={16} />
+                    <span>Add from Asset Vault</span>
+                  </h3>
+                  <p className="text-xs text-brand-secondary mt-0.5">
+                    Select one or more images from the Asset Vault to place onto this gang sheet.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => !isApplyingVaultAssets && setVaultPickerTarget(null)}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+                  aria-label="Close Asset Vault picker"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Scope Tabs & Search */}
+              <div className="px-6 py-3 bg-neutral-50/80 border-b border-brand-border flex flex-wrap items-center gap-2.5">
+                <div className="inline-flex bg-white border border-brand-border rounded-full p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => void handleSwitchVaultPickerScope('customer')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                      vaultPickerScope === 'customer'
+                        ? 'bg-neutral-900 text-white'
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    This Customer ({vaultPickerCustomerAssets.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSwitchVaultPickerScope('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                      vaultPickerScope === 'all'
+                        ? 'bg-neutral-900 text-white'
+                        : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    All Customer Vaults
+                  </button>
+                </div>
+
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={vaultPickerSearch}
+                    onChange={(e) => setVaultPickerSearch(e.target.value)}
+                    placeholder="Search vault images…"
+                    className="w-full bg-white border border-brand-border focus:border-neutral-900 rounded-full pl-9 pr-3.5 py-1.5 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Grid */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {isLoadingVaultPicker ? (
+                  <div className="py-14 flex flex-col items-center justify-center gap-2 text-brand-secondary">
+                    <Loader2 size={22} className="animate-spin text-neutral-600" />
+                    <span className="text-xs font-semibold">Loading Asset Vault images…</span>
+                  </div>
+                ) : filteredVaultImages.length === 0 ? (
+                  <div className="py-14 text-center flex flex-col items-center gap-2 text-sm text-brand-secondary">
+                    <ImageIcon size={28} className="text-neutral-300" />
+                    <p>
+                      {activeList.length === 0
+                        ? (vaultPickerScope === 'customer'
+                            ? 'No images found in this customer\'s Asset Vault yet.'
+                            : 'No images found across customer Asset Vaults.')
+                        : 'No vault images match your search.'}
+                    </p>
+                    {vaultPickerScope === 'customer' && activeList.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void handleSwitchVaultPickerScope('all')}
+                        className="mt-1 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white border border-brand-border hover:border-neutral-900 text-neutral-800 cursor-pointer transition-colors"
+                      >
+                        Browse All Customer Vaults
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5">
+                    {filteredVaultImages.map((asset) => {
+                      const isSelected = vaultPickerSelectedKeys.includes(asset.key);
+                      const isAdded = Boolean(vaultPickerRecentlyAdded[asset.key]);
+
+                      return (
+                        <div
+                          key={asset.key}
+                          onClick={() => {
+                            if (isApplyingVaultAssets) return;
+                            if (isReplaceMode) {
+                              void handleAddVaultAssetsToGangSheet([asset]);
+                              return;
+                            }
+                            setVaultPickerSelectedKeys((prev) =>
+                              prev.includes(asset.key)
+                                ? prev.filter((k) => k !== asset.key)
+                                : [...prev, asset.key]
+                            );
+                          }}
+                          className={`group rounded-2xl border p-2.5 flex flex-col gap-2 transition-all cursor-pointer select-none ${
+                            isSelected
+                              ? 'border-neutral-900 ring-1 ring-neutral-900 bg-neutral-50 shadow-sm'
+                              : 'border-brand-border hover:border-neutral-400 bg-white'
+                          }`}
+                        >
+                          <div className="relative aspect-square w-full rounded-xl bg-checkerboard border border-brand-border/60 overflow-hidden flex items-center justify-center p-2">
+                            <img
+                              src={asset.url}
+                              alt={asset.name}
+                              className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-150"
+                            />
+                            {vaultPickerScope === 'all' && (
+                              <span
+                                className="absolute top-1.5 left-1.5 max-w-[75%] truncate bg-white/95 text-neutral-800 border border-brand-border text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-2xs"
+                                title={asset.sourceLabel}
+                              >
+                                {asset.sourceLabel}
+                              </span>
+                            )}
+                            {!isReplaceMode && (
+                              <div
+                                className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                                  isSelected
+                                    ? 'bg-neutral-900 border-neutral-900 text-white'
+                                    : 'bg-white/90 border-neutral-300 text-transparent group-hover:border-neutral-500'
+                                }`}
+                              >
+                                <Check size={11} strokeWidth={3} />
+                              </div>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] font-bold text-neutral-900 truncate px-0.5" title={asset.name}>
+                            {asset.name}
+                          </p>
+
+                          <button
+                            type="button"
+                            disabled={isApplyingVaultAssets}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleAddVaultAssetsToGangSheet([asset]);
+                            }}
+                            className={`w-full py-1 px-2 rounded-full text-[10px] font-bold border transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 ${
+                              isAdded
+                                ? 'bg-neutral-100 text-neutral-700 border-neutral-300 hover:bg-neutral-200'
+                                : 'bg-white hover:bg-neutral-900 text-neutral-900 hover:text-white border-brand-border hover:border-neutral-900'
+                            }`}
+                          >
+                            {isAdded ? (
+                              <>
+                                <Check size={11} strokeWidth={3} />
+                                <span>Added</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus size={11} />
+                                <span>{isReplaceMode ? 'Use Image' : 'Add to Sheet'}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-3.5 border-t border-brand-border bg-neutral-50/80 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-neutral-600 font-semibold">
+                  <span>
+                    {selectedVaultItems.length > 0
+                      ? `${selectedVaultItems.length} ${selectedVaultItems.length === 1 ? 'image' : 'images'} selected`
+                      : `${filteredVaultImages.length} ${filteredVaultImages.length === 1 ? 'image' : 'images'} available`}
+                  </span>
+                  {selectedVaultItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setVaultPickerSelectedKeys([])}
+                      className="text-neutral-500 hover:text-neutral-900 underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <PillButton
+                    type="button"
+                    variant="outline"
+                    onClick={() => setVaultPickerTarget(null)}
+                    disabled={isApplyingVaultAssets}
+                  >
+                    Done
+                  </PillButton>
+                  {selectedVaultItems.length > 0 && !isReplaceMode && (
+                    <PillButton
+                      type="button"
+                      variant="filled"
+                      className="gap-1.5"
+                      disabled={isApplyingVaultAssets}
+                      onClick={() => void handleAddVaultAssetsToGangSheet(selectedVaultItems)}
+                    >
+                      {isApplyingVaultAssets ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Adding…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={14} />
+                          <span>Add Selected ({selectedVaultItems.length})</span>
+                        </>
+                      )}
+                    </PillButton>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {contextMenu && (
         <div 
