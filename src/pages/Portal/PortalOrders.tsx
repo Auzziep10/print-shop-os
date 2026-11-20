@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -227,6 +227,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  const [isDesignRackOpen, setIsDesignRackOpen] = useState<boolean>(false);
+  const [designRackBrandFilter, setDesignRackBrandFilter] = useState<string>('all');
+  const [hoveredRackItemKey, setHoveredRackItemKey] = useState<string | null>(null);
 
   const [localOrders, setLocalOrders] = useState<any[]>([]);
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
@@ -838,46 +841,263 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
   const activeTour = localStorage.getItem('wovn_active_tour') || '';
   const visibleCustomerOrders = overrideCustomerId ? orders : orders.filter(o => !o.isArchived);
-  if (!overrideCustomerId && visibleCustomerOrders.length === 0 && activeTour !== 'tracking') {
+  const isPortalEmptyState = !overrideCustomerId && visibleCustomerOrders.length === 0 && activeTour !== 'tracking';
+
+  const portalChildBrands = !customer?.parentCustomerId ? familyBrands : [];
+  const ownRackItems = (Array.isArray(customer?.designerRack) ? customer.designerRack : []).map((d: any) => ({
+    ...d,
+    _sourceCustomerId: currentCustomerId,
+    _sourceCustomerName: customer?.company && customer.company !== '-' ? customer.company : (customer?.contactName || 'Company'),
+    _isSubBrand: false,
+  }));
+  const subBrandRackItems = portalChildBrands.flatMap((b: any) => {
+    const bName = b.company && b.company !== '-' ? b.company : (b.contactName || 'Sub-Brand');
+    const bRack = Array.isArray(b.designerRack) ? b.designerRack : [];
+    return bRack.map((d: any) => ({
+      ...d,
+      _sourceCustomerId: b.id,
+      _sourceCustomerName: bName,
+      _isSubBrand: true,
+    }));
+  });
+  const portalDesignRackItems = [...ownRackItems, ...subBrandRackItems];
+  const hasSubBrandRackItems = subBrandRackItems.length > 0;
+  const filteredPortalDesignRackItems =
+    designRackBrandFilter === 'all'
+      ? portalDesignRackItems
+      : portalDesignRackItems.filter((d: any) => d._sourceCustomerId === designRackBrandFilter);
+
+  const renderDesignRackDropdown = () => {
+    if (overrideCustomerId || portalDesignRackItems.length === 0) return null;
+
+    const getDesignImages = (design: any) => {
+      const legacyMockups = Array.isArray(design.mockups) ? design.mockups : [];
+      const frontSrc = design.frontMockupUrl || legacyMockups[0]?.url || design.mockupUrl || design.url || '';
+      const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
+      const otherMockups = Array.isArray(design.otherMockups) ? design.otherMockups : [];
+      const primary = frontSrc || backSrc || otherMockups[0]?.url || '';
+      return { primary, backSrc: frontSrc && backSrc ? backSrc : '' };
+    };
+
+    const previewThumbs = portalDesignRackItems
+      .map((d: any) => ({
+        key: `${d._sourceCustomerId || 'own'}-${d.id || d.title}`,
+        src: getDesignImages(d).primary,
+        alt: d.title || d.name || 'Design',
+      }))
+      .filter((t) => Boolean(t.src))
+      .slice(0, 4);
+
     return (
-      <div className="max-w-[800px] mx-auto mt-20 flex flex-col items-center justify-center text-center gap-6">
-        {activeCartCount > 0 && (
-          <div className="w-full max-w-md bg-emerald-50 border border-emerald-200 rounded-2xl p-4.5 mb-2 shadow-sm flex items-center justify-between text-left">
-            <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
-                <ShoppingBag size={20} />
+      <div className="w-full bg-white border border-brand-border rounded-[2.5rem] px-6 py-4 lg:px-8 transition-all hover:border-black/20">
+        <button
+          type="button"
+          onClick={() => setIsDesignRackOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between gap-4 text-left cursor-pointer group"
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-neutral-100 border border-neutral-200/80 flex items-center justify-center text-neutral-700 shrink-0 group-hover:bg-black group-hover:text-white group-hover:border-black transition-colors">
+              <Layers size={18} strokeWidth={2} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-[20px] leading-tight font-serif text-gray-900">Design Rack</h2>
+                <span className="bg-neutral-100 text-neutral-700 text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-neutral-200/70">
+                  {portalDesignRackItems.length} {portalDesignRackItems.length === 1 ? 'Item' : 'Items'}
+                </span>
               </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Working Cart In Progress</p>
-                <p className="text-sm font-medium text-emerald-950">{activeCartCount} {activeCartCount === 1 ? 'item' : 'items'} currently in cart</p>
+              <p className="text-xs text-gray-500 font-medium mt-0.5 truncate">
+                {isDesignRackOpen
+                  ? 'Click any mockup to enlarge or start an order from your Design Rack'
+                  : 'Click to view your custom designs & mockups'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {!isDesignRackOpen && previewThumbs.length > 0 && (
+              <div className="hidden sm:flex items-center -space-x-2">
+                {previewThumbs.map((thumb) => (
+                  <div
+                    key={thumb.key}
+                    className="w-9 h-9 rounded-full bg-neutral-50 border-2 border-white shadow-xs overflow-hidden flex items-center justify-center p-1"
+                  >
+                    <img
+                      src={thumb.src}
+                      alt={thumb.alt}
+                      className="w-full h-full object-contain mix-blend-multiply"
+                    />
+                  </div>
+                ))}
+                {portalDesignRackItems.length > previewThumbs.length && (
+                  <div className="w-9 h-9 rounded-full bg-neutral-100 border-2 border-white shadow-xs flex items-center justify-center text-[10px] font-bold text-neutral-600">
+                    +{portalDesignRackItems.length - previewThumbs.length}
+                  </div>
+                )}
+              </div>
+            )}
+            <span className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-gray-500 group-hover:border-black group-hover:text-black transition-all">
+              <ChevronDown
+                size={16}
+                strokeWidth={2.5}
+                className={`transition-transform duration-300 ${isDesignRackOpen ? 'rotate-180' : ''}`}
+              />
+            </span>
+          </div>
+        </button>
+
+        <div
+          className={`grid transition-all duration-500 ease-in-out ${
+            isDesignRackOpen ? 'grid-rows-[1fr] opacity-100 mt-6' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="pt-5 border-t border-brand-border/50 flex flex-col gap-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {hasSubBrandRackItems ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 mr-1">
+                      Brand:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDesignRackBrandFilter('all')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        designRackBrandFilter === 'all'
+                          ? 'bg-black text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      All ({portalDesignRackItems.length})
+                    </button>
+                    {ownRackItems.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDesignRackBrandFilter(currentCustomerId)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          designRackBrandFilter === currentCustomerId
+                            ? 'bg-black text-white'
+                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                        }`}
+                      >
+                        {customer?.company && customer.company !== '-' ? customer.company : (customer?.contactName || 'Main')} ({ownRackItems.length})
+                      </button>
+                    )}
+                    {portalChildBrands
+                      .filter((b: any) => Array.isArray(b.designerRack) && b.designerRack.length > 0)
+                      .map((b: any) => {
+                        const bName = b.company && b.company !== '-' ? b.company : (b.contactName || 'Sub-Brand');
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => setDesignRackBrandFilter(b.id)}
+                            className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                              designRackBrandFilter === b.id
+                                ? 'bg-black text-white'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                            }`}
+                          >
+                            {bName} ({b.designerRack.length})
+                          </button>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">
+                    Items in Design Rack
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      customerId
+                        ? `/portal/${customerId}/create?tab=designer_rack`
+                        : '/portal/create?tab=designer_rack'
+                    )
+                  }
+                  className="bg-black text-white hover:bg-neutral-800 text-xs font-bold px-4 py-2 rounded-full transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Order from Design Rack</span>
+                  <ChevronRight size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-2">
+                {filteredPortalDesignRackItems.map((design: any, idx: number) => {
+                  const itemKey = `${design._sourceCustomerId || 'own'}-${design.id || idx}`;
+                  const { primary, backSrc } = getDesignImages(design);
+                  const title = design.title || design.name || 'Untitled Design';
+                  const designLogos = Array.isArray(design.logos) ? design.logos : [];
+                  const isHovered = hoveredRackItemKey === itemKey;
+                  const displaySrc = isHovered && backSrc ? backSrc : primary;
+
+                  return (
+                    <div
+                      key={itemKey}
+                      onMouseEnter={() => setHoveredRackItemKey(itemKey)}
+                      onMouseLeave={() => setHoveredRackItemKey(null)}
+                      onClick={() => {
+                        if (displaySrc) {
+                          setExpandedImage({ src: displaySrc, alt: title });
+                        }
+                      }}
+                      className="group/rack flex flex-col rounded-2xl border border-neutral-200/80 bg-neutral-50/40 hover:bg-white hover:border-black/25 hover:shadow-sm transition-all p-3 cursor-pointer"
+                    >
+                      <div className="relative w-full aspect-square rounded-xl bg-white border border-neutral-100 flex items-center justify-center overflow-hidden p-2.5 mb-2.5">
+                        {displaySrc ? (
+                          <img
+                            src={displaySrc}
+                            alt={title}
+                            className="max-w-full max-h-full object-contain mix-blend-multiply group-hover/rack:scale-[1.04] transition-transform duration-300"
+                          />
+                        ) : (
+                          <Box size={28} className="text-neutral-300" />
+                        )}
+                        {design.finalDesignApproved && (
+                          <span className="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-wider">
+                            <Check size={10} strokeWidth={3} /> Approved
+                          </span>
+                        )}
+                        {backSrc && (
+                          <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-white/90 border border-neutral-200 text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                            {isHovered ? 'Back' : 'Front'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex flex-col gap-0.5">
+                        <h4
+                          className="font-serif text-[15px] leading-snug text-gray-900 truncate"
+                          title={title}
+                        >
+                          {title}
+                        </h4>
+                        {hasSubBrandRackItems && design._sourceCustomerName && (
+                          <p className="text-[10px] font-bold text-indigo-700 truncate">
+                            {design._sourceCustomerName}
+                          </p>
+                        )}
+                        <p className="text-[11px] font-medium text-neutral-500 truncate">
+                          {design.garmentStyle || design.blankStyle || design.color
+                            ? [design.garmentStyle || design.blankStyle, design.color].filter(Boolean).join(' • ')
+                            : designLogos.length > 0
+                              ? `${designLogos.length} ${designLogos.length === 1 ? 'Logo' : 'Logos'}`
+                              : 'Custom Design'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <button
-              onClick={() => navigate(customerId ? `/portal/${customerId}/create?openCart=true` : '/portal/create?openCart=true', { state: { openCart: true } })}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-full transition-all shadow hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
-            >
-              Resume Order &rarr;
-            </button>
           </div>
-        )}
-        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
-          <PackageOpen strokeWidth={1.5} size={40} />
-        </div>
-        <div>
-          <h2 className="text-3xl font-serif text-gray-900 mb-2">No active orders yet.</h2>
-          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed mb-6">
-            You don't currently have any orders in the pipeline. Once a new order is placed or quoted, you'll be able to track its progress here.
-          </p>
-          <button
-            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create', { state: activeCartCount > 0 ? { openCart: true } : undefined })}
-            className="bg-black text-white px-6 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] inline-flex items-center gap-2 cursor-pointer"
-          >
-            {activeCartCount > 0 ? `View Working Cart (${activeCartCount}) +` : "Create Order +"}
-          </button>
         </div>
       </div>
     );
-  }
+  };
 
   return (
     <>
@@ -901,6 +1121,46 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         data-tour="orders-list"
         className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}
       >
+      {renderDesignRackDropdown()}
+      {isPortalEmptyState ? (
+        <div className="max-w-[800px] mx-auto mt-12 flex flex-col items-center justify-center text-center gap-6">
+          {activeCartCount > 0 && (
+            <div className="w-full max-w-md bg-emerald-50 border border-emerald-200 rounded-2xl p-4.5 mb-2 shadow-sm flex items-center justify-between text-left">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0">
+                  <ShoppingBag size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">Working Cart In Progress</p>
+                  <p className="text-sm font-medium text-emerald-950">{activeCartCount} {activeCartCount === 1 ? 'item' : 'items'} currently in cart</p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(customerId ? `/portal/${customerId}/create?openCart=true` : '/portal/create?openCart=true', { state: { openCart: true } })}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-full transition-all shadow hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Resume Order &rarr;
+              </button>
+            </div>
+          )}
+          <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
+            <PackageOpen strokeWidth={1.5} size={40} />
+          </div>
+          <div>
+            <h2 className="text-3xl font-serif text-gray-900 mb-2">No active orders yet.</h2>
+            <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed mb-6">
+              You don't currently have any orders in the pipeline. Once a new order is placed or quoted, you'll be able to track its progress here.
+            </p>
+            <button
+              onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create', { state: activeCartCount > 0 ? { openCart: true } : undefined })}
+              className="bg-black text-white px-6 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] inline-flex items-center gap-2 cursor-pointer"
+            >
+              {activeCartCount > 0 ? `View Working Cart (${activeCartCount}) +` : "Create Order +"}
+            </button>
+          </div>
+        </div>
+      ) : (
+      <>
       {activeCartCount > 0 && (
         <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
           <div className="flex items-center gap-3.5">
@@ -1846,6 +2106,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
            </div>
         );
       })}
+      </>
+      )}
     </div>
 
       {/* Right-Click Context Menu for Moving / Archiving Quotes & Orders */}
