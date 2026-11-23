@@ -4,7 +4,7 @@ import QRCode from 'react-qr-code';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer, Filter, Download, Check, DollarSign, CheckSquare, Square } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer, Filter, Download, Check, DollarSign, CheckSquare, Square, Sparkles, ExternalLink } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
@@ -78,38 +78,22 @@ export const getProductGarmentType = (p: any): string => {
   return p?.style ? p.style.trim() : 'Other';
 };
 
-const DEFAULT_RECOMMENDED_PRICES: Record<string, number> = {
-  'T-Shirts': 35,
-  'Tanks & Sleeveless': 32,
-  'Long Sleeve': 42,
-  'Polos': 55,
-  'Crewnecks': 65,
-  'Hoodies': 75,
-  'Quarter & Half Zips': 75,
-  'Sweaters & Knits': 75,
-  'Button Downs & Blouses': 65,
-  'Jackets & Outerwear': 110,
-  'Blazers': 125,
-  'Shorts': 48,
-  'Pants': 75,
-  'Hats & Headwear': 30,
-  'Accessories & Other': 25,
-};
-
-export const getSuggestedSellingPrice = (p: any): number => {
-  const garmentType = getProductGarmentType(p);
-  return DEFAULT_RECOMMENDED_PRICES[garmentType] ?? 45;
-};
-
 export const hasManualRecommendedPrice = (p: any): boolean => {
   return typeof p?.recommendedSellingPrice === 'number' && !isNaN(p.recommendedSellingPrice) && p.recommendedSellingPrice >= 0;
 };
 
-export const getProductRecommendedPrice = (p: any): number => {
+export const hasSuggestedRetailPrice = (p: any): boolean => {
+  return typeof p?.suggestedRetailPrice === 'number' && !isNaN(p.suggestedRetailPrice) && p.suggestedRetailPrice > 0;
+};
+
+export const getProductRecommendedPrice = (p: any): number | null => {
   if (hasManualRecommendedPrice(p)) {
     return p.recommendedSellingPrice;
   }
-  return getSuggestedSellingPrice(p);
+  if (hasSuggestedRetailPrice(p)) {
+    return p.suggestedRetailPrice;
+  }
+  return null;
 };
 
 const sortSizes = (a: string, b: string) => {
@@ -169,6 +153,9 @@ export function ProductsTab({
   const [isQuickEditingPrice, setIsQuickEditingPrice] = useState(false);
   const [quickPriceValue, setQuickPriceValue] = useState('');
   const [isSavingQuickPrice, setIsSavingQuickPrice] = useState(false);
+  const [isLookingUpPrice, setIsLookingUpPrice] = useState(false);
+  const [priceLookupError, setPriceLookupError] = useState('');
+  const [batchLookupProgress, setBatchLookupProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Racks and boxes tracking
   const [pallets, setPallets] = useState<any[]>([]);
@@ -444,6 +431,7 @@ export function ProductsTab({
     setIsCreating(true);
     setIsEditing(true);
     setIsQuickEditingPrice(false);
+    setPriceLookupError('');
     setSelectedProduct(null);
   };
 
@@ -471,6 +459,7 @@ export function ProductsTab({
     setIsCreating(false);
     setIsEditing(false);
     setIsQuickEditingPrice(false);
+    setPriceLookupError('');
   };
 
   const handleOpenBoxForEditing = (pallet: any) => {
@@ -649,6 +638,88 @@ export function ProductsTab({
     }
   };
 
+  const lookupRetailPriceForProduct = async (product: any) => {
+    const res = await fetch('/api/catalog/lookup-retail-price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: product.title || '',
+        sku: product.sku || '',
+        style: product.style || '',
+        garmentType: product.garmentType || getProductGarmentType(product),
+        gender: product.gender || getProductGender(product),
+        colors: product.colors || '',
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to look up standard store price.');
+    }
+    const updates = {
+      suggestedRetailPrice: data.retailPrice,
+      suggestedPriceSourceUrl: data.sourceUrl || '',
+      suggestedPriceSourceName: data.sourceName || 'Store Listing',
+      suggestedPriceSources: Array.isArray(data.sources) ? data.sources : [],
+      suggestedPriceNotes: data.notes || '',
+      suggestedPriceCheckedAt: new Date().toISOString(),
+    };
+    if (product.id) {
+      await updateDoc(doc(db, 'products', product.id), updates);
+    }
+    return updates;
+  };
+
+  const handleLookupCurrentProductPrice = async () => {
+    if (!selectedProduct || isCreating) return;
+    setPriceLookupError('');
+    setIsLookingUpPrice(true);
+    try {
+      const target = {
+        ...selectedProduct,
+        title: formData.title || selectedProduct.title,
+        sku: formData.sku || selectedProduct.sku,
+        style: formData.style || selectedProduct.style,
+        garmentType: formData.garmentType || selectedProduct.garmentType,
+        gender: formData.gender || selectedProduct.gender,
+        colors: formData.colors || selectedProduct.colors,
+      };
+      const updates = await lookupRetailPriceForProduct(target);
+      setSelectedProduct((prev: any) =>
+        prev && prev.id === selectedProduct.id ? { ...prev, ...updates } : prev
+      );
+    } catch (err: any) {
+      console.error('AI price lookup failed:', err);
+      setPriceLookupError(err?.message || 'Could not find standard store price.');
+    } finally {
+      setIsLookingUpPrice(false);
+    }
+  };
+
+  const handleBatchLookupSelectedPrices = async () => {
+    const chosen = products.filter((p) => selectedExportIds.has(p.id));
+    if (chosen.length === 0) return;
+    setBatchLookupProgress({ current: 0, total: chosen.length });
+    let found = 0;
+    let failed = 0;
+    for (let i = 0; i < chosen.length; i++) {
+      setBatchLookupProgress({ current: i + 1, total: chosen.length });
+      try {
+        const updates = await lookupRetailPriceForProduct(chosen[i]);
+        found++;
+        if (selectedProduct && selectedProduct.id === chosen[i].id) {
+          setSelectedProduct((prev: any) =>
+            prev && prev.id === chosen[i].id ? { ...prev, ...updates } : prev
+          );
+        }
+      } catch (err) {
+        console.warn(`Batch AI price lookup failed for ${chosen[i].title}:`, err);
+        failed++;
+      }
+    }
+    setBatchLookupProgress(null);
+    alert(`AI store price lookup finished: ${found} updated${failed > 0 ? `, ${failed} could not be matched` : ''}.`);
+  };
+
   const handleExportCsv = (itemsToExport: any[], filenameLabel = 'all') => {
     if (!itemsToExport || itemsToExport.length === 0) {
       alert('No products to export.');
@@ -682,7 +753,9 @@ export function ProductsTab({
       'Gender',
       'Colors',
       'Recommended Selling Price',
+      'Standard Store Price (MSRP)',
       'Price Source',
+      'Price Verification URL',
       'Total Units',
       ...sizeCols,
       'Description',
@@ -695,7 +768,12 @@ export function ProductsTab({
         : 0;
       const colorsStr = Array.isArray(p.colors) ? p.colors.join(', ') : (p.colors || '');
       const recPrice = getProductRecommendedPrice(p);
-      const priceSource = hasManualRecommendedPrice(p) ? 'Manual' : 'Suggested';
+      const storePrice = hasSuggestedRetailPrice(p) ? p.suggestedRetailPrice : null;
+      const priceSource = hasManualRecommendedPrice(p)
+        ? 'Manual'
+        : hasSuggestedRetailPrice(p)
+          ? (p.suggestedPriceSourceName || 'AI Store Price')
+          : 'Unset';
       return [
         p.id || '',
         p.title || '',
@@ -704,8 +782,10 @@ export function ProductsTab({
         getProductGarmentType(p),
         getProductGender(p),
         colorsStr,
-        recPrice.toFixed(2),
+        recPrice !== null ? recPrice.toFixed(2) : '',
+        storePrice !== null ? storePrice.toFixed(2) : '',
         priceSource,
+        p.suggestedPriceSourceUrl || '',
         totalUnits,
         ...sizeCols.map((sz) => (p.sizeSpread && typeof p.sizeSpread[sz] === 'number' && p.sizeSpread[sz] > 0 ? p.sizeSpread[sz] : 0)),
         p.description || '',
@@ -1119,22 +1199,40 @@ export function ProductsTab({
                  <div className="flex items-center gap-1.5">
                     <button
                        type="button"
-                       disabled={selectedExportIds.size === 0}
+                       disabled={selectedExportIds.size === 0 || Boolean(batchLookupProgress)}
                        onClick={() => {
                           const chosen = products.filter((p) => selectedExportIds.has(p.id));
                           handleExportCsv(chosen, `selected-${chosen.length}`);
                        }}
-                       className="flex-1 bg-brand-primary text-white py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer"
+                       className="flex-1 bg-brand-primary text-white py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1 cursor-pointer"
                     >
-                       <Download size={12} /> Download Selected ({selectedExportIds.size})
+                       <Download size={12} /> CSV ({selectedExportIds.size})
                     </button>
                     <button
                        type="button"
+                       disabled={selectedExportIds.size === 0 || Boolean(batchLookupProgress)}
+                       onClick={handleBatchLookupSelectedPrices}
+                       className="flex-1 bg-indigo-600 text-white py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1 cursor-pointer"
+                       title="Use AI to find standard store prices for all selected items"
+                    >
+                       {batchLookupProgress ? (
+                          <>
+                             <Loader2 size={12} className="animate-spin" /> {batchLookupProgress.current}/{batchLookupProgress.total}
+                          </>
+                       ) : (
+                          <>
+                             <Sparkles size={12} /> AI Prices
+                          </>
+                       )}
+                    </button>
+                    <button
+                       type="button"
+                       disabled={Boolean(batchLookupProgress)}
                        onClick={() => {
                           setIsSelectMode(false);
                           setSelectedExportIds(new Set());
                        }}
-                       className="bg-neutral-100 hover:bg-neutral-200 text-brand-primary py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                       className="bg-neutral-100 hover:bg-neutral-200 text-brand-primary py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-40"
                     >
                        Done
                     </button>
@@ -1223,16 +1321,18 @@ export function ProductsTab({
                      <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                            <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
-                           <span
-                              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                                 itemHasManualPrice
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200'
-                              }`}
-                              title={itemHasManualPrice ? 'Manual selling price' : 'Suggested selling price'}
-                           >
-                              ${itemRecPrice.toFixed(2)}
-                           </span>
+                           {itemRecPrice !== null && (
+                              <span
+                                 className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                    itemHasManualPrice
+                                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                       : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                 }`}
+                                 title={itemHasManualPrice ? 'Manual selling price' : `Standard store price (${p.suggestedPriceSourceName || 'AI'})`}
+                              >
+                                 ${itemRecPrice.toFixed(2)}
+                              </span>
+                           )}
                         </div>
                         <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate flex items-center gap-1.5 flex-wrap">
                            <span>{getProductDescriptor(p)}</span>
@@ -1431,71 +1531,102 @@ export function ProductsTab({
                         </select>
                      </div>
                      
-                     <div className="col-span-1">
+                     <div className="col-span-1 md:col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
                         <input disabled={!isEditing} type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
 
-                     <div className="col-span-1">
+                     <div className="col-span-1 md:col-span-3">
                         {(() => {
-                           const suggestedPrice = getSuggestedSellingPrice({
-                              ...(selectedProduct || {}),
-                              title: formData.title,
-                              style: formData.style,
-                              garmentType: formData.garmentType,
-                           });
+                           const aiStorePrice = hasSuggestedRetailPrice(selectedProduct)
+                              ? selectedProduct.suggestedRetailPrice
+                              : null;
                            const isManualInForm = formData.recommendedSellingPrice !== '';
-                           const displayedPrice = isManualInForm
-                              ? parseFloat(formData.recommendedSellingPrice)
-                              : suggestedPrice;
+                           const manualNum = isManualInForm ? parseFloat(formData.recommendedSellingPrice) : null;
+                           const displayedPrice =
+                              manualNum !== null && !isNaN(manualNum) ? manualNum : aiStorePrice;
+                           const sourceUrl = selectedProduct?.suggestedPriceSourceUrl || '';
+                           const sourceName = selectedProduct?.suggestedPriceSourceName || 'Store Listing';
+                           const sourceNotes = selectedProduct?.suggestedPriceNotes || '';
+                           const extraSources: Array<{ title: string; url: string }> = Array.isArray(selectedProduct?.suggestedPriceSources)
+                              ? selectedProduct.suggestedPriceSources.filter((s: any) => s?.url && s.url !== sourceUrl)
+                              : [];
 
                            return (
-                              <>
-                                 <div className="flex items-center justify-between gap-2 mb-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary flex items-center gap-1">
-                                       Recommended Selling Price
-                                    </label>
-                                    {isEditing ? (
-                                       isManualInForm ? (
+                              <div className="bg-neutral-50/80 border border-brand-border rounded-xl p-4 space-y-3">
+                                 <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                       <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">
+                                          Recommended Selling Price (Standard Store Price)
+                                       </label>
+                                       {isManualInForm ? (
+                                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                             Manual Override
+                                          </span>
+                                       ) : aiStorePrice !== null ? (
+                                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                             Standard Store Price
+                                          </span>
+                                       ) : (
+                                          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-neutral-200/70 text-neutral-600">
+                                             Not Checked
+                                          </span>
+                                       )}
+                                    </div>
+
+                                    {!isCreating && (
+                                       <div className="flex items-center gap-2">
                                           <button
                                              type="button"
-                                             onClick={() => setFormData({ ...formData, recommendedSellingPrice: '' })}
-                                             className="text-[9px] font-bold text-brand-primary hover:underline cursor-pointer"
-                                             title={`Reset to suggested $${suggestedPrice.toFixed(2)}`}
+                                             disabled={isLookingUpPrice}
+                                             onClick={handleLookupCurrentProductPrice}
+                                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                                             title="Use AI to search for this item's standard full retail store price (excluding sales/deals)"
                                           >
-                                             Reset (${suggestedPrice.toFixed(2)})
+                                             {isLookingUpPrice ? (
+                                                <>
+                                                   <Loader2 size={12} className="animate-spin" /> Finding Store Price...
+                                                </>
+                                             ) : (
+                                                <>
+                                                   <Sparkles size={12} /> {aiStorePrice !== null ? 'Re-check Store Price (AI)' : 'Find Store Price (AI)'}
+                                                </>
+                                             )}
                                           </button>
-                                       ) : (
-                                          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-400">
-                                             Auto
-                                          </span>
-                                       )
-                                    ) : (
-                                       <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
-                                          isManualInForm
-                                             ? 'bg-emerald-50 text-emerald-700'
-                                             : 'bg-neutral-100 text-neutral-500'
-                                       }`}>
-                                          {isManualInForm ? 'Manual' : 'Suggested'}
-                                       </span>
+                                       </div>
                                     )}
                                  </div>
 
                                  {isEditing ? (
-                                    <div className="relative">
-                                       <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
-                                       <input
-                                          type="number"
-                                          min="0"
-                                          step="0.01"
-                                          value={formData.recommendedSellingPrice}
-                                          onChange={e => setFormData({ ...formData, recommendedSellingPrice: e.target.value })}
-                                          placeholder={`${suggestedPrice.toFixed(2)} (Auto)`}
-                                          className="w-full bg-brand-bg border border-brand-border rounded-lg pl-8 pr-4 py-3 text-sm font-semibold focus:outline-brand-primary"
-                                       />
+                                    <div className="flex flex-wrap items-center gap-3">
+                                       <div className="relative flex-1 min-w-[200px]">
+                                          <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
+                                          <input
+                                             type="number"
+                                             min="0"
+                                             step="0.01"
+                                             value={formData.recommendedSellingPrice}
+                                             onChange={e => setFormData({ ...formData, recommendedSellingPrice: e.target.value })}
+                                             placeholder={
+                                                aiStorePrice !== null
+                                                   ? `${aiStorePrice.toFixed(2)} (Standard Store Price)`
+                                                   : 'Enter manual price or use AI Find'
+                                             }
+                                             className="w-full bg-white border border-brand-border rounded-lg pl-8 pr-4 py-2.5 text-sm font-semibold focus:outline-brand-primary"
+                                          />
+                                       </div>
+                                       {isManualInForm && aiStorePrice !== null && (
+                                          <button
+                                             type="button"
+                                             onClick={() => setFormData({ ...formData, recommendedSellingPrice: '' })}
+                                             className="text-xs font-bold text-indigo-700 hover:underline cursor-pointer"
+                                          >
+                                             Reset to Store Price (${aiStorePrice.toFixed(2)})
+                                          </button>
+                                       )}
                                     </div>
                                  ) : isQuickEditingPrice ? (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-2 max-w-sm">
                                        <div className="relative flex-1">
                                           <DollarSign size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
                                           <input
@@ -1513,51 +1644,115 @@ export function ProductsTab({
                                                    setIsQuickEditingPrice(false);
                                                 }
                                              }}
-                                             placeholder={`${suggestedPrice.toFixed(2)}`}
-                                             className="w-full bg-white border border-brand-primary rounded-lg pl-7 pr-2 py-2.5 text-sm font-semibold focus:outline-none"
+                                             placeholder={aiStorePrice !== null ? `${aiStorePrice.toFixed(2)}` : '0.00'}
+                                             className="w-full bg-white border border-brand-primary rounded-lg pl-7 pr-3 py-2 text-sm font-semibold focus:outline-none"
                                           />
                                        </div>
                                        <button
                                           type="button"
                                           disabled={isSavingQuickPrice}
                                           onClick={() => handleQuickSavePrice(quickPriceValue)}
-                                          className="p-2.5 rounded-lg bg-brand-primary text-white hover:bg-black transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-                                          title="Save price"
+                                          className="p-2 rounded-lg bg-brand-primary text-white hover:bg-black transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                                          title="Save manual price"
                                        >
                                           {isSavingQuickPrice ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                                        </button>
+                                       {isManualInForm && aiStorePrice !== null && (
+                                          <button
+                                             type="button"
+                                             disabled={isSavingQuickPrice}
+                                             onClick={() => handleQuickSavePrice('')}
+                                             className="px-2.5 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
+                                             title="Revert to AI standard store price"
+                                          >
+                                             Use Store
+                                          </button>
+                                       )}
                                        <button
                                           type="button"
                                           disabled={isSavingQuickPrice}
                                           onClick={() => setIsQuickEditingPrice(false)}
-                                          className="p-2.5 rounded-lg bg-neutral-100 text-brand-secondary hover:text-black transition-colors cursor-pointer shrink-0"
+                                          className="p-2 rounded-lg bg-neutral-200/70 text-brand-secondary hover:text-black transition-colors cursor-pointer shrink-0"
                                           title="Cancel"
                                        >
                                           <X size={14} />
                                        </button>
                                     </div>
                                  ) : (
-                                    <div className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2">
-                                       <span className="text-sm font-bold text-brand-primary">
-                                          ${(!isNaN(displayedPrice) ? displayedPrice : suggestedPrice).toFixed(2)}
-                                       </span>
+                                    <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-brand-border rounded-lg px-4 py-2.5">
+                                       <div className="flex items-baseline gap-2.5 flex-wrap">
+                                          <span className={`text-lg font-bold ${displayedPrice !== null ? 'text-brand-primary' : 'text-neutral-400'}`}>
+                                             {displayedPrice !== null ? `$${displayedPrice.toFixed(2)}` : '—'}
+                                          </span>
+                                          {isManualInForm && aiStorePrice !== null && (
+                                             <span className="text-xs text-brand-secondary font-medium">
+                                                (Standard Store Price: ${aiStorePrice.toFixed(2)})
+                                             </span>
+                                          )}
+                                          {displayedPrice === null && (
+                                             <span className="text-xs text-brand-secondary">
+                                                Click <strong>Find Store Price (AI)</strong> to look up full retail MSRP, or <strong>Adjust</strong> to set manually.
+                                             </span>
+                                          )}
+                                       </div>
                                        <button
                                           type="button"
                                           onClick={() => {
                                              setQuickPriceValue(
                                                 isManualInForm
                                                    ? formData.recommendedSellingPrice
-                                                   : suggestedPrice.toFixed(2)
+                                                   : aiStorePrice !== null
+                                                      ? aiStorePrice.toFixed(2)
+                                                      : ''
                                              );
                                              setIsQuickEditingPrice(true);
                                           }}
-                                          className="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-white border border-brand-border hover:border-brand-primary px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                                          className="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-neutral-50 border border-brand-border hover:border-brand-primary px-3 py-1.5 rounded-md transition-colors cursor-pointer shrink-0"
                                        >
-                                          Adjust
+                                          Adjust Manually
                                        </button>
                                     </div>
                                  )}
-                              </>
+
+                                 {priceLookupError && (
+                                    <div className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                                       {priceLookupError}
+                                    </div>
+                                 )}
+
+                                 {(sourceUrl || sourceNotes) && (
+                                    <div className="flex flex-col gap-1.5 pt-1 text-xs">
+                                       {sourceNotes && (
+                                          <p className="text-brand-secondary leading-snug">{sourceNotes}</p>
+                                       )}
+                                       {sourceUrl && (
+                                          <div className="flex flex-wrap items-center gap-2">
+                                             <a
+                                                href={sourceUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-full transition-colors"
+                                             >
+                                                <span>Verify on {sourceName}</span>
+                                                <ExternalLink size={12} />
+                                             </a>
+                                             {extraSources.slice(0, 2).map((s, idx) => (
+                                                <a
+                                                   key={idx}
+                                                   href={s.url}
+                                                   target="_blank"
+                                                   rel="noopener noreferrer"
+                                                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary hover:text-brand-primary underline underline-offset-2"
+                                                >
+                                                   <span className="truncate max-w-[180px]">{s.title}</span>
+                                                   <ExternalLink size={10} />
+                                                </a>
+                                             ))}
+                                          </div>
+                                       )}
+                                    </div>
+                                 )}
+                              </div>
                            );
                         })()}
                      </div>
