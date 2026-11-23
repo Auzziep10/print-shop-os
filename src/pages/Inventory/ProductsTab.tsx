@@ -4,7 +4,7 @@ import QRCode from 'react-qr-code';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer, Filter } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer, Filter, Download, Check, DollarSign, CheckSquare, Square } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { ImageLightboxModal } from '../../components/shared/ImageLightboxModal';
 
@@ -78,6 +78,40 @@ export const getProductGarmentType = (p: any): string => {
   return p?.style ? p.style.trim() : 'Other';
 };
 
+const DEFAULT_RECOMMENDED_PRICES: Record<string, number> = {
+  'T-Shirts': 35,
+  'Tanks & Sleeveless': 32,
+  'Long Sleeve': 42,
+  'Polos': 55,
+  'Crewnecks': 65,
+  'Hoodies': 75,
+  'Quarter & Half Zips': 75,
+  'Sweaters & Knits': 75,
+  'Button Downs & Blouses': 65,
+  'Jackets & Outerwear': 110,
+  'Blazers': 125,
+  'Shorts': 48,
+  'Pants': 75,
+  'Hats & Headwear': 30,
+  'Accessories & Other': 25,
+};
+
+export const getSuggestedSellingPrice = (p: any): number => {
+  const garmentType = getProductGarmentType(p);
+  return DEFAULT_RECOMMENDED_PRICES[garmentType] ?? 45;
+};
+
+export const hasManualRecommendedPrice = (p: any): boolean => {
+  return typeof p?.recommendedSellingPrice === 'number' && !isNaN(p.recommendedSellingPrice) && p.recommendedSellingPrice >= 0;
+};
+
+export const getProductRecommendedPrice = (p: any): number => {
+  if (hasManualRecommendedPrice(p)) {
+    return p.recommendedSellingPrice;
+  }
+  return getSuggestedSellingPrice(p);
+};
+
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
     'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
@@ -129,6 +163,12 @@ export function ProductsTab({
   const [selectedSize, setSelectedSize] = useState<string>('All');
   const [selectedGender, setSelectedGender] = useState<string>('All');
   const [selectedGarmentType, setSelectedGarmentType] = useState<string>('All');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedExportIds, setSelectedExportIds] = useState<Set<string>>(new Set());
+  const [isQuickEditingPrice, setIsQuickEditingPrice] = useState(false);
+  const [quickPriceValue, setQuickPriceValue] = useState('');
+  const [isSavingQuickPrice, setIsSavingQuickPrice] = useState(false);
 
   // Racks and boxes tracking
   const [pallets, setPallets] = useState<any[]>([]);
@@ -362,6 +402,7 @@ export function ProductsTab({
     gender: 'Unisex',
     garmentType: '',
     colors: '',
+    recommendedSellingPrice: '',
     sizeSpread: {} as Record<string, number>,
     images: [] as string[]
   });
@@ -398,10 +439,11 @@ export function ProductsTab({
   }, [qrSessionId]);
 
   const handleCreateNew = () => {
-    setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', sizeSpread: {}, images: [] });
+    setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', recommendedSellingPrice: '', sizeSpread: {}, images: [] });
     setImageUrlInput('');
     setIsCreating(true);
     setIsEditing(true);
+    setIsQuickEditingPrice(false);
     setSelectedProduct(null);
   };
 
@@ -421,12 +463,14 @@ export function ProductsTab({
       gender: product.gender || getProductGender(product),
       garmentType: product.garmentType || getProductGarmentType(product),
       colors: Array.isArray(product.colors) ? product.colors.join(', ') : (product.colors || ''),
+      recommendedSellingPrice: hasManualRecommendedPrice(product) ? String(product.recommendedSellingPrice) : '',
       sizeSpread: parsedSizeSpread,
       images: product.images || []
     });
     setImageUrlInput('');
     setIsCreating(false);
     setIsEditing(false);
+    setIsQuickEditingPrice(false);
   };
 
   const handleOpenBoxForEditing = (pallet: any) => {
@@ -536,17 +580,26 @@ export function ProductsTab({
        Object.entries(formData.sizeSpread).filter(([_, v]) => typeof v === 'number' && v > 0)
     );
 
+    const trimmedPrice = String(formData.recommendedSellingPrice ?? '').trim();
+    const parsedPrice = trimmedPrice === '' ? null : parseFloat(trimmedPrice);
+    const validRecommendedPrice =
+      parsedPrice !== null && !isNaN(parsedPrice) && parsedPrice >= 0
+        ? Math.round(parsedPrice * 100) / 100
+        : null;
+
     const payload = {
       ...formData,
       gender: formData.gender || 'Unisex',
       garmentType: formData.garmentType || '',
       colors: formData.colors.split(',').map(s => s.trim()).filter(Boolean),
+      recommendedSellingPrice: validRecommendedPrice,
       sizeSpread: cleanSizeSpread,
     };
 
     try {
       if (selectedProduct && !isCreating) {
         await updateDoc(doc(db, 'products', selectedProduct.id), payload);
+        setSelectedProduct((prev: any) => (prev && prev.id === selectedProduct.id ? { ...prev, ...payload } : prev));
       } else {
         await setDoc(doc(db, 'products', `PROD_${Date.now()}`), payload);
       }
@@ -559,12 +612,128 @@ export function ProductsTab({
       } else {
         setIsCreating(false);
         setIsEditing(false);
-        setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', sizeSpread: {}, images: [] });
+        setFormData({ title: '', description: '', sku: '', style: '', gender: 'Unisex', garmentType: '', colors: '', recommendedSellingPrice: '', sizeSpread: {}, images: [] });
       }
     } catch (err) {
       console.error(err);
       alert('Failed to save product.');
     }
+  };
+
+  const handleQuickSavePrice = async (rawValue: string) => {
+    if (!selectedProduct || isCreating) return;
+    const trimmed = rawValue.trim();
+    const parsed = trimmed === '' ? null : parseFloat(trimmed);
+    if (trimmed !== '' && (parsed === null || isNaN(parsed) || parsed < 0)) {
+      return alert('Please enter a valid price (0 or greater), or leave blank to use the auto-recommended price.');
+    }
+    const cleanPrice = parsed !== null ? Math.round(parsed * 100) / 100 : null;
+    setIsSavingQuickPrice(true);
+    try {
+      await updateDoc(doc(db, 'products', selectedProduct.id), {
+        recommendedSellingPrice: cleanPrice,
+      });
+      setSelectedProduct((prev: any) =>
+        prev && prev.id === selectedProduct.id ? { ...prev, recommendedSellingPrice: cleanPrice } : prev
+      );
+      setFormData((prev) => ({
+        ...prev,
+        recommendedSellingPrice: cleanPrice !== null ? String(cleanPrice) : '',
+      }));
+      setIsQuickEditingPrice(false);
+    } catch (err) {
+      console.error('Failed to update recommended selling price:', err);
+      alert('Failed to update recommended selling price.');
+    } finally {
+      setIsSavingQuickPrice(false);
+    }
+  };
+
+  const handleExportCsv = (itemsToExport: any[], filenameLabel = 'all') => {
+    if (!itemsToExport || itemsToExport.length === 0) {
+      alert('No products to export.');
+      return;
+    }
+
+    const sizeColsSet = new Set<string>(SIZES);
+    itemsToExport.forEach((p) => {
+      if (p?.sizeSpread && typeof p.sizeSpread === 'object') {
+        Object.entries(p.sizeSpread).forEach(([sz, qty]) => {
+          if (typeof qty === 'number' && qty > 0) sizeColsSet.add(sz);
+        });
+      }
+    });
+    const sizeCols = Array.from(sizeColsSet).sort(sortSizes);
+
+    const escapeCsv = (val: any) => {
+      const s = val === null || val === undefined ? '' : String(val);
+      if (/[",\r\n]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      'ID',
+      'Product Title',
+      'SKU',
+      'Style',
+      'Garment Type',
+      'Gender',
+      'Colors',
+      'Recommended Selling Price',
+      'Price Source',
+      'Total Units',
+      ...sizeCols,
+      'Description',
+      'Image URL',
+    ];
+
+    const rows = itemsToExport.map((p) => {
+      const totalUnits = p.sizeSpread
+        ? Object.values(p.sizeSpread).reduce((sum: number, v: any) => sum + (typeof v === 'number' ? v : 0), 0)
+        : 0;
+      const colorsStr = Array.isArray(p.colors) ? p.colors.join(', ') : (p.colors || '');
+      const recPrice = getProductRecommendedPrice(p);
+      const priceSource = hasManualRecommendedPrice(p) ? 'Manual' : 'Suggested';
+      return [
+        p.id || '',
+        p.title || '',
+        p.sku && p.sku !== 'No SKU' ? p.sku : '',
+        p.style || '',
+        getProductGarmentType(p),
+        getProductGender(p),
+        colorsStr,
+        recPrice.toFixed(2),
+        priceSource,
+        totalUnits,
+        ...sizeCols.map((sz) => (p.sizeSpread && typeof p.sizeSpread[sz] === 'number' && p.sizeSpread[sz] > 0 ? p.sizeSpread[sz] : 0)),
+        p.description || '',
+        Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '',
+      ].map(escapeCsv);
+    });
+
+    const csvContent = [headers.map(escapeCsv).join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStamp = new Date().toISOString().split('T')[0];
+    link.href = url;
+    link.download = `product-catalog-${filenameLabel}-${dateStamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setIsExportMenuOpen(false);
+  };
+
+  const toggleSelectExportProduct = (id: string) => {
+    setSelectedExportIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -700,17 +869,81 @@ export function ProductsTab({
       {/* Left List Pane (hides on mobile if detail is open, or just flex-shrink) */}
       <div className={`w-full md:w-1/3 flex flex-col border-r border-brand-border bg-brand-bg transition-all ${(selectedProduct || isCreating) ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-brand-border bg-white flex flex-col gap-2.5 shrink-0">
-           <div className="flex justify-between items-center">
-              <div>
+           <div className="flex justify-between items-center gap-2">
+              <div className="min-w-0">
                 <h2 className="font-serif font-bold text-lg text-brand-primary tracking-tight leading-tight">Product Catalog</h2>
                 <p className="text-[10px] font-bold text-brand-secondary mt-0.5 uppercase tracking-widest">{totalGarmentsAcrossCatalog.toLocaleString()} Total Units</p>
               </div>
-              <button 
-                onClick={handleCreateNew}
-                className="bg-brand-primary text-white p-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-sm flex items-center gap-1"
-              >
-                 <Plus size={14} /> New Item
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                    className={`border p-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors shadow-2xs flex items-center gap-1 cursor-pointer ${
+                      isSelectMode || isExportMenuOpen
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : 'bg-white text-brand-primary border-brand-border hover:border-brand-primary hover:bg-neutral-50'
+                    }`}
+                    title="Export catalog items to CSV"
+                  >
+                    <Download size={13} /> CSV
+                  </button>
+                  {isExportMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setIsExportMenuOpen(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-brand-border rounded-xl shadow-xl py-1.5 z-40 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <button
+                          type="button"
+                          onClick={() => handleExportCsv(products, 'all')}
+                          className="w-full text-left px-3.5 py-2.5 text-xs font-semibold text-brand-primary hover:bg-neutral-50 transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Download size={13} className="text-brand-secondary" />
+                            Download All Items
+                          </span>
+                          <span className="text-[10px] font-bold text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">
+                            {products.length}
+                          </span>
+                        </button>
+                        {hasActiveFilters && (
+                          <button
+                            type="button"
+                            onClick={() => handleExportCsv(filteredProducts, 'filtered')}
+                            className="w-full text-left px-3.5 py-2.5 text-xs font-semibold text-brand-primary hover:bg-neutral-50 transition-colors flex items-center justify-between gap-2 cursor-pointer border-t border-brand-border/40"
+                          >
+                            <span className="flex items-center gap-2">
+                              <Filter size={13} className="text-brand-secondary" />
+                              Download Filtered
+                            </span>
+                            <span className="text-[10px] font-bold text-brand-secondary bg-neutral-100 px-1.5 py-0.5 rounded">
+                              {filteredProducts.length}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSelectMode(true);
+                            setIsExportMenuOpen(false);
+                          }}
+                          className="w-full text-left px-3.5 py-2.5 text-xs font-semibold text-brand-primary hover:bg-neutral-50 transition-colors flex items-center justify-between gap-2 cursor-pointer border-t border-brand-border/40"
+                        >
+                          <span className="flex items-center gap-2">
+                            <CheckSquare size={13} className="text-brand-secondary" />
+                            Select Specific Items...
+                          </span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button 
+                  onClick={handleCreateNew}
+                  className="bg-brand-primary text-white p-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                >
+                   <Plus size={14} /> New Item
+                </button>
+              </div>
            </div>
 
            {/* Search Input */}
@@ -841,6 +1074,73 @@ export function ProductsTab({
                  </button>
               </div>
            )}
+
+           {/* Selection Toolbar for CSV Export */}
+           {isSelectMode && (
+              <div className="pt-2 border-t border-brand-border/60 flex flex-col gap-2">
+                 <div className="flex items-center justify-between gap-2 text-[10px]">
+                    <span className="font-bold text-brand-primary">
+                       {selectedExportIds.size} selected
+                    </span>
+                    <div className="flex items-center gap-2">
+                       <button
+                          type="button"
+                          onClick={() => {
+                             const allVisibleSelected =
+                                filteredProducts.length > 0 &&
+                                filteredProducts.every((fp) => selectedExportIds.has(fp.id));
+                             setSelectedExportIds((prev) => {
+                                const next = new Set(prev);
+                                if (allVisibleSelected) {
+                                   filteredProducts.forEach((fp) => next.delete(fp.id));
+                                } else {
+                                   filteredProducts.forEach((fp) => next.add(fp.id));
+                                }
+                                return next;
+                             });
+                          }}
+                          className="font-bold text-brand-primary hover:underline cursor-pointer"
+                       >
+                          {filteredProducts.length > 0 && filteredProducts.every((fp) => selectedExportIds.has(fp.id))
+                             ? 'Deselect Shown'
+                             : `Select Shown (${filteredProducts.length})`}
+                       </button>
+                       {selectedExportIds.size > 0 && (
+                          <button
+                             type="button"
+                             onClick={() => setSelectedExportIds(new Set())}
+                             className="font-bold text-brand-secondary hover:text-red-600 hover:underline cursor-pointer"
+                          >
+                             Clear
+                          </button>
+                       )}
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                    <button
+                       type="button"
+                       disabled={selectedExportIds.size === 0}
+                       onClick={() => {
+                          const chosen = products.filter((p) => selectedExportIds.has(p.id));
+                          handleExportCsv(chosen, `selected-${chosen.length}`);
+                       }}
+                       className="flex-1 bg-brand-primary text-white py-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                       <Download size={12} /> Download Selected ({selectedExportIds.size})
+                    </button>
+                    <button
+                       type="button"
+                       onClick={() => {
+                          setIsSelectMode(false);
+                          setSelectedExportIds(new Set());
+                       }}
+                       className="bg-neutral-100 hover:bg-neutral-200 text-brand-primary py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                    >
+                       Done
+                    </button>
+                 </div>
+              </div>
+           )}
         </div>
         
         <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
@@ -862,15 +1162,46 @@ export function ProductsTab({
                {filteredProducts.map(p => {
                   const itemGender = getProductGender(p);
                   const itemType = getProductGarmentType(p);
+                  const itemRecPrice = getProductRecommendedPrice(p);
+                  const itemHasManualPrice = hasManualRecommendedPrice(p);
+                  const isCheckedForExport = selectedExportIds.has(p.id);
                   return (
                   <div 
                     key={p.id} 
-                    onClick={() => handleSelectProduct(p)}
-                    className={`p-4 cursor-pointer hover:bg-neutral-50 transition-colors flex gap-4 items-center ${selectedProduct?.id === p.id ? 'bg-neutral-50 border-l-2 border-brand-primary' : 'border-l-2 border-transparent'}`}
+                    onClick={() => {
+                       if (isSelectMode) {
+                          toggleSelectExportProduct(p.id);
+                       } else {
+                          handleSelectProduct(p);
+                       }
+                    }}
+                    className={`p-4 cursor-pointer hover:bg-neutral-50 transition-colors flex gap-3.5 items-center ${
+                       isSelectMode && isCheckedForExport
+                          ? 'bg-emerald-50/50 border-l-2 border-emerald-600'
+                          : selectedProduct?.id === p.id
+                             ? 'bg-neutral-50 border-l-2 border-brand-primary'
+                             : 'border-l-2 border-transparent'
+                    }`}
                   >
+                     {isSelectMode && (
+                        <button
+                           type="button"
+                           onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelectExportProduct(p.id);
+                           }}
+                           className={`shrink-0 transition-colors cursor-pointer ${
+                              isCheckedForExport ? 'text-emerald-600' : 'text-neutral-300 hover:text-neutral-600'
+                           }`}
+                           aria-label={isCheckedForExport ? 'Deselect item' : 'Select item'}
+                        >
+                           {isCheckedForExport ? <CheckSquare size={18} /> : <Square size={18} />}
+                        </button>
+                     )}
                      <div 
                         className={`w-12 h-12 rounded-lg bg-neutral-100 border border-brand-border shrink-0 overflow-hidden flex items-center justify-center relative ${p.images && p.images.length > 0 ? 'cursor-pointer group' : ''}`}
                         onClick={(e) => {
+                           if (isSelectMode) return;
                            if (p.images && p.images.length > 0) {
                               e.stopPropagation();
                               handleSelectProduct(p);
@@ -890,8 +1221,18 @@ export function ProductsTab({
                         )}
                      </div>
                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center justify-between gap-2">
                            <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
+                           <span
+                              className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                 itemHasManualPrice
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                              }`}
+                              title={itemHasManualPrice ? 'Manual selling price' : 'Suggested selling price'}
+                           >
+                              ${itemRecPrice.toFixed(2)}
+                           </span>
                         </div>
                         <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate flex items-center gap-1.5 flex-wrap">
                            <span>{getProductDescriptor(p)}</span>
@@ -1090,9 +1431,135 @@ export function ProductsTab({
                         </select>
                      </div>
                      
-                     <div className="col-span-1 md:col-span-2">
+                     <div className="col-span-1">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
                         <input disabled={!isEditing} type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
+                     </div>
+
+                     <div className="col-span-1">
+                        {(() => {
+                           const suggestedPrice = getSuggestedSellingPrice({
+                              ...(selectedProduct || {}),
+                              title: formData.title,
+                              style: formData.style,
+                              garmentType: formData.garmentType,
+                           });
+                           const isManualInForm = formData.recommendedSellingPrice !== '';
+                           const displayedPrice = isManualInForm
+                              ? parseFloat(formData.recommendedSellingPrice)
+                              : suggestedPrice;
+
+                           return (
+                              <>
+                                 <div className="flex items-center justify-between gap-2 mb-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary flex items-center gap-1">
+                                       Recommended Selling Price
+                                    </label>
+                                    {isEditing ? (
+                                       isManualInForm ? (
+                                          <button
+                                             type="button"
+                                             onClick={() => setFormData({ ...formData, recommendedSellingPrice: '' })}
+                                             className="text-[9px] font-bold text-brand-primary hover:underline cursor-pointer"
+                                             title={`Reset to suggested $${suggestedPrice.toFixed(2)}`}
+                                          >
+                                             Reset (${suggestedPrice.toFixed(2)})
+                                          </button>
+                                       ) : (
+                                          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-400">
+                                             Auto
+                                          </span>
+                                       )
+                                    ) : (
+                                       <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
+                                          isManualInForm
+                                             ? 'bg-emerald-50 text-emerald-700'
+                                             : 'bg-neutral-100 text-neutral-500'
+                                       }`}>
+                                          {isManualInForm ? 'Manual' : 'Suggested'}
+                                       </span>
+                                    )}
+                                 </div>
+
+                                 {isEditing ? (
+                                    <div className="relative">
+                                       <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
+                                       <input
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          value={formData.recommendedSellingPrice}
+                                          onChange={e => setFormData({ ...formData, recommendedSellingPrice: e.target.value })}
+                                          placeholder={`${suggestedPrice.toFixed(2)} (Auto)`}
+                                          className="w-full bg-brand-bg border border-brand-border rounded-lg pl-8 pr-4 py-3 text-sm font-semibold focus:outline-brand-primary"
+                                       />
+                                    </div>
+                                 ) : isQuickEditingPrice ? (
+                                    <div className="flex items-center gap-1.5">
+                                       <div className="relative flex-1">
+                                          <DollarSign size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
+                                          <input
+                                             type="number"
+                                             min="0"
+                                             step="0.01"
+                                             autoFocus
+                                             value={quickPriceValue}
+                                             onChange={e => setQuickPriceValue(e.target.value)}
+                                             onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                   e.preventDefault();
+                                                   handleQuickSavePrice(quickPriceValue);
+                                                } else if (e.key === 'Escape') {
+                                                   setIsQuickEditingPrice(false);
+                                                }
+                                             }}
+                                             placeholder={`${suggestedPrice.toFixed(2)}`}
+                                             className="w-full bg-white border border-brand-primary rounded-lg pl-7 pr-2 py-2.5 text-sm font-semibold focus:outline-none"
+                                          />
+                                       </div>
+                                       <button
+                                          type="button"
+                                          disabled={isSavingQuickPrice}
+                                          onClick={() => handleQuickSavePrice(quickPriceValue)}
+                                          className="p-2.5 rounded-lg bg-brand-primary text-white hover:bg-black transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                                          title="Save price"
+                                       >
+                                          {isSavingQuickPrice ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                       </button>
+                                       <button
+                                          type="button"
+                                          disabled={isSavingQuickPrice}
+                                          onClick={() => setIsQuickEditingPrice(false)}
+                                          className="p-2.5 rounded-lg bg-neutral-100 text-brand-secondary hover:text-black transition-colors cursor-pointer shrink-0"
+                                          title="Cancel"
+                                       >
+                                          <X size={14} />
+                                       </button>
+                                    </div>
+                                 ) : (
+                                    <div className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2">
+                                       <span className="text-sm font-bold text-brand-primary">
+                                          ${(!isNaN(displayedPrice) ? displayedPrice : suggestedPrice).toFixed(2)}
+                                       </span>
+                                       <button
+                                          type="button"
+                                          onClick={() => {
+                                             setQuickPriceValue(
+                                                isManualInForm
+                                                   ? formData.recommendedSellingPrice
+                                                   : suggestedPrice.toFixed(2)
+                                             );
+                                             setIsQuickEditingPrice(true);
+                                          }}
+                                          className="text-[10px] font-bold uppercase tracking-wider text-brand-primary bg-white border border-brand-border hover:border-brand-primary px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                                       >
+                                          Adjust
+                                       </button>
+                                    </div>
+                                 )}
+                              </>
+                           );
+                        })()}
                      </div>
                      
                      <div className="col-span-1 md:col-span-3 mt-4 mb-2">
