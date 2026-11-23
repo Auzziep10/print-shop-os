@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
-import { db } from '../../lib/firebase';
+import { db, auth } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
 import { doc, setDoc, deleteDoc, writeBatch, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
@@ -230,6 +230,75 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [isDesignRackOpen, setIsDesignRackOpen] = useState<boolean>(false);
   const [designRackBrandFilter, setDesignRackBrandFilter] = useState<string>('all');
   const [hoveredRackItemKey, setHoveredRackItemKey] = useState<string | null>(null);
+  const [isConsultModalOpen, setIsConsultModalOpen] = useState<boolean>(false);
+  const [consultName, setConsultName] = useState<string>('');
+  const [consultEmail, setConsultEmail] = useState<string>('');
+  const [consultPhone, setConsultPhone] = useState<string>('');
+  const [consultDate, setConsultDate] = useState<string>('');
+  const [consultTime, setConsultTime] = useState<string>('Afternoon (12pm - 4pm)');
+  const [consultNotes, setConsultNotes] = useState<string>('');
+  const [isSendingConsult, setIsSendingConsult] = useState<boolean>(false);
+  const [consultSuccess, setConsultSuccess] = useState<boolean>(false);
+  const [consultError, setConsultError] = useState<string>('');
+
+  const handleOpenConsultModal = () => {
+    setConsultName(customer?.contactName || userData?.name || customer?.company || '');
+    setConsultEmail(customer?.email || userData?.email || user?.email || '');
+    setConsultPhone(customer?.phone || '');
+    setConsultDate('');
+    setConsultTime('Afternoon (12pm - 4pm)');
+    setConsultNotes('');
+    setConsultError('');
+    setConsultSuccess(false);
+    setIsConsultModalOpen(true);
+  };
+
+  const handleSubmitConsultation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConsultError('');
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setConsultError('You must be signed in to request a consultation.');
+      return;
+    }
+    if (!consultName.trim() && !(customer?.company && customer.company !== '-')) {
+      setConsultError('Please enter your name.');
+      return;
+    }
+
+    setIsSendingConsult(true);
+    try {
+      const idToken = await currentUser.getIdToken();
+      const res = await fetch('/api/email/design-consultation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          customerId: currentCustomerId,
+          companyName: customer?.company && customer.company !== '-' ? customer.company : '',
+          contactName: consultName.trim(),
+          contactEmail: consultEmail.trim(),
+          contactPhone: consultPhone.trim(),
+          preferredDate: consultDate,
+          preferredTime: consultTime,
+          notes: consultNotes.trim(),
+          origin: window.location.origin,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send consultation request.');
+      }
+      setConsultSuccess(true);
+    } catch (err: any) {
+      console.error('Error submitting design consultation request:', err);
+      setConsultError(err?.message || 'Unable to send consultation request. Please try again.');
+    } finally {
+      setIsSendingConsult(false);
+    }
+  };
 
   const [localOrders, setLocalOrders] = useState<any[]>([]);
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
@@ -868,7 +937,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       : portalDesignRackItems.filter((d: any) => d._sourceCustomerId === designRackBrandFilter);
 
   const renderDesignRackDropdown = () => {
-    if (overrideCustomerId || portalDesignRackItems.length === 0) return null;
+    if (overrideCustomerId) return null;
+
+    if (portalDesignRackItems.length === 0) {
+      return (
+        <div className="flex justify-end w-full">
+          <button
+            type="button"
+            onClick={handleOpenConsultModal}
+            className="bg-black text-white hover:bg-neutral-800 px-5 py-3 rounded-full text-xs font-bold tracking-wide inline-flex items-center justify-center gap-2 transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+          >
+            <Calendar size={15} strokeWidth={2.25} />
+            <span>Schedule Design Consultation</span>
+          </button>
+        </div>
+      );
+    }
 
     const getDesignImages = (design: any) => {
       const legacyMockups = Array.isArray(design.mockups) ? design.mockups : [];
@@ -889,7 +973,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       .slice(0, 4);
 
     return (
-      <div className="w-full bg-white border border-brand-border rounded-[2.5rem] px-6 py-4 lg:px-8 transition-all hover:border-black/20">
+      <div className="flex flex-col xl:flex-row gap-6 w-full items-stretch xl:items-start">
+      <div className="flex-1 w-full min-w-0 bg-white border border-brand-border rounded-[2.5rem] px-6 py-4 lg:px-8 transition-all hover:border-black/20">
         <button
           type="button"
           onClick={() => setIsDesignRackOpen((prev) => !prev)}
@@ -1095,6 +1180,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Right: Schedule Design Consultation Button (aligned with order action column) */}
+      <div className="w-full xl:w-[130px] shrink-0 xl:self-start">
+        <button
+          type="button"
+          onClick={handleOpenConsultModal}
+          className="w-full min-h-[72px] bg-black hover:bg-neutral-800 text-white border border-black rounded-[2rem] px-4 py-3 transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] flex flex-row xl:flex-col items-center justify-center gap-2 xl:gap-1 cursor-pointer text-center"
+          title="Schedule a consultation with our design team"
+        >
+          <Calendar size={16} strokeWidth={2.25} className="shrink-0" />
+          <span className="text-[11px] font-bold leading-tight tracking-wide">
+            Schedule<br className="hidden xl:inline" /> Consultation
+          </span>
+        </button>
+      </div>
       </div>
     );
   };
@@ -2211,6 +2312,181 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
              />
            </div>
+        </div>
+      )}
+
+      {isConsultModalOpen && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !isSendingConsult && setIsConsultModalOpen(false)}
+        >
+          <div
+            className="bg-white w-full max-w-lg rounded-[2rem] border border-brand-border shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-brand-border/60 flex items-center justify-between gap-4 bg-neutral-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center shrink-0">
+                  <Calendar size={18} />
+                </div>
+                <div>
+                  <h3 className="font-serif text-xl text-gray-900 leading-tight">Schedule a Design Consultation</h3>
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    Meet with our design team to plan custom pieces or update your Design Rack.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSendingConsult && setIsConsultModalOpen(false)}
+                className="p-2 rounded-full text-gray-400 hover:text-black hover:bg-neutral-100 transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {consultSuccess ? (
+              <div className="p-8 text-center flex flex-col items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
+                  <Check size={28} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h4 className="font-serif text-2xl text-gray-900 mb-1.5">Consultation Request Sent</h4>
+                  <p className="text-sm text-gray-500 max-w-sm mx-auto leading-relaxed">
+                    Our design team and admins have been notified by email and will follow up with you shortly to confirm your session.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsConsultModalOpen(false)}
+                  className="mt-2 bg-black text-white hover:bg-neutral-800 px-8 py-3 rounded-full text-xs font-bold tracking-wide transition-all cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitConsultation} className="p-6 space-y-4">
+                {consultError && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+                    {consultError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={consultName}
+                      onChange={(e) => setConsultName(e.target.value)}
+                      placeholder="Full name"
+                      className="w-full rounded-xl border border-neutral-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={consultEmail}
+                      onChange={(e) => setConsultEmail(e.target.value)}
+                      placeholder="you@company.com"
+                      className="w-full rounded-xl border border-neutral-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={consultPhone}
+                      onChange={(e) => setConsultPhone(e.target.value)}
+                      placeholder="(555) 123-4567"
+                      className="w-full rounded-xl border border-neutral-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                      Preferred Date
+                    </label>
+                    <input
+                      type="date"
+                      value={consultDate}
+                      onChange={(e) => setConsultDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full rounded-xl border border-neutral-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                      Preferred Time
+                    </label>
+                    <select
+                      value={consultTime}
+                      onChange={(e) => setConsultTime(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:border-black transition-colors"
+                    >
+                      <option value="Morning (9am - 12pm)">Morning (9am - 12pm)</option>
+                      <option value="Afternoon (12pm - 4pm)">Afternoon (12pm - 4pm)</option>
+                      <option value="Late Afternoon (4pm - 6pm)">Late Afternoon (4pm - 6pm)</option>
+                      <option value="Flexible">Flexible</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                    What would you like to discuss?
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={consultNotes}
+                    onChange={(e) => setConsultNotes(e.target.value)}
+                    placeholder="Share any ideas, garments, deadlines, or designs you'd like to review with our design team..."
+                    className="w-full rounded-xl border border-neutral-200 px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-black transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    disabled={isSendingConsult}
+                    onClick={() => setIsConsultModalOpen(false)}
+                    className="px-5 py-2.5 rounded-full text-xs font-bold text-gray-600 hover:text-black hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingConsult}
+                    className="bg-black text-white hover:bg-neutral-800 px-6 py-2.5 rounded-full text-xs font-bold tracking-wide inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer disabled:opacity-60"
+                  >
+                    {isSendingConsult ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send size={13} />
+                        <span>Request Consultation</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
