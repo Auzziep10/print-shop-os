@@ -37,16 +37,25 @@ export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission, canUseRolePreview, userData } = useAuth();
   const isDesigner = Boolean(userData?.role && userData.role.trim().toLowerCase().includes('designer'));
+  const isStaff = Boolean(userData?.role && userData.role.trim().toLowerCase() === 'staff');
   const canViewActivityArchive = shouldShowActivityPopupsForRole(userData?.role);
   const hasFullSettingsAccess = hasPermission('manageSettings') || canUseRolePreview;
+  const canViewUserManagement = hasFullSettingsAccess && !isDesigner && !isStaff;
   const rawTab = searchParams.get('tab');
+  const defaultNonDesignerTab = canViewUserManagement
+    ? 'users'
+    : canViewActivityArchive
+      ? 'activity-archive'
+      : 'merge-customers';
   const activeTab = isDesigner
     ? rawTab && DESIGNER_ALLOWED_TABS.includes(rawTab)
       ? rawTab
       : 'storefront-catalog'
     : !hasFullSettingsAccess && canViewActivityArchive
       ? 'activity-archive'
-      : rawTab || 'users';
+      : !rawTab || (rawTab === 'users' && !canViewUserManagement)
+        ? defaultNonDesignerTab
+        : rawTab;
   const setActiveTab = (tab: string) => setSearchParams({ tab });
   
   // Users with manageSettings permission, Designer role, Staff/Admin popup recipients, or Admins previewing another role can view settings
@@ -102,16 +111,18 @@ export function Settings() {
             )}
             {hasFullSettingsAccess && !isDesigner && (
               <>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-                    activeTab === 'users' 
-                      ? 'bg-brand-primary text-white' 
-                      : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
-                  }`}
-                >
-                  User Management
-                </button>
+                {canViewUserManagement && (
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                      activeTab === 'users' 
+                        ? 'bg-brand-primary text-white' 
+                        : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+                    }`}
+                  >
+                    User Management
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveTab('merge-customers')}
                   className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
@@ -316,7 +327,7 @@ export function Settings() {
         {/* Content */}
         <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm min-w-0">
           {activeTab === 'activity-archive' && <ActivityArchiveTab />}
-          {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'users' && canViewUserManagement && <UsersTab />}
           {activeTab === 'merge-customers' && <MergeCustomersTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
           {activeTab === 'fulfillment-pipelines' && <FulfillmentPipelinesTab />}
