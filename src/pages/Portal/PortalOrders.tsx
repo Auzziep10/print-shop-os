@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -226,7 +226,37 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   }, [currentCustomerId, user?.uid]);
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{
+    src: string;
+    alt: string;
+    images?: Array<{ src: string; label?: string }>;
+    index?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!expandedImage) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpandedImage(null);
+      } else if (expandedImage.images && expandedImage.images.length > 1) {
+        if (e.key === 'ArrowRight') {
+          setExpandedImage((prev) => {
+            if (!prev?.images || prev.images.length <= 1) return prev;
+            const nextIdx = ((prev.index ?? 0) + 1) % prev.images.length;
+            return { ...prev, index: nextIdx, src: prev.images[nextIdx].src };
+          });
+        } else if (e.key === 'ArrowLeft') {
+          setExpandedImage((prev) => {
+            if (!prev?.images || prev.images.length <= 1) return prev;
+            const nextIdx = ((prev.index ?? 0) - 1 + prev.images.length) % prev.images.length;
+            return { ...prev, index: nextIdx, src: prev.images[nextIdx].src };
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [expandedImage]);
   const [isDesignRackOpen, setIsDesignRackOpen] = useState<boolean>(false);
   const [designRackBrandFilter, setDesignRackBrandFilter] = useState<string>('all');
   const [hoveredRackItemKey, setHoveredRackItemKey] = useState<string | null>(null);
@@ -960,7 +990,21 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       const backSrc = design.backMockupUrl || legacyMockups[1]?.url || '';
       const otherMockups = Array.isArray(design.otherMockups) ? design.otherMockups : [];
       const primary = frontSrc || backSrc || otherMockups[0]?.url || '';
-      return { primary, backSrc: frontSrc && backSrc ? backSrc : '' };
+
+      const gallery: Array<{ src: string; label?: string }> = [];
+      const seen = new Set<string>();
+      const addImg = (src: string, label?: string) => {
+        if (!src || seen.has(src)) return;
+        seen.add(src);
+        gallery.push({ src, label });
+      };
+      if (frontSrc) addImg(frontSrc, 'Front');
+      if (backSrc) addImg(backSrc, 'Back');
+      otherMockups.forEach((m: any, i: number) => {
+        if (m?.url) addImg(m.url, m.label || m.name || `View ${i + 3}`);
+      });
+
+      return { primary, backSrc: frontSrc && backSrc ? backSrc : '', gallery };
     };
 
     const previewThumbs = portalDesignRackItems
@@ -1113,7 +1157,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-2">
                 {filteredPortalDesignRackItems.map((design: any, idx: number) => {
                   const itemKey = `${design._sourceCustomerId || 'own'}-${design.id || idx}`;
-                  const { primary, backSrc } = getDesignImages(design);
+                  const { primary, backSrc, gallery } = getDesignImages(design);
                   const title = design.title || design.name || 'Untitled Design';
                   const designLogos = Array.isArray(design.logos) ? design.logos : [];
                   const isHovered = hoveredRackItemKey === itemKey;
@@ -1125,8 +1169,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       onMouseEnter={() => setHoveredRackItemKey(itemKey)}
                       onMouseLeave={() => setHoveredRackItemKey(null)}
                       onClick={() => {
-                        if (displaySrc) {
-                          setExpandedImage({ src: displaySrc, alt: title });
+                        if (gallery.length > 0) {
+                          setExpandedImage({
+                            src: gallery[0].src,
+                            alt: title,
+                            images: gallery,
+                            index: 0,
+                          });
                         }
                       }}
                       className="group/rack flex flex-col rounded-2xl border border-neutral-200/80 bg-neutral-50/40 hover:bg-white hover:border-black/25 hover:shadow-sm transition-all p-3 cursor-pointer"
@@ -2283,37 +2332,88 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       )}
 
       {/* Image Overlay */}
-      {expandedImage && (
+      {expandedImage && (() => {
+        const gallery = expandedImage.images && expandedImage.images.length > 0 ? expandedImage.images : null;
+        const currentIdx = expandedImage.index ?? 0;
+        const hasMultiple = Boolean(gallery && gallery.length > 1);
+        const currentLabel = gallery?.[currentIdx]?.label;
+        const goPrev = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          if (!gallery || gallery.length <= 1) return;
+          const nextIdx = (currentIdx - 1 + gallery.length) % gallery.length;
+          setExpandedImage({ ...expandedImage, index: nextIdx, src: gallery[nextIdx].src });
+        };
+        const goNext = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          if (!gallery || gallery.length <= 1) return;
+          const nextIdx = (currentIdx + 1) % gallery.length;
+          setExpandedImage({ ...expandedImage, index: nextIdx, src: gallery[nextIdx].src });
+        };
+        return (
         <div 
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-md p-6 animate-in fade-in duration-200" 
           onClick={() => setExpandedImage(null)}
         >
            <button 
-             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full" 
+             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full cursor-pointer z-20" 
              onClick={() => setExpandedImage(null)}
            >
              <X size={24} />
            </button>
-           <div 
-             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
-             onClick={(e) => e.stopPropagation()}
-             onMouseMove={(e) => {
-               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-               const x = (e.clientX - left) / width;
-               const y = (e.clientY - top) / height;
-               const img = e.currentTarget.querySelector('img');
-               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
-             }}
-             title="Hover to zoom"
-           >
-             <img 
-               src={expandedImage.src} 
-               alt={expandedImage.alt} 
-               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
-             />
+           <div className="relative w-full max-w-3xl flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+             {hasMultiple && (
+               <button
+                 type="button"
+                 onClick={goPrev}
+                 className="absolute left-3 md:-left-14 z-20 w-11 h-11 rounded-full bg-white/95 hover:bg-black text-gray-900 hover:text-white border border-neutral-200 hover:border-black shadow-lg flex items-center justify-center transition-all cursor-pointer"
+                 aria-label="Previous view"
+                 title="Previous view"
+               >
+                 <ChevronLeft size={22} strokeWidth={2.5} />
+               </button>
+             )}
+             <div 
+               className="relative w-full aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
+               onMouseMove={(e) => {
+                 const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+                 const x = (e.clientX - left) / width;
+                 const y = (e.clientY - top) / height;
+                 const img = e.currentTarget.querySelector('img');
+                 if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+               }}
+               title="Hover to zoom"
+             >
+               <img 
+                 src={expandedImage.src} 
+                 alt={expandedImage.alt} 
+                 className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
+               />
+               {hasMultiple && gallery && (
+                 <div
+                   className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/80 text-white backdrop-blur-xs px-4 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase shadow-md pointer-events-auto"
+                   onClick={(e) => e.stopPropagation()}
+                 >
+                   {currentLabel && <span>{currentLabel}</span>}
+                   <span className="text-white/60">&bull;</span>
+                   <span>{currentIdx + 1} / {gallery.length}</span>
+                 </div>
+               )}
+             </div>
+             {hasMultiple && (
+               <button
+                 type="button"
+                 onClick={goNext}
+                 className="absolute right-3 md:-right-14 z-20 w-11 h-11 rounded-full bg-white/95 hover:bg-black text-gray-900 hover:text-white border border-neutral-200 hover:border-black shadow-lg flex items-center justify-center transition-all cursor-pointer"
+                 aria-label="Next view"
+                 title="Next view"
+               >
+                 <ChevronRight size={22} strokeWidth={2.5} />
+               </button>
+             )}
            </div>
         </div>
-      )}
+        );
+      })()}
 
       {isConsultModalOpen && (
         <div
