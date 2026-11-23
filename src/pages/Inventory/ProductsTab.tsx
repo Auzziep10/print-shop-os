@@ -96,6 +96,16 @@ export const getProductRecommendedPrice = (p: any): number | null => {
   return null;
 };
 
+export const buildGoogleProductSearchUrl = (p: any, shopping = true): string => {
+  const title = String(p?.title || '').trim();
+  const sku = p?.sku && p.sku !== 'No SKU' ? String(p.sku).trim() : '';
+  const q = [title, sku].filter(Boolean).join(' ').trim();
+  if (!q) return '';
+  return shopping
+    ? `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`
+    : `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+};
+
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
     'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
@@ -772,7 +782,7 @@ export function ProductsTab({
       const priceSource = hasManualRecommendedPrice(p)
         ? 'Manual'
         : hasSuggestedRetailPrice(p)
-          ? (p.suggestedPriceSourceName || 'AI Store Price')
+          ? (p.suggestedPriceSourceName || 'Store Price')
           : 'Unset';
       return [
         p.id || '',
@@ -785,7 +795,7 @@ export function ProductsTab({
         recPrice !== null ? recPrice.toFixed(2) : '',
         storePrice !== null ? storePrice.toFixed(2) : '',
         priceSource,
-        p.suggestedPriceSourceUrl || '',
+        buildGoogleProductSearchUrl(p, true),
         totalUnits,
         ...sizeCols.map((sz) => (p.sizeSpread && typeof p.sizeSpread[sz] === 'number' && p.sizeSpread[sz] > 0 ? p.sizeSpread[sz] : 0)),
         p.description || '',
@@ -1213,7 +1223,7 @@ export function ProductsTab({
                        disabled={selectedExportIds.size === 0 || Boolean(batchLookupProgress)}
                        onClick={handleBatchLookupSelectedPrices}
                        className="flex-1 bg-indigo-600 text-white py-1.5 px-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1 cursor-pointer"
-                       title="Use AI to find standard store prices for all selected items"
+                       title="Find standard store prices for all selected items"
                     >
                        {batchLookupProgress ? (
                           <>
@@ -1221,7 +1231,7 @@ export function ProductsTab({
                           </>
                        ) : (
                           <>
-                             <Sparkles size={12} /> AI Prices
+                             <Sparkles size={12} /> Find Prices
                           </>
                        )}
                     </button>
@@ -1545,12 +1555,13 @@ export function ProductsTab({
                            const manualNum = isManualInForm ? parseFloat(formData.recommendedSellingPrice) : null;
                            const displayedPrice =
                               manualNum !== null && !isNaN(manualNum) ? manualNum : aiStorePrice;
-                           const sourceUrl = selectedProduct?.suggestedPriceSourceUrl || '';
-                           const sourceName = selectedProduct?.suggestedPriceSourceName || 'Store Listing';
                            const sourceNotes = selectedProduct?.suggestedPriceNotes || '';
-                           const extraSources: Array<{ title: string; url: string }> = Array.isArray(selectedProduct?.suggestedPriceSources)
-                              ? selectedProduct.suggestedPriceSources.filter((s: any) => s?.url && s.url !== sourceUrl)
-                              : [];
+                           const productForSearch = {
+                              title: formData.title || selectedProduct?.title || '',
+                              sku: formData.sku || selectedProduct?.sku || '',
+                           };
+                           const googleShoppingUrl = buildGoogleProductSearchUrl(productForSearch, true);
+                           const googleWebUrl = buildGoogleProductSearchUrl(productForSearch, false);
 
                            return (
                               <div className="bg-neutral-50/80 border border-brand-border rounded-xl p-4 space-y-3">
@@ -1581,7 +1592,7 @@ export function ProductsTab({
                                              disabled={isLookingUpPrice}
                                              onClick={handleLookupCurrentProductPrice}
                                              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                                             title="Use AI to search for this item's standard full retail store price (excluding sales/deals)"
+                                             title="Look up this item's standard full retail store price (excluding sales/deals)"
                                           >
                                              {isLookingUpPrice ? (
                                                 <>
@@ -1589,7 +1600,7 @@ export function ProductsTab({
                                                 </>
                                              ) : (
                                                 <>
-                                                   <Sparkles size={12} /> {aiStorePrice !== null ? 'Re-check Store Price (AI)' : 'Find Store Price (AI)'}
+                                                   <Sparkles size={12} /> {aiStorePrice !== null ? 'Re-check Store Price' : 'Find Store Price'}
                                                 </>
                                              )}
                                           </button>
@@ -1610,7 +1621,7 @@ export function ProductsTab({
                                              placeholder={
                                                 aiStorePrice !== null
                                                    ? `${aiStorePrice.toFixed(2)} (Standard Store Price)`
-                                                   : 'Enter manual price or use AI Find'
+                                                   : 'Enter manual price or click Find Store Price'
                                              }
                                              className="w-full bg-white border border-brand-border rounded-lg pl-8 pr-4 py-2.5 text-sm font-semibold focus:outline-brand-primary"
                                           />
@@ -1663,7 +1674,7 @@ export function ProductsTab({
                                              disabled={isSavingQuickPrice}
                                              onClick={() => handleQuickSavePrice('')}
                                              className="px-2.5 py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer shrink-0"
-                                             title="Revert to AI standard store price"
+                                             title="Revert to standard store price"
                                           >
                                              Use Store
                                           </button>
@@ -1691,7 +1702,7 @@ export function ProductsTab({
                                           )}
                                           {displayedPrice === null && (
                                              <span className="text-xs text-brand-secondary">
-                                                Click <strong>Find Store Price (AI)</strong> to look up full retail MSRP, or <strong>Adjust</strong> to set manually.
+                                                Click <strong>Find Store Price</strong> to look up full retail MSRP, or <strong>Adjust Manually</strong> to set your own.
                                              </span>
                                           )}
                                        </div>
@@ -1720,34 +1731,32 @@ export function ProductsTab({
                                     </div>
                                  )}
 
-                                 {(sourceUrl || sourceNotes) && (
+                                 {(googleShoppingUrl || sourceNotes) && (
                                     <div className="flex flex-col gap-1.5 pt-1 text-xs">
                                        {sourceNotes && (
                                           <p className="text-brand-secondary leading-snug">{sourceNotes}</p>
                                        )}
-                                       {sourceUrl && (
-                                          <div className="flex flex-wrap items-center gap-2">
+                                       {googleShoppingUrl && (
+                                          <div className="flex flex-wrap items-center gap-2.5">
                                              <a
-                                                href={sourceUrl}
+                                                href={googleShoppingUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-full transition-colors"
                                              >
-                                                <span>Verify on {sourceName}</span>
-                                                <ExternalLink size={12} />
+                                                <Search size={12} />
+                                                <span>Compare Prices on Google</span>
+                                                <ExternalLink size={11} />
                                              </a>
-                                             {extraSources.slice(0, 2).map((s, idx) => (
-                                                <a
-                                                   key={idx}
-                                                   href={s.url}
-                                                   target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary hover:text-brand-primary underline underline-offset-2"
-                                                >
-                                                   <span className="truncate max-w-[180px]">{s.title}</span>
-                                                   <ExternalLink size={10} />
-                                                </a>
-                                             ))}
+                                             <a
+                                                href={googleWebUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-secondary hover:text-brand-primary underline underline-offset-2"
+                                             >
+                                                <span>Google Search</span>
+                                                <ExternalLink size={10} />
+                                             </a>
                                           </div>
                                        )}
                                     </div>
