@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, PackageOpen, Building2, X, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar, Copy } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, auth } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, setDoc, deleteDoc, writeBatch, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
@@ -1720,42 +1720,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   />
                 </div>
 
-                {/* Duplicate & Delete Icons on Hover (Admin/Team Only) */}
-                {overrideCustomerId && (
-                  <div className="absolute top-1/2 -translate-y-1/2 right-2 lg:right-[-18px] flex flex-col items-center justify-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 z-30">
-                    <button
-                      type="button"
-                      disabled={duplicatingOrderId === order.id}
-                      className="p-2 text-neutral-500 hover:text-brand-primary hover:bg-neutral-100 border border-brand-border/80 rounded-full transition-all flex-shrink-0 bg-white shadow-xs cursor-pointer disabled:opacity-50"
-                      onClick={(e) => handleDuplicateOrder(order, e)}
-                      title={order.statusIndex <= 2 ? 'Duplicate Quote' : 'Duplicate Order'}
-                    >
-                      {duplicatingOrderId === order.id ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Copy size={16} />
-                      )}
-                    </button>
-                    <button 
-                      type="button"
-                      className="p-2 text-red-500/60 hover:text-red-600 hover:bg-red-50 border border-brand-border/80 rounded-full transition-all flex-shrink-0 bg-white shadow-xs cursor-pointer"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Are you sure you want to permanently delete this order?')) {
-                          try {
-                            await deleteDoc(doc(db, 'orders', order.id));
-                          } catch (err) {
-                            console.error("Error deleting order:", err);
-                          }
-                        }
-                      }}
-                      title="Delete Order"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
-
                 {/* Action buttons moved outside */}
               </div>
 
@@ -2412,6 +2376,27 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   </button>
                 )}
               </div>
+              {overrideCustomerId && (
+                <button
+                  type="button"
+                  disabled={duplicatingOrderId === order.id}
+                  onClick={(e) => handleDuplicateOrder(order, e)}
+                  className="w-full bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[11px] font-bold text-gray-700 rounded-full py-2 transition-all tracking-wide flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title={order.statusIndex <= 2 ? 'Duplicate Quote' : 'Duplicate Order'}
+                >
+                  {duplicatingOrderId === order.id ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Duplicating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} strokeWidth={2.25} />
+                      <span>Duplicate</span>
+                    </>
+                  )}
+                </button>
+              )}
              </div>
            </div>
         );
