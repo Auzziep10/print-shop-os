@@ -784,9 +784,10 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
 export // Full printable width of the film. Finished print and cut files are exactly this wide.
 const PRINTABLE_FILM_WIDTH_INCHES = 22;
-// Margin on the left and right edge of the sheet. None: the registration marks sit in the strips
-// above and below the logo area, and logos may run the full width of the sheet.
-const SHEET_SIDE_MARGIN_INCHES = 0;
+// Space kept clear of logos on the left and right edge of the sheet. The plotter cannot cut right
+// up to the edge of the film (the pinch rollers sit there), so logos stay this far in. The
+// registration marks still sit near the edges, in the strips above and below the logo area.
+const SHEET_SIDE_MARGIN_INCHES = 1;
 // Width available for logos
 const GANG_SHEET_WIDTH_INCHES = PRINTABLE_FILM_WIDTH_INCHES - (2 * SHEET_SIDE_MARGIN_INCHES);
 
@@ -1246,7 +1247,12 @@ const generateFinalSheetsForPrintAndCut = async (
     const BASE_DPI = 300;
     const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px at 300 DPI
     const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI (top and bottom)
-    const SIDE_MARGIN_PX = Math.round(SHEET_SIDE_MARGIN_INCHES * BASE_DPI); // left and right
+    // Left and right margin. Logos laid out here keep SHEET_SIDE_MARGIN_INCHES clear of the edges.
+    // A customer-built sheet keeps its own layout: it is centred on the film, with no margin added
+    // when it is already the full film width (so the files stay PRINTABLE_FILM_WIDTH_INCHES wide).
+    const SIDE_MARGIN_PX = isSingleTransferLayout
+        ? Math.round(SHEET_SIDE_MARGIN_INCHES * BASE_DPI)
+        : Math.round(Math.max(0, (PRINTABLE_FILM_WIDTH_INCHES - designWidthInches) / 2) * BASE_DPI);
     const HEADER_TO_DESIGN_GAP = HEADER_TO_DESIGN_GAP_INCHES * BASE_DPI; // 150px at 300 DPI
     const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP;
 
@@ -1590,6 +1596,7 @@ export function OrderDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicatingOrder, setIsDuplicatingOrder] = useState(false);
   const [editForm, setEditForm] = useState({ 
     title: '', date: '', statusIndex: 0,
     paymentStatus: 'unpaid',
@@ -6205,6 +6212,159 @@ export function OrderDetail() {
       alert("Failed to delete order. Please try again.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDuplicateOrder = async () => {
+    if (!id || !order || isDuplicatingOrder) return;
+    const isQuote = (order.statusIndex ?? 0) <= 2;
+    const defaultTitle = `${order.title || 'Custom Order'} (Copy)`;
+    const chosenTitle = window.prompt(
+      `Title for duplicated ${isQuote ? 'quote' : 'order'}:`,
+      defaultTitle
+    );
+    if (chosenTitle === null) return;
+    const finalTitle = chosenTitle.trim() || defaultTitle;
+
+    setIsDuplicatingOrder(true);
+    try {
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const prefix = `${yy}${mm}${dd}-`;
+
+      let maxCount = 0;
+      try {
+        const ordersSnap = await getDocs(
+          query(
+            collection(db, 'orders'),
+            where('createdAt', '>=', todayStart.toISOString()),
+            where('createdAt', '<=', todayEnd.toISOString())
+          )
+        );
+        ordersSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.portalId && String(data.portalId).startsWith(prefix)) {
+            const suffix = String(data.portalId).split('-')[1];
+            const numericCount = suffix ? parseInt(suffix, 10) : NaN;
+            if (!isNaN(numericCount) && numericCount > maxCount) {
+              maxCount = numericCount;
+            }
+          }
+        });
+      } catch (idErr) {
+        console.warn('Could not query existing daily portalIds, using fallback:', idErr);
+      }
+
+      const portalId = `${prefix}${maxCount + 1}`;
+      const newOrderId = `order-${Date.now()}`;
+      const isoNow = now.toISOString();
+      const dateStr = `${now.getFullYear()}-${mm}-${dd}`;
+      const nextStatusIndex = isQuote ? 0 : 3;
+
+      const clonedItems = Array.isArray(order.items)
+        ? order.items.map((item: any, idx: number) => {
+            const copy = JSON.parse(JSON.stringify(item));
+            delete copy.receivedSizes;
+            delete copy.completedSizes;
+            delete copy.orderedSizes;
+            delete copy.returnedSizes;
+            delete copy.inProgressSizes;
+            delete copy.packedSizes;
+            delete copy.packedQty;
+            delete copy.trackingNumber;
+            delete copy.trackingCarrier;
+            delete copy.supplierTrackings;
+            delete copy.sourcingStatus;
+            delete copy.productionStatus;
+            delete copy.isPrinted;
+            delete copy.isOrdered;
+            delete copy.isReceived;
+            delete copy.printTimer;
+            delete copy.timerStart;
+            delete copy.timerElapsed;
+            delete copy.gangSheetAssigned;
+            delete copy.sheetAssigned;
+            delete copy.sizeProgress;
+            return {
+              ...copy,
+              id: `item-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+            };
+          })
+        : [];
+
+      const {
+        id: _oldId,
+        portalId: _oldPortalId,
+        createdAt: _oldCreatedAt,
+        updatedAt: _oldUpdatedAt,
+        paymentStatus: _oldPaymentStatus,
+        paymentRead: _oldPaymentRead,
+        stripeSessionId: _oldStripeSessionId,
+        stripePaymentIntentId: _oldStripePi,
+        paidAt: _oldPaidAt,
+        boxes: _oldBoxes,
+        tracking: _oldTracking,
+        trackingCarrier: _oldTrackingCarrier,
+        trackingNumber: _oldTrackingNumber,
+        statusDates: _oldStatusDates,
+        targetDates: _oldTargetDates,
+        deliveredAt: _oldDeliveredAt,
+        deliveredPopupSent: _oldDeliveredPopupSent,
+        isArchived: _oldIsArchived,
+        archivedAt: _oldArchivedAt,
+        activities: _oldActivities,
+        activityLog: _oldActivityLog,
+        ...restOrder
+      } = order;
+
+      const adminName = userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member';
+      const duplicatedPayload = {
+        ...JSON.parse(JSON.stringify(restOrder)),
+        portalId,
+        title: finalTitle,
+        date: dateStr,
+        statusIndex: nextStatusIndex,
+        status: nextStatusIndex === 0 ? 'Requested' : 'Approved',
+        paymentStatus: 'unpaid',
+        paymentRead: false,
+        isArchived: false,
+        boxes: [],
+        tracking: { carrier: '', number: '' },
+        trackingCarrier: '',
+        trackingNumber: '',
+        statusDates: {},
+        targetDates: {},
+        items: clonedItems,
+        activities: [
+          {
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: `Duplicated from ${order.title || order.portalId || order.id}`,
+            user: adminName,
+            timestamp: isoNow,
+          },
+        ],
+        duplicatedFromOrderId: id,
+        duplicatedFromPortalId: order.portalId || '',
+        createdAt: isoNow,
+        updatedAt: isoNow,
+      };
+
+      await setDoc(doc(db, 'orders', newOrderId), duplicatedPayload);
+      setIsEditDialogOpen(false);
+      navigate(`/orders/${newOrderId}`);
+    } catch (err) {
+      console.error('Error duplicating order:', err);
+      alert('Failed to duplicate order. Please try again.');
+    } finally {
+      setIsDuplicatingOrder(false);
     }
   };
 
@@ -10871,23 +11031,38 @@ export function OrderDetail() {
               </div>
             </div>
 
-            <div className="p-6 bg-brand-bg flex justify-between gap-4 border-t border-brand-border sticky bottom-0">
-              <PillButton 
-                variant="outline" 
-                onClick={handleDeleteOrder} 
-                className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-600 px-6 py-3 flex items-center gap-1.5 shrink-0"
-                disabled={isDeleting || isSaving}
-              >
-                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : (
-                  <>
-                    <Trash2 size={16} />
-                    <span>Delete Order</span>
-                  </>
-                )}
-              </PillButton>
+            <div className="p-6 bg-brand-bg flex flex-wrap justify-between gap-4 border-t border-brand-border sticky bottom-0">
+              <div className="flex items-center gap-2.5 shrink-0">
+                <PillButton 
+                  variant="outline" 
+                  onClick={handleDeleteOrder} 
+                  className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-600 px-6 py-3 flex items-center gap-1.5 shrink-0"
+                  disabled={isDeleting || isSaving || isDuplicatingOrder}
+                >
+                  {isDeleting ? <Loader2 className="animate-spin" size={18} /> : (
+                    <>
+                      <Trash2 size={16} />
+                      <span>Delete Order</span>
+                    </>
+                  )}
+                </PillButton>
+                <PillButton
+                  variant="outline"
+                  onClick={handleDuplicateOrder}
+                  className="border-brand-border text-brand-primary hover:bg-white hover:border-brand-primary px-6 py-3 flex items-center gap-1.5 shrink-0"
+                  disabled={isDeleting || isSaving || isDuplicatingOrder}
+                >
+                  {isDuplicatingOrder ? <Loader2 className="animate-spin" size={18} /> : (
+                    <>
+                      <Copy size={16} />
+                      <span>{order.statusIndex <= 2 ? 'Duplicate Quote' : 'Duplicate Order'}</span>
+                    </>
+                  )}
+                </PillButton>
+              </div>
               
               <div className="flex gap-4 flex-1 justify-end">
-                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-8 py-3">
+                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-8 py-3" disabled={isDuplicatingOrder}>
                   Cancel
                 </PillButton>
                 {order.statusIndex < 3 && (
@@ -10895,7 +11070,7 @@ export function OrderDetail() {
                     variant="filled" 
                     onClick={handleApproveAndSave} 
                     className="bg-green-600 hover:bg-green-700 text-white border-transparent px-8 py-3 flex items-center gap-1.5"
-                    disabled={isSaving || isDeleting}
+                    disabled={isSaving || isDeleting || isDuplicatingOrder}
                   >
                     {isSaving ? <Loader2 className="animate-spin" size={18} /> : (
                       <>
@@ -10905,7 +11080,7 @@ export function OrderDetail() {
                     )}
                   </PillButton>
                 )}
-                <PillButton variant="filled" onClick={handleSaveEdit} className="px-8 py-3" disabled={isSaving || isDeleting}>
+                <PillButton variant="filled" onClick={handleSaveEdit} className="px-8 py-3" disabled={isSaving || isDeleting || isDuplicatingOrder}>
                   {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
                 </PillButton>
               </div>

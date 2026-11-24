@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, PackageOpen, Building2, X, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar, Copy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, PackageOpen, Building2, X, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, ShoppingBag, Tag, Archive, Layers, Calendar } from 'lucide-react';
 import { MvpStarIcon } from '../../components/ui/MvpStarIcon';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, auth } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, setDoc, writeBatch, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, writeBatch, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { getTrackingLink, formatCarrierName } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
@@ -340,7 +340,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [submittingOrderIds, setSubmittingOrderIds] = useState<Set<string>>(new Set());
   const [resubmitSuccessIds, setResubmitSuccessIds] = useState<Set<string>>(new Set());
   const [movingOrderId, setMovingOrderId] = useState<string | null>(null);
-  const [duplicatingOrderId, setDuplicatingOrderId] = useState<string | null>(null);
   const [familyBrands, setFamilyBrands] = useState<any[]>([]);
   const [parentCustomerDoc, setParentCustomerDoc] = useState<any | null>(null);
   const [orderContextMenu, setOrderContextMenu] = useState<{
@@ -470,151 +469,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       alert('Failed to move order.');
     } finally {
       setMovingOrderId(null);
-    }
-  };
-
-  const handleDuplicateOrder = async (order: any, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!order?.id || duplicatingOrderId) return;
-    setOrderContextMenu(null);
-
-    const isQuote = (order.statusIndex ?? 0) <= 2;
-    const defaultTitle = `${order.title || 'Custom Order'} (Copy)`;
-    const chosenTitle = window.prompt(
-      `Title for duplicated ${isQuote ? 'quote' : 'order'}:`,
-      defaultTitle
-    );
-    if (chosenTitle === null) return;
-    const finalTitle = chosenTitle.trim() || defaultTitle;
-
-    setDuplicatingOrderId(order.id);
-    try {
-      const now = new Date();
-      const todayStart = new Date(now);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(now);
-      todayEnd.setHours(23, 59, 59, 999);
-
-      const yy = String(todayStart.getFullYear()).slice(-2);
-      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
-      const dd = String(todayStart.getDate()).padStart(2, '0');
-      const prefix = `${yy}${mm}${dd}-`;
-
-      let maxCount = 0;
-      try {
-        const ordersSnap = await getDocs(
-          query(
-            collection(db, 'orders'),
-            where('createdAt', '>=', todayStart.toISOString()),
-            where('createdAt', '<=', todayEnd.toISOString())
-          )
-        );
-        ordersSnap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.portalId && String(data.portalId).startsWith(prefix)) {
-            const suffix = String(data.portalId).split('-')[1];
-            const numericCount = suffix ? parseInt(suffix, 10) : NaN;
-            if (!isNaN(numericCount) && numericCount > maxCount) {
-              maxCount = numericCount;
-            }
-          }
-        });
-      } catch (idErr) {
-        console.warn('Could not query existing daily portalIds, using fallback:', idErr);
-      }
-
-      const portalId = `${prefix}${maxCount + 1}`;
-      const newOrderId = `order-${Date.now()}`;
-      const isoNow = now.toISOString();
-      const dateStr = `${now.getFullYear()}-${mm}-${dd}`;
-      const nextStatusIndex = isQuote ? 0 : 3;
-
-      const clonedItems = Array.isArray(order.items)
-        ? order.items.map((item: any, idx: number) => {
-            const copy = JSON.parse(JSON.stringify(item));
-            // Strip production, sourcing, packing, and tracking progress so the duplicate starts clean
-            delete copy.receivedSizes;
-            delete copy.completedSizes;
-            delete copy.orderedSizes;
-            delete copy.returnedSizes;
-            delete copy.inProgressSizes;
-            delete copy.packedSizes;
-            delete copy.packedQty;
-            delete copy.trackingNumber;
-            delete copy.trackingCarrier;
-            delete copy.supplierTrackings;
-            delete copy.sourcingStatus;
-            delete copy.productionStatus;
-            delete copy.isPrinted;
-            delete copy.isOrdered;
-            delete copy.isReceived;
-            delete copy.printTimer;
-            delete copy.timerStart;
-            delete copy.timerElapsed;
-            delete copy.gangSheetAssigned;
-            delete copy.sheetAssigned;
-            delete copy.sizeProgress;
-            return {
-              ...copy,
-              id: `item-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-            };
-          })
-        : [];
-
-      const {
-        id: _oldId,
-        portalId: _oldPortalId,
-        createdAt: _oldCreatedAt,
-        updatedAt: _oldUpdatedAt,
-        paymentStatus: _oldPaymentStatus,
-        paymentRead: _oldPaymentRead,
-        stripeSessionId: _oldStripeSessionId,
-        stripePaymentIntentId: _oldStripePi,
-        paidAt: _oldPaidAt,
-        boxes: _oldBoxes,
-        tracking: _oldTracking,
-        trackingCarrier: _oldTrackingCarrier,
-        trackingNumber: _oldTrackingNumber,
-        statusDates: _oldStatusDates,
-        targetDates: _oldTargetDates,
-        deliveredAt: _oldDeliveredAt,
-        deliveredPopupSent: _oldDeliveredPopupSent,
-        isArchived: _oldIsArchived,
-        archivedAt: _oldArchivedAt,
-        activityLog: _oldActivityLog,
-        ...restOrder
-      } = order;
-
-      const duplicatedPayload = {
-        ...JSON.parse(JSON.stringify(restOrder)),
-        customerId: order.customerId || currentCustomerId,
-        portalId,
-        title: finalTitle,
-        date: dateStr,
-        statusIndex: nextStatusIndex,
-        status: nextStatusIndex === 0 ? 'Requested' : 'Approved',
-        paymentStatus: 'unpaid',
-        paymentRead: false,
-        isArchived: false,
-        boxes: [],
-        tracking: { carrier: '', number: '' },
-        trackingCarrier: '',
-        trackingNumber: '',
-        statusDates: {},
-        targetDates: {},
-        items: clonedItems,
-        duplicatedFromOrderId: order.id,
-        duplicatedFromPortalId: order.portalId || '',
-        createdAt: isoNow,
-        updatedAt: isoNow,
-      };
-
-      await setDoc(doc(db, 'orders', newOrderId), duplicatedPayload);
-    } catch (err) {
-      console.error('Error duplicating order:', err);
-      alert('Failed to duplicate order.');
-    } finally {
-      setDuplicatingOrderId(null);
     }
   };
 
@@ -2376,27 +2230,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   </button>
                 )}
               </div>
-              {overrideCustomerId && (
-                <button
-                  type="button"
-                  disabled={duplicatingOrderId === order.id}
-                  onClick={(e) => handleDuplicateOrder(order, e)}
-                  className="w-full bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[11px] font-bold text-gray-700 rounded-full py-2 transition-all tracking-wide flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  title={order.statusIndex <= 2 ? 'Duplicate Quote' : 'Duplicate Order'}
-                >
-                  {duplicatingOrderId === order.id ? (
-                    <>
-                      <Loader2 size={12} className="animate-spin" />
-                      <span>Duplicating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} strokeWidth={2.25} />
-                      <span>Duplicate</span>
-                    </>
-                  )}
-                </button>
-              )}
              </div>
            </div>
         );
@@ -2422,17 +2255,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
             <p className="text-xs font-bold text-brand-primary truncate">
               {orderContextMenu.order.title || orderContextMenu.order.portalId || orderContextMenu.order.id}
             </p>
-          </div>
-          <div className="px-1.5 pb-1 mb-1 border-b border-brand-border/60">
-            <button
-              type="button"
-              disabled={duplicatingOrderId === orderContextMenu.order.id}
-              onClick={(e) => handleDuplicateOrder(orderContextMenu.order, e)}
-              className="w-full text-left px-2.5 py-2 rounded-xl hover:bg-brand-bg transition-colors flex items-center gap-2 text-xs font-bold text-brand-primary cursor-pointer disabled:opacity-50"
-            >
-              <Copy size={13} className="text-brand-secondary shrink-0" />
-              <span>{orderContextMenu.order.statusIndex <= 2 ? 'Duplicate Quote' : 'Duplicate Order'}</span>
-            </button>
           </div>
           {orderContextMenu.order.statusIndex <= 2 && (
             <div className="px-1.5 pb-1 mb-1 border-b border-brand-border/60">
